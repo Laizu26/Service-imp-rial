@@ -334,6 +334,38 @@ const RegistryView = ({
                         ))}
                       </select>
                     </div>
+
+                    {/* AJOUT : Champ Propriétaire (Esclave) */}
+                    <div className="col-span-1 md:col-span-2 space-y-1 bg-stone-50 p-3 rounded border border-stone-200">
+                      <label className="text-[10px] font-bold text-stone-500 uppercase block tracking-widest ml-1">
+                        Propriétaire (Si Esclave)
+                      </label>
+                      <select
+                        className="w-full p-2 border rounded font-bold text-xs"
+                        value={editForm.ownerId || ""}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            ownerId:
+                              e.target.value === "" ? null : e.target.value,
+                          })
+                        }
+                      >
+                        <option value="">-- Aucun (Homme Libre) --</option>
+                        {safeCitizens
+                          .filter((c) => c.id !== editForm.id)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({c.id})
+                            </option>
+                          ))}
+                      </select>
+                      <p className="text-[9px] text-stone-400 italic ml-1">
+                        Assigner un propriétaire basculera automatiquement le
+                        statut si nécessaire.
+                      </p>
+                    </div>
+
                     <div className="col-span-1 md:col-span-2 space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Biographie / Notes
