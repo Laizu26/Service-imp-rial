@@ -8,7 +8,8 @@ import Card from "../ui/Card";
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";
-import CitizenBankView from "../views/CitizenBankView"; // <--- NOUVEL IMPORT
+import CitizenBankView from "../views/CitizenBankView";
+import CitizenInventoryView from "../views/CitizenInventoryView"; // <--- NOUVEL IMPORT
 
 const CitizenLayout = (props) => {
   const [active, setActive] = useState("gazette");
@@ -58,12 +59,6 @@ const CitizenLayout = (props) => {
   const [travelDestRegion, setTravelDestRegion] = useState("");
 
   const safeCountries = Array.isArray(countries) ? countries : [];
-  const myInventory = (user.inventory || [])
-    .map((slot) => {
-      const itemDef = (catalog || []).find((i) => i.id === slot.itemId);
-      return { ...slot, ...itemDef };
-    })
-    .filter((i) => i.name);
   const myPendingRequests = (travelRequests || []).filter(
     (r) => r.citizenId === user.id && r.status === "PENDING"
   );
@@ -235,12 +230,115 @@ const CitizenLayout = (props) => {
           />
         )}
 
-        {/* ... (Le reste : Profil, Inventaire, etc. reste ici ou peut être extrait plus tard) ... */}
-        {/* Je laisse le profil ici pour l'instant car il est lié aux états locaux d'édition */}
+        {/* INVENTORY - UTILISATION DU NOUVEAU COMPOSANT */}
+        {active === "inventory" && (
+          <CitizenInventoryView
+            user={user}
+            users={users}
+            catalog={catalog}
+            onBuyItem={onBuyItem}
+            onGiveItem={onGiveItem}
+          />
+        )}
+
+        {active === "msg" && !isBanned && canUsePost && (
+          <PostView
+            users={users}
+            session={user}
+            onSend={onSend}
+            notify={notify}
+          />
+        )}
+
+        {active === "travel" && !isBanned && !isPrisoner && canUseTravel && (
+          <div className="bg-[#fdf6e3] text-stone-900 p-6 md:p-8 rounded-lg shadow-2xl border-t-8 border-stone-500 space-y-6">
+            <h3 className="text-xl font-bold uppercase tracking-widest text-stone-800 border-b pb-4 mb-4 font-serif">
+              Demande de Laissez-passer
+            </h3>
+            {myPendingRequests.length > 0 ? (
+              <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-sm">
+                <div className="font-bold text-yellow-800 mb-2">
+                  En cours...
+                </div>
+                <div>
+                  Destination:{" "}
+                  {
+                    countries.find(
+                      (c) => c.id === myPendingRequests[0].toCountry
+                    )?.name
+                  }
+                </div>
+                <div className="text-[10px] uppercase mt-2 tracking-widest font-bold text-stone-400">
+                  Status: {myPendingRequests[0].status}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <select
+                  className="w-full p-3 border rounded bg-white text-sm"
+                  value={travelDestCountry}
+                  onChange={(e) => setTravelDestCountry(e.target.value)}
+                >
+                  <option value="">— Destination —</option>
+                  {countries
+                    .filter((c) => c.id !== user.countryId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  <option value={user.countryId}>Voyage Intérieur</option>
+                </select>
+                {travelDestCountry && (
+                  <select
+                    className="w-full p-3 border rounded bg-white text-sm"
+                    value={travelDestRegion}
+                    onChange={(e) => setTravelDestRegion(e.target.value)}
+                  >
+                    <option value="">— Région —</option>
+                    {(
+                      countries.find((c) => c.id === travelDestCountry)
+                        ?.regions || []
+                    ).map((r) => (
+                      <option key={r.id} value={r.name}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  onClick={() => {
+                    if (travelDestCountry)
+                      onRequestTravel(
+                        travelDestCountry,
+                        travelDestRegion || "Frontière"
+                      );
+                  }}
+                  disabled={!travelDestCountry}
+                  className={`w-full py-3 rounded uppercase font-bold text-[10px] tracking-widest transition-all ${
+                    travelDestCountry
+                      ? "bg-stone-800 text-white hover:bg-stone-700"
+                      : "bg-stone-200 text-stone-400"
+                  }`}
+                >
+                  Soumettre
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {active === "slaves" && (
+          <SlaveManagementView
+            slaves={mySlaves}
+            onUpdateCitizen={onUpdateUser}
+            notify={notify}
+            catalog={catalog}
+          />
+        )}
 
         {active === "profil" && (
           <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-yellow-600 overflow-hidden">
-            {/* ... CODE DU PROFIL (Copie le bloc "active === 'profil'" de ton code précédent ici) ... */}
             <div className="p-6 md:p-8 border-b border-stone-300">
               <div className="flex justify-between items-start mb-6 border-b border-stone-200/50 pb-4">
                 <h2 className="text-xl font-black uppercase text-stone-800 tracking-widest font-serif flex items-center gap-3">
@@ -363,175 +461,6 @@ const CitizenLayout = (props) => {
               </div>
             </div>
           </div>
-        )}
-
-        {active === "inventory" && (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              {myInventory.map((item) => (
-                <div
-                  key={item.itemId}
-                  className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex items-center gap-4"
-                >
-                  <div className="w-12 h-12 bg-stone-100 rounded-lg flex-shrink-0 flex items-center justify-center border border-stone-200">
-                    {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        className="w-full h-full object-cover"
-                        alt=""
-                      />
-                    ) : (
-                      <Box size={20} className="text-stone-300" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-stone-800">{item.name}</div>
-                    <div className="text-[10px] uppercase text-stone-400 tracking-widest">
-                      x{item.qty}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <button
-                      onClick={() =>
-                        onGiveItem(
-                          users.find((u) => u.id !== user.id)?.id,
-                          item.itemId,
-                          1
-                        )
-                      }
-                      className="text-stone-400 hover:text-stone-600"
-                    >
-                      <Gift size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {!isSlave && (
-              <>
-                <h3 className="font-bold text-center border-t pt-4">Marché</h3>
-                <div className="grid grid-cols-1 gap-4">
-                  {catalog
-                    .filter((i) => !i.hidden)
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm flex justify-between items-center"
-                      >
-                        <div>
-                          <div className="font-bold">{item.name}</div>
-                          <div className="text-xs text-stone-500">
-                            {item.price} Écus
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => onBuyItem(item.id, 1)}
-                          className="bg-stone-800 text-white px-4 py-2 rounded text-[10px] font-bold uppercase"
-                        >
-                          Acheter
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {active === "msg" && !isBanned && canUsePost && (
-          <PostView
-            users={users}
-            session={user}
-            onSend={onSend}
-            notify={notify}
-          />
-        )}
-
-        {active === "travel" && !isBanned && !isPrisoner && canUseTravel && (
-          <div className="bg-[#fdf6e3] text-stone-900 p-6 md:p-8 rounded-lg shadow-2xl border-t-8 border-stone-500 space-y-6">
-            <h3 className="text-xl font-bold uppercase tracking-widest text-stone-800 border-b pb-4 mb-4 font-serif">
-              Demande de Laissez-passer
-            </h3>
-            {myPendingRequests.length > 0 ? (
-              <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-sm">
-                <div className="font-bold text-yellow-800 mb-2">
-                  En cours...
-                </div>
-                <div>
-                  Destination:{" "}
-                  {
-                    countries.find(
-                      (c) => c.id === myPendingRequests[0].toCountry
-                    )?.name
-                  }
-                </div>
-                <div className="text-[10px] uppercase mt-2 tracking-widest font-bold text-stone-400">
-                  Status: {myPendingRequests[0].status}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <select
-                  className="w-full p-3 border rounded bg-white text-sm"
-                  value={travelDestCountry}
-                  onChange={(e) => setTravelDestCountry(e.target.value)}
-                >
-                  <option value="">— Destination —</option>
-                  {countries
-                    .filter((c) => c.id !== user.countryId)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  <option value={user.countryId}>Voyage Intérieur</option>
-                </select>
-                {travelDestCountry && (
-                  <select
-                    className="w-full p-3 border rounded bg-white text-sm"
-                    value={travelDestRegion}
-                    onChange={(e) => setTravelDestRegion(e.target.value)}
-                  >
-                    <option value="">— Région —</option>
-                    {(
-                      countries.find((c) => c.id === travelDestCountry)
-                        ?.regions || []
-                    ).map((r) => (
-                      <option key={r.id} value={r.name}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  onClick={() => {
-                    if (travelDestCountry)
-                      onRequestTravel(
-                        travelDestCountry,
-                        travelDestRegion || "Frontière"
-                      );
-                  }}
-                  disabled={!travelDestCountry}
-                  className={`w-full py-3 rounded uppercase font-bold text-[10px] tracking-widest transition-all ${
-                    travelDestCountry
-                      ? "bg-stone-800 text-white hover:bg-stone-700"
-                      : "bg-stone-200 text-stone-400"
-                  }`}
-                >
-                  Soumettre
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {active === "slaves" && (
-          <SlaveManagementView
-            slaves={mySlaves}
-            onUpdateCitizen={onUpdateUser}
-            notify={notify}
-            catalog={catalog}
-          />
         )}
       </main>
     </div>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import {
   Shield,
   LogOut,
+  User,
   Crown,
   Globe,
   Scroll,
@@ -12,7 +13,6 @@ import {
   Stamp,
   UserCircle,
   Menu,
-  ArrowDownLeft,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -35,7 +35,7 @@ import InventoryView from "./components/views/InventoryView";
 import PostView from "./components/views/PostView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
-import SlaveManagementView from "./components/views/SlaveManagementView";
+// RETIRÉ : SlaveManagementView pour la Maison de Asia
 
 // NOUVEAU : Import du Layout Citoyen
 import CitizenLayout from "./components/layout/CitizenLayout";
@@ -64,6 +64,7 @@ export default function App() {
   const roleInfo = useMemo(() => {
     if (!currentUser) return ROLES.CITOYEN;
     if (ROLES[currentUser.role]) return ROLES[currentUser.role];
+
     const country = (state.countries || []).find(
       (c) => c.id === currentUser.countryId
     );
@@ -71,8 +72,9 @@ export default function App() {
       const custom = country.customRoles.find(
         (r) => r.id === currentUser.role || r.name === currentUser.role
       );
-      if (custom && custom.type === "ROLE")
+      if (custom && custom.type === "ROLE") {
         return { label: custom.name, level: custom.level || 0, scope: "LOCAL" };
+      }
     }
     return ROLES.CITOYEN;
   }, [currentUser, state.countries]);
@@ -84,6 +86,7 @@ export default function App() {
   const isRestricted = useMemo(() => {
     if (["Malade", "Prisonnier", "Banni", "Décédé"].includes(currentStatus))
       return true;
+
     const country = (state.countries || []).find(
       (c) => c.id === currentUser?.countryId
     );
@@ -101,11 +104,12 @@ export default function App() {
   const canAccessAdmin = isActuallyGraded && !isIncapacitated && !isSlave;
   const shouldShowCitizenView = !canAccessAdmin || isViewingAsCitizen;
 
-  // --- ACTIONS ---
+  // --- ACTIONS DU JEU ---
   const actions = {
     onPassDay: () => {
       let ns = JSON.parse(JSON.stringify(state));
       if (!ns.gameDate) ns.gameDate = { day: 1, month: 1, year: 1200 };
+
       ns.gameDate.day++;
       if (ns.gameDate.day > 30) {
         ns.gameDate.day = 1;
@@ -116,6 +120,7 @@ export default function App() {
         }
       }
       ns.dayCycle++;
+
       saveState(ns);
       notify(
         `Un nouveau jour se lève : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`,
@@ -129,22 +134,57 @@ export default function App() {
           ...state,
           treasury: (state.treasury || 0) + parseInt(amount),
         });
-        notify("Trésor renfloué.", "success");
+        notify("Trésor impérial renfloué.", "success");
       }
     },
     onTransfer: (srcRaw, tgtRaw, amount) => {
-      if (!amount || amount <= 0) {
-        notify("Montant invalide.", "error");
+      if (!amount || amount <= 0 || !srcRaw || !tgtRaw) {
+        notify("Virement souverain incomplet.", "error");
         return;
       }
-      let s = JSON.parse(JSON.stringify(state));
+      if (srcRaw === "GLOBAL" && session.role !== "EMPEREUR") {
+        notify("Action souveraine refusée.", "error");
+        return;
+      }
 
-      // Logique simplifiée de transfert (la même qu'avant)
+      const sourceId = srcRaw.startsWith("U-") ? srcRaw.slice(2) : null;
+      const sourceCountryId = srcRaw.startsWith("C-") ? srcRaw.slice(2) : null;
+
+      if (
+        sourceId &&
+        sourceId !== session.id &&
+        !["EMPEREUR", "ROI", "INTENDANT", "FONCTIONNAIRE"].includes(
+          session.role
+        )
+      ) {
+        notify("Ponction interdite.", "error");
+        return;
+      }
+      if (
+        sourceCountryId &&
+        !["ROI", "INTENDANT", "EMPEREUR"].includes(session.role)
+      ) {
+        notify("Trésor protégé par édit.", "error");
+        return;
+      }
+
+      let s = JSON.parse(JSON.stringify(state));
+      let sName = "Archives";
+      let tName = "Archives";
+
+      if (sourceId) {
+        const senderIdx = s.citizens.findIndex((x) => x.id === sourceId);
+        if (senderIdx !== -1 && s.citizens[senderIdx].balance < amount) {
+          notify("Fonds insuffisants pour effectuer ce virement.", "error");
+          return;
+        }
+      }
+
       const process = (raw, isCredit) => {
         const v = isCredit ? amount : -amount;
         if (raw === "GLOBAL") {
           s.treasury += v;
-          return "Empire";
+          return "Trésor Empire";
         }
         const type = raw.substring(0, 1);
         const id = raw.slice(2);
@@ -165,105 +205,261 @@ export default function App() {
         return "Inconnu";
       };
 
-      const sName = process(srcRaw, false);
-      const tName = process(tgtRaw, true);
+      sName = process(srcRaw, false);
+      tName = process(tgtRaw, true);
+      if (sName === "Inconnu") {
+        notify("Source non identifiée.", "error");
+        return;
+      }
 
       s.globalLedger = [
         {
           id: Date.now(),
-          fromName: sName,
-          toName: tName,
+          fromName: String(sName),
+          toName: String(tName),
           amount: Number(amount),
           timestamp: Date.now(),
         },
         ...(s.globalLedger || []),
       ];
       saveState(s);
-      notify("Virement validé.", "success");
+      notify("Virement validé et consigné.", "success");
     },
     onSendPost: (targetId, subject, content, ccList, seal) => {
-      const msg = {
+      const senderName = session.name || "Inconnu";
+      const senderRole = ROLES[session.role]?.label || "Citoyen";
+      const safeCitizens = Array.isArray(state.citizens) ? state.citizens : [];
+      const newMessage = {
         id: Date.now(),
-        from: `${session.name}`,
+        from: `${senderName} (${senderRole})`,
+        fromId: session.id,
         date: `J${state.dayCycle}`,
-        subject,
-        content,
-        seal,
+        subject: String(subject),
+        content: String(content),
+        seal: String(seal),
       };
-      const newCitizens = state.citizens.map((c) =>
-        c.id === targetId || (ccList || []).includes(c.id)
-          ? { ...c, messages: [msg, ...(c.messages || [])] }
-          : c
-      );
+      const newCitizens = safeCitizens.map((c) => {
+        if (
+          c.id === targetId ||
+          (Array.isArray(ccList) && ccList.includes(c.id))
+        ) {
+          return { ...c, messages: [newMessage, ...(c.messages || [])] };
+        }
+        return c;
+      });
       saveState({ ...state, citizens: newCitizens });
     },
     onRequestTravel: (toCountryId, toRegion) => {
-      const req = {
+      const newReq = {
         id: `req_${Date.now()}`,
         citizenId: session.id,
         citizenName: session.name,
         fromCountry: session.countryId,
         toCountry: toCountryId,
-        toRegion,
+        toRegion: toRegion,
         status: "PENDING",
+        validations: { exit: false, entry: false },
         timestamp: Date.now(),
-        validations: {},
       };
       saveState({
         ...state,
-        travelRequests: [...(state.travelRequests || []), req],
+        travelRequests: [...(state.travelRequests || []), newReq],
       });
-      notify("Demande soumise.", "success");
+      notify("Demande de visa soumise au bureau de poste.", "success");
     },
     onUpdateCitizen: (formData) => {
-      let fresh = [...state.citizens];
-      const idx = fresh.findIndex((x) => x.id === formData.id);
-      if (idx !== -1) fresh[idx] = { ...fresh[idx], ...formData };
-      else fresh.push(formData);
-      saveState({ ...state, citizens: fresh });
-      notify("Mis à jour.", "success");
+      let freshCitizens = [...(state.citizens || [])];
+      const index = freshCitizens.findIndex((x) => x.id === formData.id);
+      if (index !== -1) {
+        freshCitizens[index] = { ...freshCitizens[index], ...formData };
+      } else {
+        freshCitizens.push(formData);
+      }
+      saveState({ ...state, citizens: freshCitizens });
+      notify("Dossier mis à jour.", "success");
     },
     onCreateDebt: (creditorId, amount, reason) => {
-      const debt = {
-        id: `d-${Date.now()}`,
+      const newDebt = {
+        id: `debt-${Date.now()}`,
         debtorId: session.id,
         debtorName: session.name,
-        creditorId,
-        amount,
-        reason,
+        creditorId: creditorId,
+        creditorName:
+          state.citizens.find((c) => c.id === creditorId)?.name || "Inconnu",
+        amount: amount,
+        reason: reason,
         status: "ACTIVE",
+        timestamp: Date.now(),
       };
       saveState({
         ...state,
-        debtRegistry: [debt, ...(state.debtRegistry || [])],
+        debtRegistry: [newDebt, ...(state.debtRegistry || [])],
       });
-      notify("Dette créée.", "success");
+      notify("Dette enregistrée sous serment.", "success");
     },
     onPayDebt: (debtId) => {
       const debt = state.debtRegistry.find((d) => d.id === debtId);
-      if (!debt) return;
-      // Logique de paiement simplifiée ici pour gain de place (copie la logique existante)
-      // ... (code de paiement identique à avant) ...
-      notify("Dette payée (Simulé pour refactoring)", "success");
+      if (!debt || debt.status !== "ACTIVE") return;
+      const debtorIdx = state.citizens.findIndex((c) => c.id === debt.debtorId);
+      const creditorIdx = state.citizens.findIndex(
+        (c) => c.id === debt.creditorId
+      );
+      if (debtorIdx === -1 || creditorIdx === -1) {
+        notify("Erreur: Partie introuvable.", "error");
+        return;
+      }
+      const debtor = state.citizens[debtorIdx];
+      if (debtor.balance < debt.amount) {
+        notify("Fonds insuffisants.", "error");
+        return;
+      }
+      const newCitizens = [...state.citizens];
+      newCitizens[debtorIdx] = {
+        ...debtor,
+        balance: debtor.balance - debt.amount,
+      };
+      newCitizens[creditorIdx] = {
+        ...newCitizens[creditorIdx],
+        balance: newCitizens[creditorIdx].balance + debt.amount,
+      };
+      const newDebtRegistry = state.debtRegistry.map((d) =>
+        d.id === debtId ? { ...d, status: "PAID" } : d
+      );
+      saveState({
+        ...state,
+        citizens: newCitizens,
+        debtRegistry: newDebtRegistry,
+      });
+      notify("Dette honorée.", "success");
     },
     onCancelDebt: (debtId) => {
-      const reg = state.debtRegistry.map((d) =>
+      const newDebtRegistry = state.debtRegistry.map((d) =>
         d.id === debtId ? { ...d, status: "CANCELLED" } : d
       );
-      saveState({ ...state, debtRegistry: reg });
+      saveState({ ...state, debtRegistry: newDebtRegistry });
+      notify("Dette annulée.", "info");
     },
     onBuyItem: (itemId, qty) => {
-      // Logique d'achat (identique à avant)
-      notify("Achat effectué (Simulé)", "success");
+      const item = state.inventoryCatalog.find((i) => i.id === itemId);
+      if (!item) return;
+      const cost = item.price * qty;
+      const cIdx = state.citizens.findIndex((c) => c.id === session.id);
+      if (cIdx === -1) return;
+      const citizen = state.citizens[cIdx];
+      if (citizen.balance < cost) {
+        notify("Fonds insuffisants.", "error");
+        return;
+      }
+      const newCitizens = [...state.citizens];
+      const inventory = [...(citizen.inventory || [])];
+      const existingItemIdx = inventory.findIndex((i) => i.itemId === itemId);
+      if (existingItemIdx >= 0) {
+        inventory[existingItemIdx] = {
+          ...inventory[existingItemIdx],
+          qty: inventory[existingItemIdx].qty + qty,
+        };
+      } else {
+        inventory.push({ itemId, qty });
+      }
+      newCitizens[cIdx] = {
+        ...citizen,
+        balance: citizen.balance - cost,
+        inventory,
+      };
+      saveState({
+        ...state,
+        citizens: newCitizens,
+        treasury: (state.treasury || 0) + cost,
+      });
+      notify(`Achat effectué : ${item.name} (x${qty})`, "success");
     },
     onGiveItem: (targetId, itemId, qty) => {
-      // Logique de don (identique à avant)
-      notify("Don effectué (Simulé)", "success");
+      const cIdx = state.citizens.findIndex((c) => c.id === session.id);
+      const tIdx = state.citizens.findIndex((c) => c.id === targetId);
+      if (cIdx === -1 || tIdx === -1) {
+        notify("Erreur de transaction.", "error");
+        return;
+      }
+      const citizen = state.citizens[cIdx];
+      const inventory = [...(citizen.inventory || [])];
+      const itemIdx = inventory.findIndex((i) => i.itemId === itemId);
+      if (itemIdx === -1 || inventory[itemIdx].qty < qty) {
+        notify("Quantité insuffisante.", "error");
+        return;
+      }
+      if (inventory[itemIdx].qty === qty) {
+        inventory.splice(itemIdx, 1);
+      } else {
+        inventory[itemIdx] = {
+          ...inventory[itemIdx],
+          qty: inventory[itemIdx].qty - qty,
+        };
+      }
+      const target = state.citizens[tIdx];
+      const targetInventory = [...(target.inventory || [])];
+      const targetItemIdx = targetInventory.findIndex(
+        (i) => i.itemId === itemId
+      );
+      if (targetItemIdx >= 0) {
+        targetInventory[targetItemIdx] = {
+          ...targetInventory[targetItemIdx],
+          qty: targetInventory[targetItemIdx].qty + qty,
+        };
+      } else {
+        targetInventory.push({ itemId, qty });
+      }
+      const newCitizens = [...state.citizens];
+      newCitizens[cIdx] = { ...citizen, inventory };
+      newCitizens[tIdx] = { ...target, inventory: targetInventory };
+      saveState({ ...state, citizens: newCitizens });
+      notify("Objet transféré.", "success");
+    },
+    // --- INTEGRATION: ACTION D'ACHAT D'ESCLAVE (Action conservée pour CitizenLayout) ---
+    onBuySlave: (slaveId, price) => {
+      const buyerIdx = state.citizens.findIndex((c) => c.id === session.id);
+      const slaveIdx = state.citizens.findIndex((c) => c.id === slaveId);
+
+      if (buyerIdx === -1 || slaveIdx === -1) {
+        notify("Erreur de transaction.", "error");
+        return;
+      }
+
+      const buyer = state.citizens[buyerIdx];
+      const slave = state.citizens[slaveIdx];
+
+      if (buyer.balance < price) {
+        notify("Fonds insuffisants.", "error");
+        return;
+      }
+
+      const newCitizens = [...state.citizens];
+
+      // Débiter l'acheteur
+      newCitizens[buyerIdx] = { ...buyer, balance: buyer.balance - price };
+
+      // Créditer le vendeur (s'il existe)
+      if (slave.ownerId) {
+        const sellerIdx = newCitizens.findIndex((c) => c.id === slave.ownerId);
+        if (sellerIdx !== -1) {
+          newCitizens[sellerIdx] = {
+            ...newCitizens[sellerIdx],
+            balance: newCitizens[sellerIdx].balance + price,
+          };
+        }
+      }
+
+      // Transférer l'esclave
+      newCitizens[slaveIdx] = {
+        ...slave,
+        ownerId: buyer.id,
+        isForSale: false,
+        salePrice: 0,
+      };
+
+      saveState({ ...state, citizens: newCitizens });
+      notify(`Vous avez acquis ${slave.name}.`, "success");
     },
   };
-
-  // Note: J'ai simplifié les actions dans cet exemple pour te montrer la structure.
-  // Tu peux remettre tes actions complètes si tu veux, mais l'important est que App.js est maintenant propre.
 
   const availableTabs = useMemo(() => {
     const tabs = [];
@@ -282,9 +478,13 @@ export default function App() {
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
     if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
-    return tabs;
-  }, [roleInfo]);
 
+    // MENU MAISON DE ASIA SUPPRIMÉ ICI
+
+    return tabs;
+  }, [roleInfo, isSlave, isRestricted]);
+
+  // --- RENDER ---
   if (session && isDead)
     return <DeathScreen onLogout={() => setSession(null)} />;
 
@@ -305,34 +505,20 @@ export default function App() {
             notify={notify}
           />
         ) : shouldShowCitizenView ? (
-          /* --- NOUVEAU COMPOSANT EXTRAIT --- */
+          /* --- CITIZEN INTERFACE (CITOYEN + TINDER + GESTION PERSO) --- */
           <CitizenLayout
             user={currentUser}
-            users={state.citizens}
-            countries={state.countries}
-            travelRequests={state.travelRequests}
-            globalLedger={state.globalLedger}
-            debtRegistry={state.debtRegistry}
-            catalog={state.inventoryCatalog}
-            gazette={state.gazette}
+            users={state.citizens || []} // Sécurité anti-crash
+            catalog={state.inventoryCatalog || []} // Ajout du catalogue manquant
             onLogout={() => setSession(null)}
-            onUpdateUser={actions.onUpdateCitizen}
-            onSend={actions.onSendPost}
-            onRequestTravel={actions.onRequestTravel}
-            onTransfer={actions.onTransfer}
-            onCreateDebt={actions.onCreateDebt}
-            onPayDebt={actions.onPayDebt}
-            onCancelDebt={actions.onCancelDebt}
-            onBuyItem={actions.onBuyItem}
-            onGiveItem={actions.onGiveItem}
+            onUpdateCitizen={actions.onUpdateCitizen}
+            onBuySlave={actions.onBuySlave} // Fonction d'achat pour le Tinder
             notify={notify}
             isGraded={canAccessAdmin}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
-            isBanned={currentStatus === "Banni"}
-            isPrisoner={currentStatus === "Prisonnier"}
           />
         ) : (
-          /* --- ADMIN LAYOUT (Resté ici pour l'instant) --- */
+          /* --- ADMIN DASHBOARD --- */
           <div className="flex h-screen overflow-hidden">
             <div
               className={`fixed inset-y-0 z-40 w-72 md:w-80 bg-stone-950 text-stone-200 flex flex-col border-r border-stone-800 transition-transform duration-300 shadow-2xl ${
@@ -395,6 +581,7 @@ export default function App() {
                 </button>
               </div>
             </div>
+
             <div className="flex-1 bg-[#e6e2d6] flex flex-col h-screen overflow-hidden w-full">
               <header className="h-16 md:h-20 bg-[#fdf6e3] border-b border-stone-300 flex items-center px-4 md:px-8 justify-between shadow-xl relative z-20 shrink-0">
                 <div className="flex items-center gap-4 md:gap-6">
@@ -482,8 +669,9 @@ export default function App() {
                 {activeTab === "post" && (
                   <PostView
                     users={state.citizens}
-                    session={session}
+                    session={currentUser}
                     onSend={actions.onSendPost}
+                    onUpdateUser={actions.onUpdateCitizen}
                     notify={notify}
                   />
                 )}
@@ -511,16 +699,7 @@ export default function App() {
                     }}
                   />
                 )}
-                {activeTab === "slaves" && (
-                  <SlaveManagementView
-                    slaves={state.citizens.filter(
-                      (u) => u.ownerId === session.id
-                    )}
-                    onUpdateCitizen={actions.onUpdateCitizen}
-                    notify={notify}
-                    catalog={state.inventoryCatalog}
-                  />
-                )}
+                {/* BLOC MAISON DE ASIA SUPPRIMÉ ICI */}
               </main>
             </div>
           </div>
