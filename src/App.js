@@ -13,6 +13,7 @@ import {
   Stamp,
   UserCircle,
   Menu,
+  Gem, // Icône pour la Maison de Asia
 } from "lucide-react";
 
 // Hooks & Lib
@@ -35,7 +36,9 @@ import InventoryView from "./components/views/InventoryView";
 import PostView from "./components/views/PostView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
-// RETIRÉ : SlaveManagementView pour la Maison de Asia
+
+// NOUVEAU : Import de l'interface Admin Maison de Asia
+import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 
 // NOUVEAU : Import du Layout Citoyen
 import CitizenLayout from "./components/layout/CitizenLayout";
@@ -56,6 +59,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
 
+  // Sécurisation de currentUser
   const currentUser = useMemo(
     () => (state.citizens || []).find((c) => c.id === session?.id) || session,
     [state.citizens, session]
@@ -138,6 +142,9 @@ export default function App() {
       }
     },
     onTransfer: (srcRaw, tgtRaw, amount) => {
+      // Sécurité session
+      if (!session) return;
+
       if (!amount || amount <= 0 || !srcRaw || !tgtRaw) {
         notify("Virement souverain incomplet.", "error");
         return;
@@ -226,6 +233,7 @@ export default function App() {
       notify("Virement validé et consigné.", "success");
     },
     onSendPost: (targetId, subject, content, ccList, seal) => {
+      if (!session) return;
       const senderName = session.name || "Inconnu";
       const senderRole = ROLES[session.role]?.label || "Citoyen";
       const safeCitizens = Array.isArray(state.citizens) ? state.citizens : [];
@@ -250,6 +258,7 @@ export default function App() {
       saveState({ ...state, citizens: newCitizens });
     },
     onRequestTravel: (toCountryId, toRegion) => {
+      if (!session) return;
       const newReq = {
         id: `req_${Date.now()}`,
         citizenId: session.id,
@@ -279,6 +288,7 @@ export default function App() {
       notify("Dossier mis à jour.", "success");
     },
     onCreateDebt: (creditorId, amount, reason) => {
+      if (!session) return;
       const newDebt = {
         id: `debt-${Date.now()}`,
         debtorId: session.id,
@@ -340,6 +350,7 @@ export default function App() {
       notify("Dette annulée.", "info");
     },
     onBuyItem: (itemId, qty) => {
+      if (!session) return;
       const item = state.inventoryCatalog.find((i) => i.id === itemId);
       if (!item) return;
       const cost = item.price * qty;
@@ -374,6 +385,7 @@ export default function App() {
       notify(`Achat effectué : ${item.name} (x${qty})`, "success");
     },
     onGiveItem: (targetId, itemId, qty) => {
+      if (!session) return;
       const cIdx = state.citizens.findIndex((c) => c.id === session.id);
       const tIdx = state.citizens.findIndex((c) => c.id === targetId);
       if (cIdx === -1 || tIdx === -1) {
@@ -414,8 +426,8 @@ export default function App() {
       saveState({ ...state, citizens: newCitizens });
       notify("Objet transféré.", "success");
     },
-    // --- INTEGRATION: ACTION D'ACHAT D'ESCLAVE (Action conservée pour CitizenLayout) ---
     onBuySlave: (slaveId, price) => {
+      if (!session) return;
       const buyerIdx = state.citizens.findIndex((c) => c.id === session.id);
       const slaveIdx = state.citizens.findIndex((c) => c.id === slaveId);
 
@@ -433,11 +445,7 @@ export default function App() {
       }
 
       const newCitizens = [...state.citizens];
-
-      // Débiter l'acheteur
       newCitizens[buyerIdx] = { ...buyer, balance: buyer.balance - price };
-
-      // Créditer le vendeur (s'il existe)
       if (slave.ownerId) {
         const sellerIdx = newCitizens.findIndex((c) => c.id === slave.ownerId);
         if (sellerIdx !== -1) {
@@ -447,8 +455,6 @@ export default function App() {
           };
         }
       }
-
-      // Transférer l'esclave
       newCitizens[slaveIdx] = {
         ...slave,
         ownerId: buyer.id,
@@ -458,6 +464,41 @@ export default function App() {
 
       saveState({ ...state, citizens: newCitizens });
       notify(`Vous avez acquis ${slave.name}.`, "success");
+    },
+    // --- NOUVELLES ACTIONS MAISON DE ASIA ---
+    onUpdateHouseRegistry: (newRegistry) => {
+      saveState({ ...state, maisonRegistry: newRegistry });
+      notify("Registre de la Maison mis à jour.", "success");
+    },
+    onBookMaison: (entryId, price) => {
+      if (!session) return;
+      const clientIdx = state.citizens.findIndex((c) => c.id === session.id);
+      if (clientIdx === -1) return;
+
+      const client = state.citizens[clientIdx];
+      if (client.balance < price) {
+        notify("Fonds insuffisants pour cette réservation.", "error");
+        return;
+      }
+
+      const newCitizens = [...state.citizens];
+      newCitizens[clientIdx] = { ...client, balance: client.balance - price };
+
+      // Ajouter les fonds au trésor ou à un compte spécifique (ici Trésor)
+      const newTreasury = (state.treasury || 0) + price;
+
+      // Mettre à jour le statut dans le registre Maison (facultatif, si on veut bloquer)
+      const newRegistry = (state.maisonRegistry || []).map((item) =>
+        item.id === entryId ? { ...item, status: "Réservé" } : item
+      );
+
+      saveState({
+        ...state,
+        citizens: newCitizens,
+        treasury: newTreasury,
+        maisonRegistry: newRegistry,
+      });
+      notify("Réservation confirmée. Bon divertissement.", "success");
     },
   };
 
@@ -479,10 +520,14 @@ export default function App() {
     if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
 
-    // MENU MAISON DE ASIA SUPPRIMÉ ICI
+    // --- CORRECTION DU CRASH ICI ---
+    // Vérification stricte que session existe avant de lire le role
+    if (roleInfo.level >= 50 || (session && session.role === "TENANCIER")) {
+      tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
+    }
 
     return tabs;
-  }, [roleInfo, isSlave, isRestricted]);
+  }, [roleInfo, isSlave, isRestricted, session]); // Dépendance sur 'session' objet entier
 
   // --- RENDER ---
   if (session && isDead)
@@ -505,14 +550,31 @@ export default function App() {
             notify={notify}
           />
         ) : shouldShowCitizenView ? (
-          /* --- CITIZEN INTERFACE (CITOYEN + TINDER + GESTION PERSO) --- */
+          /* --- CITIZEN INTERFACE --- */
           <CitizenLayout
             user={currentUser}
-            users={state.citizens || []} // Sécurité anti-crash
-            catalog={state.inventoryCatalog || []} // Ajout du catalogue manquant
+            users={state.citizens || []}
+            // --- MAISON DE ASIA (DONNÉES) ---
+            houseRegistry={state.maisonRegistry || []}
+            onBookMaison={actions.onBookMaison}
+            // --------------------------------
+            countries={state.countries || []}
+            travelRequests={state.travelRequests || []}
+            onRequestTravel={actions.onRequestTravel}
+            catalog={state.inventoryCatalog || []}
+            globalLedger={state.globalLedger || []}
+            debtRegistry={state.debtRegistry || []}
+            gazette={state.gazette || []}
             onLogout={() => setSession(null)}
-            onUpdateCitizen={actions.onUpdateCitizen}
-            onBuySlave={actions.onBuySlave} // Fonction d'achat pour le Tinder
+            onUpdateUser={actions.onUpdateCitizen}
+            onBuySlave={actions.onBuySlave}
+            onSend={actions.onSendPost}
+            onTransfer={actions.onTransfer}
+            onCreateDebt={actions.onCreateDebt}
+            onPayDebt={actions.onPayDebt}
+            onCancelDebt={actions.onCancelDebt}
+            onBuyItem={actions.onBuyItem}
+            onGiveItem={actions.onGiveItem}
             notify={notify}
             isGraded={canAccessAdmin}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
@@ -699,7 +761,16 @@ export default function App() {
                     }}
                   />
                 )}
-                {/* BLOC MAISON DE ASIA SUPPRIMÉ ICI */}
+
+                {/* --- VUE ADMIN MAISON DE ASIA --- */}
+                {activeTab === "asia_admin" && (
+                  <MaisonDeAsiaAdmin
+                    citizens={state.citizens || []}
+                    countries={state.countries || []}
+                    houseRegistry={state.maisonRegistry || []}
+                    onUpdateRegistry={actions.onUpdateHouseRegistry}
+                  />
+                )}
               </main>
             </div>
           </div>

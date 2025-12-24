@@ -44,8 +44,10 @@ const GeopoliticsView = ({
   const [isRestrictedStatus, setIsRestrictedStatus] = useState(false); // For statuses
 
   const isGlobal = roleInfo.scope === "GLOBAL";
+  // SÉCURITÉ : Protection contre les données undefined (Comme vu pour l'onglet Voyage)
   const safeCountries = Array.isArray(countries) ? countries : [];
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
+
   const selectedCountry = safeCountries.find((c) => c.id === selectedId);
 
   // Permissions: Emperor OR (King/Intendant of that country)
@@ -310,7 +312,7 @@ const GeopoliticsView = ({
                         updateSelected({ name: renameBuf });
                         setIsRenaming(false);
                       }}
-                      className="bg-green-600 text-white px-8 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-green-500 font-sans"
+                      className="bg-green-600 text-white px-8 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-green-50 font-sans"
                     >
                       OK
                     </button>

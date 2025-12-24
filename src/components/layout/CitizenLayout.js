@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Lock, Shield, LogOut, Box, Gift, Mail } from "lucide-react";
+import { User, Lock, Shield, LogOut, Box, Gift, Mail, Gem } from "lucide-react";
 
 // UI Components
 import Card from "../ui/Card";
@@ -10,6 +10,7 @@ import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";
 import CitizenBankView from "../views/CitizenBankView";
 import CitizenInventoryView from "../views/CitizenInventoryView"; // <--- NOUVEL IMPORT
+import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 
 const CitizenLayout = (props) => {
   const [active, setActive] = useState("gazette");
@@ -35,6 +36,8 @@ const CitizenLayout = (props) => {
     isGraded,
     onSwitchBack,
     travelRequests,
+    houseRegistry,
+    onBookMaison,
     isBanned,
     isPrisoner,
   } = props;
@@ -198,6 +201,18 @@ const CitizenLayout = (props) => {
               Voyage
             </button>
           )}
+
+          {/* Asia button */}
+          <button
+            onClick={() => setActive("asia")}
+            className={`flex-1 py-2 px-4 text-[10px] font-bold uppercase rounded-full transition-all whitespace-nowrap ${
+              active === "asia"
+                ? "bg-[#e6dcc3] text-stone-900 shadow-md"
+                : "text-stone-500 hover:text-stone-300"
+            }`}
+          >
+            <Gem size={12} className="inline mr-2" /> Asia
+          </button>
           {mySlaves.length > 0 && (
             <button
               onClick={() => setActive("slaves")}
@@ -326,6 +341,17 @@ const CitizenLayout = (props) => {
               </div>
             )}
           </div>
+        )}
+
+        {/* --- VUE MAISON DE ASIA (CITOYEN) --- */}
+        {active === "asia" && (
+          <MaisonDeAsiaCitizen
+            citizens={users}
+            countries={countries}
+            houseRegistry={houseRegistry}
+            onBook={onBookMaison}
+            userBalance={user.balance}
+          />
         )}
 
         {active === "slaves" && (

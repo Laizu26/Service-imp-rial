@@ -17,9 +17,13 @@ import {
   ShoppingCart,
   Eye,
   Unlock,
+  Gem, // Icône pour la Maison de Asia
 } from "lucide-react";
 
-// --- 1. COMPOSANT TINDER (ACHAT) ---
+// IMPORTANT : Assurez-vous que ce fichier existe bien dans src/components/views/
+import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
+
+// --- 1. COMPOSANT TINDER (ACHAT ESCLAVES) ---
 const MarketTab = ({ users, currentUserId, onBuySlave }) => {
   const availableSlaves = useMemo(
     () =>
@@ -60,6 +64,7 @@ const MarketTab = ({ users, currentUserId, onBuySlave }) => {
           <img
             src={s.image}
             className="w-full h-full object-cover opacity-80"
+            alt={s.name}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-stone-600">
@@ -99,7 +104,7 @@ const MarketTab = ({ users, currentUserId, onBuySlave }) => {
   );
 };
 
-// --- 2. COMPOSANT GESTION (TON CODE) ---
+// --- 2. COMPOSANT GESTION (VOS SUJETS) ---
 const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
   const [selected, setSelected] = useState(null);
   const [price, setPrice] = useState("");
@@ -142,7 +147,11 @@ const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
           >
             <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center overflow-hidden shrink-0">
               {s.image ? (
-                <img src={s.image} className="w-full h-full object-cover" />
+                <img
+                  src={s.image}
+                  className="w-full h-full object-cover"
+                  alt={s.name}
+                />
               ) : (
                 <User size={14} className="text-stone-400" />
               )}
@@ -291,7 +300,90 @@ const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
   );
 };
 
-// --- 3. LAYOUT PRINCIPAL ---
+// --- 4. COMPOSANT VOYAGE ---
+const TravelTab = ({ user, countries, travelRequests, onRequestTravel }) => {
+  const [travelDestCountry, setTravelDestCountry] = useState("");
+  const [travelDestRegion, setTravelDestRegion] = useState("");
+  const safeCountries = countries || [];
+
+  const myPendingRequests = (travelRequests || []).filter(
+    (r) => r.citizenId === user.id && r.status === "PENDING"
+  );
+
+  return (
+    <div className="p-5 h-full overflow-y-auto animate-in fade-in zoom-in">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+        <h2 className="text-xl font-black uppercase text-stone-800 mb-6 flex items-center gap-3">
+          <MapPin className="text-yellow-600" /> Bureau des Visas
+        </h2>
+        {myPendingRequests.length > 0 ? (
+          <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 text-sm mb-4">
+            <div className="font-bold text-yellow-800 mb-2 uppercase text-xs tracking-wider">
+              Demande en cours...
+            </div>
+            <div className="font-serif text-lg font-bold text-stone-800">
+              Vers :{" "}
+              {safeCountries.find(
+                (c) => c.id === myPendingRequests[0].toCountry
+              )?.name || "Inconnu"}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <select
+              className="w-full p-3 border border-stone-200 rounded-xl bg-stone-50 text-sm font-bold text-stone-700"
+              value={travelDestCountry}
+              onChange={(e) => setTravelDestCountry(e.target.value)}
+            >
+              <option value="">— Sélectionner —</option>
+              {safeCountries
+                .filter((c) => c.id !== user.countryId)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              <option value={user.countryId}>Voyage Intérieur</option>
+            </select>
+            {travelDestCountry && (
+              <select
+                className="w-full p-3 border border-stone-200 rounded-xl bg-stone-50 text-sm font-bold text-stone-700"
+                value={travelDestRegion}
+                onChange={(e) => setTravelDestRegion(e.target.value)}
+              >
+                <option value="">— Région —</option>
+                {(
+                  safeCountries.find((c) => c.id === travelDestCountry)
+                    ?.regions || []
+                ).map((r) => (
+                  <option key={r.id} value={r.name}>
+                    {r.name}
+                  </option>
+                ))}
+                <option value="Frontière">Zone Frontalière</option>
+              </select>
+            )}
+            <button
+              onClick={() => {
+                if (travelDestCountry)
+                  onRequestTravel(
+                    travelDestCountry,
+                    travelDestRegion || "Frontière"
+                  );
+              }}
+              disabled={!travelDestCountry}
+              className="w-full py-4 bg-stone-900 text-white rounded-xl uppercase font-black text-xs tracking-widest mt-4 hover:bg-stone-800"
+            >
+              Soumettre la demande
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- 5. LAYOUT PRINCIPAL ---
 export default function CitizenLayout({
   user,
   users,
@@ -302,6 +394,12 @@ export default function CitizenLayout({
   catalog,
   isGraded,
   onSwitchBack,
+  countries,
+  travelRequests,
+  onRequestTravel,
+  // --- NOUVELLES PROPS MAISON DE ASIA ---
+  houseRegistry,
+  onBookMaison,
 }) {
   const [tab, setTab] = useState("home");
   const mySlaves = useMemo(
@@ -315,8 +413,12 @@ export default function CitizenLayout({
       <header className="h-14 bg-white/80 backdrop-blur border-b border-stone-200 flex items-center justify-between px-4 shrink-0 sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center border border-stone-200 overflow-hidden">
-            {user.image ? (
-              <img src={user.image} className="w-full h-full object-cover" />
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                className="w-full h-full object-cover"
+                alt="Avatar"
+              />
             ) : (
               <User size={18} className="text-stone-400" />
             )}
@@ -372,18 +474,17 @@ export default function CitizenLayout({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-white rounded-xl shadow-sm flex flex-col items-center gap-2 border border-stone-100 text-stone-400">
-                <ShoppingBag size={24} />
+                <ShoppingBag size={24} />{" "}
                 <span className="text-xs font-bold uppercase">Sac</span>
               </div>
               <div className="p-4 bg-white rounded-xl shadow-sm flex flex-col items-center gap-2 border border-stone-100 text-stone-400">
-                <Mail size={24} />
+                <Mail size={24} />{" "}
                 <span className="text-xs font-bold uppercase">Poste</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* ONGLET MARCHÉ (TINDER) */}
         {tab === "market" && (
           <MarketTab
             users={users}
@@ -391,8 +492,6 @@ export default function CitizenLayout({
             onBuySlave={onBuySlave}
           />
         )}
-
-        {/* ONGLET MES SUJETS (TON CODE DE GESTION) */}
         {tab === "slaves" && (
           <MySlavesTab
             mySlaves={mySlaves}
@@ -401,13 +500,32 @@ export default function CitizenLayout({
             catalog={catalog}
           />
         )}
+        {tab === "travel" && (
+          <TravelTab
+            user={user}
+            countries={countries}
+            travelRequests={travelRequests}
+            onRequestTravel={onRequestTravel}
+          />
+        )}
+
+        {/* --- VUE MAISON DE ASIA (CITOYEN) --- */}
+        {tab === "asia" && (
+          <MaisonDeAsiaCitizen
+            citizens={users}
+            countries={countries}
+            houseRegistry={houseRegistry}
+            onBook={onBookMaison}
+            userBalance={user.balance}
+          />
+        )}
       </main>
 
       {/* NAVIGATION BAS */}
       <nav className="h-16 bg-white border-t border-stone-200 flex justify-around items-center pb-safe z-30">
         <button
           onClick={() => setTab("home")}
-          className={`flex flex-col items-center gap-1 p-2 w-16 ${
+          className={`flex flex-col items-center gap-1 p-2 w-14 ${
             tab === "home" ? "text-stone-900" : "text-stone-400"
           }`}
         >
@@ -416,7 +534,7 @@ export default function CitizenLayout({
         </button>
         <button
           onClick={() => setTab("slaves")}
-          className={`flex flex-col items-center gap-1 p-2 w-16 ${
+          className={`flex flex-col items-center gap-1 p-2 w-14 ${
             tab === "slaves" ? "text-stone-900" : "text-stone-400"
           }`}
         >
@@ -424,9 +542,30 @@ export default function CitizenLayout({
           <span className="text-[9px] font-black uppercase">Sujets</span>
         </button>
         <button
+          onClick={() => setTab("travel")}
+          className={`flex flex-col items-center gap-1 p-2 w-14 ${
+            tab === "travel" ? "text-stone-900" : "text-stone-400"
+          }`}
+        >
+          <MapPin size={20} />
+          <span className="text-[9px] font-black uppercase">Voyage</span>
+        </button>
+
+        {/* --- BOUTON MAISON ASIA --- */}
+        <button
+          onClick={() => setTab("asia")}
+          className={`flex flex-col items-center gap-1 p-2 w-14 ${
+            tab === "asia" ? "text-yellow-600 scale-110" : "text-stone-400"
+          }`}
+        >
+          <Gem size={20} />
+          <span className="text-[9px] font-black uppercase">Asia</span>
+        </button>
+
+        <button
           onClick={() => setTab("market")}
-          className={`flex flex-col items-center gap-1 p-2 w-16 ${
-            tab === "market" ? "text-rose-500 scale-110" : "text-stone-400"
+          className={`flex flex-col items-center gap-1 p-2 w-14 ${
+            tab === "market" ? "text-rose-500" : "text-stone-400"
           }`}
         >
           <Flame size={20} />
