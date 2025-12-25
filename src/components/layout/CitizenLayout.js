@@ -32,6 +32,7 @@ const CitizenLayout = (props) => {
     onCancelDebt,
     onBuyItem,
     onGiveItem,
+    onBuySlave,
     notify,
     isGraded,
     onSwitchBack,
@@ -253,6 +254,7 @@ const CitizenLayout = (props) => {
             catalog={catalog}
             onBuyItem={onBuyItem}
             onGiveItem={onGiveItem}
+            onBuySlave={onBuySlave}
           />
         )}
 
@@ -261,6 +263,7 @@ const CitizenLayout = (props) => {
             users={users}
             session={user}
             onSend={onSend}
+            onUpdateUser={onUpdateUser}
             notify={notify}
           />
         )}

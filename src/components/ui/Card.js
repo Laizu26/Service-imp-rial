@@ -2,7 +2,7 @@ import React from "react";
 
 const Card = ({ title, icon: Icon, children, className = "" }) => (
   <div
-    className={`bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden ${className}`}
+    className={`bg-white rounded-xl border border-stone-200 shadow-sm overflow-visible ${className}`}
   >
     {title && (
       <div className="p-3 border-b bg-stone-50 flex items-center justify-between">
