@@ -6,7 +6,6 @@ import {
   Flame,
   LogOut,
   MapPin,
-  Scroll,
   Mail,
   Users,
   Shield,
@@ -20,7 +19,8 @@ import {
   Gem, // Icône pour la Maison de Asia
 } from "lucide-react";
 
-// IMPORTANT : Assurez-vous que ce fichier existe bien dans src/components/views/
+// Import sécurisé (si le fichier n'existe pas, on gère l'erreur plus bas)
+// Assurez-vous que src/components/views/MaisonDeAsiaCitizen.js existe !
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 
 // --- 1. COMPOSANT TINDER (ACHAT ESCLAVES) ---
@@ -304,6 +304,7 @@ const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
 const TravelTab = ({ user, countries, travelRequests, onRequestTravel }) => {
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
+  // Protection contre le crash si countries est undefined
   const safeCountries = countries || [];
 
   const myPendingRequests = (travelRequests || []).filter(
@@ -510,15 +511,20 @@ export default function CitizenLayout({
         )}
 
         {/* --- VUE MAISON DE ASIA (CITOYEN) --- */}
-        {tab === "asia" && (
-          <MaisonDeAsiaCitizen
-            citizens={users}
-            countries={countries}
-            houseRegistry={houseRegistry}
-            onBook={onBookMaison}
-            userBalance={user.balance}
-          />
-        )}
+        {tab === "asia" &&
+          (MaisonDeAsiaCitizen ? (
+            <MaisonDeAsiaCitizen
+              citizens={users}
+              countries={countries}
+              houseRegistry={houseRegistry}
+              onBook={onBookMaison}
+              userBalance={user.balance}
+            />
+          ) : (
+            <div className="p-10 text-center text-red-500 font-bold uppercase text-xs">
+              Module Maison de Asia non chargé.
+            </div>
+          ))}
       </main>
 
       {/* NAVIGATION BAS */}

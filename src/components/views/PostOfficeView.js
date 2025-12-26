@@ -49,13 +49,22 @@ const PostOfficeView = ({
     } else {
       // Voyage International
       if (!updatedReq.validations.exit) {
-        // Besoin de visa sortie
-        // Vérifier droits: Postière du Départ OU Empereur
+        // --- CAS 1 : VISA DE SORTIE ---
+        const fromCountry = countries.find((c) => c.id === req.fromCountry);
+
+        // Vérification Loi : Interdiction de sortie
+        if (fromCountry?.laws?.forbidExit && session.role !== "EMPEREUR") {
+          alert("Sortie interdite par la loi du pays de départ.");
+          return;
+        }
+
+        // Vérification Droits : Pays de départ OU Empereur
         if (
           session.role === "EMPEREUR" ||
           session.countryId === req.fromCountry
         ) {
           updatedReq.validations.exit = true;
+          // On ne déplace pas encore le citoyen, il faut le visa d'entrée ensuite
         } else {
           alert(
             "Vous n'avez pas l'autorité pour le visa de sortie (Pays de départ requis)."
@@ -63,15 +72,23 @@ const PostOfficeView = ({
           return;
         }
       } else {
-        // Besoin de visa entrée (car exit est true)
-        // Vérifier droits: Postière d'Arrivée OU Empereur
+        // --- CAS 2 : VISA D'ENTRÉE (Exit déjà validé) ---
+        const toCountry = countries.find((c) => c.id === req.toCountry);
+
+        // Vérification Loi : Frontières fermées
+        if (toCountry?.laws?.closeBorders && session.role !== "EMPEREUR") {
+          alert("Entrée impossible : frontières hermétiques.");
+          return;
+        }
+
+        // Vérification Droits : Pays d'arrivée OU Empereur
         if (
           session.role === "EMPEREUR" ||
           session.countryId === req.toCountry
         ) {
           updatedReq.validations.entry = true;
           updatedReq.status = "APPROVED";
-          moveCitizen = true;
+          moveCitizen = true; // C'est le dernier visa, on déplace le citoyen
         } else {
           alert(
             "Vous n'avez pas l'autorité pour le visa d'entrée (Pays d'arrivée requis)."
@@ -81,13 +98,20 @@ const PostOfficeView = ({
       }
     }
 
+    // 2. Appliquer les changements
     if (moveCitizen) {
-      // Déplacer le citoyen
+      // Déplacer le citoyen + Supprimer la requête (ou la marquer archivée)
       onUpdateCitizen(req.citizenId, req.toCountry);
-      onUpdateRequests(travelRequests.filter((r) => r.id !== req.id));
-      alert("Visa accordé. Citoyen déplacé.");
+      // Optionnel : on peut garder la requête en statut APPROVED ou la supprimer.
+      // Ici, on la met à jour pour l'historique si on ne filtre pas les APPROVED,
+      // ou on la retire de la liste active.
+      // Pour l'instant, on met à jour la requête.
+
+      const otherRequests = travelRequests.filter((r) => r.id !== req.id);
+      onUpdateRequests([...otherRequests, updatedReq]);
+      alert("Visa accordé. Citoyen déplacé avec succès.");
     } else {
-      // Juste mettre à jour la requête
+      // Juste mettre à jour la requête (ex: juste sortie validée)
       const otherRequests = travelRequests.filter((r) => r.id !== req.id);
       onUpdateRequests([...otherRequests, updatedReq]);
     }

@@ -33,6 +33,7 @@ const CitizenLayout = (props) => {
     onBuyItem,
     onGiveItem,
     onBuySlave,
+    onSelfManumit,
     notify,
     isGraded,
     onSwitchBack,
@@ -361,8 +362,12 @@ const CitizenLayout = (props) => {
           <SlaveManagementView
             slaves={mySlaves}
             onUpdateCitizen={onUpdateUser}
+            onBuySlave={onBuySlave}
+            onSelfManumit={onSelfManumit}
             notify={notify}
             catalog={catalog}
+            session={user}
+            countries={countries}
           />
         )}
 

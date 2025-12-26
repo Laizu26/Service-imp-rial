@@ -60,7 +60,33 @@ export const DEFAULT_GAME_STATE = {
       stability: 80,
       security: 60,
       prosperity: 70,
-      laws: [],
+      // Lois locales (valeurs par défaut)
+      laws: {
+        allowExternalDebits: false, // autorise les prélèvements par des admins locaux venant d'autres pays
+        allowLocalConfiscation: true, // autorise la confiscation locale des fonds d'un sujet
+        allowLocalSales: true, // autorise la mise en vente locale d'objets ou sujets
+        allowPermissionEditsByLocalAdmins: true, // autorise modification des permissions par admins locaux
+        requireRulerApprovalForSales: false, // nécessite approbation du souverain pour mettre en vente
+
+        // ÉCONOMIE & BANQUE
+        taxForeignTransfers: false, // taxe 10% appliquée aux virements entrants depuis un autre pays
+        freezeAssets: false, // interdit aux citoyens de retirer ou transférer des fonds
+        closedCurrency: false, // seuls les résidents peuvent recevoir de l'argent
+
+        // FRONTIÈRES & VOYAGE
+        closeBorders: false, // rejette automatiquement les nouvelles demandes de visa
+        entryVisaFee: 0, // coût (Écus) pour demander un visa d'entrée
+        forbidExit: false, // interdit demandes de visa de sortie
+
+        // SOCIÉTÉ & MAISON DE ASIA
+        allowSelfManumission: false, // permet à un esclave de s'acheter sa liberté
+        militaryServitude: false, // transforme la main d'œuvre en servitude militaire
+        banPublicSlaveMarket: false, // interdit mise en vente publique des esclaves
+
+        // JUSTICE & INVENTAIRE
+        allowWeapons: true, // si false, possession d'armes est illégale
+        mailCensorship: false, // si true, le courrier peut être censuré/consulté localement
+      },
       regions: [{ id: "r1", name: "Capitale", status: "Calme" }],
       customRoles: [],
     },

@@ -17,10 +17,22 @@ const BankView = ({
   const [tgtId, setTgtId] = useState("");
   const [amount, setAmount] = useState("");
 
-  const isEmperor = session?.role === "EMPEREUR";
+  const isGlobalAdmin = ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(
+    session?.role
+  );
+  const canUseCountry = [
+    "EMPEREUR",
+    "GRAND_FONC_GLOBAL",
+    "ROI",
+    "INTENDANT",
+    "GRAND_FONC_LOCAL",
+  ].includes(session?.role);
   const safeUsers = Array.isArray(users) ? users : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
   const safeLedger = Array.isArray(ledger) ? ledger : [];
+  const allowedCountries = isGlobalAdmin
+    ? safeCountries
+    : safeCountries.filter((c) => c.id === session?.countryId);
 
   // Helper to build ID string for onTransfer
   const getRaw = (type, id) => {
@@ -42,6 +54,53 @@ const BankView = ({
 
   const currentSrcBalance = getBalance(srcType, srcId);
 
+  // Derived countries for warnings
+  const srcCountryObj =
+    srcType === "COUNTRY"
+      ? safeCountries.find((c) => c.id === srcId)
+      : srcType === "CITIZEN"
+      ? safeUsers.find((u) => u.id === srcId)
+      : null;
+  const srcCountryIdResolved =
+    srcType === "COUNTRY"
+      ? srcId
+      : srcType === "CITIZEN"
+      ? srcCountryObj?.countryId
+      : null;
+  const tgtCountryObj =
+    tgtType === "COUNTRY"
+      ? safeCountries.find((c) => c.id === tgtId)
+      : tgtType === "CITIZEN"
+      ? safeUsers.find((u) => u.id === tgtId)
+      : null;
+  const tgtCountryIdResolved =
+    tgtType === "COUNTRY"
+      ? tgtId
+      : tgtType === "CITIZEN"
+      ? tgtCountryObj?.countryId
+      : null;
+
+  const isBlockedByFreeze =
+    srcType === "CITIZEN" &&
+    srcId === session.id &&
+    srcCountryIdResolved &&
+    safeCountries.find((c) => c.id === srcCountryIdResolved)?.laws
+      ?.freezeAssets &&
+    !isGlobalAdmin;
+
+  const taxApplies =
+    tgtCountryIdResolved &&
+    srcCountryIdResolved &&
+    tgtCountryIdResolved !== srcCountryIdResolved &&
+    safeCountries.find((c) => c.id === tgtCountryIdResolved)?.laws
+      ?.taxForeignTransfers;
+
+  // Limit selectable users for source to same country for non-global admins
+  const allowedSourceUsers =
+    srcType === "CITIZEN" && !isGlobalAdmin
+      ? safeUsers.filter((u) => u.countryId === session?.countryId)
+      : safeUsers;
+
   return (
     <div className="flex flex-col h-full gap-6 font-sans">
       <div className="bg-[#fdf6e3] p-6 md:p-8 rounded-2xl border border-stone-300 shadow-md font-serif">
@@ -60,7 +119,7 @@ const BankView = ({
 
             {/* Source Type Selector */}
             <div className="flex gap-2 mb-4">
-              {isEmperor && (
+              {isGlobalAdmin && (
                 <button
                   onClick={() => {
                     setSrcType("GLOBAL");
@@ -75,11 +134,11 @@ const BankView = ({
                   Empire
                 </button>
               )}
-              {["EMPEREUR", "ROI", "INTENDANT"].includes(session.role) && (
+              {canUseCountry && (
                 <button
                   onClick={() => {
                     setSrcType("COUNTRY");
-                    setSrcId(safeCountries[0]?.id || "");
+                    setSrcId(allowedCountries[0]?.id || "");
                   }}
                   className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
                     srcType === "COUNTRY"
@@ -118,7 +177,7 @@ const BankView = ({
                   value={srcId}
                   onChange={(e) => setSrcId(e.target.value)}
                 >
-                  {safeCountries.map((c) => (
+                  {allowedCountries.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -127,13 +186,35 @@ const BankView = ({
               )}
               {srcType === "CITIZEN" && (
                 <UserSearchSelect
-                  users={safeUsers}
-                  onSelect={setSrcId}
+                  users={allowedSourceUsers}
+                  onSelect={(id) => setSrcId(id)}
                   value={srcId}
-                  placeholder="Rechercher le débiteur..."
+                  placeholder={
+                    !isGlobalAdmin && allowedSourceUsers.length === 0
+                      ? "Aucun débiteur disponible dans votre nation"
+                      : "Rechercher le débiteur..."
+                  }
                 />
               )}
             </div>
+
+            <div className="text-[11px] italic text-stone-500 mb-3">
+              <span className="font-bold">Remarque:</span> L'Empereur et les
+              Grands Fonctionnaires Impériaux peuvent tout gérer au niveau de
+              l'Empire. Les Rois et leurs Grands Fonctionnaires locaux peuvent
+              gérer le trésor de leur pays et agir sur leurs sujets.
+            </div>
+            {isBlockedByFreeze && (
+              <div className="text-sm text-red-600 font-bold mb-3">
+                Transferts bloqués: Gel des avoirs en vigueur dans votre pays.
+              </div>
+            )}
+            {taxApplies && (
+              <div className="text-sm text-yellow-700 font-bold mb-3">
+                Attention: une taxe de 10% s'appliquera au destinataire (taxe
+                nationale).
+              </div>
+            )}
 
             {/* Balance Preview */}
             <div className="text-right">
@@ -264,7 +345,9 @@ const BankView = ({
                 setAmount("");
               }
             }}
-            disabled={!amount || amount <= 0 || !srcId || !tgtId}
+            disabled={
+              !amount || amount <= 0 || !srcId || !tgtId || isBlockedByFreeze
+            }
             className={`w-full md:w-auto px-12 py-5 rounded-xl text-[11px] font-black uppercase tracking-widest border-b-4 transition-all shadow-xl flex items-center justify-center gap-3 ${
               !amount || amount <= 0 || !srcId || !tgtId
                 ? "bg-stone-300 text-stone-500 border-stone-400 cursor-not-allowed"

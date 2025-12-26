@@ -12,9 +12,62 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 
-const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
+const SlaveManagementView = ({
+  slaves,
+  onUpdateCitizen,
+  onSelfManumit,
+  notify,
+  catalog,
+  session,
+  countries = [],
+}) => {
   const [selectedSlave, setSelectedSlave] = useState(null);
   const [price, setPrice] = useState("");
+
+  const defaultLaws = {
+    allowExternalDebits: false,
+    allowLocalConfiscation: true,
+    allowLocalSales: true,
+    allowPermissionEditsByLocalAdmins: true,
+    requireRulerApprovalForSales: false,
+    // Société & Maison de Asia
+    allowSelfManumission: false,
+    militaryServitude: false,
+    banPublicSlaveMarket: false,
+  };
+
+  const getCountryLaws = (slave) => {
+    if (!slave || !slave.countryId) return defaultLaws;
+    const c = (countries || []).find((x) => x.id === slave.countryId);
+    return c?.laws || defaultLaws;
+  };
+
+  const isGlobalAdmin = ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(
+    session?.role
+  );
+  const isLocalAdmin = [
+    "ROI",
+    "INTENDANT",
+    "GRAND_FONC_LOCAL",
+    "FONCTIONNAIRE",
+  ].includes(session?.role);
+
+  const canManage = (slave) => {
+    if (!slave) return false;
+    // Owner can always manage their slaves
+    if (session?.id === slave.ownerId) return true;
+    // Global admins can manage any slave
+    if (isGlobalAdmin) return true;
+    // Local admins can manage only slaves within their country
+    if (
+      isLocalAdmin &&
+      slave.countryId &&
+      session?.countryId &&
+      slave.countryId === session.countryId
+    )
+      return true;
+    return false;
+  };
 
   // Fonction pour basculer une permission
   const togglePermission = (slave, permission) => {
@@ -31,6 +84,19 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
   };
 
   const handleFree = (slave) => {
+    if (!canManage(slave)) {
+      notify("Action interdite: hors juridiction.", "error");
+      return;
+    }
+    const laws = getCountryLaws(slave);
+    if (
+      !isGlobalAdmin &&
+      !laws.allowLocalConfiscation &&
+      session.id !== slave.ownerId
+    ) {
+      notify("Libération interdite par la loi du pays.", "error");
+      return;
+    }
     if (window.confirm(`Voulez-vous vraiment affranchir ${slave.name} ?`)) {
       onUpdateCitizen({
         ...slave,
@@ -44,6 +110,15 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
   };
 
   const handleTakeMoney = (slave) => {
+    if (!canManage(slave)) {
+      notify("Action interdite: hors juridiction.", "error");
+      return;
+    }
+    const laws = getCountryLaws(slave);
+    if (!isGlobalAdmin && !laws.allowLocalConfiscation) {
+      notify("Confiscation interdite par la loi du pays.", "error");
+      return;
+    }
     if (!slave.balance || slave.balance <= 0) return;
     const amount = slave.balance;
     onUpdateCitizen({ ...slave, balance: 0 });
@@ -154,12 +229,41 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => handleFree(selectedSlave)}
-                className="bg-white border border-red-200 text-red-700 hover:bg-red-50 px-4 py-2 rounded text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm"
-              >
-                <Unlock size={14} /> Affranchir
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleFree(selectedSlave)}
+                  disabled={!canManage(selectedSlave)}
+                  className={`px-4 py-2 rounded text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm ${
+                    !canManage(selectedSlave)
+                      ? "bg-stone-200 text-stone-400 border border-stone-200"
+                      : "bg-white border border-red-200 text-red-700 hover:bg-red-50"
+                  }`}
+                >
+                  <Unlock size={14} /> Affranchir
+                </button>
+
+                {/* Self-manumission: allow slave to buy freedom if law permits and funds available */}
+                {session.id === selectedSlave.id &&
+                  selectedSlave.status === "Esclave" &&
+                  selectedSlave.salePrice > 0 &&
+                  selectedSlave.balance >= (selectedSlave.salePrice || 0) &&
+                  getCountryLaws(selectedSlave).allowSelfManumission && (
+                    <button
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Acheter votre liberté pour ${selectedSlave.salePrice} Écus ?`
+                          )
+                        )
+                          return;
+                        if (onSelfManumit) onSelfManumit(selectedSlave.id);
+                      }}
+                      className="px-4 py-2 rounded text-[10px] font-black uppercase bg-green-700 text-white hover:bg-green-600 transition-all"
+                    >
+                      <Coins size={14} /> Racheter liberté
+                    </button>
+                  )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -180,7 +284,28 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                         type="checkbox"
                         className="sr-only peer"
                         checked={selectedSlave.permissions?.post || false}
-                        onChange={() => togglePermission(selectedSlave, "post")}
+                        onChange={() => {
+                          if (!canManage(selectedSlave)) {
+                            notify(
+                              "Action interdite: hors juridiction.",
+                              "error"
+                            );
+                            return;
+                          }
+                          const laws = getCountryLaws(selectedSlave);
+                          if (
+                            !isGlobalAdmin &&
+                            session.id !== selectedSlave.ownerId &&
+                            !laws.allowPermissionEditsByLocalAdmins
+                          ) {
+                            notify(
+                              "Modification des permissions interdite par la loi du pays.",
+                              "error"
+                            );
+                            return;
+                          }
+                          togglePermission(selectedSlave, "post");
+                        }}
                       />
                       <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
                     </label>
@@ -200,7 +325,28 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                         type="checkbox"
                         className="sr-only peer"
                         checked={selectedSlave.permissions?.bank || false}
-                        onChange={() => togglePermission(selectedSlave, "bank")}
+                        onChange={() => {
+                          if (!canManage(selectedSlave)) {
+                            notify(
+                              "Action interdite: hors juridiction.",
+                              "error"
+                            );
+                            return;
+                          }
+                          const laws = getCountryLaws(selectedSlave);
+                          if (
+                            !isGlobalAdmin &&
+                            session.id !== selectedSlave.ownerId &&
+                            !laws.allowPermissionEditsByLocalAdmins
+                          ) {
+                            notify(
+                              "Modification des permissions interdite par la loi du pays.",
+                              "error"
+                            );
+                            return;
+                          }
+                          togglePermission(selectedSlave, "bank");
+                        }}
                       />
                       <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
                     </label>
@@ -220,9 +366,28 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                         type="checkbox"
                         className="sr-only peer"
                         checked={selectedSlave.permissions?.travel || false}
-                        onChange={() =>
-                          togglePermission(selectedSlave, "travel")
-                        }
+                        onChange={() => {
+                          if (!canManage(selectedSlave)) {
+                            notify(
+                              "Action interdite: hors juridiction.",
+                              "error"
+                            );
+                            return;
+                          }
+                          const laws = getCountryLaws(selectedSlave);
+                          if (
+                            !isGlobalAdmin &&
+                            session.id !== selectedSlave.ownerId &&
+                            !laws.allowPermissionEditsByLocalAdmins
+                          ) {
+                            notify(
+                              "Modification des permissions interdite par la loi du pays.",
+                              "error"
+                            );
+                            return;
+                          }
+                          togglePermission(selectedSlave, "travel");
+                        }}
                       />
                       <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
                     </label>
@@ -241,11 +406,29 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                   </div>
                   <button
                     onClick={() => handleTakeMoney(selectedSlave)}
-                    disabled={!selectedSlave.balance}
-                    className="w-full bg-stone-900 text-yellow-500 py-2 rounded text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    disabled={
+                      !selectedSlave.balance ||
+                      !canManage(selectedSlave) ||
+                      (!isGlobalAdmin &&
+                        !getCountryLaws(selectedSlave).allowLocalConfiscation)
+                    }
+                    className={`w-full py-2 rounded text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+                      !selectedSlave.balance ||
+                      !canManage(selectedSlave) ||
+                      (!isGlobalAdmin &&
+                        !getCountryLaws(selectedSlave).allowLocalConfiscation)
+                        ? "bg-stone-400 text-stone-200"
+                        : "bg-stone-900 text-yellow-500"
+                    }`}
                   >
                     Confisquer les fonds
                   </button>
+                  {!isGlobalAdmin &&
+                    !getCountryLaws(selectedSlave).allowLocalConfiscation && (
+                      <div className="mt-2 text-xs text-red-600">
+                        Confiscation interdite par la loi du pays.
+                      </div>
+                    )}
                 </div>
               </Card>
 
@@ -263,6 +446,25 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                         </div>
                         <button
                           onClick={() => {
+                            if (!canManage(selectedSlave)) {
+                              notify(
+                                "Action interdite: hors juridiction.",
+                                "error"
+                              );
+                              return;
+                            }
+                            const laws = getCountryLaws(selectedSlave);
+                            if (
+                              !isGlobalAdmin &&
+                              !laws.allowLocalSales &&
+                              session.id !== selectedSlave.ownerId
+                            ) {
+                              notify(
+                                "Annulation de vente interdite par la loi du pays.",
+                                "error"
+                              );
+                              return;
+                            }
                             if (
                               !window.confirm(
                                 `Annuler la vente de ${selectedSlave.name} ?`
@@ -282,7 +484,11 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                             setPrice("");
                             notify("Vente annulée.", "info");
                           }}
-                          className="w-full sm:w-auto px-3 bg-white border border-stone-300 rounded text-sm text-stone-700 hover:bg-stone-50"
+                          className={`w-full sm:w-auto px-3 rounded text-sm font-bold transition ${
+                            !canManage(selectedSlave)
+                              ? "bg-stone-200 text-stone-400 cursor-not-allowed"
+                              : "bg-white border border-stone-300 text-stone-700 hover:bg-stone-50"
+                          }`}
                         >
                           Annuler
                         </button>
@@ -299,6 +505,44 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                         />
                         <button
                           onClick={() => {
+                            if (!canManage(selectedSlave)) {
+                              notify(
+                                "Action interdite: hors juridiction.",
+                                "error"
+                              );
+                              return;
+                            }
+                            const laws = getCountryLaws(selectedSlave);
+                            if (
+                              !isGlobalAdmin &&
+                              !laws.allowLocalSales &&
+                              session.id !== selectedSlave.ownerId
+                            ) {
+                              notify(
+                                "Mise en vente interdite par la loi du pays.",
+                                "error"
+                              );
+                              return;
+                            }
+                            if (!isGlobalAdmin && laws.banPublicSlaveMarket) {
+                              notify(
+                                "Mise en vente publique interdite par la loi du pays.",
+                                "error"
+                              );
+                              return;
+                            }
+                            if (
+                              laws.requireRulerApprovalForSales &&
+                              !isGlobalAdmin &&
+                              session.role !== "ROI" &&
+                              session.id !== selectedSlave.ownerId
+                            ) {
+                              notify(
+                                "Mise en vente : approbation du souverain requise.",
+                                "error"
+                              );
+                              return;
+                            }
                             const p = parseInt(price);
                             if (!p || p <= 0) {
                               notify("Prix invalide.", "error");
@@ -327,14 +571,26 @@ const SlaveManagementView = ({ slaves, onUpdateCitizen, notify, catalog }) => {
                             );
                           }}
                           className={`w-full sm:w-auto px-4 py-2 rounded text-sm font-bold transition ${
-                            parseInt(price) > 0
-                              ? "bg-stone-900 text-white hover:bg-stone-800"
-                              : "bg-stone-200 text-stone-400 cursor-not-allowed"
+                            !canManage(selectedSlave) || parseInt(price) <= 0
+                              ? "bg-stone-200 text-stone-400 cursor-not-allowed"
+                              : "bg-stone-900 text-white hover:bg-stone-800"
                           }`}
-                          disabled={!price || parseInt(price) <= 0}
+                          disabled={
+                            !price ||
+                            parseInt(price) <= 0 ||
+                            !canManage(selectedSlave) ||
+                            (!isGlobalAdmin &&
+                              !getCountryLaws(selectedSlave).allowLocalSales)
+                          }
                         >
                           Vendre
                         </button>
+                        {!isGlobalAdmin &&
+                          !getCountryLaws(selectedSlave).allowLocalSales && (
+                            <div className="mt-2 text-xs text-red-600">
+                              Mise en vente interdite par la loi du pays.
+                            </div>
+                          )}
                       </div>
                     )}
 

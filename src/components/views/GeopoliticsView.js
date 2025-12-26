@@ -16,7 +16,6 @@ import {
   Award,
   Globe,
   Scroll,
-  Check,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -44,7 +43,7 @@ const GeopoliticsView = ({
   const [isRestrictedStatus, setIsRestrictedStatus] = useState(false); // For statuses
 
   const isGlobal = roleInfo.scope === "GLOBAL";
-  // SÉCURITÉ : Protection contre les données undefined (Comme vu pour l'onglet Voyage)
+  // SÉCURITÉ : Protection contre les données undefined
   const safeCountries = Array.isArray(countries) ? countries : [];
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
 
@@ -62,6 +61,31 @@ const GeopoliticsView = ({
     onUpdate(
       safeCountries.map((c) => (c.id === selectedId ? { ...c, ...updates } : c))
     );
+
+  // Migration helper: convert legacy array-format `laws` into structured `laws` object
+  const migrateSelectedCountry = () => {
+    if (!selectedCountry || !Array.isArray(selectedCountry.laws)) return;
+    if (!canEdit) return;
+    if (
+      !window.confirm(
+        "Confirmer la migration de la législation pour ce pays ? Cette opération est irréversible."
+      )
+    )
+      return;
+
+    const defaultStructured = {
+      allowExternalDebits: false,
+      allowLocalConfiscation: true,
+      allowLocalSales: true,
+      allowPermissionEditsByLocalAdmins: true,
+      requireRulerApprovalForSales: false,
+    };
+
+    // Preserve existing decrees (legacy array) into `decrees`
+    const decrees = (selectedCountry.laws || []).map((d) => ({ ...d }));
+
+    updateSelected({ laws: defaultStructured, decrees });
+  };
 
   const ruler = selectedCountry
     ? safeCitizens.find(
@@ -100,7 +124,7 @@ const GeopoliticsView = ({
       stability: 50,
       security: 50,
       prosperity: 50,
-      laws: [],
+      laws: [], // Legacy format by default, can be migrated later
       regions: [{ id: 1, name: "Capitale", type: "Ville" }],
       customRoles: [],
       color: "bg-stone-50",
@@ -386,7 +410,7 @@ const GeopoliticsView = ({
                       </div>
                       {ruler && (
                         <div className="text-[10px] text-stone-500 uppercase tracking-[0.3em] mt-2 font-bold">
-                          {ROLES[ruler.role].label}
+                          {ROLES[ruler.role]?.label || "Dirigeant"}
                         </div>
                       )}
                     </Card>
@@ -475,63 +499,266 @@ const GeopoliticsView = ({
                 </>
               )}
               {activeTab === "laws" && (
-                <Card title="Décrets et Édits Impériaux" icon={Gavel}>
-                  {canEdit && (
-                    <button
-                      className="w-full bg-stone-800 text-white py-3 rounded-xl mb-6 font-bold uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-stone-700 transition-all"
-                      onClick={() => {
-                        updateSelected({
-                          laws: [
-                            ...(selectedCountry.laws || []),
-                            {
-                              id: Date.now(),
-                              name: "Nouvel Édit de la Couronne",
-                              active: true,
-                            },
-                          ],
-                        });
-                      }}
-                    >
-                      + Proclamer un Décret
-                    </button>
-                  )}
-                  <div className="space-y-3">
-                    {(selectedCountry.laws || []).map((l) => (
-                      <div
-                        key={l.id}
-                        className="flex justify-between items-center p-4 bg-white border border-stone-100 rounded-xl shadow-md transition-all hover:shadow-lg"
-                      >
-                        {canEdit ? (
-                          <input
-                            className="font-bold text-base bg-transparent border-b border-dashed border-stone-300 w-full mr-6 outline-none focus:border-stone-800"
-                            value={l.name}
-                            onChange={(e) => {
-                              const nl = selectedCountry.laws.map((x) =>
-                                x.id === l.id
-                                  ? { ...x, name: e.target.value }
-                                  : x
-                              );
-                              updateSelected({ laws: nl });
-                            }}
-                          />
-                        ) : (
-                          <span className="font-bold text-base text-stone-800">
-                            📜 {l.name}
-                          </span>
-                        )}
+                <Card title="Législation & Décrets" icon={Gavel}>
+                  <div className="space-y-4">
+                    {/* Structure modernisée des lois */}
+                    {selectedCountry.laws &&
+                    !Array.isArray(selectedCountry.laws) ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          {
+                            key: "allowExternalDebits",
+                            label: "Autoriser prélèvements externes",
+                            desc: "Permet aux administrateurs d'autres pays de débiter les sujets.",
+                          },
+                          {
+                            key: "allowLocalConfiscation",
+                            label: "Autoriser confiscations locales",
+                            desc: "Permet aux administrateurs locaux de confisquer les fonds.",
+                          },
+                          {
+                            key: "allowLocalSales",
+                            label: "Autoriser ventes locales",
+                            desc: "Permet la mise en vente locale d'objets ou sujets.",
+                          },
+                          {
+                            key: "allowPermissionEditsByLocalAdmins",
+                            label: "Autoriser éditions permissions",
+                            desc: "Les administrateurs locaux peuvent modifier les permissions.",
+                          },
+                          {
+                            key: "requireRulerApprovalForSales",
+                            label: "Approbation souverain ventes",
+                            desc: "Les ventes nécessitent l'approbation du souverain.",
+                          },
+                          // Économie & Banque
+                          {
+                            key: "taxForeignTransfers",
+                            label: "Taxe sur transferts étrangers",
+                            desc: "Les virements entrants depuis un autre pays subissent une taxe de 10% reversée au trésor du pays.",
+                          },
+                          {
+                            key: "freezeAssets",
+                            label: "Gel des avoirs",
+                            desc: "Interdit aux citoyens de retirer de l'argent ou d'initier des virements.",
+                          },
+                          {
+                            key: "closedCurrency",
+                            label: "Monnaie fermée",
+                            desc: "Seuls les résidents peuvent recevoir de l'argent; les transferts externes sont refusés.",
+                          },
+                          // Frontières & Voyage
+                          {
+                            key: "closeBorders",
+                            label: "Frontières hermétiques",
+                            desc: "Nouvelles demandes de visa automatiquement refusées.",
+                          },
+                          {
+                            key: "entryVisaFee",
+                            label: "Frais de visa (entrée)",
+                            desc: "Coût (Écus) exigé au demandeur pour l'entrée.",
+                          },
+                          {
+                            key: "forbidExit",
+                            label: "Interdiction de sortie",
+                            desc: "Interdit aux citoyens de demander un visa de sortie.",
+                          },
+                          // Société & Maison de Asia
+                          {
+                            key: "allowSelfManumission",
+                            label: "Droit d'Auto-Affranchissement",
+                            desc: "Permet à un esclave d'acheter sa propre liberté si fonds suffisants.",
+                          },
+                          {
+                            key: "militaryServitude",
+                            label: "Servitude martiale",
+                            desc: "Les esclaves servent comme personnel militaire (augmente Sécurité, baisse Stabilité).",
+                          },
+                          {
+                            key: "banPublicSlaveMarket",
+                            label: "Interdire marché public d'esclaves",
+                            desc: "Les esclaves ne peuvent pas être mis en vente sur le marché public.",
+                          },
+                          // Justice & Inventaire
+                          {
+                            key: "allowWeapons",
+                            label: "Autoriser armes",
+                            desc: "Si désactivé, posséder des armes est illégal (confiscation possible).",
+                          },
+                          {
+                            key: "mailCensorship",
+                            label: "Censure postale",
+                            desc: "Les administrateurs peuvent contrôler le courrier entrant des citoyens.",
+                          },
+                        ].map((f) => {
+                          const value = (selectedCountry.laws || {})[f.key];
+                          return (
+                            <div
+                              key={f.key}
+                              className="p-4 bg-white border border-stone-100 rounded-xl shadow-sm flex flex-col"
+                            >
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="flex-1">
+                                  <div className="font-bold text-sm text-stone-800">
+                                    {f.label}
+                                  </div>
+                                  <div className="text-[11px] text-stone-500 mt-1">
+                                    {f.desc}
+                                  </div>
+                                </div>
+                                <div>
+                                  {f.key === "entryVisaFee" ? (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      className="w-20 p-2 border rounded text-sm"
+                                      value={
+                                        selectedCountry.laws.entryVisaFee || 0
+                                      }
+                                      onChange={(e) => {
+                                        const v = Math.max(
+                                          0,
+                                          parseInt(e.target.value) || 0
+                                        );
+                                        updateSelected({
+                                          laws: {
+                                            ...(selectedCountry.laws || {}),
+                                            entryVisaFee: v,
+                                          },
+                                        });
+                                      }}
+                                    />
+                                  ) : (
+                                    <label className="switch inline-flex items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!value}
+                                        onChange={() => {
+                                          // Special handling for military servitude: adjust stats
+                                          if (f.key === "militaryServitude") {
+                                            const enabling = !value;
+                                            const securityDelta = enabling
+                                              ? 5
+                                              : -5;
+                                            const stabilityDelta = enabling
+                                              ? -3
+                                              : 3;
+                                            updateSelected({
+                                              laws: {
+                                                ...(selectedCountry.laws || {}),
+                                                [f.key]: enabling,
+                                              },
+                                              security: Math.max(
+                                                0,
+                                                (selectedCountry.security ||
+                                                  50) + securityDelta
+                                              ),
+                                              stability: Math.max(
+                                                0,
+                                                (selectedCountry.stability ||
+                                                  50) + stabilityDelta
+                                              ),
+                                            });
+                                            return;
+                                          }
+                                          updateSelected({
+                                            laws: {
+                                              ...(selectedCountry.laws || {}),
+                                              [f.key]: !value,
+                                            },
+                                          });
+                                        }}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-stone-500 italic">
+                        Cette contrée utilise un ancien format. Migrer pour
+                        activer les options avancées.
                         {canEdit && (
-                          <SecureDeleteButton
-                            onClick={() =>
-                              updateSelected({
-                                laws: selectedCountry.laws.filter(
-                                  (x) => x.id !== l.id
-                                ),
-                              })
-                            }
-                          />
+                          <div className="mt-4">
+                            <button
+                              onClick={() => migrateSelectedCountry()}
+                              className="bg-stone-900 text-white py-2 px-4 rounded-lg font-bold text-xs uppercase"
+                            >
+                              Migrer le format
+                            </button>
+                          </div>
                         )}
                       </div>
-                    ))}
+                    )}
+                  </div>
+
+                  {/* Décrets libres (Custom) */}
+                  <div className="mt-6">
+                    {/* Bouton de proclamation retiré */}
+
+                    <div className="space-y-3">
+                      {(
+                        (Array.isArray(selectedCountry.laws)
+                          ? selectedCountry.laws
+                          : selectedCountry.decrees || []
+                        ).map((l) => l) || []
+                      ).map((l) => (
+                        <div
+                          key={l.id}
+                          className="flex justify-between items-center p-4 bg-white border border-stone-100 rounded-xl shadow-md"
+                        >
+                          {canEdit ? (
+                            <input
+                              className="font-bold text-base bg-transparent border-b border-dashed border-stone-300 w-full mr-6 outline-none focus:border-stone-800"
+                              value={l.name}
+                              onChange={(e) => {
+                                if (Array.isArray(selectedCountry.laws)) {
+                                  const nl = selectedCountry.laws.map((x) =>
+                                    x.id === l.id
+                                      ? { ...x, name: e.target.value }
+                                      : x
+                                  );
+                                  updateSelected({ laws: nl });
+                                } else {
+                                  const nl = (
+                                    selectedCountry.decrees || []
+                                  ).map((x) =>
+                                    x.id === l.id
+                                      ? { ...x, name: e.target.value }
+                                      : x
+                                  );
+                                  updateSelected({ decrees: nl });
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="font-bold text-base text-stone-800">
+                              📜 {l.name}
+                            </span>
+                          )}
+                          {canEdit && (
+                            <SecureDeleteButton
+                              onClick={() =>
+                                Array.isArray(selectedCountry.laws)
+                                  ? updateSelected({
+                                      laws: selectedCountry.laws.filter(
+                                        (x) => x.id !== l.id
+                                      ),
+                                    })
+                                  : updateSelected({
+                                      decrees: (
+                                        selectedCountry.decrees || []
+                                      ).filter((x) => x.id !== l.id),
+                                    })
+                              }
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </Card>
               )}
@@ -629,7 +856,6 @@ const GeopoliticsView = ({
                           </div>
                         </div>
 
-                        {/* Paramètres Spécifiques */}
                         {newRoleType === "ROLE" && (
                           <div className="bg-white p-3 rounded-lg border border-stone-200">
                             <label className="text-[9px] font-bold uppercase text-stone-400 block mb-2 flex justify-between">
@@ -646,11 +872,6 @@ const GeopoliticsView = ({
                               value={newRoleLevel}
                               onChange={(e) => setNewRoleLevel(e.target.value)}
                             />
-                            <p className="text-[9px] text-stone-500 mt-1 italic">
-                              Définit l'accès aux outils administratifs (0 =
-                              Citoyen, 20 = Postière, 30 = Fonctionnaire, 40+ =
-                              Grand Fonctionnaire).
-                            </p>
                           </div>
                         )}
 
