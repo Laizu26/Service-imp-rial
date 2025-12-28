@@ -9,6 +9,7 @@ import {
   Lock,
   ImageIcon,
   MapPin,
+  Flag, // Importé pour l'icône pays
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -39,7 +40,7 @@ const RegistryView = ({
   const canCreate = isGlobal || roleInfo.level >= 40;
   const canDelete = isGlobal || roleInfo.level >= 50;
 
-  // Custom Roles Logic for Edit Form
+  // --- LOGIQUE POUR LISTES DÉROULANTES ---
   const targetCountry = editForm
     ? safeCountries.find((c) => c.id === editForm.countryId)
     : null;
@@ -49,6 +50,8 @@ const RegistryView = ({
   const customStatuses = targetCountry
     ? (targetCountry.customRoles || []).filter((r) => r.type === "STATUS")
     : [];
+  // Récupération des régions du pays sélectionné
+  const availableRegions = targetCountry ? targetCountry.regions || [] : [];
 
   const canManageRoles =
     isGlobal ||
@@ -59,6 +62,7 @@ const RegistryView = ({
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans">
+      {/* --- SIDEBAR LIST (Inchangé) --- */}
       <div
         className={`w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md font-sans ${
           selectedId || editForm ? "hidden md:flex" : "flex"
@@ -82,6 +86,7 @@ const RegistryView = ({
                   status: "Actif",
                   avatarUrl: "",
                   inventory: [],
+                  currentPosition: "",
                 })
               }
               className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"
@@ -135,6 +140,8 @@ const RegistryView = ({
           ))}
         </div>
       </div>
+
+      {/* --- MAIN CONTENT --- */}
       <div
         className={`flex-1 bg-[#fdf6e3] rounded-xl border border-stone-300 p-6 md:p-10 overflow-auto relative shadow-2xl font-sans ${
           selectedId || editForm ? "flex flex-col" : "hidden md:flex flex-col"
@@ -151,6 +158,7 @@ const RegistryView = ({
         </button>
         {editForm || selected ? (
           <div className="max-w-2xl mx-auto w-full pb-20 font-sans animate-fadeIn">
+            {/* EN-TÊTE FICHE */}
             <div className="flex justify-between items-start mb-10 border-b-4 border-stone-800 pb-6 font-serif">
               <div className="flex items-center gap-6">
                 {editForm?.avatarUrl || selected?.avatarUrl ? (
@@ -212,10 +220,13 @@ const RegistryView = ({
                 )}
               </div>
             </div>
+
+            {/* FORMULAIRE D'ÉDITION */}
             {editForm ? (
               <div className="space-y-8 font-sans">
                 <Card title="Dossier Civil" icon={User}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Portrait */}
                     <div className="col-span-1 md:col-span-2 space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Portrait (URL)
@@ -246,6 +257,8 @@ const RegistryView = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Nom Complet */}
                     <div className="col-span-1 md:col-span-2 space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Nom Complet
@@ -259,22 +272,82 @@ const RegistryView = ({
                       />
                     </div>
 
-                    <div className="col-span-1 md:col-span-2 space-y-1">
-                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
-                        Position actuelle
-                      </label>
-                      <input
-                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
-                        value={editForm.currentPosition || ""}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            currentPosition: e.target.value,
-                          })
-                        }
-                        placeholder="Ex: Rue du Marché, Port..."
-                      />
+                    {/* --- BLOC LOCALISATION (Style du 1er essai) --- */}
+                    <div className="col-span-1 md:col-span-2 bg-stone-50 p-5 rounded-xl border border-stone-200">
+                      <h4 className="text-xs font-black uppercase text-stone-400 mb-4 flex items-center gap-2 tracking-widest">
+                        <MapPin size={12} /> Localisation & Allégeance
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* PAYS */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1">
+                            Nation d'Allégeance
+                          </label>
+                          <div className="relative">
+                            <Flag
+                              size={14}
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                            />
+                            <select
+                              className="w-full p-3 pl-9 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
+                              value={editForm.countryId}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  countryId: e.target.value,
+                                  currentPosition: "", // Reset position
+                                })
+                              }
+                              disabled={!isGlobal}
+                            >
+                              {safeCountries.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* POSITION */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1">
+                            Position actuelle
+                          </label>
+                          <select
+                            className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
+                            value={editForm.currentPosition || ""}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                currentPosition: e.target.value,
+                              })
+                            }
+                            disabled={!editForm.countryId}
+                          >
+                            <option value="">-- Non définie --</option>
+                            <option value="Frontière">Frontière</option>
+                            {availableRegions.map((r) => (
+                              <option key={r.id || r.name} value={r.name}>
+                                {r.name}
+                              </option>
+                            ))}
+                            {/* Fallback pour valeur personnalisée existante */}
+                            {!availableRegions.find(
+                              (r) => r.name === editForm.currentPosition
+                            ) &&
+                              editForm.currentPosition &&
+                              editForm.currentPosition !== "Frontière" && (
+                                <option value={editForm.currentPosition}>
+                                  {editForm.currentPosition} (Hors liste)
+                                </option>
+                              )}
+                          </select>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Autres champs standards */}
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Âge
@@ -324,6 +397,7 @@ const RegistryView = ({
                         )}
                       </select>
                     </div>
+
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Occupation
@@ -339,30 +413,8 @@ const RegistryView = ({
                         }
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
-                        Nation d'Allégeance
-                      </label>
-                      <select
-                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold"
-                        value={editForm.countryId}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            countryId: e.target.value,
-                          })
-                        }
-                        disabled={!isGlobal}
-                      >
-                        {safeCountries.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
 
-                    {/* AJOUT : Champ Propriétaire (Esclave) */}
+                    {/* Bloc Propriétaire (Pour les esclaves) */}
                     <div className="col-span-1 md:col-span-2 space-y-1 bg-stone-50 p-3 rounded border border-stone-200">
                       <label className="text-[10px] font-bold text-stone-500 uppercase block tracking-widest ml-1">
                         Propriétaire (Si Esclave)
@@ -387,10 +439,6 @@ const RegistryView = ({
                             </option>
                           ))}
                       </select>
-                      <p className="text-[9px] text-stone-400 italic ml-1">
-                        Assigner un propriétaire basculera automatiquement le
-                        statut si nécessaire.
-                      </p>
                     </div>
 
                     <div className="col-span-1 md:col-span-2 space-y-1">
@@ -460,6 +508,7 @@ const RegistryView = ({
                 </Card>
               </div>
             ) : (
+              // --- VUE DÉTAILLÉE (LECTURE SEULE) ---
               <div className="space-y-8 font-sans">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
                   <Card title="Informations Administratives" icon={Scroll}>

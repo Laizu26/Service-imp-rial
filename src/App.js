@@ -12,7 +12,7 @@ import {
   Stamp,
   UserCircle,
   Menu,
-  Gem, // Icône pour la Maison de Asia
+  Gem,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -36,10 +36,8 @@ import PostView from "./components/views/PostView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
 
-// NOUVEAU : Import de l'interface Admin Maison de Asia
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
-
-// NOUVEAU : Import du Layout Citoyen
+// Assurez-vous d'importer le bon layout selon votre préférence (ici le CitizenLayout 'Bureau' restauré précédemment)
 import CitizenLayout from "./components/layout/CitizenLayout";
 
 export default function App() {
@@ -58,7 +56,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
 
-  // Sécurisation de currentUser
   const currentUser = useMemo(
     () => (state.citizens || []).find((c) => c.id === session?.id) || session,
     [state.citizens, session]
@@ -107,7 +104,6 @@ export default function App() {
   const canAccessAdmin = isActuallyGraded && !isIncapacitated && !isSlave;
   const shouldShowCitizenView = !canAccessAdmin || isViewingAsCitizen;
 
-  // --- ACTIONS DU JEU ---
   const actions = {
     onPassDay: () => {
       let ns = JSON.parse(JSON.stringify(state));
@@ -141,14 +137,12 @@ export default function App() {
       }
     },
     onTransfer: (srcRaw, tgtRaw, amount) => {
-      // Sécurité session
       if (!session) return;
 
       if (!amount || amount <= 0 || !srcRaw || !tgtRaw) {
         notify("Virement souverain incomplet.", "error");
         return;
       }
-      // Global treasury: only EMPEREUR or GRAND_FONC_GLOBAL can debit
       if (
         srcRaw === "GLOBAL" &&
         !["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role)
@@ -166,7 +160,6 @@ export default function App() {
         ? state.citizens.find((c) => c.id === targetId)?.countryId
         : null;
 
-      // If debiting a citizen other than yourself, check jurisdiction:
       if (sourceId && sourceId !== session.id) {
         const targetCitizen = state.citizens.find((c) => c.id === sourceId);
         if (!targetCitizen) {
@@ -186,7 +179,6 @@ export default function App() {
           notify("Ponction interdite.", "error");
           return;
         }
-        // Local officials can only act on citizens from their own country
         if (
           !["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role) &&
           targetCitizen.countryId !== session.countryId
@@ -198,11 +190,9 @@ export default function App() {
             notify("Ponction hors juridiction.", "error");
             return;
           }
-          // If target country allows external debits, allow the action to proceed
         }
       }
 
-      // If debiting a country treasury, check role and jurisdiction
       if (sourceCountryId) {
         if (
           ![
@@ -225,7 +215,6 @@ export default function App() {
         }
       }
 
-      // Freeze assets: citizens cannot initiate transfers if their country froze assets
       if (
         sourceId &&
         sourceId === session.id &&
@@ -248,7 +237,6 @@ export default function App() {
         }
       }
 
-      // Closed currency: recipient country refuses incoming funds from foreigners
       if (
         targetCountryId &&
         sourceCountryId &&
@@ -319,7 +307,6 @@ export default function App() {
         ...(s.globalLedger || []),
       ];
 
-      // Apply foreign transfer tax if target country levies it
       if (
         targetCountryId &&
         sourceCountryId &&
@@ -329,18 +316,13 @@ export default function App() {
         const tCountry = s.countries[tIdx];
         if (tCountry && tCountry.laws?.taxForeignTransfers) {
           const tax = Math.max(0, Math.round(amount * 0.1));
-          // If target is a citizen, subtract tax from their balance and add to country treasury
           if (targetId) {
             const tgtIdx = s.citizens.findIndex((c) => c.id === targetId);
             if (tgtIdx !== -1) {
               s.citizens[tgtIdx].balance -= tax;
             }
             s.countries[tIdx].treasury += tax;
-          } else {
-            // target is a country treasury; tax stays in treasury (no-op)
-            // For clarity we still note it
           }
-          // Add tax record to ledger
           s.globalLedger = [
             {
               id: Date.now() + 1,
@@ -372,7 +354,6 @@ export default function App() {
         seal: String(seal),
         censored: false,
       };
-      // Determine if any recipient country censors mail
       const allTargets = [targetId, ...(Array.isArray(ccList) ? ccList : [])];
       for (const tid of allTargets) {
         const tc = safeCitizens.find((c) => c.id === tid);
@@ -420,7 +401,6 @@ export default function App() {
         return;
       }
 
-      // Vérification : le pays de départ peut interdire les demandes de sortie
       const sourceCountry = state.countries.find(
         (c) => c.id === session.countryId
       );
@@ -457,7 +437,6 @@ export default function App() {
           notify("Fonds insuffisants pour les frais de visa.", "error");
           return;
         }
-        // Deduct fee and pay to target country's treasury
         const newCitizens = [...state.citizens];
         newCitizens[meIdx] = {
           ...newCitizens[meIdx],
@@ -516,7 +495,6 @@ export default function App() {
       const index = freshCitizens.findIndex((x) => x.id === formData.id);
       const existing = index !== -1 ? freshCitizens[index] : null;
 
-      // Sensitive keys that require jurisdiction checks
       const sensitiveKeys = [
         "ownerId",
         "status",
@@ -544,7 +522,7 @@ export default function App() {
 
       const canManageTarget = (target) => {
         if (!target) return false;
-        if (session.id === target.id) return true; // user can edit their own record
+        if (session.id === target.id) return true;
         if (isGlobalAdmin) return true;
         if (
           isLocalAdmin &&
@@ -569,11 +547,9 @@ export default function App() {
           return;
         }
 
-        // Enforce country laws for sensitive operations
         const targetCountry =
           state.countries.find((c) => c.id === existing.countryId) || null;
 
-        // Balance changes (confiscations)
         if (
           formData.balance !== undefined &&
           formData.balance !== existing.balance
@@ -583,7 +559,6 @@ export default function App() {
               notify("Confiscation interdite par la loi du pays.", "error");
               return;
             }
-            // If actor is from different country, check external debits law on target country
             if (
               existing.countryId &&
               session.countryId &&
@@ -600,7 +575,6 @@ export default function App() {
           }
         }
 
-        // Permissions changes
         if (
           formData.permissions !== undefined &&
           JSON.stringify(formData.permissions) !==
@@ -620,7 +594,6 @@ export default function App() {
           }
         }
 
-        // Sales (isForSale / salePrice)
         if (
           (formData.isForSale !== undefined &&
             formData.isForSale !== existing.isForSale) ||
@@ -653,7 +626,6 @@ export default function App() {
           }
         }
 
-        // Owner/status changes (ex: affranchir)
         if (
           (formData.ownerId !== undefined &&
             formData.ownerId !== existing.ownerId) ||
@@ -679,74 +651,182 @@ export default function App() {
       saveState({ ...state, citizens: freshCitizens });
       notify("Dossier mis à jour.", "success");
     },
-    onCreateDebt: (creditorId, amount, reason) => {
+
+    // --- NOUVEAU SYSTÈME DE DETTES (CONTRATS) ---
+    onProposeDebt: (debtorId, amount, interestRate, reason, dueDate) => {
       if (!session) return;
-      const newDebt = {
-        id: `debt-${Date.now()}`,
-        debtorId: session.id,
-        debtorName: session.name,
-        creditorId: creditorId,
-        creditorName:
-          state.citizens.find((c) => c.id === creditorId)?.name || "Inconnu",
-        amount: amount,
+      if (amount <= 0) {
+        notify("Montant invalide.", "error");
+        return;
+      }
+
+      const debtor = state.citizens.find((c) => c.id === debtorId);
+      if (!debtor) {
+        notify("Débiteur introuvable.", "error");
+        return;
+      }
+
+      const totalAmount = Math.floor(amount * (1 + interestRate / 100));
+
+      const newContract = {
+        id: `contract-${Date.now()}`,
+        creditorId: session.id,
+        creditorName: session.name,
+        debtorId: debtorId,
+        debtorName: debtor.name,
+        principal: parseInt(amount),
+        interestRate: parseInt(interestRate),
+        totalAmount: totalAmount,
         reason: reason,
-        status: "ACTIVE",
+        dueDate: dueDate || "Indéterminée",
+        status: "DRAFT", // DRAFT = En attente, ACTIVE = Validée, PAID = Payée
         timestamp: Date.now(),
+        signatureDate: null,
       };
+
       saveState({
         ...state,
-        debtRegistry: [newDebt, ...(state.debtRegistry || [])],
+        debtRegistry: [newContract, ...(state.debtRegistry || [])],
       });
-      notify("Dette enregistrée sous serment.", "success");
+      notify("Projet de contrat envoyé au débiteur pour signature.", "success");
     },
-    onPayDebt: (debtId) => {
-      const debt = state.debtRegistry.find((d) => d.id === debtId);
-      if (!debt || debt.status !== "ACTIVE") return;
-      const debtorIdx = state.citizens.findIndex((c) => c.id === debt.debtorId);
-      const creditorIdx = state.citizens.findIndex(
-        (c) => c.id === debt.creditorId
+
+    onSignDebt: (contractId) => {
+      if (!session) return;
+      const contract = (state.debtRegistry || []).find(
+        (c) => c.id === contractId
       );
-      if (debtorIdx === -1 || creditorIdx === -1) {
-        notify("Erreur: Partie introuvable.", "error");
+
+      if (!contract) return;
+      if (contract.debtorId !== session.id) {
+        notify(
+          "Vous ne pouvez pas signer un contrat qui ne vous concerne pas.",
+          "error"
+        );
         return;
       }
+      if (contract.status !== "DRAFT") {
+        notify("Ce contrat n'est plus en attente de signature.", "error");
+        return;
+      }
+
+      const creditorIdx = state.citizens.findIndex(
+        (c) => c.id === contract.creditorId
+      );
+      const debtorIdx = state.citizens.findIndex((c) => c.id === session.id);
+
+      if (creditorIdx === -1) {
+        notify("Créancier introuvable.", "error");
+        return;
+      }
+
+      // Vérif fonds
+      if (state.citizens[creditorIdx].balance < contract.principal) {
+        notify(
+          "Le créancier n'a pas les fonds promis. Signature impossible.",
+          "error"
+        );
+        return;
+      }
+
+      const newCitizens = [...state.citizens];
+      // Débit Créancier
+      newCitizens[creditorIdx] = {
+        ...newCitizens[creditorIdx],
+        balance: newCitizens[creditorIdx].balance - contract.principal,
+      };
+      // Crédit Débiteur
+      newCitizens[debtorIdx] = {
+        ...newCitizens[debtorIdx],
+        balance: newCitizens[debtorIdx].balance + contract.principal,
+      };
+
+      const newRegistry = state.debtRegistry.map((d) =>
+        d.id === contractId
+          ? { ...d, status: "ACTIVE", signatureDate: Date.now() }
+          : d
+      );
+
+      saveState({ ...state, citizens: newCitizens, debtRegistry: newRegistry });
+      notify("Contrat signé. Les fonds ont été transférés.", "success");
+    },
+
+    onPayDebt: (contractId) => {
+      const contract = state.debtRegistry.find((d) => d.id === contractId);
+      if (!contract || contract.status !== "ACTIVE") return;
+
+      const debtorIdx = state.citizens.findIndex(
+        (c) => c.id === contract.debtorId
+      );
+      const creditorIdx = state.citizens.findIndex(
+        (c) => c.id === contract.creditorId
+      );
+
+      if (debtorIdx === -1 || creditorIdx === -1) return;
+
       const debtor = state.citizens[debtorIdx];
-      if (debtor.balance < debt.amount) {
-        notify("Fonds insuffisants.", "error");
+      if (debtor.balance < contract.totalAmount) {
+        notify("Fonds insuffisants pour honorer cette créance.", "error");
         return;
       }
+
       const newCitizens = [...state.citizens];
       newCitizens[debtorIdx] = {
         ...debtor,
-        balance: debtor.balance - debt.amount,
+        balance: debtor.balance - contract.totalAmount,
       };
       newCitizens[creditorIdx] = {
         ...newCitizens[creditorIdx],
-        balance: newCitizens[creditorIdx].balance + debt.amount,
+        balance: newCitizens[creditorIdx].balance + contract.totalAmount,
       };
-      const newDebtRegistry = state.debtRegistry.map((d) =>
-        d.id === debtId ? { ...d, status: "PAID" } : d
+
+      const newRegistry = state.debtRegistry.map((d) =>
+        d.id === contractId ? { ...d, status: "PAID", paidDate: Date.now() } : d
       );
+
       saveState({
         ...state,
         citizens: newCitizens,
-        debtRegistry: newDebtRegistry,
+        debtRegistry: newRegistry,
       });
-      notify("Dette honorée.", "success");
+      notify("Dette honorée et archivée.", "success");
     },
-    onCancelDebt: (debtId) => {
-      const newDebtRegistry = state.debtRegistry.map((d) =>
-        d.id === debtId ? { ...d, status: "CANCELLED" } : d
+
+    onCancelDebt: (contractId) => {
+      const contract = state.debtRegistry.find((d) => d.id === contractId);
+      if (!contract) return;
+
+      const isCreditor = contract.creditorId === session.id;
+      const isDebtor = contract.debtorId === session.id;
+
+      if (contract.status === "ACTIVE" && !isCreditor) {
+        notify("Seul le créancier peut accorder une remise de dette.", "error");
+        return;
+      }
+
+      if (contract.status === "DRAFT" && !isCreditor && !isDebtor) {
+        notify("Action non autorisée.", "error");
+        return;
+      }
+
+      const newRegistry = state.debtRegistry.map((d) =>
+        d.id === contractId ? { ...d, status: "CANCELLED" } : d
       );
-      saveState({ ...state, debtRegistry: newDebtRegistry });
-      notify("Dette annulée.", "info");
+      saveState({ ...state, debtRegistry: newRegistry });
+      notify(
+        contract.status === "DRAFT"
+          ? "Proposition refusée."
+          : "Dette annulée (Cadeau).",
+        "info"
+      );
     },
+    // ---------------------------------------------
+
     onBuyItem: (itemId, qty) => {
       if (!session) return;
       const item = state.inventoryCatalog.find((i) => i.id === itemId);
       if (!item) return;
 
-      // Weapons prohibition based on country laws
       const myCountry = state.countries.find((c) => c.id === session.countryId);
       if (
         item.type === "Arme" &&
@@ -812,7 +892,6 @@ export default function App() {
       const target = state.citizens[tIdx];
       const targetInventory = [...(target.inventory || [])];
 
-      // Weapon transfer prohibition
       const itemDef = state.inventoryCatalog.find((i) => i.id === itemId);
       const targetCountry = state.countries.find(
         (c) => c.id === target.countryId
@@ -934,7 +1013,6 @@ export default function App() {
         return;
       }
       const newCitizens = [...state.citizens];
-      // Deduct price from slave (self)
       newCitizens[idx] = {
         ...slave,
         balance: slave.balance - price,
@@ -943,7 +1021,6 @@ export default function App() {
         isForSale: false,
         salePrice: 0,
       };
-      // Transfer funds to previous owner (if any)
       if (slave.ownerId) {
         const ownerIdx = newCitizens.findIndex((c) => c.id === slave.ownerId);
         if (ownerIdx !== -1) {
@@ -957,7 +1034,6 @@ export default function App() {
       saveState({ ...state, citizens: newCitizens });
       notify("Vous avez racheté votre liberté.", "success");
     },
-    // --- NOUVELLES ACTIONS MAISON DE ASIA ---
     onUpdateHouseRegistry: (newRegistry) => {
       saveState({ ...state, maisonRegistry: newRegistry });
       notify("Registre de la Maison mis à jour.", "success");
@@ -978,11 +1054,7 @@ export default function App() {
         ...client,
         balance: client.balance - price,
       };
-
-      // Ajouter les fonds au trésor ou à un compte spécifique (ici Trésor)
       const newTreasury = (state.treasury || 0) + price;
-
-      // Mettre à jour le statut dans le registre Maison (facultatif, si on veut bloquer)
       const newRegistry = (state.maisonRegistry || []).map((item) =>
         item.id === entryId ? { ...item, status: "Réservé" } : item
       );
@@ -1015,16 +1087,13 @@ export default function App() {
     if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
 
-    // --- CORRECTION DU CRASH ICI ---
-    // Vérification stricte que session existe avant de lire le role
     if (roleInfo.level >= 50 || (session && session.role === "TENANCIER")) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
     }
 
     return tabs;
-  }, [roleInfo, session]); // kept roleInfo and session as primary deps
+  }, [roleInfo, session]);
 
-  // --- RENDER ---
   if (session && isDead)
     return <DeathScreen onLogout={() => setSession(null)} />;
 
@@ -1045,14 +1114,11 @@ export default function App() {
             notify={notify}
           />
         ) : shouldShowCitizenView ? (
-          /* --- CITIZEN INTERFACE --- */
           <CitizenLayout
             user={currentUser}
             users={state.citizens || []}
-            // --- MAISON DE ASIA (DONNÉES) ---
             houseRegistry={state.maisonRegistry || []}
             onBookMaison={actions.onBookMaison}
-            // --------------------------------
             countries={state.countries || []}
             travelRequests={state.travelRequests || []}
             onRequestTravel={actions.onRequestTravel}
@@ -1066,9 +1132,12 @@ export default function App() {
             onSelfManumit={actions.onSelfManumit}
             onSend={actions.onSendPost}
             onTransfer={actions.onTransfer}
-            onCreateDebt={actions.onCreateDebt}
+            // --- PASSAGE DES NOUVELLES ACTIONS DE DETTE ---
+            onProposeDebt={actions.onProposeDebt}
+            onSignDebt={actions.onSignDebt}
             onPayDebt={actions.onPayDebt}
             onCancelDebt={actions.onCancelDebt}
+            // ---------------------------------------------
             onBuyItem={actions.onBuyItem}
             onGiveItem={actions.onGiveItem}
             notify={notify}
@@ -1076,7 +1145,6 @@ export default function App() {
             onSwitchBack={() => setIsViewingAsCitizen(false)}
           />
         ) : (
-          /* --- ADMIN DASHBOARD --- */
           <div className="flex h-screen overflow-hidden">
             <div
               className={`fixed inset-y-0 z-40 w-72 md:w-80 bg-stone-950 text-stone-200 flex flex-col border-r border-stone-800 transition-transform duration-300 shadow-2xl ${
@@ -1249,16 +1317,21 @@ export default function App() {
                     onUpdateRequests={(reqs) =>
                       saveState({ ...state, travelRequests: reqs })
                     }
-                    onUpdateCitizen={(id, newCountryId) => {
+                    onUpdateCitizen={(id, newCountryId, newRegion) => {
                       const newCitizens = state.citizens.map((c) =>
-                        c.id === id ? { ...c, countryId: newCountryId } : c
+                        c.id === id
+                          ? {
+                              ...c,
+                              countryId: newCountryId,
+                              currentPosition: newRegion || c.currentPosition, // Ajout validé
+                            }
+                          : c
                       );
                       saveState({ ...state, citizens: newCitizens });
                     }}
                   />
                 )}
 
-                {/* --- VUE ADMIN MAISON DE ASIA --- */}
                 {activeTab === "asia_admin" && (
                   <MaisonDeAsiaAdmin
                     citizens={state.citizens || []}
