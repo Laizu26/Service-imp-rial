@@ -8,6 +8,7 @@ import {
   BookOpen,
   Lock,
   ImageIcon,
+  MapPin,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -126,6 +127,9 @@ const RegistryView = ({
                 <div className="text-[10px] mt-1 tracking-[0.2em] font-bold font-mono opacity-60 font-sans">
                   {c.id} — {ROLES[c.role]?.label || c.role}
                 </div>
+                <div className="text-[11px] mt-1 text-stone-500 truncate">
+                  {c.currentPosition || "Aucune"}
+                </div>
               </div>
             </div>
           ))}
@@ -166,6 +170,12 @@ const RegistryView = ({
                   </h2>
                   <div className="text-[10px] uppercase font-black tracking-[0.3em] text-stone-400 mt-3 pl-1 font-sans font-sans">
                     Matricule: {(editForm || selected).id}
+                  </div>
+                  <div className="text-sm text-stone-600 mt-2 flex items-center gap-2">
+                    <MapPin size={14} />
+                    <div>
+                      {(editForm || selected).currentPosition || "Aucune"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -246,6 +256,23 @@ const RegistryView = ({
                         onChange={(e) =>
                           setEditForm({ ...editForm, name: e.target.value })
                         }
+                      />
+                    </div>
+
+                    <div className="col-span-1 md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Position actuelle
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                        value={editForm.currentPosition || ""}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            currentPosition: e.target.value,
+                          })
+                        }
+                        placeholder="Ex: Rue du Marché, Port..."
                       />
                     </div>
                     <div className="space-y-1">

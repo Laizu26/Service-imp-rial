@@ -2,7 +2,6 @@ import React, { useState, useMemo, useCallback } from "react";
 import {
   Shield,
   LogOut,
-  User,
   Crown,
   Globe,
   Scroll,
@@ -403,6 +402,36 @@ export default function App() {
       const targetCountry = state.countries.find((c) => c.id === toCountryId);
       if (targetCountry?.laws?.closeBorders) {
         notify("Demande rejetée : frontières hermétiques.", "error");
+        const newReq = {
+          id: `req_${Date.now()}`,
+          citizenId: session.id,
+          citizenName: session.name,
+          fromCountry: session.countryId,
+          toCountry: toCountryId,
+          toRegion: toRegion,
+          status: "REJECTED",
+          validations: { exit: false, entry: false },
+          timestamp: Date.now(),
+        };
+        saveState({
+          ...state,
+          travelRequests: [...(state.travelRequests || []), newReq],
+        });
+        return;
+      }
+
+      // Vérification : le pays de départ peut interdire les demandes de sortie
+      const sourceCountry = state.countries.find(
+        (c) => c.id === session.countryId
+      );
+      if (
+        sourceCountry?.laws?.forbidExit &&
+        !["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role)
+      ) {
+        notify(
+          "Demande rejetée : sorties interdites par la loi du pays de départ.",
+          "error"
+        );
         const newReq = {
           id: `req_${Date.now()}`,
           citizenId: session.id,
@@ -993,7 +1022,7 @@ export default function App() {
     }
 
     return tabs;
-  }, [roleInfo, isSlave, isRestricted, session]); // Dépendance sur 'session' objet entier
+  }, [roleInfo, session]); // kept roleInfo and session as primary deps
 
   // --- RENDER ---
   if (session && isDead)

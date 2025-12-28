@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Lock, Shield, LogOut, Box, Gift, Mail, Gem } from "lucide-react";
+import { User, Lock, Shield, LogOut, Mail, Gem } from "lucide-react";
 
 // UI Components
 import Card from "../ui/Card";

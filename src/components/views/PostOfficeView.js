@@ -15,6 +15,9 @@ const PostOfficeView = ({
   const relevantRequests = useMemo(() => {
     if (!travelRequests) return [];
     return travelRequests.filter((req) => {
+      // Hide already processed requests from the active queue
+      if (req.status === "APPROVED" || req.status === "REJECTED") return false;
+
       const isIntra = req.fromCountry === req.toCountry;
       const isDeparture = req.fromCountry === myCountryId;
       const isArrival = req.toCountry === myCountryId;
@@ -29,7 +32,7 @@ const PostOfficeView = ({
       if (isArrival && req.validations.exit && !req.validations.entry)
         return true;
 
-      if (session.role === "EMPEREUR") return true;
+      if (["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role)) return true;
 
       return false;
     });
@@ -53,14 +56,17 @@ const PostOfficeView = ({
         const fromCountry = countries.find((c) => c.id === req.fromCountry);
 
         // Vérification Loi : Interdiction de sortie
-        if (fromCountry?.laws?.forbidExit && session.role !== "EMPEREUR") {
+        if (
+          fromCountry?.laws?.forbidExit &&
+          !["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role)
+        ) {
           alert("Sortie interdite par la loi du pays de départ.");
           return;
         }
 
         // Vérification Droits : Pays de départ OU Empereur
         if (
-          session.role === "EMPEREUR" ||
+          ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role) ||
           session.countryId === req.fromCountry
         ) {
           updatedReq.validations.exit = true;
@@ -76,14 +82,17 @@ const PostOfficeView = ({
         const toCountry = countries.find((c) => c.id === req.toCountry);
 
         // Vérification Loi : Frontières fermées
-        if (toCountry?.laws?.closeBorders && session.role !== "EMPEREUR") {
+        if (
+          toCountry?.laws?.closeBorders &&
+          !["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role)
+        ) {
           alert("Entrée impossible : frontières hermétiques.");
           return;
         }
 
         // Vérification Droits : Pays d'arrivée OU Empereur
         if (
-          session.role === "EMPEREUR" ||
+          ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role) ||
           session.countryId === req.toCountry
         ) {
           updatedReq.validations.entry = true;
@@ -100,15 +109,13 @@ const PostOfficeView = ({
 
     // 2. Appliquer les changements
     if (moveCitizen) {
-      // Déplacer le citoyen + Supprimer la requête (ou la marquer archivée)
-      onUpdateCitizen(req.citizenId, req.toCountry);
-      // Optionnel : on peut garder la requête en statut APPROVED ou la supprimer.
-      // Ici, on la met à jour pour l'historique si on ne filtre pas les APPROVED,
-      // ou on la retire de la liste active.
-      // Pour l'instant, on met à jour la requête.
-
+      // Déplacer le citoyen + retirer la requête de la liste active
+      // On transmet aussi la position (région d'arrivée) pour mettre à jour currentPosition
+      if (typeof onUpdateCitizen === "function")
+        onUpdateCitizen(req.citizenId, req.toCountry, req.toRegion);
       const otherRequests = travelRequests.filter((r) => r.id !== req.id);
-      onUpdateRequests([...otherRequests, updatedReq]);
+      // On retire complètement la requête approuvée de la liste active
+      onUpdateRequests(otherRequests);
       alert("Visa accordé. Citoyen déplacé avec succès.");
     } else {
       // Juste mettre à jour la requête (ex: juste sortie validée)
@@ -162,6 +169,16 @@ const PostOfficeView = ({
                   De : {countries.find((c) => c.id === req.fromCountry)?.name}
                 </span>
               </div>
+
+              <div className="flex items-center gap-2">
+                <MapPin size={14} />{" "}
+                <span>
+                  Position actuelle :{" "}
+                  {citizens.find((c) => c.id === req.citizenId)
+                    ?.currentPosition || "Aucune"}
+                </span>
+              </div>
+
               <div className="flex items-center gap-2">
                 <ArrowRight size={14} />{" "}
                 <span>

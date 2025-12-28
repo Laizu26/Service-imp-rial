@@ -10,8 +10,6 @@ import {
   Users,
   Shield,
   Coins,
-  Hand,
-  Box,
   X,
   ShoppingCart,
   Eye,
@@ -108,11 +106,16 @@ const MarketTab = ({ users, currentUserId, onBuySlave }) => {
 const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
   const [selected, setSelected] = useState(null);
   const [price, setPrice] = useState("");
+  const [position, setPosition] = useState("");
+  const [editingPosition, setEditingPosition] = useState(false);
 
   const update = (s, data) => {
     const updated = { ...s, ...data };
     onUpdateCitizen(updated);
-    if (selected?.id === s.id) setSelected(updated);
+    if (selected?.id === s.id) {
+      setSelected(updated);
+      setPosition(updated.currentPosition || "");
+    }
   };
 
   const togglePerm = (perm) => {
@@ -138,6 +141,7 @@ const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
             onClick={() => {
               setSelected(s);
               setPrice(s.salePrice || "");
+              setPosition(s.currentPosition || "");
             }}
             className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
               selected?.id === s.id
@@ -187,6 +191,7 @@ const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
                       isForSale: false,
                     });
                     setSelected(null);
+                    setPosition("");
                     notify("Sujet affranchi.", "success");
                   }
                 }}
@@ -194,6 +199,55 @@ const MySlavesTab = ({ mySlaves, onUpdateCitizen, notify, catalog }) => {
               >
                 <Unlock size={12} /> Affranchir
               </button>
+            </div>
+
+            {/* POSITION */}
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-100">
+              <h4 className="text-[10px] font-black uppercase text-stone-400 mb-3 flex items-center gap-2">
+                <MapPin size={12} /> Position actuelle
+              </h4>
+              {!editingPosition ? (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-stone-700">
+                    {selected.currentPosition || "Aucune"}
+                  </div>
+                  <button
+                    onClick={() => setEditingPosition(true)}
+                    className="px-3 py-1 bg-white border border-stone-200 rounded text-xs"
+                  >
+                    Éditer
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    className="flex-1 p-2 text-sm border rounded"
+                    placeholder="Ex: Rue du Marché, Rivière..."
+                  />
+                  <button
+                    onClick={() => {
+                      update(selected, { currentPosition: position || "" });
+                      setEditingPosition(false);
+                      notify("Position mise à jour.", "success");
+                    }}
+                    className="bg-stone-800 text-white px-4 text-xs font-bold uppercase rounded"
+                  >
+                    Sauvegarder
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPosition(selected.currentPosition || "");
+                      setEditingPosition(false);
+                    }}
+                    className="px-3 bg-white border border-stone-300 rounded"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* PERMISSIONS */}
@@ -471,6 +525,10 @@ export default function CitizenLayout({
                   {user.status}
                 </span>
                 <span>• {user.age || 25} Ans</span>
+              </div>
+              <div className="text-sm text-stone-600 mt-2 flex items-center gap-2">
+                <MapPin size={14} />
+                <div>{user.currentPosition || "Aucune"}</div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
