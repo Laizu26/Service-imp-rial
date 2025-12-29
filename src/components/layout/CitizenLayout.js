@@ -15,18 +15,18 @@ import {
   Mail,
   Map,
   Gavel,
+  Briefcase, // <-- AJOUT ICÔNE
 } from "lucide-react";
 
-// UI Components
 import Card from "../ui/Card";
 
-// Views
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";
 import CitizenBankView from "../views/CitizenBankView";
 import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
+import MyCompanyView from "../views/MyCompanyView"; // <-- IMPORT NOUVELLE VUE CITOYEN
 
 const CitizenLayout = (props) => {
   const [active, setActive] = useState("gazette");
@@ -66,6 +66,7 @@ const CitizenLayout = (props) => {
     onSwitchAccount,
     onAddAccount,
     onLogoutAccount,
+    companies = [], // <-- RÉCUPÉRATION PROPS
   } = props;
 
   const isSlave = user.status === "Esclave";
@@ -91,10 +92,10 @@ const CitizenLayout = (props) => {
     (r) => r.citizenId === user.id && r.status === "PENDING"
   );
 
-  // --- CONFIGURATION DU MENU (Génère Sidebar PC + Tabs Mobile) ---
   const menuItems = [
     { id: "gazette", label: "Gazette", icon: Scroll },
     { id: "profil", label: "Mon Registre", icon: User },
+    { id: "my_company", label: "Mon Entreprise", icon: Briefcase }, // <-- AJOUT MENU
     { id: "inventory", label: "Inventaire", icon: Box },
     canUseBank && { id: "bank", label: "Banque", icon: Landmark },
     !isBanned &&
@@ -112,9 +113,8 @@ const CitizenLayout = (props) => {
         isSlave ? "bg-stone-950" : "bg-stone-950"
       }`}
     >
-      {/* --- SIDEBAR GAUCHE (VISIBLE SUR PC UNIQUEMENT) --- */}
+      {/* SIDEBAR PC */}
       <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative">
-        {/* Identité Sidebar */}
         <div className="p-8 pb-4 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
           <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 border-yellow-600/30 mb-4 shadow-[0_0_15px_rgba(202,138,4,0.1)] overflow-hidden">
             {user?.avatarUrl ? (
@@ -140,7 +140,6 @@ const CitizenLayout = (props) => {
           )}
         </div>
 
-        {/* Menu Vertical */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
           {menuItems.map((item) => (
             <button
@@ -167,7 +166,6 @@ const CitizenLayout = (props) => {
           ))}
         </nav>
 
-        {/* Footer Sidebar */}
         <div className="p-4 border-t border-stone-800 text-center opacity-30">
           <Shield className="mx-auto mb-2 text-stone-600" size={24} />
           <div className="text-[9px] uppercase tracking-[0.2em] font-black">
@@ -176,11 +174,9 @@ const CitizenLayout = (props) => {
         </div>
       </aside>
 
-      {/* --- CONTENU PRINCIPAL (DROITE) --- */}
+      {/* CONTENU DROITE */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#e6e2d6]/5 relative">
-        {/* HEADER (Commun PC / Mobile) */}
         <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
-          {/* Identité Mobile (Caché sur PC car déjà dans la Sidebar) */}
           <div className="flex items-center gap-3 md:invisible">
             <div className="w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative shrink-0">
               {user?.avatarUrl ? (
@@ -205,12 +201,9 @@ const CitizenLayout = (props) => {
             </div>
           </div>
 
-          {/* Espaceur PC */}
           <div className="hidden md:block"></div>
 
-          {/* Actions Droite (Comptes, Admin, Sortir) */}
           <div className="flex gap-3 items-center font-sans">
-            {/* BOUTON COMPTES */}
             <div className="relative">
               <button
                 className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg transition-all border shadow-lg ${
@@ -351,9 +344,7 @@ const CitizenLayout = (props) => {
           </div>
         )}
 
-        {/* MAIN SCROLLABLE */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
-          {/* NAVIGATION MOBILE (TABS) - CACHÉE SUR PC */}
           <div className="md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x">
             {menuItems.map((item) => (
               <button
@@ -370,7 +361,6 @@ const CitizenLayout = (props) => {
             ))}
           </div>
 
-          {/* ZONE DE CONTENU (Centrée sur PC) */}
           <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {active === "gazette" && <GazetteView gazette={gazette} />}
 
@@ -400,6 +390,10 @@ const CitizenLayout = (props) => {
                 onGiveItem={onGiveItem}
                 onBuySlave={onBuySlave}
               />
+            )}
+
+            {active === "my_company" && (
+              <MyCompanyView user={user} companies={companies} />
             )}
 
             {active === "msg" && !isBanned && canUsePost && (

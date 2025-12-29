@@ -8,7 +8,6 @@ export const useGameActions = (session, state, saveState, notify) => {
         let ns = JSON.parse(JSON.stringify(state));
         if (!ns.gameDate) ns.gameDate = { day: 1, month: 1, year: 1200 };
 
-        // Avance le temps
         ns.gameDate.day++;
         if (ns.gameDate.day > 30) {
           ns.gameDate.day = 1;
@@ -28,23 +27,14 @@ export const useGameActions = (session, state, saveState, notify) => {
         else if (m >= 9 && m <= 11) season = "Automne";
 
         saveState(ns);
-
-        // Notification enrichie
         notify(
-          `Jour suivant : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
+          `Un nouveau jour se lève : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
           "info"
         );
       },
-
-      // MODIFICATION : Accepte un montant direct et log l'action
       onAddTreasury: (amount) => {
-        if (!session) return;
         const val = parseInt(amount);
         if (val && !isNaN(val) && val > 0) {
-          // 1. Mise à jour du trésor
-          const newTreasury = (state.treasury || 0) + val;
-
-          // 2. Ajout d'une ligne dans le Grand Livre (Transparence)
           const newEntry = {
             id: Date.now(),
             fromName: "Hôtel des Monnaies",
@@ -53,22 +43,43 @@ export const useGameActions = (session, state, saveState, notify) => {
             timestamp: Date.now(),
             reason: "Frappe de monnaie (Création)",
           };
-
           saveState({
             ...state,
-            treasury: newTreasury,
+            treasury: (state.treasury || 0) + val,
             globalLedger: [newEntry, ...(state.globalLedger || [])],
           });
-
-          notify(
-            `${val.toLocaleString()} Écus ont été frappés et ajoutés au trésor.`,
-            "success"
-          );
+          notify(`${val.toLocaleString()} Écus ont été frappés.`, "success");
         } else {
-          notify("Montant invalide pour la frappe de monnaie.", "error");
+          notify("Montant invalide.", "error");
         }
       },
+      // --- NOUVELLE ACTION : CRÉATION D'ENTREPRISE ---
+      onCreateCompany: (name, type, ownerId, countryId, startingBalance) => {
+        if (!name || !type || !ownerId) {
+          notify("Données d'entreprise incomplètes.", "error");
+          return;
+        }
 
+        const newCompany = {
+          id: `comp_${Date.now()}`,
+          name: name,
+          type: type, // "MANUFACTURE", "EXTRACTION", "SERVICE"
+          ownerId: ownerId,
+          countryId: countryId || "NONE",
+          level: 1,
+          balance: parseInt(startingBalance) || 0,
+          employees: [],
+          inventory: [],
+          createdAt: Date.now(),
+        };
+
+        saveState({
+          ...state,
+          companies: [newCompany, ...(state.companies || [])],
+        });
+        notify(`L'entreprise "${name}" a été enregistrée.`, "success");
+      },
+      // -----------------------------------------------
       onTransfer: (srcRaw, tgtRaw, amount) => {
         if (!session) return;
 
@@ -993,12 +1004,64 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
+        const registryItem = (state.maisonRegistry || []).find(
+          (i) => i.id === entryId
+        );
+        if (!registryItem || !registryItem.citizenId) {
+          notify("Impossible d'identifier la citoyenne.", "error");
+          return;
+        }
+
+        const girlIdx = state.citizens.findIndex(
+          (c) => c.id === registryItem.citizenId
+        );
+        if (girlIdx === -1) {
+          notify("Citoyenne introuvable dans les registres.", "error");
+          return;
+        }
+
+        const girl = state.citizens[girlIdx];
         const newCitizens = [...state.citizens];
+
+        // 1. Débit Client
         newCitizens[clientIdx] = {
           ...client,
           balance: client.balance - price,
         };
-        const newTreasury = (state.treasury || 0) + price;
+
+        // 2. Part de la Fille (5 écus, ou tout si < 5)
+        const girlShare = Math.min(price, 5);
+        newCitizens[girlIdx] = {
+          ...girl,
+          balance: (girl.balance || 0) + girlShare,
+        };
+
+        const remainingShare = price - girlShare;
+        let newTreasury = state.treasury || 0;
+
+        // 3. Part du Propriétaire (si esclave) ou Trésor
+        if (remainingShare > 0) {
+          if (girl.ownerId) {
+            // Elle est esclave : le reste va au maitre
+            const ownerIdx = newCitizens.findIndex(
+              (c) => c.id === girl.ownerId
+            );
+            if (ownerIdx !== -1) {
+              const owner = newCitizens[ownerIdx];
+              newCitizens[ownerIdx] = {
+                ...owner,
+                balance: (owner.balance || 0) + remainingShare,
+              };
+            } else {
+              // Maitre introuvable (bug?), ça part au trésor
+              newTreasury += remainingShare;
+            }
+          } else {
+            // Elle est libre : le reste va au trésor (taxe maison)
+            newTreasury += remainingShare;
+          }
+        }
+
         const newRegistry = (state.maisonRegistry || []).map((item) =>
           item.id === entryId ? { ...item, status: "Réservé" } : item
         );

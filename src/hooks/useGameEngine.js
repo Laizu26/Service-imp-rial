@@ -1,79 +1,105 @@
-import { useState, useEffect, useCallback } from "react";
-import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { useState, useEffect } from "react";
 import { db } from "../lib/firebase";
-import { SYSTEM_CONFIG, DEFAULT_GAME_STATE } from "../lib/constants";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
 
-export const useGameEngine = (firebaseUser, notify) => {
-  const [state, setState] = useState(DEFAULT_GAME_STATE);
-  const [syncStatus, setSyncStatus] = useState("idle");
-  const [connection, setConnection] = useState("connecting");
+// État initial par défaut
+const initialState = {
+  dayCycle: 1,
+  gameDate: { day: 1, month: 1, year: 1200 },
+  treasury: 50000,
+  citizens: [],
+  countries: [],
+  inventoryCatalog: [],
+  globalLedger: [],
+  travelRequests: [],
+  maisonRegistry: [],
+  debtRegistry: [],
+  gazette: [],
+  companies: [], // <--- NOUVEAU : Liste des entreprises
+};
+
+export const useGameEngine = (user, notify) => {
+  const [state, setState] = useState(initialState);
+  const [syncStatus, setSyncStatus] = useState("syncing");
+  const [connection, setConnection] = useState("disconnected");
   const [dbError, setDbError] = useState(null);
 
   useEffect(() => {
-    if (!firebaseUser || !db) return;
-    const docRef = doc(db, ...SYSTEM_CONFIG.dbPath);
+    // Mode déconnecté ou test sans Firebase
+    if (!user) {
+      const local = localStorage.getItem("service_imperial_state");
+      if (local) {
+        try {
+          setState({ ...initialState, ...JSON.parse(local) });
+        } catch (e) {
+          console.error("Erreur lecture sauvegarde locale", e);
+        }
+      }
+      setSyncStatus("local");
+      setConnection("connected");
+      return;
+    }
 
+    // Connexion Firebase
+    setConnection("connecting");
     const unsub = onSnapshot(
-      docRef,
-      (s) => {
+      doc(db, "game", "global_state"),
+      (docSnap) => {
         setConnection("connected");
-        if (s.exists()) {
-          const d = s.data();
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Fusion intelligente pour ne pas perdre les champs manquants
           setState((prev) => ({
-            ...DEFAULT_GAME_STATE,
-            ...d,
-            countries: d.countries || [],
-            citizens: d.citizens || [],
-            inventoryCatalog: d.inventoryCatalog || [],
-            globalLedger: d.globalLedger || [],
-            travelRequests: d.travelRequests || [],
-            debtRegistry: d.debtRegistry || [],
+            ...initialState, // Valeurs par défaut pour les nouveaux champs (ex: companies)
+            ...prev,
+            ...data,
           }));
-          setDbError(null); // Correction: Placé À L'INTÉRIEUR du if
+          setSyncStatus("idle");
         } else {
-          setDbError(null);
+          // Première init si la DB est vide
+          setSyncStatus("no-data");
         }
       },
       (err) => {
-        setConnection("offline");
-        setSyncStatus("error");
+        console.error("Erreur DB:", err);
         setDbError(err.message);
+        setConnection("error");
       }
     );
+
     return () => unsub();
-  }, [firebaseUser]);
+  }, [user]);
 
-  const saveState = useCallback(
-    async (newState) => {
-      setState(newState); // Optimistic UI update
+  const saveState = async (newState) => {
+    // Optimistic UI update
+    setState(newState);
 
-      if (connection === "connected" && db) {
-        setSyncStatus("saving");
-        try {
-          await setDoc(
-            doc(db, ...SYSTEM_CONFIG.dbPath),
-            { ...newState, lastUpdate: serverTimestamp() },
-            { merge: true }
-          );
-          setSyncStatus("saved");
-          setTimeout(() => setSyncStatus("idle"), 2000);
-        } catch (e) {
-          setSyncStatus("error");
-          setDbError(e.message);
-          notify("Erreur d'archivage.", "error");
-        }
-      } else {
-        setSyncStatus("error");
-        notify("Mode Hors-Ligne.", "error");
-      }
-    },
-    [connection, notify]
-  );
+    // Sauvegarde Locale (Backup)
+    localStorage.setItem("service_imperial_state", JSON.stringify(newState));
 
-  const forceInit = async () => {
-    if (!db) return;
-    await saveState(DEFAULT_GAME_STATE);
-    notify("Reset système effectué.", "success");
+    if (!user) return; // Pas de save DB si pas connecté
+
+    setSyncStatus("saving");
+    try {
+      await setDoc(doc(db, "game", "global_state"), newState);
+      setSyncStatus("saved");
+      setTimeout(() => setSyncStatus("idle"), 2000);
+    } catch (e) {
+      console.error("Erreur sauvegarde:", e);
+      setSyncStatus("error");
+      notify("Erreur de synchronisation avec le serveur.", "error");
+    }
+  };
+
+  const forceInit = () => {
+    if (
+      window.confirm(
+        "ATTENTION: Cela va écraser toute la base de données. Continuer ?"
+      )
+    ) {
+      saveState(initialState);
+      notify("Monde réinitialisé.", "success");
+    }
   };
 
   return { state, saveState, syncStatus, connection, dbError, forceInit };
