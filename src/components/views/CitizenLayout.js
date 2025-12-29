@@ -11,7 +11,11 @@ import {
   ChevronDown,
   Trash2,
 } from "lucide-react";
+
+// UI Components
 import Card from "../ui/Card";
+
+// Views
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";
@@ -36,7 +40,7 @@ const CitizenLayout = (props) => {
     onSend,
     onRequestTravel,
     onTransfer,
-    onProposeDebt,
+    onProposeDebt, // Assurez-vous que ces props sont bien passées depuis App.js
     onSignDebt,
     onCreateDebt,
     onPayDebt,
@@ -53,6 +57,7 @@ const CitizenLayout = (props) => {
     onBookMaison,
     isBanned,
     isPrisoner,
+    // Props multi-comptes
     connectedAccounts = [],
     onSwitchAccount,
     onAddAccount,
@@ -63,21 +68,24 @@ const CitizenLayout = (props) => {
   const owner =
     isSlave && user.ownerId ? users.find((u) => u.id === user.ownerId) : null;
   const permissions = user.permissions || {};
+
   const canUsePost = !isSlave || permissions.post;
   const canUseBank = !isSlave || permissions.bank;
   const canUseTravel = !isSlave || permissions.travel;
   const mySlaves = users.filter((u) => u.ownerId === user.id);
-  const safeCountries = Array.isArray(countries) ? countries : [];
-  const myPendingRequests = (travelRequests || []).filter(
-    (r) => r.citizenId === user.id && r.status === "PENDING"
-  );
 
   const [editOccupation, setEditOccupation] = useState(user?.occupation || "");
   const [editBio, setEditBio] = useState(user?.bio || "");
   const [editAvatar, setEditAvatar] = useState(user?.avatarUrl || "");
   const [np, setNp] = useState("");
+
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
+
+  const safeCountries = Array.isArray(countries) ? countries : [];
+  const myPendingRequests = (travelRequests || []).filter(
+    (r) => r.citizenId === user.id && r.status === "PENDING"
+  );
 
   return (
     <div
@@ -85,9 +93,11 @@ const CitizenLayout = (props) => {
         isSlave ? "bg-stone-950 border-8 border-stone-800" : "bg-stone-950"
       }`}
     >
+      {/* HEADER */}
       <header className="h-16 bg-stone-900 border-b border-stone-800 flex items-center justify-between px-4 md:px-6 shadow-xl sticky top-0 z-50">
+        {/* Identité (Gauche) */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative">
+          <div className="w-10 h-10 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative shrink-0">
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -118,8 +128,9 @@ const CitizenLayout = (props) => {
           </div>
         </div>
 
+        {/* Actions (Droite) */}
         <div className="flex gap-4 items-center font-sans">
-          {/* BOUTON COMPTES (A GAUCHE DE ADMIN/SORTIR) */}
+          {/* --- C'EST ICI QUE LE BOUTON MANQUAIT --- */}
           <div className="relative">
             <button
               className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border px-3 py-1.5 rounded transition-all ${
@@ -130,7 +141,7 @@ const CitizenLayout = (props) => {
               onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
             >
               <Users size={14} />
-              <span className="inline">
+              <span className="hidden md:inline">
                 Comptes ({connectedAccounts.length})
               </span>
               <ChevronDown size={12} />
@@ -142,70 +153,82 @@ const CitizenLayout = (props) => {
                   className="fixed inset-0 z-40"
                   onClick={() => setIsAccountMenuOpen(false)}
                 ></div>
+
                 <div className="absolute right-0 top-full mt-2 w-64 bg-stone-900 border border-stone-700 rounded-lg shadow-2xl overflow-hidden z-50">
                   <div className="py-2 px-4 text-[9px] uppercase font-black text-stone-500 border-b border-stone-800">
                     Changer d'identité
                   </div>
+
                   <div className="max-h-60 overflow-y-auto">
-                    {connectedAccounts.map((acc) => (
-                      <div
-                        key={acc.id}
-                        className="flex items-center group hover:bg-stone-800 transition-colors border-b border-stone-800/50 last:border-0"
-                      >
-                        <button
-                          onClick={() => {
-                            onSwitchAccount(acc.id);
-                            setIsAccountMenuOpen(false);
-                          }}
-                          className="flex-1 text-left px-4 py-3 flex items-center gap-3"
+                    {connectedAccounts.length > 0 ? (
+                      connectedAccounts.map((acc) => (
+                        <div
+                          key={acc.id}
+                          className="flex items-center group hover:bg-stone-800 transition-colors border-b border-stone-800/50 last:border-0"
                         >
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border-2 shrink-0 ${
-                              acc.id === user.id
-                                ? "border-yellow-500"
-                                : "border-stone-600"
-                            }`}
+                          <button
+                            onClick={() => {
+                              if (onSwitchAccount) onSwitchAccount(acc.id);
+                              setIsAccountMenuOpen(false);
+                            }}
+                            className="flex-1 text-left px-4 py-3 flex items-center gap-3"
                           >
-                            {acc.avatarUrl ? (
-                              <img
-                                src={acc.avatarUrl}
-                                className="w-full h-full object-cover"
-                                alt=""
-                              />
-                            ) : (
-                              <User size={14} className="text-stone-400" />
-                            )}
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span
-                              className={`text-xs font-bold truncate ${
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center overflow-hidden border-2 shrink-0 ${
                                 acc.id === user.id
-                                  ? "text-yellow-500"
-                                  : "text-stone-200"
+                                  ? "border-yellow-500"
+                                  : "border-stone-600"
                               }`}
                             >
-                              {acc.name}
-                            </span>
-                            <span className="text-[9px] text-stone-500 font-mono">
-                              {acc.role}
-                            </span>
-                          </div>
-                        </button>
-                        {acc.id !== user.id && (
-                          <button
-                            onClick={() => onLogoutAccount(acc.id)}
-                            className="p-3 text-stone-600 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={14} />
+                              {acc.avatarUrl ? (
+                                <img
+                                  src={acc.avatarUrl}
+                                  className="w-full h-full object-cover"
+                                  alt=""
+                                />
+                              ) : (
+                                <User size={14} className="text-stone-400" />
+                              )}
+                            </div>
+                            <div className="flex flex-col overflow-hidden">
+                              <span
+                                className={`text-xs font-bold truncate ${
+                                  acc.id === user.id
+                                    ? "text-yellow-500"
+                                    : "text-stone-200"
+                                }`}
+                              >
+                                {acc.name}
+                              </span>
+                              <span className="text-[9px] text-stone-500 font-mono">
+                                {acc.role}
+                              </span>
+                            </div>
                           </button>
-                        )}
+                          {acc.id !== user.id && (
+                            <button
+                              onClick={() => {
+                                if (onLogoutAccount) onLogoutAccount(acc.id);
+                              }}
+                              className="p-3 text-stone-600 hover:text-red-500 transition-colors"
+                              title="Oublier"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-xs text-stone-500 italic text-center">
+                        Aucun autre compte mémorisé
                       </div>
-                    ))}
+                    )}
                   </div>
+
                   <button
                     onClick={() => {
                       setIsAccountMenuOpen(false);
-                      onAddAccount();
+                      if (onAddAccount) onAddAccount();
                     }}
                     className="w-full text-left px-4 py-3 text-xs font-bold uppercase text-green-500 hover:bg-stone-800 flex items-center gap-2 border-t border-stone-700 transition-colors"
                   >
@@ -215,6 +238,7 @@ const CitizenLayout = (props) => {
               </>
             )}
           </div>
+          {/* -------------------------------------- */}
 
           {isGraded && (
             <button
@@ -222,15 +246,15 @@ const CitizenLayout = (props) => {
               className="bg-yellow-600 hover:bg-yellow-500 text-stone-950 px-3 md:px-4 py-1.5 rounded-lg font-black uppercase text-[9px] tracking-widest shadow-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap"
             >
               <Shield size={14} />{" "}
-              <span className="hidden md:inline">Admin</span>
+              <span className="hidden md:inline">Retour Admin</span>
             </button>
           )}
           <button
             onClick={onLogout}
-            className="text-stone-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-transparent hover:border-red-900/30 px-2 py-1.5 rounded"
-            title="Déconnexion"
+            className="text-stone-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
           >
-            <LogOut size={16} />
+            <LogOut size={16} />{" "}
+            <span className="hidden md:inline">Sortir</span>
           </button>
         </div>
       </header>
@@ -243,6 +267,7 @@ const CitizenLayout = (props) => {
       )}
 
       <main className="flex-1 p-4 md:p-6 overflow-y-auto max-w-5xl mx-auto w-full font-sans pb-20 md:pb-10">
+        {/* Navigation Tabs */}
         <div className="flex mb-8 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide">
           {[
             { id: "gazette", label: "Gazette", icon: null },
@@ -282,8 +307,10 @@ const CitizenLayout = (props) => {
             ))}
         </div>
 
+        {/* VUES */}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {active === "gazette" && <GazetteView gazette={gazette} />}
+
           {active === "bank" && (
             <CitizenBankView
               user={user}
@@ -300,6 +327,7 @@ const CitizenLayout = (props) => {
               isBanned={isBanned}
             />
           )}
+
           {active === "inventory" && (
             <CitizenInventoryView
               user={user}
@@ -310,6 +338,7 @@ const CitizenLayout = (props) => {
               onBuySlave={onBuySlave}
             />
           )}
+
           {active === "msg" && !isBanned && canUsePost && (
             <PostView
               users={users}
@@ -319,12 +348,14 @@ const CitizenLayout = (props) => {
               notify={notify}
             />
           )}
+
           {active === "travel" && !isBanned && !isPrisoner && canUseTravel && (
             <div className="bg-[#fdf6e3] text-stone-900 p-6 md:p-8 rounded-2xl shadow-2xl border border-stone-300 space-y-6 max-w-2xl mx-auto relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-stone-400 to-stone-600"></div>
               <h3 className="text-2xl font-black uppercase tracking-tight text-stone-800 mb-4 font-serif">
                 Laissez-passer Impérial
               </h3>
+
               {myPendingRequests.length > 0 ? (
                 <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 text-sm shadow-inner">
                   <div className="font-bold text-yellow-800 mb-2 flex items-center gap-2 text-lg">
@@ -411,6 +442,7 @@ const CitizenLayout = (props) => {
               )}
             </div>
           )}
+
           {active === "asia" && (
             <MaisonDeAsiaCitizen
               citizens={users}
@@ -432,6 +464,7 @@ const CitizenLayout = (props) => {
               countries={countries}
             />
           )}
+
           {active === "profil" && (
             <div className="bg-[#fdf6e3] text-stone-900 rounded-2xl shadow-2xl border border-stone-300 overflow-hidden max-w-3xl mx-auto">
               <div className="bg-stone-100 p-6 border-b border-stone-200 flex justify-between items-center">
@@ -485,6 +518,7 @@ const CitizenLayout = (props) => {
                     />
                   </div>
                 </div>
+
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
                     Biographie
@@ -495,6 +529,7 @@ const CitizenLayout = (props) => {
                     onChange={(e) => setEditBio(e.target.value)}
                   />
                 </div>
+
                 <div className="pt-6 border-t border-stone-200 flex justify-end">
                   <button
                     onClick={() => {
