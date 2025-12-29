@@ -18,7 +18,7 @@ import {
 // Hooks & Lib
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
-import { useGameActions } from "./hooks/useGameActions"; // <--- IMPORT DU NOUVEAU HOOK
+import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
 
 // UI Components
@@ -47,12 +47,22 @@ export default function App() {
     setTimeout(() => setToast({ msg: null, type: "info" }), 3000);
   }, []);
 
-  const { firebaseUser, session, setSession, authLoading, loginGame } =
-    useAuth(notify);
+  const {
+    firebaseUser,
+    session,
+    setSession,
+    authLoading,
+    loginGame,
+    // --- MULTI-COMPTES (Récupération depuis useAuth) ---
+    connectedAccounts,
+    switchAccount,
+    addAccount,
+    logoutAccount,
+  } = useAuth(notify);
+
   const { state, saveState, syncStatus, connection, dbError, forceInit } =
     useGameEngine(firebaseUser, notify);
 
-  // --- UTILISATION DU HOOK D'ACTIONS ---
   const actions = useGameActions(session, state, saveState, notify);
 
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -133,7 +143,7 @@ export default function App() {
   }, [roleInfo, session]);
 
   if (session && isDead)
-    return <DeathScreen onLogout={() => setSession(null)} />;
+    return <DeathScreen onLogout={() => logoutAccount(session.id)} />;
 
   return (
     <ErrorBoundary>
@@ -164,18 +174,24 @@ export default function App() {
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}
             gazette={state.gazette || []}
-            onLogout={() => setSession(null)}
+            // --- GESTION MULTI-COMPTES ---
+            connectedAccounts={connectedAccounts}
+            onSwitchAccount={switchAccount}
+            onAddAccount={addAccount}
+            onLogoutAccount={logoutAccount}
+            // Utilisation de logoutAccount pour la déconnexion complète
+            onLogout={() => logoutAccount(null)}
+            // ----------------------------
+
             onUpdateUser={actions.onUpdateCitizen}
             onBuySlave={actions.onBuySlave}
             onSelfManumit={actions.onSelfManumit}
             onSend={actions.onSendPost}
             onTransfer={actions.onTransfer}
-            // --- PASSAGE DES ACTIONS VIA LE HOOK ---
             onProposeDebt={actions.onProposeDebt}
             onSignDebt={actions.onSignDebt}
             onPayDebt={actions.onPayDebt}
             onCancelDebt={actions.onCancelDebt}
-            // ---------------------------------------
             onBuyItem={actions.onBuyItem}
             onGiveItem={actions.onGiveItem}
             notify={notify}
@@ -238,7 +254,7 @@ export default function App() {
                   </button>
                 )}
                 <button
-                  onClick={() => setSession(null)}
+                  onClick={() => logoutAccount(null)}
                   className="w-full p-3 text-xs font-black uppercase text-stone-500 hover:text-red-400 flex items-center gap-3 justify-center transition-all hover:bg-red-500/5 tracking-widest"
                 >
                   <LogOut size={16} /> Déconnexion
@@ -344,7 +360,7 @@ export default function App() {
                     citizens={state.citizens}
                     session={session}
                     roleInfo={roleInfo}
-                    onUpdateCitizen={actions.onUpdateCitizen} // --- MODIFICATION ICI ---
+                    onUpdateCitizen={actions.onUpdateCitizen}
                   />
                 )}
                 {activeTab === "postoffice" && (
@@ -353,9 +369,31 @@ export default function App() {
                     countries={state.countries}
                     citizens={state.citizens}
                     session={session}
+                    notify={notify}
                     onUpdateRequests={(reqs) =>
                       saveState({ ...state, travelRequests: reqs })
                     }
+                    onVisaGranted={(
+                      citizenId,
+                      countryId,
+                      region,
+                      updatedRequests
+                    ) => {
+                      const newCitizens = state.citizens.map((c) =>
+                        c.id === citizenId
+                          ? {
+                              ...c,
+                              countryId: countryId,
+                              currentPosition: region || c.currentPosition,
+                            }
+                          : c
+                      );
+                      saveState({
+                        ...state,
+                        citizens: newCitizens,
+                        travelRequests: updatedRequests,
+                      });
+                    }}
                     onUpdateCitizen={(id, newCountryId, newRegion) => {
                       const newCitizens = state.citizens.map((c) =>
                         c.id === id

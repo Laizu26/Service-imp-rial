@@ -7,15 +7,17 @@ import {
 import { auth } from "../lib/firebase";
 
 export const useAuth = (notify) => {
-  const [user, setUser] = useState(null); // Utilisateur Firebase
-  const [session, setSession] = useState(null); // Session "Jeu" (Role, ID, etc)
+  const [user, setUser] = useState(null); // Firebase User
+  const [session, setSession] = useState(null); // Active Game Session (Current Character)
   const [loading, setLoading] = useState(true);
+
+  // NOUVEAU : Liste des comptes connectés en simultané
+  const [connectedAccounts, setConnectedAccounts] = useState([]);
 
   useEffect(() => {
     if (!auth) return;
 
     const initAuth = async () => {
-      // Vérification s'il y a un token global (cas rare, mais présent dans ton code original)
       if (
         typeof window.__initial_auth_token !== "undefined" &&
         window.__initial_auth_token
@@ -47,6 +49,7 @@ export const useAuth = (notify) => {
     return () => unsubscribe();
   }, []);
 
+  // Fonction de connexion (Mise à jour pour gérer le multi-compte)
   const loginGame = (credentials, usersList) => {
     const safeUsers = Array.isArray(usersList) ? usersList : [];
     const found = safeUsers.find(
@@ -58,10 +61,46 @@ export const useAuth = (notify) => {
 
     if (found) {
       setSession(found);
+      // On l'ajoute à la liste des comptes connectés s'il n'y est pas déjà
+      setConnectedAccounts((prev) => {
+        const exists = prev.find((u) => u.id === found.id);
+        return exists ? prev : [...prev, found];
+      });
       return true;
     } else {
       notify("Identifiants invalides.", "error");
       return false;
+    }
+  };
+
+  // NOUVEAU : Changer de personnage actif
+  const switchAccount = (userId) => {
+    const target = connectedAccounts.find((u) => u.id === userId);
+    if (target) {
+      setSession(target);
+      notify(`Basculé sur : ${target.name}`, "success");
+    }
+  };
+
+  // NOUVEAU : Ajouter un compte (revient à l'écran de login sans perdre les sessions)
+  const addAccount = () => {
+    setSession(null); // Cela affichera le LoginScreen via App.js
+  };
+
+  // NOUVEAU : Déconnexion complète ou d'un seul compte
+  const logoutAccount = (userId = null) => {
+    if (!userId) {
+      // Déconnexion totale
+      setSession(null);
+      setConnectedAccounts([]);
+    } else {
+      // Retirer un seul compte
+      const newAccounts = connectedAccounts.filter((u) => u.id !== userId);
+      setConnectedAccounts(newAccounts);
+      if (session && session.id === userId) {
+        // Si on déconnecte le compte actuel, on switch ou on sort
+        setSession(newAccounts.length > 0 ? newAccounts[0] : null);
+      }
     }
   };
 
@@ -71,5 +110,10 @@ export const useAuth = (notify) => {
     setSession,
     authLoading: loading,
     loginGame,
+    // --- NOUVEAUX EXPORTS ---
+    connectedAccounts,
+    switchAccount,
+    addAccount,
+    logoutAccount,
   };
 };

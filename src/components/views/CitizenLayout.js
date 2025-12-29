@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { User, Lock, Shield, LogOut, Mail, Gem } from "lucide-react";
+import {
+  User,
+  Lock,
+  Shield,
+  LogOut,
+  Mail,
+  Gem,
+  Users,
+  PlusCircle,
+} from "lucide-react";
 
 // UI Components
 import Card from "../ui/Card";
@@ -27,11 +36,9 @@ const CitizenLayout = (props) => {
     onSend,
     onRequestTravel,
     onTransfer,
-    // --- MODIFICATION ICI : Nouvelles props pour la dette ---
     onProposeDebt,
     onSignDebt,
-    // -------------------------------------------------------
-    onCreateDebt, // (Peut être gardé pour compatibilité ou supprimé si inutilisé)
+    onCreateDebt,
     onPayDebt,
     onCancelDebt,
     onBuyItem,
@@ -46,9 +53,13 @@ const CitizenLayout = (props) => {
     onBookMaison,
     isBanned,
     isPrisoner,
+    // --- MULTI-COMPTE ---
+    connectedAccounts = [],
+    onSwitchAccount,
+    onAddAccount,
+    onLogoutAccount,
   } = props;
 
-  // --- LOGIQUE ESCLAVE ---
   const isSlave = user.status === "Esclave";
   const owner =
     isSlave && user.ownerId ? users.find((u) => u.id === user.ownerId) : null;
@@ -59,13 +70,11 @@ const CitizenLayout = (props) => {
   const canUseTravel = !isSlave || permissions.travel;
   const mySlaves = users.filter((u) => u.ownerId === user.id);
 
-  // States locaux pour édition profil
   const [editOccupation, setEditOccupation] = useState(user?.occupation || "");
   const [editBio, setEditBio] = useState(user?.bio || "");
   const [editAvatar, setEditAvatar] = useState(user?.avatarUrl || "");
   const [np, setNp] = useState("");
 
-  // States locaux pour voyage
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
 
@@ -114,6 +123,54 @@ const CitizenLayout = (props) => {
           </div>
         </div>
         <div className="flex gap-4 items-center font-sans">
+          {/* --- MENU MULTI-COMPTES --- */}
+          {connectedAccounts.length > 0 && (
+            <div className="relative group">
+              <button className="text-stone-400 hover:text-white flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border border-stone-700 px-3 py-1.5 rounded transition-all">
+                <Users size={14} />
+                <span className="hidden md:inline">
+                  Comptes ({connectedAccounts.length})
+                </span>
+              </button>
+
+              {/* Dropdown */}
+              <div className="absolute right-0 top-full mt-2 w-48 bg-stone-800 border border-stone-700 rounded-lg shadow-2xl overflow-hidden hidden group-hover:block z-50">
+                {connectedAccounts.map((acc) => (
+                  <button
+                    key={acc.id}
+                    onClick={() => onSwitchAccount(acc.id)}
+                    className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-stone-700 transition-colors ${
+                      acc.id === user.id
+                        ? "bg-stone-700/50 text-yellow-500 font-bold"
+                        : "text-stone-300"
+                    }`}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-stone-600 overflow-hidden flex items-center justify-center">
+                      {acc.avatarUrl ? (
+                        <img
+                          src={acc.avatarUrl}
+                          className="w-full h-full object-cover"
+                          alt=""
+                        />
+                      ) : (
+                        <User size={12} />
+                      )}
+                    </div>
+                    <span className="text-xs truncate">{acc.name}</span>
+                  </button>
+                ))}
+                <div className="border-t border-stone-700">
+                  <button
+                    onClick={onAddAccount}
+                    className="w-full text-left px-4 py-3 text-xs text-green-400 hover:bg-stone-700 flex items-center gap-2 font-bold uppercase tracking-wide"
+                  >
+                    <PlusCircle size={12} /> Ajouter un compte
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {isGraded && (
             <button
               onClick={onSwitchBack}
@@ -210,7 +267,6 @@ const CitizenLayout = (props) => {
             </button>
           )}
 
-          {/* Asia button */}
           <button
             onClick={() => setActive("asia")}
             className={`flex-1 py-2 px-4 text-[10px] font-bold uppercase rounded-full transition-all whitespace-nowrap ${
@@ -222,7 +278,6 @@ const CitizenLayout = (props) => {
             <Gem size={12} className="inline mr-2" /> Asia
           </button>
 
-          {/* Main d'oeuvre (Propriétaire d'esclaves) */}
           {mySlaves.length > 0 && (
             <button
               onClick={() => setActive("slaves")}
@@ -247,11 +302,9 @@ const CitizenLayout = (props) => {
             globalLedger={globalLedger}
             debtRegistry={debtRegistry}
             onTransfer={onTransfer}
-            // --- MODIFICATION ICI : Transmission des props ---
             onProposeDebt={onProposeDebt}
             onSignDebt={onSignDebt}
-            // ------------------------------------------------
-            onCreateDebt={onCreateDebt} // Gardé au cas où
+            onCreateDebt={onCreateDebt}
             onPayDebt={onPayDebt}
             onCancelDebt={onCancelDebt}
             canUseBank={canUseBank}
@@ -359,7 +412,6 @@ const CitizenLayout = (props) => {
           </div>
         )}
 
-        {/* --- VUE MAISON DE ASIA (CITOYEN) --- */}
         {active === "asia" && (
           <MaisonDeAsiaCitizen
             citizens={users}
@@ -440,7 +492,6 @@ const CitizenLayout = (props) => {
                     {user.age || "?"} Ans
                   </div>
                 </div>
-                {/* Propriétaire si Esclave */}
                 {isSlave && owner && (
                   <div className="col-span-2 bg-stone-200 p-2 rounded border border-stone-300">
                     <span className="block text-stone-500 uppercase font-bold text-[9px] mb-1 tracking-widest flex items-center gap-2">
@@ -449,7 +500,6 @@ const CitizenLayout = (props) => {
                     <div className="font-bold text-stone-900">{owner.name}</div>
                   </div>
                 )}
-                {/* Position Actuelle */}
                 <div className="col-span-2 bg-stone-50 p-2 rounded border border-stone-200">
                   <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
                     Position Actuelle
