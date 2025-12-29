@@ -8,6 +8,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         let ns = JSON.parse(JSON.stringify(state));
         if (!ns.gameDate) ns.gameDate = { day: 1, month: 1, year: 1200 };
 
+        // Avance le temps
         ns.gameDate.day++;
         if (ns.gameDate.day > 30) {
           ns.gameDate.day = 1;
@@ -19,22 +20,55 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         ns.dayCycle++;
 
+        // Calcul de la saison pour notification
+        const m = ns.gameDate.month;
+        let season = "Hiver";
+        if (m >= 3 && m <= 5) season = "Printemps";
+        else if (m >= 6 && m <= 8) season = "Été";
+        else if (m >= 9 && m <= 11) season = "Automne";
+
         saveState(ns);
+
+        // Notification enrichie
         notify(
-          `Un nouveau jour se lève : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`,
+          `Jour suivant : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
           "info"
         );
       },
-      onAddTreasury: () => {
-        const amount = prompt("Quantité d'écus à frapper :");
-        if (amount && !isNaN(amount)) {
+
+      // MODIFICATION : Accepte un montant direct et log l'action
+      onAddTreasury: (amount) => {
+        if (!session) return;
+        const val = parseInt(amount);
+        if (val && !isNaN(val) && val > 0) {
+          // 1. Mise à jour du trésor
+          const newTreasury = (state.treasury || 0) + val;
+
+          // 2. Ajout d'une ligne dans le Grand Livre (Transparence)
+          const newEntry = {
+            id: Date.now(),
+            fromName: "Hôtel des Monnaies",
+            toName: "Trésor Impérial",
+            amount: val,
+            timestamp: Date.now(),
+            reason: "Frappe de monnaie (Création)",
+          };
+
           saveState({
             ...state,
-            treasury: (state.treasury || 0) + parseInt(amount),
+            treasury: newTreasury,
+            globalLedger: [newEntry, ...(state.globalLedger || [])],
           });
-          notify("Trésor impérial renfloué.", "success");
+
+          notify(
+            `${val.toLocaleString()} Écus ont été frappés et ajoutés au trésor.`,
+            "success"
+          );
+        } else {
+          notify("Montant invalide pour la frappe de monnaie.", "error");
         }
       },
+
       onTransfer: (srcRaw, tgtRaw, amount) => {
         if (!session) return;
 

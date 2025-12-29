@@ -3,7 +3,6 @@ import {
   Crown,
   Coins,
   Users,
-  Sun,
   History,
   Newspaper,
   Send,
@@ -12,14 +11,28 @@ import {
   Save,
   Flag,
   Globe,
+  Snowflake, // Hiver
+  Sun, // Été
+  CloudRain, // Automne
+  Leaf, // Printemps
+  Hammer, // Frappe monnaie
+  ArrowRightCircle, // Pour le bouton jour suivant
 } from "lucide-react";
 import Card from "../ui/Card";
 
-const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
+// AJOUT DE onPassDay DANS LES PROPS
+const DashboardView = ({
+  state,
+  roleInfo,
+  session,
+  onUpdateState,
+  onAddTreasury,
+  onPassDay,
+}) => {
   const [newArticle, setNewArticle] = useState({ title: "", content: "" });
   const [editingDate, setEditingDate] = useState(false);
+  const [mintAmount, setMintAmount] = useState("");
 
-  // Initialisation de la date temporaire avec la date du state (ou défaut)
   const defaultDate = { day: 1, month: 1, year: 1200 };
   const currentDate = state.gameDate || defaultDate;
   const [tempDate, setTempDate] = useState(currentDate);
@@ -29,6 +42,20 @@ const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
   const myCountry = useMemo(() => {
     return state.countries.find((c) => c.id === session.countryId);
   }, [state.countries, session.countryId]);
+
+  // --- LOGIQUE SAISONS ---
+  const getSeasonInfo = (month) => {
+    if (month >= 3 && month <= 5)
+      return { name: "Printemps", icon: Leaf, color: "text-green-500" };
+    if (month >= 6 && month <= 8)
+      return { name: "Été", icon: Sun, color: "text-yellow-500" };
+    if (month >= 9 && month <= 11)
+      return { name: "Automne", icon: CloudRain, color: "text-orange-500" };
+    return { name: "Hiver", icon: Snowflake, color: "text-blue-400" };
+  };
+
+  const currentSeason = getSeasonInfo(currentDate.month);
+  const SeasonIcon = currentSeason.icon;
 
   const stats = useMemo(() => {
     if (isGlobal) {
@@ -58,7 +85,9 @@ const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
     return (state.globalLedger || [])
       .filter((tx) => {
         const isEmpire =
-          tx.fromName.includes("Empire") || tx.toName.includes("Empire");
+          tx.fromName.includes("Empire") ||
+          tx.toName.includes("Empire") ||
+          tx.fromName.includes("Hôtel des Monnaies");
         return isEmpire || tx.amount > 1000;
       })
       .slice(0, 8);
@@ -78,12 +107,16 @@ const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
     setEditingDate(false);
   };
 
+  const handleMintMoney = () => {
+    if (onAddTreasury && mintAmount) {
+      onAddTreasury(mintAmount);
+      setMintAmount("");
+    }
+  };
+
   const handlePublishNews = () => {
     if (!newArticle.title || !newArticle.content) return;
-
-    // Formatage de la date pour l'article
     const dateStr = `Le ${currentDate.day}/${currentDate.month}/${currentDate.year}`;
-
     const article = {
       id: Date.now(),
       date: dateStr,
@@ -121,65 +154,96 @@ const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
           </p>
         </div>
 
-        {/* GESTION DATE AVANCÉE */}
-        <div className="flex items-center gap-4 bg-white p-2 rounded-xl shadow-sm border border-stone-200">
-          <div className="bg-stone-100 p-2 rounded-lg text-stone-600">
-            <Calendar size={20} />
-          </div>
-          {editingDate ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                className="w-12 p-1 border rounded font-bold text-center"
-                value={tempDate.day}
-                onChange={(e) =>
-                  setTempDate({ ...tempDate, day: e.target.value })
-                }
-                placeholder="JJ"
-              />{" "}
-              /
-              <input
-                type="number"
-                className="w-12 p-1 border rounded font-bold text-center"
-                value={tempDate.month}
-                onChange={(e) =>
-                  setTempDate({ ...tempDate, month: e.target.value })
-                }
-                placeholder="MM"
-              />{" "}
-              /
-              <input
-                type="number"
-                className="w-16 p-1 border rounded font-bold text-center"
-                value={tempDate.year}
-                onChange={(e) =>
-                  setTempDate({ ...tempDate, year: e.target.value })
-                }
-                placeholder="AAAA"
+        {/* GESTION DATE & SAISON */}
+        <div className="flex items-center gap-4">
+          {/* BOUTON PASSER JOUR (Visible pour l'admin global ou local) */}
+          <button
+            onClick={onPassDay}
+            className="bg-stone-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 hover:bg-stone-700 hover:scale-105 transition-all group"
+            title="Passer au jour suivant"
+          >
+            <div className="relative">
+              <ArrowRightCircle
+                size={24}
+                className="text-yellow-500 group-hover:rotate-90 transition-transform duration-500"
               />
-              <button
-                onClick={handleUpdateDate}
-                className="bg-green-600 text-white p-1.5 rounded hover:bg-green-700 ml-2"
-              >
-                <Save size={16} />
-              </button>
             </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <div className="text-xl font-black font-serif">
-                {currentDate.day} / {currentDate.month} / {currentDate.year}
+            <div className="text-left hidden sm:block">
+              <div className="text-[9px] uppercase font-black tracking-widest text-stone-400">
+                Avancer le temps
               </div>
-              <button
-                onClick={() => setEditingDate(true)}
-                className="text-stone-400 hover:text-stone-600"
-              >
-                <Edit3 size={16} />
-              </button>
+              <div className="text-xs font-bold">Jour Suivant</div>
             </div>
-          )}
+          </button>
+
+          {/* Affichage Date */}
+          <div className="flex items-center gap-4 bg-white p-3 rounded-xl shadow-sm border border-stone-200">
+            <div
+              className={`bg-stone-100 p-2 rounded-lg ${currentSeason.color}`}
+            >
+              <SeasonIcon size={24} />
+            </div>
+            <div className="flex flex-col">
+              <span
+                className={`text-[10px] font-black uppercase tracking-widest ${currentSeason.color}`}
+              >
+                {currentSeason.name}
+              </span>
+
+              {editingDate ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    className="w-8 p-0 border-b border-stone-400 font-bold text-center text-sm outline-none"
+                    value={tempDate.day}
+                    onChange={(e) =>
+                      setTempDate({ ...tempDate, day: e.target.value })
+                    }
+                  />
+                  /
+                  <input
+                    type="number"
+                    className="w-8 p-0 border-b border-stone-400 font-bold text-center text-sm outline-none"
+                    value={tempDate.month}
+                    onChange={(e) =>
+                      setTempDate({ ...tempDate, month: e.target.value })
+                    }
+                  />
+                  /
+                  <input
+                    type="number"
+                    className="w-12 p-0 border-b border-stone-400 font-bold text-center text-sm outline-none"
+                    value={tempDate.year}
+                    onChange={(e) =>
+                      setTempDate({ ...tempDate, year: e.target.value })
+                    }
+                  />
+                  <button
+                    onClick={handleUpdateDate}
+                    className="text-green-600 ml-2 hover:scale-110 transition-transform"
+                  >
+                    <Save size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="text-lg font-black font-serif text-stone-800">
+                    {currentDate.day} / {currentDate.month} / {currentDate.year}
+                  </div>
+                  <button
+                    onClick={() => setEditingDate(true)}
+                    className="text-stone-300 hover:text-stone-500 transition-colors"
+                  >
+                    <Edit3 size={12} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* STATS PRINCIPALES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-stone-900 text-white p-6 rounded-xl shadow-lg border-2 border-stone-800 relative overflow-hidden">
           <div className="relative z-10">
@@ -212,7 +276,43 @@ const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* COLONNE GAUCHE : ACTIONS & NEWS */}
         <div className="lg:col-span-2 space-y-6">
+          {/* HÔTEL DES MONNAIES (Visible seulement pour l'Empire) */}
+          {isGlobal && (
+            <Card title="Hôtel des Monnaies" icon={Hammer}>
+              <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block">
+                    Quantité d'Or à Frapper
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      className="w-full p-3 pl-4 bg-white border border-stone-300 rounded-lg font-mono font-bold text-stone-900 outline-none focus:border-yellow-500 transition-colors"
+                      placeholder="0"
+                      value={mintAmount}
+                      onChange={(e) => setMintAmount(e.target.value)}
+                    />
+                    <span className="absolute right-4 top-3 text-xs font-bold text-stone-400">
+                      ÉCUS
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={handleMintMoney}
+                  className="bg-stone-900 hover:bg-stone-800 text-yellow-500 px-6 py-3.5 rounded-lg font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <Coins size={16} /> Frapper Monnaie
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-400 mt-2 italic px-2">
+                * Toute création monétaire est consignée dans le Grand Livre
+                Impérial pour audit.
+              </p>
+            </Card>
+          )}
+
           <Card title="Gazette Officielle (Rédaction)" icon={Newspaper}>
             <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 mb-6">
               <div className="text-xs font-bold uppercase text-stone-400 mb-2 tracking-widest">
@@ -272,6 +372,8 @@ const DashboardView = ({ state, roleInfo, session, onUpdateState }) => {
             </div>
           </Card>
         </div>
+
+        {/* COLONNE DROITE : HISTORIQUE */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-xl border border-stone-300 shadow-lg overflow-hidden h-full flex flex-col">
             <div className="p-5 bg-stone-50 border-b border-stone-200 flex justify-between items-center">
