@@ -13,19 +13,18 @@ import {
   UserCircle,
   Menu,
   Gem,
+  Users,
+  PlusCircle,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
 } from "lucide-react";
-
-// Hooks & Lib
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
-
-// UI Components
 import Toast from "./components/ui/Toast";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
-
-// Views
 import LoginScreen from "./components/views/LoginScreen";
 import DeathScreen from "./components/views/DeathScreen";
 import DashboardView from "./components/views/DashboardView";
@@ -36,7 +35,6 @@ import InventoryView from "./components/views/InventoryView";
 import PostView from "./components/views/PostView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
-
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
@@ -53,7 +51,6 @@ export default function App() {
     setSession,
     authLoading,
     loginGame,
-    // --- MULTI-COMPTES (Récupération depuis useAuth) ---
     connectedAccounts,
     switchAccount,
     addAccount,
@@ -62,12 +59,12 @@ export default function App() {
 
   const { state, saveState, syncStatus, connection, dbError, forceInit } =
     useGameEngine(firebaseUser, notify);
-
   const actions = useGameActions(session, state, saveState, notify);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
+  const [adminAccountMenuOpen, setAdminAccountMenuOpen] = useState(false);
 
   const currentUser = useMemo(
     () => (state.citizens || []).find((c) => c.id === session?.id) || session,
@@ -77,7 +74,6 @@ export default function App() {
   const roleInfo = useMemo(() => {
     if (!currentUser) return ROLES.CITOYEN;
     if (ROLES[currentUser.role]) return ROLES[currentUser.role];
-
     const country = (state.countries || []).find(
       (c) => c.id === currentUser.countryId
     );
@@ -95,11 +91,9 @@ export default function App() {
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
   const isSlave = currentStatus === "Esclave";
-
   const isRestricted = useMemo(() => {
     if (["Malade", "Prisonnier", "Banni", "Décédé"].includes(currentStatus))
       return true;
-
     const country = (state.countries || []).find(
       (c) => c.id === currentUser?.countryId
     );
@@ -134,11 +128,8 @@ export default function App() {
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
     if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
-
-    if (roleInfo.level >= 50 || (session && session.role === "TENANCIER")) {
+    if (roleInfo.level >= 50 || (session && session.role === "TENANCIER"))
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
-    }
-
     return tabs;
   }, [roleInfo, session]);
 
@@ -174,15 +165,11 @@ export default function App() {
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}
             gazette={state.gazette || []}
-            // --- GESTION MULTI-COMPTES ---
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}
             onLogoutAccount={logoutAccount}
-            // Utilisation de logoutAccount pour la déconnexion complète
             onLogout={() => logoutAccount(null)}
-            // ----------------------------
-
             onUpdateUser={actions.onUpdateCitizen}
             onBuySlave={actions.onBuySlave}
             onSelfManumit={actions.onSelfManumit}
@@ -245,6 +232,69 @@ export default function App() {
                 ))}
               </nav>
               <div className="p-4 md:p-6 border-t border-stone-900 space-y-2">
+                <div className="bg-stone-900 rounded-xl border border-stone-800 overflow-hidden mb-2">
+                  <button
+                    onClick={() =>
+                      setAdminAccountMenuOpen(!adminAccountMenuOpen)
+                    }
+                    className="w-full p-3 flex items-center justify-between text-xs font-black uppercase text-stone-400 hover:text-white hover:bg-stone-800 transition-all tracking-widest"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Users size={16} /> Comptes ({connectedAccounts.length})
+                    </div>
+                    {adminAccountMenuOpen ? (
+                      <ChevronUp size={14} />
+                    ) : (
+                      <ChevronDown size={14} />
+                    )}
+                  </button>
+                  {adminAccountMenuOpen && (
+                    <div className="bg-stone-950 border-t border-stone-800">
+                      {connectedAccounts.map((acc) => (
+                        <div
+                          key={acc.id}
+                          className="flex items-center justify-between group hover:bg-stone-900 pr-2"
+                        >
+                          <button
+                            onClick={() => switchAccount(acc.id)}
+                            className={`flex-1 text-left p-3 flex items-center gap-3 transition-all ${
+                              acc.id === session.id
+                                ? "text-yellow-500 font-bold"
+                                : "text-stone-500 hover:text-stone-300"
+                            }`}
+                          >
+                            <div
+                              className={`w-2 h-2 rounded-full ${
+                                acc.id === session.id
+                                  ? "bg-yellow-500"
+                                  : "bg-stone-600"
+                              }`}
+                            ></div>
+                            <span className="text-[10px] uppercase truncate w-24">
+                              {acc.name}
+                            </span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              logoutAccount(acc.id);
+                            }}
+                            className="text-stone-600 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Oublier ce compte"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={addAccount}
+                        className="w-full p-3 text-[10px] font-bold uppercase text-green-600 hover:text-green-400 hover:bg-stone-900 flex items-center gap-2 border-t border-stone-900"
+                      >
+                        <PlusCircle size={14} /> Ajouter un compte
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {canAccessAdmin && (
                   <button
                     onClick={() => setIsViewingAsCitizen(true)}
@@ -261,7 +311,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-
             <div className="flex-1 bg-[#e6e2d6] flex flex-col h-screen overflow-hidden w-full">
               <header className="h-16 md:h-20 bg-[#fdf6e3] border-b border-stone-300 flex items-center px-4 md:px-8 justify-between shadow-xl relative z-20 shrink-0">
                 <div className="flex items-center gap-4 md:gap-6">
@@ -408,7 +457,6 @@ export default function App() {
                     }}
                   />
                 )}
-
                 {activeTab === "asia_admin" && (
                   <MaisonDeAsiaAdmin
                     citizens={state.citizens || []}
