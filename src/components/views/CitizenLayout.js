@@ -25,6 +25,7 @@ import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 
 const CitizenLayout = (props) => {
   const [active, setActive] = useState("gazette");
+  // State pour le menu déroulant
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
   const {
@@ -40,7 +41,7 @@ const CitizenLayout = (props) => {
     onSend,
     onRequestTravel,
     onTransfer,
-    onProposeDebt, // Assurez-vous que ces props sont bien passées depuis App.js
+    onProposeDebt,
     onSignDebt,
     onCreateDebt,
     onPayDebt,
@@ -57,7 +58,7 @@ const CitizenLayout = (props) => {
     onBookMaison,
     isBanned,
     isPrisoner,
-    // Props multi-comptes
+    // --- PROPS MULTI-COMPTES ---
     connectedAccounts = [],
     onSwitchAccount,
     onAddAccount,
@@ -95,7 +96,6 @@ const CitizenLayout = (props) => {
     >
       {/* HEADER */}
       <header className="h-16 bg-stone-900 border-b border-stone-800 flex items-center justify-between px-4 md:px-6 shadow-xl sticky top-0 z-50">
-        {/* Identité (Gauche) */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative shrink-0">
             {user?.avatarUrl ? (
@@ -128,9 +128,8 @@ const CitizenLayout = (props) => {
           </div>
         </div>
 
-        {/* Actions (Droite) */}
         <div className="flex gap-4 items-center font-sans">
-          {/* --- C'EST ICI QUE LE BOUTON MANQUAIT --- */}
+          {/* --- C'EST CE BLOC QUI MANQUAIT DANS VOTRE FICHIER --- */}
           <div className="relative">
             <button
               className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest border px-3 py-1.5 rounded transition-all ${
@@ -238,7 +237,7 @@ const CitizenLayout = (props) => {
               </>
             )}
           </div>
-          {/* -------------------------------------- */}
+          {/* ---------------------------------------------------- */}
 
           {isGraded && (
             <button
@@ -251,10 +250,10 @@ const CitizenLayout = (props) => {
           )}
           <button
             onClick={onLogout}
-            className="text-stone-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+            className="text-stone-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-transparent hover:border-red-900/30 px-2 py-1.5 rounded"
+            title="Déconnexion"
           >
-            <LogOut size={16} />{" "}
-            <span className="hidden md:inline">Sortir</span>
+            <LogOut size={16} />
           </button>
         </div>
       </header>
