@@ -19,7 +19,6 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         ns.dayCycle++;
 
-        // Calcul de la saison pour notification
         const m = ns.gameDate.month;
         let season = "Hiver";
         if (m >= 3 && m <= 5) season = "Printemps";
@@ -53,33 +52,147 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Montant invalide.", "error");
         }
       },
-      // --- NOUVELLE ACTION : CRÉATION D'ENTREPRISE ---
       onCreateCompany: (name, type, ownerId, countryId, startingBalance) => {
         if (!name || !type || !ownerId) {
           notify("Données d'entreprise incomplètes.", "error");
           return;
         }
-
         const newCompany = {
           id: `comp_${Date.now()}`,
           name: name,
-          type: type, // "MANUFACTURE", "EXTRACTION", "SERVICE"
+          type: type,
           ownerId: ownerId,
           countryId: countryId || "NONE",
           level: 1,
           balance: parseInt(startingBalance) || 0,
           employees: [],
+          slaves: [],
           inventory: [],
           createdAt: Date.now(),
         };
-
         saveState({
           ...state,
           companies: [newCompany, ...(state.companies || [])],
         });
         notify(`L'entreprise "${name}" a été enregistrée.`, "success");
       },
-      // -----------------------------------------------
+      // --- FONCTIONS MANQUANTES AJOUTÉES ---
+      onCompanyTreasury: (companyId, amount, type) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+
+        if (compIdx === -1 || userIdx === -1) return;
+
+        const company = state.companies[compIdx];
+        const user = state.citizens[userIdx];
+        const val = parseInt(amount);
+
+        if (val <= 0) {
+          notify("Montant invalide.", "error");
+          return;
+        }
+
+        const newCompanies = [...state.companies];
+        const newCitizens = [...state.citizens];
+
+        if (type === "DEPOSIT") {
+          if (user.balance < val) {
+            notify("Fonds personnels insuffisants.", "error");
+            return;
+          }
+          newCitizens[userIdx] = { ...user, balance: user.balance - val };
+          newCompanies[compIdx] = {
+            ...company,
+            balance: company.balance + val,
+          };
+          notify(`Capital injecté : ${val} écus.`, "success");
+        } else if (type === "WITHDRAW") {
+          if (company.balance < val) {
+            notify("Fonds de l'entreprise insuffisants.", "error");
+            return;
+          }
+          newCompanies[compIdx] = {
+            ...company,
+            balance: company.balance - val,
+          };
+          newCitizens[userIdx] = { ...user, balance: user.balance + val };
+          notify(`Dividendes retirés : ${val} écus.`, "success");
+        }
+
+        saveState({ ...state, companies: newCompanies, citizens: newCitizens });
+      },
+      onCompanyHireFire: (companyId, targetId, action) => {
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        const newCompanies = [...state.companies];
+
+        if (action === "HIRE") {
+          if (company.employees?.includes(targetId)) {
+            notify("Déjà employé.", "error");
+            return;
+          }
+          newCompanies[compIdx] = {
+            ...company,
+            employees: [...(company.employees || []), targetId],
+          };
+          notify("Citoyen embauché.", "success");
+        } else if (action === "FIRE") {
+          newCompanies[compIdx] = {
+            ...company,
+            employees: (company.employees || []).filter(
+              (id) => id !== targetId
+            ),
+          };
+          notify("Employé licencié.", "info");
+        } else if (action === "ASSIGN_SLAVE") {
+          if (company.slaves?.includes(targetId)) return;
+          newCompanies[compIdx] = {
+            ...company,
+            slaves: [...(company.slaves || []), targetId],
+          };
+          notify("Esclave affecté à la production.", "success");
+        } else if (action === "REMOVE_SLAVE") {
+          newCompanies[compIdx] = {
+            ...company,
+            slaves: (company.slaves || []).filter((id) => id !== targetId),
+          };
+          notify("Esclave retiré de l'entreprise.", "info");
+        }
+        saveState({ ...state, companies: newCompanies });
+      },
+      onCompanyProduce: (companyId) => {
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+
+        const employeePower = (company.employees || []).length * 50;
+        const slavePower = (company.slaves || []).length * 20;
+        const baseProduction = company.level * 100;
+
+        const revenue = baseProduction + employeePower + slavePower;
+        const cost = Math.floor(revenue * 0.2);
+
+        if (company.balance < cost) {
+          notify("Trésorerie insuffisante pour lancer la production.", "error");
+          return;
+        }
+
+        const profit = revenue - cost;
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = {
+          ...company,
+          balance: company.balance + profit,
+        };
+
+        saveState({ ...state, companies: newCompanies });
+        notify(
+          `Production terminée. Bénéfice net : ${profit} écus.`,
+          "success"
+        );
+      },
+      // ------------------------------------
       onTransfer: (srcRaw, tgtRaw, amount) => {
         if (!session) return;
 

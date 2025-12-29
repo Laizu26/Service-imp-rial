@@ -18,19 +18,18 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  X,
+  Briefcase,
 } from "lucide-react";
 
-// Hooks & Lib
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
 
-// UI Components
 import Toast from "./components/ui/Toast";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 
-// Views
 import LoginScreen from "./components/views/LoginScreen";
 import DeathScreen from "./components/views/DeathScreen";
 import DashboardView from "./components/views/DashboardView";
@@ -41,9 +40,11 @@ import InventoryView from "./components/views/InventoryView";
 import PostView from "./components/views/PostView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
-
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import CitizenLayout from "./components/layout/CitizenLayout";
+
+// IMPORTANT : Assurez-vous que ce fichier existe !
+import CompaniesAdminView from "./components/views/CompaniesAdminView";
 
 export default function App() {
   const [toast, setToast] = useState({ msg: null, type: "info" });
@@ -82,7 +83,6 @@ export default function App() {
   const roleInfo = useMemo(() => {
     if (!currentUser) return ROLES.CITOYEN;
     if (ROLES[currentUser.role]) return ROLES[currentUser.role];
-
     const country = (state.countries || []).find(
       (c) => c.id === currentUser.countryId
     );
@@ -99,12 +99,9 @@ export default function App() {
 
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
-  const isSlave = currentStatus === "Esclave";
-
   const isRestricted = useMemo(() => {
     if (["Malade", "Prisonnier", "Banni", "Décédé"].includes(currentStatus))
       return true;
-
     const country = (state.countries || []).find(
       (c) => c.id === currentUser?.countryId
     );
@@ -117,9 +114,8 @@ export default function App() {
     return false;
   }, [currentStatus, currentUser, state.countries]);
 
-  const isIncapacitated = isRestricted;
-  const isActuallyGraded = roleInfo.level >= 20;
-  const canAccessAdmin = isActuallyGraded && !isIncapacitated && !isSlave;
+  const canAccessAdmin =
+    roleInfo.level >= 20 && !isRestricted && currentStatus !== "Esclave";
   const shouldShowCitizenView = !canAccessAdmin || isViewingAsCitizen;
 
   const availableTabs = useMemo(() => {
@@ -139,11 +135,14 @@ export default function App() {
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
     if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
-
-    if (roleInfo.level >= 50 || (session && session.role === "TENANCIER")) {
+    if (roleInfo.level >= 50)
+      tabs.push({
+        id: "companies_admin",
+        label: "Entreprises",
+        icon: Briefcase,
+      });
+    if (roleInfo.level >= 50 || (session && session.role === "TENANCIER"))
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
-    }
-
     return tabs;
   }, [roleInfo, session]);
 
@@ -170,6 +169,7 @@ export default function App() {
           <CitizenLayout
             user={currentUser}
             users={state.citizens || []}
+            companies={state.companies || []} // Protection si undefined
             houseRegistry={state.maisonRegistry || []}
             onBookMaison={actions.onBookMaison}
             countries={state.countries || []}
@@ -179,14 +179,11 @@ export default function App() {
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}
             gazette={state.gazette || []}
-            // --- GESTION MULTI-COMPTES CITOYEN ---
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}
             onLogoutAccount={logoutAccount}
             onLogout={() => logoutAccount(null)}
-            // -------------------------------------
-
             onUpdateUser={actions.onUpdateCitizen}
             onBuySlave={actions.onBuySlave}
             onSelfManumit={actions.onSelfManumit}
@@ -204,12 +201,24 @@ export default function App() {
           />
         ) : (
           <div className="flex h-screen overflow-hidden">
+            {sidebarOpen && (
+              <div
+                className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm transition-opacity"
+                onClick={() => setSidebarOpen(false)}
+              ></div>
+            )}
             <div
               className={`fixed inset-y-0 z-40 w-72 md:w-80 bg-stone-950 text-stone-200 flex flex-col border-r border-stone-800 transition-transform duration-300 shadow-2xl ${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
               } md:relative md:translate-x-0`}
             >
               <div className="p-6 md:p-10 text-center border-b border-stone-900 bg-stone-900/30 shadow-inner relative">
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="md:hidden absolute top-4 left-4 text-stone-500 hover:text-white"
+                >
+                  <X size={24} />
+                </button>
                 <div className="absolute top-3 right-3 flex gap-1">
                   <div
                     className={`w-2 h-2 rounded-full ${
@@ -248,8 +257,6 @@ export default function App() {
                   </button>
                 ))}
               </nav>
-
-              {/* --- MENU MULTI-COMPTES ADMIN --- */}
               <div className="p-4 md:p-6 border-t border-stone-900 space-y-2">
                 <div className="bg-stone-900 rounded-xl border border-stone-800 overflow-hidden mb-2">
                   <button
@@ -267,7 +274,6 @@ export default function App() {
                       <ChevronDown size={14} />
                     )}
                   </button>
-
                   {adminAccountMenuOpen && (
                     <div className="bg-stone-950 border-t border-stone-800">
                       {connectedAccounts.map((acc) => (
@@ -315,7 +321,6 @@ export default function App() {
                     </div>
                   )}
                 </div>
-
                 {canAccessAdmin && (
                   <button
                     onClick={() => setIsViewingAsCitizen(true)}
@@ -332,7 +337,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-
             <div className="flex-1 bg-[#e6e2d6] flex flex-col h-screen overflow-hidden w-full">
               <header className="h-16 md:h-20 bg-[#fdf6e3] border-b border-stone-300 flex items-center px-4 md:px-8 justify-between shadow-xl relative z-20 shrink-0">
                 <div className="flex items-center gap-4 md:gap-6">
@@ -477,6 +481,16 @@ export default function App() {
                       );
                       saveState({ ...state, citizens: newCitizens });
                     }}
+                  />
+                )}
+
+                {/* VUE ADMIN ENTREPRISES */}
+                {activeTab === "companies_admin" && (
+                  <CompaniesAdminView
+                    companies={state.companies}
+                    citizens={state.citizens}
+                    countries={state.countries}
+                    onCreateCompany={actions.onCreateCompany}
                   />
                 )}
 

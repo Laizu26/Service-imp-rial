@@ -6,7 +6,7 @@ import { SYSTEM_CONFIG } from "./constants";
 let app, auth, db;
 
 try {
-  // On vérifie si une app existe déjà pour éviter les doublons
+  // Singleton pattern pour éviter les initialisations multiples
   app = !getApps().length ? initializeApp(SYSTEM_CONFIG.firebase) : getApp();
   auth = getAuth(app);
   db = getFirestore(app);

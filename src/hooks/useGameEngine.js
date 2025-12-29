@@ -1,105 +1,103 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { SYSTEM_CONFIG, DEFAULT_GAME_STATE } from "../lib/constants";
 
-// État initial par défaut
-const initialState = {
-  dayCycle: 1,
-  gameDate: { day: 1, month: 1, year: 1200 },
-  treasury: 50000,
-  citizens: [],
-  countries: [],
-  inventoryCatalog: [],
-  globalLedger: [],
-  travelRequests: [],
-  maisonRegistry: [],
-  debtRegistry: [],
-  gazette: [],
-  companies: [], // <--- NOUVEAU : Liste des entreprises
-};
-
-export const useGameEngine = (user, notify) => {
-  const [state, setState] = useState(initialState);
-  const [syncStatus, setSyncStatus] = useState("syncing");
-  const [connection, setConnection] = useState("disconnected");
+export const useGameEngine = (firebaseUser, notify) => {
+  // On démarre directement avec l'état par défaut (qui contient maintenant l'Admin)
+  const [state, setState] = useState(DEFAULT_GAME_STATE);
+  const [syncStatus, setSyncStatus] = useState("idle");
+  const [connection, setConnection] = useState("connecting");
   const [dbError, setDbError] = useState(null);
 
   useEffect(() => {
-    // Mode déconnecté ou test sans Firebase
-    if (!user) {
-      const local = localStorage.getItem("service_imperial_state");
-      if (local) {
-        try {
-          setState({ ...initialState, ...JSON.parse(local) });
-        } catch (e) {
-          console.error("Erreur lecture sauvegarde locale", e);
-        }
-      }
-      setSyncStatus("local");
-      setConnection("connected");
-      return;
-    }
+    if (!firebaseUser || !db) return;
+    const docRef = doc(db, ...SYSTEM_CONFIG.dbPath);
 
-    // Connexion Firebase
-    setConnection("connecting");
     const unsub = onSnapshot(
-      doc(db, "game", "global_state"),
-      (docSnap) => {
+      docRef,
+      (s) => {
         setConnection("connected");
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          // Fusion intelligente pour ne pas perdre les champs manquants
+        if (s.exists()) {
+          const d = s.data();
+          // Fusion : On prend les données distantes, mais si une liste est vide (ex: citizens),
+          // on vérifie si on ne devrait pas garder celle par défaut pour éviter le blocage.
+          // SAUF si c'est une vraie liste vide voulue. Ici, pour la sécurité, on force le merge.
           setState((prev) => ({
-            ...initialState, // Valeurs par défaut pour les nouveaux champs (ex: companies)
-            ...prev,
-            ...data,
+            ...DEFAULT_GAME_STATE, // Base saine
+            ...d, // Données distantes prioritaires
+            // Sécurité : si la DB renvoie des champs manquants, on garde les []
+            countries: d.countries || DEFAULT_GAME_STATE.countries,
+            // Astuce : Si la liste DB est vide, on garde le défaut (Admin) pour ne pas se bloquer
+            citizens:
+              d.citizens && d.citizens.length > 0
+                ? d.citizens
+                : DEFAULT_GAME_STATE.citizens,
+            inventoryCatalog: d.inventoryCatalog || [],
+            globalLedger: d.globalLedger || [],
+            travelRequests: d.travelRequests || [],
+            debtRegistry: d.debtRegistry || [],
+            companies: d.companies || [],
           }));
-          setSyncStatus("idle");
+          setDbError(null);
         } else {
-          // Première init si la DB est vide
-          setSyncStatus("no-data");
+          // Document inexistant : On reste sur DEFAULT_GAME_STATE (avec Admin)
+          console.log(
+            "Document introuvable, utilisation de l'état par défaut."
+          );
+          setDbError(null);
         }
       },
       (err) => {
-        console.error("Erreur DB:", err);
+        console.error("Erreur connexion Firestore:", err);
+        setConnection("offline");
+        setSyncStatus("error");
         setDbError(err.message);
-        setConnection("error");
+        // En cas d'erreur, on garde l'état local (qui contient l'Admin)
       }
     );
-
     return () => unsub();
-  }, [user]);
+  }, [firebaseUser]);
 
-  const saveState = async (newState) => {
-    // Optimistic UI update
-    setState(newState);
+  const saveState = useCallback(
+    async (newState) => {
+      setState(newState); // Mise à jour optimiste
 
-    // Sauvegarde Locale (Backup)
-    localStorage.setItem("service_imperial_state", JSON.stringify(newState));
+      if (connection === "connected" && db) {
+        setSyncStatus("saving");
+        try {
+          await setDoc(
+            doc(db, ...SYSTEM_CONFIG.dbPath),
+            { ...newState, lastUpdate: serverTimestamp() },
+            { merge: true }
+          );
+          setSyncStatus("saved");
+          setTimeout(() => setSyncStatus("idle"), 2000);
+        } catch (e) {
+          console.error("Erreur save:", e);
+          setSyncStatus("error");
+          setDbError(e.message);
+          notify("Erreur d'archivage (vérifiez votre connexion).", "error");
+        }
+      } else {
+        setSyncStatus("error");
+        notify(
+          "Mode Hors-Ligne : Modifications locales uniquement.",
+          "warning"
+        );
+      }
+    },
+    [connection, notify]
+  );
 
-    if (!user) return; // Pas de save DB si pas connecté
-
-    setSyncStatus("saving");
-    try {
-      await setDoc(doc(db, "game", "global_state"), newState);
-      setSyncStatus("saved");
-      setTimeout(() => setSyncStatus("idle"), 2000);
-    } catch (e) {
-      console.error("Erreur sauvegarde:", e);
-      setSyncStatus("error");
-      notify("Erreur de synchronisation avec le serveur.", "error");
-    }
-  };
-
-  const forceInit = () => {
-    if (
-      window.confirm(
-        "ATTENTION: Cela va écraser toute la base de données. Continuer ?"
-      )
-    ) {
-      saveState(initialState);
-      notify("Monde réinitialisé.", "success");
-    }
+  const forceInit = async () => {
+    if (!db) return;
+    // Réinitialise la BDD avec les valeurs par défaut (incluant l'Admin)
+    await saveState(DEFAULT_GAME_STATE);
+    notify(
+      "Reset système effectué : Base de données réinitialisée.",
+      "success"
+    );
   };
 
   return { state, saveState, syncStatus, connection, dbError, forceInit };

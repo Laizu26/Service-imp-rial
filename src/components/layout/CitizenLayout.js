@@ -15,10 +15,8 @@ import {
   Mail,
   Map,
   Gavel,
-  Briefcase, // <-- AJOUT ICÔNE
+  Briefcase,
 } from "lucide-react";
-
-import Card from "../ui/Card";
 
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
@@ -26,15 +24,16 @@ import GazetteView from "../views/GazetteView";
 import CitizenBankView from "../views/CitizenBankView";
 import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
-import MyCompanyView from "../views/MyCompanyView"; // <-- IMPORT NOUVELLE VUE CITOYEN
+import MyCompanyView from "../views/MyCompanyView";
 
 const CitizenLayout = (props) => {
   const [active, setActive] = useState("gazette");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
+  // --- DESTRUCTURATION DES PROPS ---
   const {
     user,
-    users,
+    users, // Liste des citoyens (Indispensable pour l'embauche !)
     countries,
     globalLedger,
     debtRegistry,
@@ -66,7 +65,12 @@ const CitizenLayout = (props) => {
     onSwitchAccount,
     onAddAccount,
     onLogoutAccount,
-    companies = [], // <-- RÉCUPÉRATION PROPS
+    companies = [],
+    // --- CES 3 FONCTIONS SONT OBLIGATOIRES POUR L'ENTREPRISE ---
+    onCompanyTreasury,
+    onCompanyHireFire, // <--- VÉRIFIEZ QU'ELLE EST ICI
+    onCompanyProduce,
+    // -----------------------------------------------------------
   } = props;
 
   const isSlave = user.status === "Esclave";
@@ -95,7 +99,7 @@ const CitizenLayout = (props) => {
   const menuItems = [
     { id: "gazette", label: "Gazette", icon: Scroll },
     { id: "profil", label: "Mon Registre", icon: User },
-    { id: "my_company", label: "Mon Entreprise", icon: Briefcase }, // <-- AJOUT MENU
+    { id: "my_company", label: "Mon Entreprise", icon: Briefcase },
     { id: "inventory", label: "Inventaire", icon: Box },
     canUseBank && { id: "bank", label: "Banque", icon: Landmark },
     !isBanned &&
@@ -113,7 +117,7 @@ const CitizenLayout = (props) => {
         isSlave ? "bg-stone-950" : "bg-stone-950"
       }`}
     >
-      {/* SIDEBAR PC */}
+      {/* SIDEBAR */}
       <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative">
         <div className="p-8 pb-4 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
           <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 border-yellow-600/30 mb-4 shadow-[0_0_15px_rgba(202,138,4,0.1)] overflow-hidden">
@@ -174,7 +178,6 @@ const CitizenLayout = (props) => {
         </div>
       </aside>
 
-      {/* CONTENU DROITE */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#e6e2d6]/5 relative">
         <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-3 md:invisible">
@@ -200,9 +203,7 @@ const CitizenLayout = (props) => {
               </div>
             </div>
           </div>
-
           <div className="hidden md:block"></div>
-
           <div className="flex gap-3 items-center font-sans">
             <div className="relative">
               <button
@@ -213,7 +214,7 @@ const CitizenLayout = (props) => {
                 }`}
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
               >
-                <Users size={16} className="text-yellow-600" />
+                <Users size={16} className="text-yellow-600" />{" "}
                 <span className="hidden sm:inline">
                   Comptes ({connectedAccounts.length})
                 </span>
@@ -224,7 +225,6 @@ const CitizenLayout = (props) => {
                   }`}
                 />
               </button>
-
               {isAccountMenuOpen && (
                 <>
                   <div
@@ -317,7 +317,6 @@ const CitizenLayout = (props) => {
                 </>
               )}
             </div>
-
             {isGraded && (
               <button
                 onClick={onSwitchBack}
@@ -336,13 +335,6 @@ const CitizenLayout = (props) => {
             </button>
           </div>
         </header>
-
-        {isSlave && (
-          <div className="bg-stone-800 text-stone-400 text-xs p-2 text-center uppercase tracking-widest font-black flex items-center justify-center gap-2 border-b border-stone-700 shadow-inner shrink-0">
-            <Lock size={12} /> Propriété de :{" "}
-            {owner ? owner.name : "L'État (Sans maître)"}
-          </div>
-        )}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
           <div className="md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x">
@@ -363,7 +355,6 @@ const CitizenLayout = (props) => {
 
           <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {active === "gazette" && <GazetteView gazette={gazette} />}
-
             {active === "bank" && (
               <CitizenBankView
                 user={user}
@@ -380,7 +371,6 @@ const CitizenLayout = (props) => {
                 onSignDebt={onSignDebt}
               />
             )}
-
             {active === "inventory" && (
               <CitizenInventoryView
                 user={user}
@@ -392,9 +382,18 @@ const CitizenLayout = (props) => {
               />
             )}
 
+            {/* --- VÉRIFIEZ BIEN CE BLOC --- */}
             {active === "my_company" && (
-              <MyCompanyView user={user} companies={companies} />
+              <MyCompanyView
+                user={user}
+                companies={companies}
+                citizens={users} // On passe bien 'users' ici, renommé en 'citizens' dans MyCompanyView
+                onCompanyTreasury={onCompanyTreasury}
+                onCompanyHireFire={onCompanyHireFire} // INDISPENSABLE
+                onCompanyProduce={onCompanyProduce}
+              />
             )}
+            {/* ------------------------------ */}
 
             {active === "msg" && !isBanned && canUsePost && (
               <PostView
@@ -405,7 +404,6 @@ const CitizenLayout = (props) => {
                 notify={notify}
               />
             )}
-
             {active === "travel" &&
               !isBanned &&
               !isPrisoner &&
@@ -492,7 +490,6 @@ const CitizenLayout = (props) => {
                   )}
                 </div>
               )}
-
             {active === "asia" && (
               <MaisonDeAsiaCitizen
                 citizens={users}
@@ -514,7 +511,6 @@ const CitizenLayout = (props) => {
                 countries={countries}
               />
             )}
-
             {active === "profil" && (
               <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-yellow-600 overflow-hidden">
                 <div className="p-6 md:p-8 border-b border-stone-300">
