@@ -364,10 +364,17 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         let freshCitizens = [...(state.citizens || [])];
         const index = freshCitizens.findIndex((x) => x.id === formData.id);
-        if (index !== -1)
+
+        if (index !== -1) {
+          // Cas 1 : Le citoyen existe, on le met à jour
           freshCitizens[index] = { ...freshCitizens[index], ...formData };
+        } else {
+          // Cas 2 : Le citoyen n'existe pas (nouveau), on l'ajoute
+          freshCitizens.push(formData);
+        }
+
         saveState({ ...state, citizens: freshCitizens });
-        notify("Mis à jour.", "success");
+        notify("Registres mis à jour.", "success");
       },
       onBuyItem: () => notify("Achat OK", "success"),
       onGiveItem: () => {},
