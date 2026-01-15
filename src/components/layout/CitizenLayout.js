@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   User,
   Lock,
@@ -16,6 +16,7 @@ import {
   Map,
   Gavel,
   Briefcase,
+  Book, // <--- 1. ICÔNE
 } from "lucide-react";
 
 import Card from "../ui/Card";
@@ -26,11 +27,9 @@ import CitizenBankView from "../views/CitizenBankView";
 import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 import MyCompanyView from "../views/MyCompanyView";
+import LibraryView from "../views/LibraryView"; // <--- 2. VIEW
 
 const CitizenLayout = (props) => {
-  const [active, setActive] = useState("gazette");
-  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-
   const {
     user,
     users,
@@ -66,7 +65,6 @@ const CitizenLayout = (props) => {
     onAddAccount,
     onLogoutAccount,
     companies = [],
-    // NOUVELLES FONCTIONS
     onCompanyTreasury,
     onSendJobOffer,
     onRespondJobOffer,
@@ -74,6 +72,38 @@ const CitizenLayout = (props) => {
     onCompanyFire,
   } = props;
 
+  // --- 1. TOUS LES HOOKS EN PREMIER (OBLIGATOIRE EN REACT) ---
+  const [active, setActive] = useState("gazette");
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+
+  // States pour les formulaires (Initialisés vides pour éviter erreur si user est null)
+  const [editOccupation, setEditOccupation] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
+  const [np, setNp] = useState("");
+
+  const [travelDestCountry, setTravelDestCountry] = useState("");
+  const [travelDestRegion, setTravelDestRegion] = useState("");
+
+  // Sync des formulaires quand l'user arrive enfin
+  useEffect(() => {
+    if (user) {
+      setEditOccupation(user.occupation || "");
+      setEditBio(user.bio || "");
+      setEditAvatar(user.avatarUrl || "");
+    }
+  }, [user]); // Se déclenche quand 'user' change (ex: chargement terminé)
+
+  // --- 2. SÉCURITÉ : SI PAS D'USER, ON CHARGE (APRÈS LES HOOKS) ---
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#e6e2d6] text-stone-500 font-serif animate-pulse">
+        Chargement du profil citoyen...
+      </div>
+    );
+  }
+
+  // --- 3. CALCULS DÉRIVÉS (MAINTENANT QUE USER EXISTE) ---
   const isSlave = user.status === "Esclave";
   const owner =
     isSlave && user.ownerId ? users.find((u) => u.id === user.ownerId) : null;
@@ -84,14 +114,6 @@ const CitizenLayout = (props) => {
   const canUseTravel = !isSlave || permissions.travel;
   const mySlaves = users.filter((u) => u.ownerId === user.id);
 
-  const [editOccupation, setEditOccupation] = useState(user?.occupation || "");
-  const [editBio, setEditBio] = useState(user?.bio || "");
-  const [editAvatar, setEditAvatar] = useState(user?.avatarUrl || "");
-  const [np, setNp] = useState("");
-
-  const [travelDestCountry, setTravelDestCountry] = useState("");
-  const [travelDestRegion, setTravelDestRegion] = useState("");
-
   const safeCountries = Array.isArray(countries) ? countries : [];
   const myPendingRequests = (travelRequests || []).filter(
     (r) => r.citizenId === user.id && r.status === "PENDING"
@@ -99,6 +121,7 @@ const CitizenLayout = (props) => {
 
   const menuItems = [
     { id: "gazette", label: "Gazette", icon: Scroll },
+    { id: "library", label: "Bibliothèque", icon: Book }, // <--- MENU
     { id: "profil", label: "Mon Registre", icon: User },
     { id: "my_company", label: "Mon Entreprise", icon: Briefcase },
     { id: "inventory", label: "Inventaire", icon: Box },
@@ -112,6 +135,7 @@ const CitizenLayout = (props) => {
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
   ].filter(Boolean);
 
+  // --- 4. RENDU ---
   return (
     <div
       className={`flex h-screen font-serif text-stone-200 overflow-hidden ${
@@ -367,6 +391,12 @@ const CitizenLayout = (props) => {
           <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {active === "gazette" && <GazetteView gazette={gazette} />}
 
+            {/* --- BLOC BIBLIOTHÈQUE --- */}
+            {active === "library" && (
+              <LibraryView countries={countries} session={user} />
+            )}
+            {/* ------------------------- */}
+
             {active === "bank" && (
               <CitizenBankView
                 user={user}
@@ -395,7 +425,6 @@ const CitizenLayout = (props) => {
               />
             )}
 
-            {/* --- INTEGRATION DES NOUVELLES FONCTIONS --- */}
             {active === "my_company" && (
               <MyCompanyView
                 user={user}
@@ -408,7 +437,6 @@ const CitizenLayout = (props) => {
                 onCompanyFire={onCompanyFire}
               />
             )}
-            {/* ------------------------------------------- */}
 
             {active === "msg" && !isBanned && canUsePost && (
               <PostView

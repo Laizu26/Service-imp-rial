@@ -18,7 +18,8 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
-  Briefcase, // AJOUTÉ
+  Briefcase,
+  Library, // <--- 1. ICÔNE AJOUTÉE
 } from "lucide-react";
 
 // Hooks & Lib
@@ -42,8 +43,9 @@ import InventoryView from "./components/views/InventoryView";
 import PostView from "./components/views/PostView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
-import CompaniesAdminView from "./components/views/CompaniesAdminView"; // AJOUTÉ
+import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
+import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
 import CitizenLayout from "./components/layout/CitizenLayout";
 
 export default function App() {
@@ -132,6 +134,18 @@ export default function App() {
         icon: Crown,
       });
     tabs.push({ id: "country", label: "Atlas", icon: Globe });
+
+    // --- 3. AJOUT DE L'ONGLET BIBLIOTHÈQUE ---
+    if (roleInfo.level >= 40) {
+      // Niveau requis : Intendant ou +
+      tabs.push({
+        id: "library_admin",
+        label: "Bibliothèque",
+        icon: Library,
+      });
+    }
+    // ----------------------------------------
+
     tabs.push({ id: "registry", label: "Registre", icon: Scroll });
     tabs.push({ id: "items", label: "Objets", icon: Box });
     tabs.push({ id: "bank", label: "Banque", icon: Coins });
@@ -208,13 +222,11 @@ export default function App() {
             notify={notify}
             isGraded={canAccessAdmin}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
-            // --- NOUVELLES FONCTIONS D'ENTREPRISE ---
             onCompanyTreasury={actions.onCompanyTreasury}
             onSendJobOffer={actions.onSendJobOffer}
             onRespondJobOffer={actions.onRespondJobOffer}
             onPaySalaries={actions.onPaySalaries}
             onCompanyFire={actions.onCompanyFire}
-            // ----------------------------------------
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -421,6 +433,16 @@ export default function App() {
                       roleInfo={roleInfo}
                     />
                   )}
+
+                  {/* --- 4. AFFICHAGE DE LA VUE ADMIN --- */}
+                  {activeTab === "library_admin" && (
+                    <LibraryAdminView
+                      countries={state.countries}
+                      onUpdate={(c) => saveState({ ...state, countries: c })}
+                    />
+                  )}
+                  {/* ----------------------------------- */}
+
                   {activeTab === "items" && (
                     <InventoryView
                       items={state.inventoryCatalog}
