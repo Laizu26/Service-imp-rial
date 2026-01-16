@@ -16,7 +16,7 @@ import {
   Map,
   Gavel,
   Briefcase,
-  Book, // <--- 1. ICÔNE
+  Book, // Icône Bibliothèque
 } from "lucide-react";
 
 import Card from "../ui/Card";
@@ -27,7 +27,7 @@ import CitizenBankView from "../views/CitizenBankView";
 import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 import MyCompanyView from "../views/MyCompanyView";
-import LibraryView from "../views/LibraryView"; // <--- 2. VIEW
+import LibraryView from "../views/LibraryView"; // Vue Bibliothèque
 
 const CitizenLayout = (props) => {
   const {
@@ -72,11 +72,11 @@ const CitizenLayout = (props) => {
     onCompanyFire,
   } = props;
 
-  // --- 1. TOUS LES HOOKS EN PREMIER (OBLIGATOIRE EN REACT) ---
+  // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
   const [active, setActive] = useState("gazette");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
-  // States pour les formulaires (Initialisés vides pour éviter erreur si user est null)
+  // Formulaires (avec valeurs par défaut vides)
   const [editOccupation, setEditOccupation] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
@@ -85,43 +85,55 @@ const CitizenLayout = (props) => {
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
 
-  // Sync des formulaires quand l'user arrive enfin
+  // Mise à jour des formulaires une fois que l'user est chargé
   useEffect(() => {
     if (user) {
       setEditOccupation(user.occupation || "");
       setEditBio(user.bio || "");
       setEditAvatar(user.avatarUrl || "");
     }
-  }, [user]); // Se déclenche quand 'user' change (ex: chargement terminé)
+  }, [user]);
 
-  // --- 2. SÉCURITÉ : SI PAS D'USER, ON CHARGE (APRÈS LES HOOKS) ---
+  // --- 2. SÉCURITÉ CRITIQUE ---
+  // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#e6e2d6] text-stone-500 font-serif animate-pulse">
-        Chargement du profil citoyen...
+        Chargement de l'identité...
       </div>
     );
   }
 
-  // --- 3. CALCULS DÉRIVÉS (MAINTENANT QUE USER EXISTE) ---
-  const isSlave = user.status === "Esclave";
+  // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
+  // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
+  const isSlave = user?.status === "Esclave";
+
   const owner =
-    isSlave && user.ownerId ? users.find((u) => u.id === user.ownerId) : null;
-  const permissions = user.permissions || {};
+    isSlave && user?.ownerId
+      ? (users || []).find((u) => u.id === user.ownerId)
+      : null;
+
+  const permissions = user?.permissions || {};
 
   const canUsePost = !isSlave || permissions.post;
   const canUseBank = !isSlave || permissions.bank;
   const canUseTravel = !isSlave || permissions.travel;
-  const mySlaves = users.filter((u) => u.ownerId === user.id);
+
+  // Sécurité sur users
+  const safeUsers = Array.isArray(users) ? users : [];
+  const mySlaves = safeUsers.filter((u) => u.ownerId === user.id);
 
   const safeCountries = Array.isArray(countries) ? countries : [];
-  const myPendingRequests = (travelRequests || []).filter(
+
+  // Sécurité sur travelRequests
+  const safeRequests = Array.isArray(travelRequests) ? travelRequests : [];
+  const myPendingRequests = safeRequests.filter(
     (r) => r.citizenId === user.id && r.status === "PENDING"
   );
 
   const menuItems = [
     { id: "gazette", label: "Gazette", icon: Scroll },
-    { id: "library", label: "Bibliothèque", icon: Book }, // <--- MENU
+    { id: "library", label: "Bibliothèque", icon: Book },
     { id: "profil", label: "Mon Registre", icon: User },
     { id: "my_company", label: "Mon Entreprise", icon: Briefcase },
     { id: "inventory", label: "Inventaire", icon: Box },
@@ -145,7 +157,7 @@ const CitizenLayout = (props) => {
       <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative">
         <div className="p-8 pb-4 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
           <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 border-yellow-600/30 mb-4 shadow-[0_0_15px_rgba(202,138,4,0.1)] overflow-hidden">
-            {user?.avatarUrl ? (
+            {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 className="w-full h-full object-cover"
@@ -156,10 +168,10 @@ const CitizenLayout = (props) => {
             )}
           </div>
           <h2 className="text-lg font-black uppercase tracking-widest text-stone-100 text-center leading-tight">
-            {user?.name}
+            {user.name}
           </h2>
           <div className="text-[10px] text-stone-500 font-mono mt-1 tracking-widest uppercase">
-            Matricule: {user?.id}
+            Matricule: {user.id}
           </div>
           {isSlave && (
             <span className="mt-2 bg-red-900/50 text-red-200 text-[9px] px-2 py-0.5 rounded border border-red-900 uppercase tracking-widest">
@@ -206,7 +218,7 @@ const CitizenLayout = (props) => {
         <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-3 md:invisible">
             <div className="w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative shrink-0">
-              {user?.avatarUrl ? (
+              {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   className="w-full h-full object-cover"
@@ -223,7 +235,7 @@ const CitizenLayout = (props) => {
             </div>
             <div className="font-sans">
               <div className="font-bold text-sm text-stone-200">
-                {user?.name}
+                {user.name}
               </div>
             </div>
           </div>
@@ -393,14 +405,14 @@ const CitizenLayout = (props) => {
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
             {active === "library" && (
-              <LibraryView countries={countries} session={user} />
+              <LibraryView countries={safeCountries} session={user} />
             )}
             {/* ------------------------- */}
 
             {active === "bank" && (
               <CitizenBankView
                 user={user}
-                users={users}
+                users={safeUsers}
                 globalLedger={globalLedger}
                 debtRegistry={debtRegistry}
                 onTransfer={onTransfer}
@@ -417,7 +429,7 @@ const CitizenLayout = (props) => {
             {active === "inventory" && (
               <CitizenInventoryView
                 user={user}
-                users={users}
+                users={safeUsers}
                 catalog={catalog}
                 onBuyItem={onBuyItem}
                 onGiveItem={onGiveItem}
@@ -429,7 +441,7 @@ const CitizenLayout = (props) => {
               <MyCompanyView
                 user={user}
                 companies={companies}
-                citizens={users}
+                citizens={safeUsers}
                 onCompanyTreasury={onCompanyTreasury}
                 onSendJobOffer={onSendJobOffer}
                 onRespondJobOffer={onRespondJobOffer}
@@ -440,7 +452,7 @@ const CitizenLayout = (props) => {
 
             {active === "msg" && !isBanned && canUsePost && (
               <PostView
-                users={users}
+                users={safeUsers}
                 session={user}
                 onSend={onSend}
                 onUpdateUser={onUpdateUser}
@@ -464,7 +476,7 @@ const CitizenLayout = (props) => {
                       <div>
                         Destination:{" "}
                         {
-                          countries.find(
+                          safeCountries.find(
                             (c) => c.id === myPendingRequests[0].toCountry
                           )?.name
                         }
@@ -482,7 +494,7 @@ const CitizenLayout = (props) => {
                           onChange={(e) => setTravelDestCountry(e.target.value)}
                         >
                           <option value="">— Destination —</option>
-                          {countries
+                          {safeCountries
                             .filter((c) => c.id !== user.countryId)
                             .map((c) => (
                               <option key={c.id} value={c.id}>
@@ -503,8 +515,9 @@ const CitizenLayout = (props) => {
                           >
                             <option value="">— Région —</option>
                             {(
-                              countries.find((c) => c.id === travelDestCountry)
-                                ?.regions || []
+                              safeCountries.find(
+                                (c) => c.id === travelDestCountry
+                              )?.regions || []
                             ).map((r) => (
                               <option key={r.id} value={r.name}>
                                 {r.name}
@@ -537,11 +550,12 @@ const CitizenLayout = (props) => {
 
             {active === "asia" && (
               <MaisonDeAsiaCitizen
-                citizens={users}
-                countries={countries}
+                citizens={safeUsers}
+                countries={safeCountries}
                 houseRegistry={houseRegistry}
                 onBook={onBookMaison}
                 userBalance={user.balance}
+                user={user} // PASSAGE DE L'USER POUR VÉRIFIER LA RÉSERVATION
               />
             )}
             {active === "slaves" && (
@@ -553,7 +567,7 @@ const CitizenLayout = (props) => {
                 notify={notify}
                 catalog={catalog}
                 session={user}
-                countries={countries}
+                countries={safeCountries}
               />
             )}
 

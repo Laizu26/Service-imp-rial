@@ -1,184 +1,303 @@
-import React, { useState } from "react";
-import { Save, Trash2, MapPin, ImageIcon, Star, Users } from "lucide-react";
-import UserSearchSelect from "../ui/UserSearchSelect";
+import React, { useState, useMemo } from "react";
+import {
+  Gem,
+  Users,
+  LogOut,
+  Plus,
+  Trash2,
+  Heart,
+  DollarSign,
+  UserPlus,
+} from "lucide-react";
+import SecureDeleteButton from "../ui/SecureDeleteButton";
 
 const MaisonDeAsiaAdmin = ({
-  citizens,
-  countries,
-  houseRegistry,
+  citizens = [],
+  houseRegistry = [],
+  staff = [],
   onUpdateRegistry,
+  onUpdateStaff,
 }) => {
-  const [selectedEntry, setSelectedEntry] = useState(null);
-  const [formData, setFormData] = useState({
-    citizenId: "",
-    description: "",
-    images: "",
-    price: 0,
-    specialties: "",
-    status: "Disponible",
-  });
+  const [activeTab, setActiveTab] = useState("staff");
 
-  const linkedCitizen = citizens.find((c) => c.id === formData.citizenId);
-  const locationName = linkedCitizen
-    ? countries.find((c) => c.id === linkedCitizen.countryId)?.name
-    : "Inconnu";
+  // Formulaire simplifié (plus besoin de nom/photo, on prend ceux du citoyen)
+  const [selectedSlaveId, setSelectedSlaveId] = useState("");
+  const [newStaffSpecialty, setNewStaffSpecialty] = useState("");
+  const [newStaffPrice, setNewStaffPrice] = useState(50);
 
-  const handleSave = () => {
-    if (!formData.citizenId) return;
-    const newEntry = {
-      id: selectedEntry ? selectedEntry.id : Date.now(),
-      ...formData,
-      images: formData.images.split("\n").filter((url) => url.length > 5),
+  // --- FILTRER LES ESCLAVES DISPONIBLES (CORRIGÉ & ROBUSTE) ---
+  const availableSlaves = useMemo(() => {
+    if (!citizens) return [];
+
+    return citizens.filter((c) => {
+      // 1. Nettoyage du statut (minuscule + sans espace inutile) pour éviter les erreurs de saisie
+      const status = (c.status || "").toLowerCase().trim();
+
+      // 2. On accepte "esclave", "servitude", ou tout ce qui contient "esclave" (ex: "Esclave de luxe")
+      const isSlaveStatus =
+        status.includes("esclave") || status === "servitude";
+
+      // 3. Vérifie s'il est déjà dans le staff (Conversion en String pour éviter les bugs d'ID number vs string)
+      const alreadyInStaff = staff.some((s) => String(s.id) === String(c.id));
+
+      return isSlaveStatus && !alreadyInStaff;
+    });
+  }, [citizens, staff]);
+
+  // --- GESTION DU STAFF ---
+  const handleAddStaff = () => {
+    if (!selectedSlaveId || !newStaffSpecialty) return;
+
+    // On retrouve les infos du citoyen sélectionné
+    const slaveProfile = citizens.find((c) => c.id === selectedSlaveId);
+    if (!slaveProfile) return;
+
+    const newWorker = {
+      id: slaveProfile.id, // On garde le même ID pour lier les systèmes
+      name: slaveProfile.name,
+      avatarUrl: slaveProfile.avatarUrl,
+      specialty: newStaffSpecialty,
+      price: parseInt(newStaffPrice),
+      isBusy: false,
     };
-    let newRegistry;
-    if (selectedEntry) {
-      newRegistry = houseRegistry.map((item) =>
-        item.id === selectedEntry.id ? newEntry : item
-      );
-    } else {
-      newRegistry = [...houseRegistry, newEntry];
-    }
+
+    onUpdateStaff([...staff, newWorker]);
+
+    // Reset form
+    setSelectedSlaveId("");
+    setNewStaffSpecialty("");
+    setNewStaffPrice(50);
+  };
+
+  const handleRemoveStaff = (id) => {
+    onUpdateStaff(staff.filter((s) => s.id !== id));
+  };
+
+  // --- GESTION DES CLIENTS ---
+  const handleEvict = (citizenId) => {
+    const newRegistry = houseRegistry.filter((r) => r.citizenId !== citizenId);
     onUpdateRegistry(newRegistry);
-    resetForm();
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm("Retirer ce membre ?")) {
-      onUpdateRegistry(houseRegistry.filter((item) => item.id !== id));
-      resetForm();
-    }
-  };
-
-  const resetForm = () => {
-    setSelectedEntry(null);
-    setFormData({
-      citizenId: "",
-      description: "",
-      images: "",
-      price: 0,
-      specialties: "",
-      status: "Disponible",
-    });
-  };
-
-  const loadEntry = (entry) => {
-    setSelectedEntry(entry);
-    setFormData({
-      ...entry,
-      images: Array.isArray(entry.images)
-        ? entry.images.join("\n")
-        : entry.images,
-    });
   };
 
   return (
-    <div className="flex h-full gap-6 font-sans">
-      <div className="w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md">
-        <div className="p-4 bg-stone-100 border-b font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500 flex justify-between items-center">
-          <span>Effectif</span>
-          <button
-            onClick={resetForm}
-            className="bg-stone-800 text-white px-2 py-1 rounded"
-          >
-            + Nouveau
-          </button>
+    <div className="h-full flex flex-col bg-stone-100 rounded-xl overflow-hidden border border-stone-300 font-sans">
+      {/* HEADER */}
+      <div className="bg-fuchsia-900 text-white p-6 shadow-md z-10 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-fuchsia-800 rounded-lg border border-fuchsia-600 shadow-inner">
+            <Gem size={24} className="text-fuchsia-200" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black uppercase tracking-widest text-white">
+              Maison Asia
+            </h2>
+            <p className="text-xs text-fuchsia-300 font-mono">Administration</p>
+          </div>
         </div>
-        <div className="overflow-y-auto flex-1 p-2 space-y-2">
-          {houseRegistry.map((entry) => {
-            const cit = citizens.find((c) => c.id === entry.citizenId);
-            if (!cit) return null;
-            return (
-              <div
-                key={entry.id}
-                onClick={() => loadEntry(entry)}
-                className="p-3 border rounded-lg cursor-pointer bg-white hover:bg-stone-50"
-              >
-                <div className="font-bold text-xs uppercase">{cit.name}</div>
-                <div className="text-[10px] opacity-70">{entry.status}</div>
-              </div>
-            );
-          })}
+
+        {/* TABS */}
+        <div className="flex bg-fuchsia-950/50 rounded-lg p-1">
+          <button
+            onClick={() => setActiveTab("staff")}
+            className={`px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all ${
+              activeTab === "staff"
+                ? "bg-white text-fuchsia-900 shadow"
+                : "text-fuchsia-300 hover:text-white"
+            }`}
+          >
+            <Heart size={14} /> Les Pensionnaires
+          </button>
+          <button
+            onClick={() => setActiveTab("clients")}
+            className={`px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all ${
+              activeTab === "clients"
+                ? "bg-white text-fuchsia-900 shadow"
+                : "text-fuchsia-300 hover:text-white"
+            }`}
+          >
+            <Users size={14} /> Clients ({houseRegistry.length})
+          </button>
         </div>
       </div>
-      <div className="flex-1 bg-white p-6 rounded-xl border border-stone-200 shadow-xl overflow-y-auto">
-        <h2 className="text-xl font-black uppercase text-stone-800 mb-6 flex items-center gap-2">
-          <Star className="text-yellow-600" /> Fiche Membre
-        </h2>
-        <div className="space-y-4 max-w-xl">
-          <UserSearchSelect
-            users={citizens}
-            value={formData.citizenId}
-            onSelect={(id) => setFormData({ ...formData, citizenId: id })}
-            placeholder="Rechercher..."
-          />
-          {linkedCitizen && (
-            <div className="text-xs bg-yellow-50 p-2 border border-yellow-200">
-              Actuellement à : {locationName}
+
+      {/* CONTENU */}
+      <div className="flex-1 overflow-y-auto p-6 bg-stone-50">
+        {/* --- ONGLET 1 : GESTION DU STAFF --- */}
+        {activeTab === "staff" && (
+          <div className="space-y-8">
+            {/* Formulaire d'ajout */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+              <h3 className="text-xs font-black uppercase text-stone-400 mb-4 flex items-center gap-2">
+                <UserPlus size={14} /> Affecter un esclave au service
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* SELECTEUR D'ESCLAVES */}
+                <select
+                  className="p-3 border rounded-lg text-sm bg-stone-50 outline-none focus:border-fuchsia-500"
+                  value={selectedSlaveId}
+                  onChange={(e) => setSelectedSlaveId(e.target.value)}
+                >
+                  <option value="">-- Choisir un esclave --</option>
+                  {availableSlaves.map((slave) => (
+                    <option key={slave.id} value={slave.id}>
+                      {slave.name} (Propriétaire:{" "}
+                      {citizens.find((c) => c.id === slave.ownerId)?.name ||
+                        "État"}
+                      )
+                    </option>
+                  ))}
+                  {availableSlaves.length === 0 && (
+                    <option disabled>Aucun esclave disponible</option>
+                  )}
+                </select>
+
+                <input
+                  className="p-3 border rounded-lg text-sm bg-stone-50"
+                  placeholder="Spécialité (ex: Massage, Danse...)"
+                  value={newStaffSpecialty}
+                  onChange={(e) => setNewStaffSpecialty(e.target.value)}
+                />
+
+                <div className="relative">
+                  <DollarSign
+                    size={14}
+                    className="absolute left-3 top-3.5 text-stone-400"
+                  />
+                  <input
+                    type="number"
+                    className="p-3 pl-8 w-full border rounded-lg text-sm bg-stone-50"
+                    placeholder="Prix"
+                    value={newStaffPrice}
+                    onChange={(e) => setNewStaffPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleAddStaff}
+                disabled={!selectedSlaveId || !newStaffSpecialty}
+                className="mt-4 w-full bg-fuchsia-900 text-white py-3 rounded-lg font-bold uppercase text-xs tracking-widest hover:bg-fuchsia-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus size={14} /> Ajouter au catalogue
+              </button>
+
+              {availableSlaves.length === 0 && (
+                <p className="text-[10px] text-stone-400 mt-2 italic text-center">
+                  * Il n'y a plus d'esclaves disponibles dans le registre pour
+                  être ajoutés ici. (Vérifiez qu'ils ont bien le statut
+                  "Esclave")
+                </p>
+              )}
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="number"
-              placeholder="Prix"
-              className="p-2 border rounded"
-              value={formData.price}
-              onChange={(e) =>
-                setFormData({ ...formData, price: parseInt(e.target.value) })
-              }
-            />
-            <select
-              className="p-2 border rounded"
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value })
-              }
-            >
-              <option>Disponible</option>
-              <option>Occupé</option>
-              <option>Repos</option>
-            </select>
+
+            {/* Liste du Staff */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {staff.map((member) => (
+                <div
+                  key={member.id}
+                  className="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex gap-4 items-center group relative"
+                >
+                  <img
+                    src={member.avatarUrl || "https://i.pravatar.cc/150?img=5"}
+                    alt={member.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-fuchsia-100"
+                  />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-stone-800">{member.name}</h4>
+                    <p className="text-xs text-fuchsia-600 font-medium">
+                      {member.specialty}
+                    </p>
+                    <p className="text-xs text-stone-400 mt-1 font-mono">
+                      {member.price} Écus
+                    </p>
+                  </div>
+
+                  {/* Badge de statut */}
+                  {houseRegistry.find((r) => r.staffId === member.id) ? (
+                    <span
+                      className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-sm"
+                      title="Occupée"
+                    ></span>
+                  ) : (
+                    <span
+                      className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"
+                      title="Disponible"
+                    ></span>
+                  )}
+
+                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <SecureDeleteButton
+                      onClick={() => handleRemoveStaff(member.id)}
+                    />
+                  </div>
+                </div>
+              ))}
+              {staff.length === 0 && (
+                <div className="col-span-full text-center py-10 text-stone-400 italic">
+                  Aucun personnel enregistré.
+                </div>
+              )}
+            </div>
           </div>
-          <input
-            className="w-full p-2 border rounded"
-            placeholder="Spécialités"
-            value={formData.specialties}
-            onChange={(e) =>
-              setFormData({ ...formData, specialties: e.target.value })
-            }
-          />
-          <textarea
-            className="w-full p-2 border rounded h-20"
-            placeholder="URLs images (une par ligne)"
-            value={formData.images}
-            onChange={(e) =>
-              setFormData({ ...formData, images: e.target.value })
-            }
-          />
-          <textarea
-            className="w-full p-2 border rounded h-20"
-            placeholder="Description publique..."
-            value={formData.description}
-            onChange={(e) =>
-              setFormData({ ...formData, description: e.target.value })
-            }
-          />
-          <button
-            onClick={handleSave}
-            className="w-full bg-stone-900 text-yellow-500 py-3 rounded font-bold uppercase"
-          >
-            Enregistrer
-          </button>
-          {selectedEntry && (
-            <button
-              onClick={() => handleDelete(selectedEntry.id)}
-              className="w-full mt-2 text-red-500 text-xs uppercase"
-            >
-              Supprimer
-            </button>
-          )}
-        </div>
+        )}
+
+        {/* --- ONGLET 2 : CLIENTS --- */}
+        {activeTab === "clients" && (
+          <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-stone-100 text-stone-500 uppercase text-[10px] tracking-widest font-black">
+                <tr>
+                  <th className="p-4">Client</th>
+                  <th className="p-4">Compagnie</th>
+                  <th className="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {houseRegistry.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="3"
+                      className="p-8 text-center text-stone-400 italic"
+                    >
+                      Le salon est vide.
+                    </td>
+                  </tr>
+                ) : (
+                  houseRegistry.map((record) => {
+                    const client = citizens.find(
+                      (c) => c.id === record.citizenId
+                    ) || { name: "Inconnu" };
+                    const worker = staff.find(
+                      (s) => s.id === record.staffId
+                    ) || { name: "Service Inconnu" };
+
+                    return (
+                      <tr key={record.citizenId} className="hover:bg-stone-50">
+                        <td className="p-4 font-bold text-stone-800">
+                          {client.name}
+                        </td>
+                        <td className="p-4 text-fuchsia-700 font-medium flex items-center gap-2">
+                          <Heart size={12} /> {worker.name}
+                        </td>
+                        <td className="p-4 text-right">
+                          <SecureDeleteButton
+                            label="Expulser"
+                            icon={LogOut}
+                            onClick={() => handleEvict(record.citizenId)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
 export default MaisonDeAsiaAdmin;

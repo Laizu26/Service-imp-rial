@@ -1,665 +1,859 @@
 import React, { useState } from "react";
 import {
-  User,
-  Lock,
-  Shield,
-  LogOut,
-  Gem,
-  Users,
-  PlusCircle,
-  ChevronDown,
-  Trash2,
-  Scroll,
-  Box,
-  Landmark,
-  Mail,
   Map,
-  Gavel,
+  Plus,
+  Flag,
+  Edit3,
+  X,
+  Crown,
   Briefcase,
-  Book, // NOUVEAU
+  Users,
+  Coins,
+  Activity,
+  Gavel,
+  Lock,
+  ShieldAlert,
+  Award,
+  Globe,
+  Scroll,
+  Link,
+  DownloadCloud,
 } from "lucide-react";
-
 import Card from "../ui/Card";
-import PostView from "../views/PostView";
-import SlaveManagementView from "../views/SlaveManagementView";
-import GazetteView from "../views/GazetteView";
-import CitizenBankView from "../views/CitizenBankView";
-import CitizenInventoryView from "../views/CitizenInventoryView";
-import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
-import MyCompanyView from "../views/MyCompanyView";
-import LibraryView from "../views/LibraryView"; // NOUVEAU
+import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { ROLES } from "../../lib/constants";
 
-const CitizenLayout = (props) => {
-  const [active, setActive] = useState("gazette");
-  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+const GeopoliticsView = ({
+  countries,
+  citizens,
+  onUpdate,
+  session,
+  roleInfo,
+}) => {
+  const [selectedId, setSelectedId] = useState(null);
+  const [activeTab, setActiveTab] = useState("info");
+  const [isCreating, setIsCreating] = useState(false);
+  const [newCountryName, setNewCountryName] = useState("");
+  const [renameBuf, setRenameBuf] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newRegionName, setNewRegionName] = useState("");
 
-  const {
-    user,
-    users,
-    countries,
-    globalLedger,
-    debtRegistry,
-    catalog,
-    gazette,
-    onLogout,
-    onUpdateUser,
-    onSend,
-    onRequestTravel,
-    onTransfer,
-    onProposeDebt,
-    onSignDebt,
-    onCreateDebt,
-    onPayDebt,
-    onCancelDebt,
-    onBuyItem,
-    onGiveItem,
-    onBuySlave,
-    onSelfManumit,
-    notify,
-    isGraded,
-    onSwitchBack,
-    travelRequests,
-    houseRegistry,
-    onBookMaison,
-    isBanned,
-    isPrisoner,
-    connectedAccounts = [],
-    onSwitchAccount,
-    onAddAccount,
-    onLogoutAccount,
-    companies = [],
-    // NOUVELLES FONCTIONS
-    onCompanyTreasury,
-    onSendJobOffer,
-    onRespondJobOffer,
-    onPaySalaries,
-    onCompanyFire,
-  } = props;
+  // Custom Roles States
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleType, setNewRoleType] = useState("ROLE"); // ROLE or STATUS
+  const [newRoleLevel, setNewRoleLevel] = useState(10); // Pour les permissions
+  const [isRestrictedStatus, setIsRestrictedStatus] = useState(false); // Pour les statuts (prisonnier etc)
 
-  const isSlave = user.status === "Esclave";
-  const owner =
-    isSlave && user.ownerId ? users.find((u) => u.id === user.ownerId) : null;
-  const permissions = user.permissions || {};
+  // États pour l'import GDoc
+  const [gDocUrl, setGDocUrl] = useState("");
+  const [isLoadingDoc, setIsLoadingDoc] = useState(false);
 
-  const canUsePost = !isSlave || permissions.post;
-  const canUseBank = !isSlave || permissions.bank;
-  const canUseTravel = !isSlave || permissions.travel;
-  const mySlaves = users.filter((u) => u.ownerId === user.id);
-
-  const [editOccupation, setEditOccupation] = useState(user?.occupation || "");
-  const [editBio, setEditBio] = useState(user?.bio || "");
-  const [editAvatar, setEditAvatar] = useState(user?.avatarUrl || "");
-  const [np, setNp] = useState("");
-
-  const [travelDestCountry, setTravelDestCountry] = useState("");
-  const [travelDestRegion, setTravelDestRegion] = useState("");
-
+  // SÉCURITÉS
   const safeCountries = Array.isArray(countries) ? countries : [];
-  const myPendingRequests = (travelRequests || []).filter(
-    (r) => r.citizenId === user.id && r.status === "PENDING"
+  const safeCitizens = Array.isArray(citizens) ? citizens : [];
+  const safeRoleInfo = roleInfo || {
+    level: 0,
+    scope: "LOCAL",
+    role: "CITOYEN",
+  };
+  const isGlobal = safeRoleInfo.scope === "GLOBAL";
+
+  const selectedCountry = safeCountries.find((c) => c.id === selectedId);
+
+  // Permissions
+  const canEdit =
+    isGlobal || (session?.countryId === selectedId && safeRoleInfo.level >= 40);
+
+  const canManageCountries =
+    safeRoleInfo.level >= 90 || safeRoleInfo.scope === "GLOBAL";
+
+  const updateSelected = (updates) =>
+    onUpdate(
+      safeCountries.map((c) => (c.id === selectedId ? { ...c, ...updates } : c))
+    );
+
+  // Migration helper
+  const migrateSelectedCountry = () => {
+    if (!selectedCountry || !Array.isArray(selectedCountry.laws)) return;
+    if (!canEdit) return;
+    if (
+      !window.confirm(
+        "Confirmer la migration ? Cette opération est irréversible."
+      )
+    )
+      return;
+
+    const defaultStructured = {
+      allowExternalDebits: false,
+      allowLocalConfiscation: true,
+      allowLocalSales: true,
+      allowPermissionEditsByLocalAdmins: true,
+      requireRulerApprovalForSales: false,
+    };
+
+    const decrees = (selectedCountry.laws || []).map((d) => ({ ...d }));
+    updateSelected({ laws: defaultStructured, decrees });
+  };
+
+  // --- IMPORT GDOC ---
+  const handleImportGDoc = async () => {
+    if (!gDocUrl) return;
+    setIsLoadingDoc(true);
+
+    try {
+      const match = gDocUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (!match || !match[1]) {
+        throw new Error("Lien invalide. Vérifiez le format Google Doc.");
+      }
+      const docId = match[1];
+      const exportUrl = `https://docs.google.com/document/d/${docId}/export?format=txt`;
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+        exportUrl
+      )}`;
+
+      const response = await fetch(proxyUrl);
+      if (!response.ok)
+        throw new Error("Impossible de lire le document. Est-il public ?");
+
+      const text = await response.text();
+      // On importe tout le texte comme un seul décret
+      const newDecree = {
+        id: Date.now(),
+        name: "Décret Importé (Sans titre)",
+        content: text, // Contenu riche
+        date: new Date().toISOString(),
+      };
+
+      if (Array.isArray(selectedCountry.laws)) {
+        updateSelected({
+          laws: [...(selectedCountry.laws || []), newDecree],
+        });
+      } else {
+        updateSelected({
+          decrees: [...(selectedCountry.decrees || []), newDecree],
+        });
+      }
+
+      setGDocUrl("");
+      alert(`Décret importé avec succès !`);
+    } catch (err) {
+      alert("Erreur Import : " + err.message);
+    } finally {
+      setIsLoadingDoc(false);
+    }
+  };
+
+  const ruler = selectedCountry
+    ? safeCitizens.find(
+        (c) =>
+          c.countryId === selectedCountry.id &&
+          (c.role === "ROI" || c.role === "EMPEREUR")
+      )
+    : null;
+  const rulerName = ruler ? ruler.name : "Trône Vacant";
+
+  const displayedCountries = safeCountries.filter(
+    (c) => isGlobal || c.id === session?.countryId
   );
 
-  const menuItems = [
-    { id: "gazette", label: "Gazette", icon: Scroll },
-    { id: "library", label: "Bibliothèque", icon: Book }, // NOUVEAU MENU
-    { id: "profil", label: "Mon Registre", icon: User },
-    { id: "my_company", label: "Mon Entreprise", icon: Briefcase },
-    { id: "inventory", label: "Inventaire", icon: Box },
-    canUseBank && { id: "bank", label: "Banque", icon: Landmark },
-    !isBanned &&
-      canUsePost && { id: "msg", label: "Poste Impériale", icon: Mail },
-    !isBanned &&
-      !isPrisoner &&
-      canUseTravel && { id: "travel", label: "Voyage", icon: Map },
-    { id: "asia", label: "Maison Asia", icon: Gem },
-    mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
-  ].filter(Boolean);
+  // --- HANDLERS CREATION ---
+  const handleStartCreation = () => {
+    setSelectedId(null);
+    setIsCreating(true);
+    setNewCountryName("");
+  };
+
+  const handleCancelCreation = () => {
+    setIsCreating(false);
+    setNewCountryName("");
+  };
+
+  const handleAddCountry = () => {
+    if (!newCountryName.trim()) return;
+    const newCountry = {
+      id: `C-${Date.now()}`,
+      name: newCountryName.trim(),
+      treasury: 1000,
+      population: 0,
+      stability: 50,
+      security: 50,
+      prosperity: 50,
+      laws: [],
+      regions: [{ id: 1, name: "Capitale", type: "Ville" }],
+      customRoles: [],
+      color: "bg-stone-50",
+      rulerName: "Gouverneur",
+      description: "Nouvelle contrée.",
+      specialty: "Aucune",
+    };
+    onUpdate([...safeCountries, newCountry]);
+    handleCancelCreation();
+  };
+
+  const handleDeleteCountry = (id) => {
+    if (window.confirm("Êtes-vous sûr de vouloir dissoudre ce territoire ?")) {
+      onUpdate(safeCountries.filter((c) => c.id !== id));
+      if (selectedId === id) setSelectedId(null);
+    }
+  };
+
+  const addCustomRole = () => {
+    if (!newRoleName) return;
+    const maxLevel = safeRoleInfo.level - 1;
+    const safeLevel = Math.min(
+      Math.max(0, parseInt(newRoleLevel) || 0),
+      maxLevel
+    );
+
+    const newRole = {
+      id: `cr-${Date.now()}`,
+      name: newRoleName,
+      type: newRoleType,
+      level: newRoleType === "ROLE" ? safeLevel : 0,
+      isRestricted: newRoleType === "STATUS" ? isRestrictedStatus : false,
+    };
+    updateSelected({
+      customRoles: [...(selectedCountry.customRoles || []), newRole],
+    });
+    setNewRoleName("");
+    setNewRoleLevel(10);
+    setIsRestrictedStatus(false);
+  };
+
+  const removeCustomRole = (roleId) => {
+    updateSelected({
+      customRoles: (selectedCountry.customRoles || []).filter(
+        (r) => r.id !== roleId
+      ),
+    });
+  };
 
   return (
-    <div
-      className={`flex h-screen font-serif text-stone-200 overflow-hidden ${
-        isSlave ? "bg-stone-950" : "bg-stone-950"
-      }`}
-    >
-      <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative">
-        <div className="p-8 pb-4 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
-          <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 border-yellow-600/30 mb-4 shadow-[0_0_15px_rgba(202,138,4,0.1)] overflow-hidden">
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                className="w-full h-full object-cover"
-                alt=""
-              />
-            ) : (
-              <User className="text-yellow-600" size={32} />
-            )}
+    <div className="flex flex-col md:flex-row h-full gap-6 font-sans">
+      {/* --- COLONNE GAUCHE : LISTE --- */}
+      <div className="w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md">
+        <div className="p-4 bg-stone-100 border-b border-stone-200 flex justify-between items-center">
+          <div className="font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500 flex items-center gap-2">
+            <Globe size={14} /> Atlas Impérial
           </div>
-          <h2 className="text-lg font-black uppercase tracking-widest text-stone-100 text-center leading-tight">
-            {user?.name}
-          </h2>
-          <div className="text-[10px] text-stone-500 font-mono mt-1 tracking-widest uppercase">
-            Matricule: {user?.id}
-          </div>
-          {isSlave && (
-            <span className="mt-2 bg-red-900/50 text-red-200 text-[9px] px-2 py-0.5 rounded border border-red-900 uppercase tracking-widest">
-              Esclave
-            </span>
+          {canManageCountries && (
+            <button
+              onClick={handleStartCreation}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shadow-sm ${
+                isCreating
+                  ? "bg-stone-800 text-white"
+                  : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              <Plus size={16} />
+            </button>
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActive(item.id)}
-              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
-                active === item.id
-                  ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
-                  : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
+        <div className="overflow-y-auto flex-1 p-3 space-y-3">
+          {displayedCountries.length === 0 && (
+            <div className="text-center p-10 text-stone-400 italic text-xs">
+              L'Empire est vide.
+            </div>
+          )}
+
+          {displayedCountries.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => {
+                setSelectedId(c.id);
+                setIsCreating(false);
+              }}
+              className={`p-4 border-2 rounded-xl cursor-pointer transition-all relative group ${
+                selectedId === c.id
+                  ? "bg-white border-stone-800 shadow-md transform translate-x-1"
+                  : "bg-white/50 border-stone-200 hover:border-stone-400 hover:bg-white"
               }`}
             >
-              <item.icon
-                size={18}
-                className={`transition-colors ${
-                  active === item.id
-                    ? "text-stone-900"
-                    : "text-stone-500 group-hover:text-stone-300"
-                }`}
-              />
-              <span className="text-xs font-black uppercase tracking-widest">
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-stone-800 text-center opacity-30">
-          <Shield className="mx-auto mb-2 text-stone-600" size={24} />
-          <div className="text-[9px] uppercase tracking-[0.2em] font-black">
-            Service Impérial
-          </div>
-        </div>
-      </aside>
-
-      <div className="flex-1 flex flex-col min-w-0 bg-[#e6e2d6]/5 relative">
-        <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
-          <div className="flex items-center gap-3 md:invisible">
-            <div className="w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative shrink-0">
-              {user?.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  className="w-full h-full object-cover"
-                  alt=""
-                />
-              ) : (
-                <User className="text-yellow-600" size={18} />
-              )}
-              {isSlave && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <Lock size={12} className="text-white" />
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`p-2 rounded-full ${
+                      selectedId === c.id
+                        ? "bg-stone-900 text-yellow-500"
+                        : "bg-stone-100 text-stone-400"
+                    }`}
+                  >
+                    <Flag size={16} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-sm uppercase text-stone-800 font-serif tracking-wide">
+                      {c.name}
+                    </h4>
+                    <p className="text-[10px] text-stone-500 font-mono mt-0.5">
+                      {
+                        (safeCitizens || []).filter((u) => u.countryId === c.id)
+                          .length
+                      }{" "}
+                      Citoyens
+                    </p>
+                  </div>
                 </div>
+                <div className="text-right">
+                  <div className="font-mono font-bold text-stone-900 text-xs">
+                    {c.treasury.toLocaleString()}{" "}
+                    <span className="text-[9px] text-stone-400">Écus</span>
+                  </div>
+                </div>
+              </div>
+              {selectedId === c.id && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-stone-900 rounded-l-xl"></div>
               )}
             </div>
-            <div className="font-sans">
-              <div className="font-bold text-sm text-stone-200">
-                {user?.name}
+          ))}
+        </div>
+      </div>
+
+      {/* --- COLONNE DROITE : CONTENU --- */}
+      <div className="flex-1 bg-[#e6e2d6] rounded-xl border border-stone-300 p-0 overflow-hidden shadow-inner relative flex flex-col">
+        {isCreating ? (
+          <div className="w-full h-full flex flex-col justify-center items-center p-8 animate-fadeIn">
+            <div className="w-full max-w-lg p-8 bg-[#fdf6e3] rounded-xl border-4 border-stone-800 shadow-2xl">
+              <div className="text-center mb-8 border-b-2 border-stone-200 pb-6">
+                <div className="inline-flex p-4 bg-stone-900 text-yellow-500 rounded-full mb-4 shadow-lg">
+                  <Crown size={32} />
+                </div>
+                <h2 className="text-3xl font-black font-serif uppercase tracking-tight text-stone-900">
+                  Décret d'Annexion
+                </h2>
+              </div>
+              <div className="space-y-6">
+                <input
+                  autoFocus
+                  className="w-full p-4 bg-white border-2 border-stone-300 rounded-xl font-serif font-bold text-xl outline-none focus:border-stone-900"
+                  placeholder="Nom du pays..."
+                  value={newCountryName}
+                  onChange={(e) => setNewCountryName(e.target.value)}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelCreation}
+                    className="flex-1 py-4 rounded-xl font-bold uppercase text-[10px] text-stone-500 hover:bg-stone-200"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleAddCountry}
+                    disabled={!newCountryName.trim()}
+                    className="flex-[2] bg-stone-900 text-yellow-500 py-4 rounded-xl font-black uppercase tracking-[0.2em] hover:bg-stone-800 disabled:opacity-50"
+                  >
+                    Créer
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-
-          <div className="hidden md:block"></div>
-
-          <div className="flex gap-3 items-center font-sans">
-            <div className="relative">
-              <button
-                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg transition-all border shadow-lg ${
-                  isAccountMenuOpen
-                    ? "bg-stone-700 text-white border-stone-500"
-                    : "bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-700 hover:text-white"
-                }`}
-                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-              >
-                <Users size={16} className="text-yellow-600" />
-                <span className="hidden sm:inline">
-                  Comptes ({connectedAccounts.length})
-                </span>
-                <ChevronDown
-                  size={12}
-                  className={`transition-transform duration-200 ${
-                    isAccountMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-
-              {isAccountMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40 cursor-default"
-                    onClick={() => setIsAccountMenuOpen(false)}
-                  ></div>
-                  <div className="absolute right-0 top-full mt-3 w-72 bg-stone-900 border border-stone-600 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="py-3 px-4 text-[9px] uppercase font-black text-stone-500 border-b border-stone-800 bg-stone-950">
-                      Identités Mémorisées
-                    </div>
-                    <div className="max-h-80 overflow-y-auto scrollbar-hide">
-                      {connectedAccounts.length > 0 ? (
-                        connectedAccounts.map((acc) => (
-                          <div
-                            key={acc.id}
-                            className="flex items-center group hover:bg-stone-800 transition-colors border-b border-stone-800 last:border-0 relative"
-                          >
-                            <button
-                              onClick={() => {
-                                if (onSwitchAccount) onSwitchAccount(acc.id);
-                                setIsAccountMenuOpen(false);
-                              }}
-                              className="flex-1 text-left px-4 py-3 flex items-center gap-3 w-full"
-                            >
-                              <div
-                                className={`w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border-2 shrink-0 ${
-                                  acc.id === user.id
-                                    ? "border-yellow-500"
-                                    : "border-stone-600"
-                                }`}
-                              >
-                                {acc.avatarUrl ? (
-                                  <img
-                                    src={acc.avatarUrl}
-                                    className="w-full h-full object-cover"
-                                    alt=""
-                                  />
-                                ) : (
-                                  <User size={16} className="text-stone-400" />
-                                )}
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <span
-                                  className={`text-xs font-bold truncate ${
-                                    acc.id === user.id
-                                      ? "text-yellow-500"
-                                      : "text-stone-200"
-                                  }`}
-                                >
-                                  {acc.name}
-                                </span>
-                                <span className="text-[9px] text-stone-500 font-mono truncate">
-                                  {acc.role || "Citoyen"}
-                                </span>
-                              </div>
-                              {acc.id === user.id && (
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full ml-auto shadow-[0_0_10px_#eab308]"></div>
-                              )}
-                            </button>
-                            {acc.id !== user.id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (onLogoutAccount) onLogoutAccount(acc.id);
-                                }}
-                                className="p-3 text-stone-600 hover:text-red-500 hover:bg-stone-950/50 transition-colors absolute right-0 h-full border-l border-stone-800"
-                                title="Oublier"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-6 text-center text-stone-500 text-xs italic">
-                          Aucun autre compte.
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => {
-                        setIsAccountMenuOpen(false);
-                        if (onAddAccount) onAddAccount();
-                      }}
-                      className="w-full text-left px-4 py-4 text-xs font-bold uppercase text-green-500 hover:bg-stone-800 hover:text-green-400 flex items-center justify-center gap-2 border-t border-stone-700 transition-colors bg-stone-900"
-                    >
-                      <PlusCircle size={16} /> Ajouter un compte
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {isGraded && (
-              <button
-                onClick={onSwitchBack}
-                className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 px-3 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2 transition-all active:scale-95"
-              >
-                <Shield size={16} />{" "}
-                <span className="hidden sm:inline">Admin</span>
-              </button>
-            )}
-            <button
-              onClick={onLogout}
-              className="bg-stone-800 hover:bg-red-900/80 text-stone-400 hover:text-white transition-all flex items-center justify-center w-9 h-9 rounded-lg border border-stone-700 shadow-md"
-              title="Déconnexion"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </header>
-
-        {isSlave && (
-          <div className="bg-stone-800 text-stone-400 text-xs p-2 text-center uppercase tracking-widest font-black flex items-center justify-center gap-2 border-b border-stone-700 shadow-inner shrink-0">
-            <Lock size={12} /> Propriété de :{" "}
-            {owner ? owner.name : "L'État (Sans maître)"}
-          </div>
-        )}
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
-          <div className="md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActive(item.id)}
-                className={`flex-1 py-2.5 px-5 text-[10px] font-black uppercase rounded-xl transition-all whitespace-nowrap tracking-widest snap-center ${
-                  active === item.id
-                    ? "bg-[#e6dcc3] text-stone-900 shadow-md transform scale-105"
-                    : "text-stone-500 hover:text-stone-300 hover:bg-stone-800/50"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-            {active === "gazette" && <GazetteView gazette={gazette} />}
-
-            {/* --- NOUVEAU BLOC BIBLIOTHÈQUE --- */}
-            {active === "library" && (
-              <LibraryView countries={countries} session={user} />
-            )}
-            {/* --------------------------------- */}
-
-            {active === "bank" && (
-              <CitizenBankView
-                user={user}
-                users={users}
-                globalLedger={globalLedger}
-                debtRegistry={debtRegistry}
-                onTransfer={onTransfer}
-                onCreateDebt={onCreateDebt}
-                onPayDebt={onPayDebt}
-                onCancelDebt={onCancelDebt}
-                canUseBank={canUseBank}
-                isBanned={isBanned}
-                onProposeDebt={onProposeDebt}
-                onSignDebt={onSignDebt}
-              />
-            )}
-
-            {active === "inventory" && (
-              <CitizenInventoryView
-                user={user}
-                users={users}
-                catalog={catalog}
-                onBuyItem={onBuyItem}
-                onGiveItem={onGiveItem}
-                onBuySlave={onBuySlave}
-              />
-            )}
-
-            {/* --- INTEGRATION DES NOUVELLES FONCTIONS --- */}
-            {active === "my_company" && (
-              <MyCompanyView
-                user={user}
-                companies={companies}
-                citizens={users}
-                onCompanyTreasury={onCompanyTreasury}
-                onSendJobOffer={onSendJobOffer}
-                onRespondJobOffer={onRespondJobOffer}
-                onPaySalaries={onPaySalaries}
-                onCompanyFire={onCompanyFire}
-              />
-            )}
-            {/* ------------------------------------------- */}
-
-            {active === "msg" && !isBanned && canUsePost && (
-              <PostView
-                users={users}
-                session={user}
-                onSend={onSend}
-                onUpdateUser={onUpdateUser}
-                notify={notify}
-              />
-            )}
-
-            {active === "travel" &&
-              !isBanned &&
-              !isPrisoner &&
-              canUseTravel && (
-                <div className="bg-[#fdf6e3] text-stone-900 p-6 md:p-8 rounded-lg shadow-2xl border-t-8 border-stone-500 space-y-6">
-                  <h3 className="text-xl font-bold uppercase tracking-widest text-stone-800 border-b pb-4 mb-4 font-serif">
-                    Demande de Laissez-passer
-                  </h3>
-                  {myPendingRequests.length > 0 ? (
-                    <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-sm">
-                      <div className="font-bold text-yellow-800 mb-2">
-                        En cours...
-                      </div>
-                      <div>
-                        Destination:{" "}
-                        {
-                          countries.find(
-                            (c) => c.id === myPendingRequests[0].toCountry
-                          )?.name
-                        }
-                      </div>
-                      <div className="text-[10px] uppercase mt-2 tracking-widest font-bold text-stone-400">
-                        Status: {myPendingRequests[0].status}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <select
-                          className="w-full p-3 border rounded bg-white text-sm"
-                          value={travelDestCountry}
-                          onChange={(e) => setTravelDestCountry(e.target.value)}
-                        >
-                          <option value="">— Destination —</option>
-                          {countries
-                            .filter((c) => c.id !== user.countryId)
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          <option value={user.countryId}>
-                            Voyage Intérieur
-                          </option>
-                        </select>
-                        {travelDestCountry && (
-                          <select
-                            className="w-full p-3 border rounded bg-white text-sm"
-                            value={travelDestRegion}
-                            onChange={(e) =>
-                              setTravelDestRegion(e.target.value)
-                            }
-                          >
-                            <option value="">— Région —</option>
-                            {(
-                              countries.find((c) => c.id === travelDestCountry)
-                                ?.regions || []
-                            ).map((r) => (
-                              <option key={r.id} value={r.name}>
-                                {r.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (travelDestCountry)
-                            onRequestTravel(
-                              travelDestCountry,
-                              travelDestRegion || "Frontière"
-                            );
-                        }}
-                        disabled={!travelDestCountry}
-                        className={`w-full py-3 rounded uppercase font-bold text-[10px] tracking-widest transition-all ${
-                          travelDestCountry
-                            ? "bg-stone-800 text-white hover:bg-stone-700"
-                            : "bg-stone-200 text-stone-400"
-                        }`}
-                      >
-                        Soumettre
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {active === "asia" && (
-              <MaisonDeAsiaCitizen
-                citizens={users}
-                countries={countries}
-                houseRegistry={houseRegistry}
-                onBook={onBookMaison}
-                userBalance={user.balance}
-              />
-            )}
-            {active === "slaves" && (
-              <SlaveManagementView
-                slaves={mySlaves}
-                onUpdateCitizen={onUpdateUser}
-                onBuySlave={onBuySlave}
-                onSelfManumit={onSelfManumit}
-                notify={notify}
-                catalog={catalog}
-                session={user}
-                countries={countries}
-              />
-            )}
-
-            {active === "profil" && (
-              <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-yellow-600 overflow-hidden">
-                <div className="p-6 md:p-8 border-b border-stone-300">
-                  <div className="flex justify-between items-start mb-6 border-b border-stone-200/50 pb-4">
-                    <h2 className="text-xl font-black uppercase text-stone-800 tracking-widest font-serif flex items-center gap-3">
-                      <User size={20} /> Dossier Civil
-                    </h2>
-                    <span
-                      className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${
-                        user.status === "Esclave"
-                          ? "bg-stone-800 text-white"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {user.status || "Actif"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm mb-6">
-                    <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Nom & Matricule
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {user.name}{" "}
-                        <span className="text-xs text-stone-400 font-mono ml-2">
-                          #{user.id}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Nation
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {safeCountries.find((c) => c.id === user?.countryId)
-                          ?.name || "Empire"}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Occupation
-                      </span>
-                      <input
-                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1"
-                        value={editOccupation}
-                        onChange={(e) => setEditOccupation(e.target.value)}
-                        placeholder="Métier..."
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Âge
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {user.age || "?"} Ans
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Portrait (URL)
-                      </span>
-                      <input
-                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1"
-                        value={editAvatar}
-                        onChange={(e) => setEditAvatar(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <textarea
-                    className="w-full bg-white/50 border-2 border-stone-200 rounded-lg p-3 text-sm italic font-serif text-stone-700 min-h-[100px] mb-6"
-                    value={editBio}
-                    onChange={(e) => setEditBio(e.target.value)}
-                    placeholder="Biographie..."
-                  />
-                  <button
-                    onClick={() => {
-                      onUpdateUser({
-                        ...user,
-                        occupation: editOccupation,
-                        bio: editBio,
-                        avatarUrl: editAvatar,
-                      });
-                      notify("Dossier mis à jour.", "success");
-                    }}
-                    className="w-full bg-stone-800 text-white py-3 rounded uppercase font-bold text-[10px] tracking-widest hover:bg-stone-700 transition-all shadow-md active:scale-95"
-                  >
-                    Mettre à jour
-                  </button>
-                </div>
-                <div className="p-6 md:p-8 bg-stone-100/50">
-                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
-                    <Lock size={16} /> Sceau de Sécurité
-                  </h3>
-                  <div className="flex gap-2">
+        ) : selectedCountry ? (
+          <div
+            className={`flex flex-col h-full ${
+              selectedCountry.color || "bg-[#fdf6e3]"
+            }`}
+          >
+            {/* Header */}
+            <div className="p-4 md:p-8 border-b border-black/5 bg-white/70 backdrop-blur-md sticky top-0 z-10 shadow-sm flex justify-between items-center font-serif">
+              <div className="flex-1">
+                {isRenaming && canEdit ? (
+                  <div className="flex gap-4">
                     <input
-                      type="password"
-                      value={np}
-                      onChange={(e) => setNp(e.target.value)}
-                      className="flex-1 p-3 bg-white border border-stone-200 rounded text-sm outline-none"
-                      placeholder="Nouveau mot de passe..."
+                      className="text-3xl font-bold p-2 w-full bg-white/80 rounded-xl border-2 border-stone-800 outline-none"
+                      value={renameBuf}
+                      onChange={(e) => setRenameBuf(e.target.value)}
                     />
                     <button
                       onClick={() => {
-                        if (np.length > 2) {
-                          onUpdateUser({ ...user, password: np });
-                          setNp("");
-                          notify("Sceau modifié.", "success");
-                        }
+                        updateSelected({ name: renameBuf });
+                        setIsRenaming(false);
                       }}
-                      className="bg-stone-800 text-white px-6 py-2 rounded text-[10px] font-bold uppercase hover:bg-stone-700"
+                      className="bg-green-600 text-white px-8 rounded-xl text-xs font-bold uppercase"
                     >
-                      Changer
+                      OK
                     </button>
                   </div>
-                </div>
+                ) : (
+                  <h2
+                    className="text-2xl md:text-4xl font-black text-stone-800 cursor-pointer flex items-center gap-4"
+                    onClick={() => {
+                      if (canEdit) {
+                        setRenameBuf(selectedCountry.name);
+                        setIsRenaming(true);
+                      }
+                    }}
+                  >
+                    {selectedCountry.name}
+                    {canEdit && (
+                      <Edit3
+                        size={20}
+                        className="opacity-10 hover:opacity-100"
+                      />
+                    )}
+                  </h2>
+                )}
               </div>
-            )}
+              {canManageCountries && (
+                <SecureDeleteButton
+                  onClick={() => handleDeleteCountry(selectedCountry.id)}
+                />
+              )}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex bg-white/40 border-b border-black/5 p-2 gap-2 font-sans font-bold uppercase text-[11px] overflow-x-auto shrink-0">
+              {["info", "laws", "regions", "ranks"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 min-w-[100px] py-3 rounded-lg tracking-[0.2em] transition-all ${
+                    activeTab === tab
+                      ? "bg-stone-800 text-white shadow-md"
+                      : "hover:bg-white/60 text-stone-600"
+                  }`}
+                >
+                  {tab === "info"
+                    ? "Gouvernance"
+                    : tab === "laws"
+                    ? "Législation"
+                    : tab === "regions"
+                    ? "Territoires"
+                    : "Hiérarchie"}
+                </button>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="p-4 md:p-10 space-y-8 pb-24 font-sans overflow-y-auto flex-1">
+              {/* --- ONGLET INFO --- */}
+              {activeTab === "info" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card title="Souverain" icon={Crown}>
+                    <div className="text-2xl font-black font-serif">
+                      {rulerName}
+                    </div>
+                  </Card>
+                  <Card title="Trésorerie" icon={Coins}>
+                    <div className="text-3xl font-black text-yellow-800 font-mono">
+                      {selectedCountry.treasury}{" "}
+                      <span className="text-sm">Écus</span>
+                    </div>
+                  </Card>
+                  <Card title="Population" icon={Users}>
+                    <div className="text-2xl font-mono font-bold">
+                      {(selectedCountry.population || 0).toLocaleString()}
+                    </div>
+                  </Card>
+                  <Card title="État" icon={Activity}>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      {[
+                        { k: "stability", l: "Stabilité" },
+                        { k: "security", l: "Sécurité" },
+                        { k: "prosperity", l: "Prospérité" },
+                      ].map((s) => (
+                        <div key={s.k}>
+                          <div className="text-[10px] uppercase font-bold text-stone-500">
+                            {s.l}
+                          </div>
+                          <div className="text-xl font-black">
+                            {selectedCountry[s.k] || 50}%
+                          </div>
+                          {canEdit && (
+                            <div className="flex justify-center gap-1 mt-1">
+                              <button
+                                onClick={() =>
+                                  updateSelected({
+                                    [s.k]: Math.max(
+                                      0,
+                                      (selectedCountry[s.k] || 50) - 5
+                                    ),
+                                  })
+                                }
+                                className="px-2 bg-stone-200 rounded"
+                              >
+                                -
+                              </button>
+                              <button
+                                onClick={() =>
+                                  updateSelected({
+                                    [s.k]: Math.min(
+                                      100,
+                                      (selectedCountry[s.k] || 50) + 5
+                                    ),
+                                  })
+                                }
+                                className="px-2 bg-stone-200 rounded"
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* --- ONGLET LOIS (LEGISLATION) --- */}
+              {activeTab === "laws" && (
+                <Card title="Législation & Décrets" icon={Gavel}>
+                  <div className="space-y-4">
+                    {/* RESTAURATION DES CHECKBOXES DE LOIS */}
+                    {selectedCountry.laws &&
+                    !Array.isArray(selectedCountry.laws) ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                          {
+                            key: "allowExternalDebits",
+                            label: "Autoriser prélèvements externes",
+                          },
+                          {
+                            key: "allowLocalConfiscation",
+                            label: "Autoriser confiscations locales",
+                          },
+                          {
+                            key: "allowLocalSales",
+                            label: "Autoriser ventes locales",
+                          },
+                          {
+                            key: "allowPermissionEditsByLocalAdmins",
+                            label: "Admin: Edit Permissions",
+                          },
+                          {
+                            key: "requireRulerApprovalForSales",
+                            label: "Ventes: Approbation requise",
+                          },
+                          {
+                            key: "taxForeignTransfers",
+                            label: "Taxe transferts étrangers (10%)",
+                          },
+                          {
+                            key: "freezeAssets",
+                            label: "Geler les avoirs (Banque)",
+                          },
+                          {
+                            key: "closedCurrency",
+                            label: "Fermer la monnaie (Isolation)",
+                          },
+                          {
+                            key: "closeBorders",
+                            label: "Fermer les frontières",
+                          },
+                          { key: "forbidExit", label: "Interdire les sorties" },
+                          {
+                            key: "allowSelfManumission",
+                            label: "Droit d'auto-rachat (Esclave)",
+                          },
+                          {
+                            key: "militaryServitude",
+                            label: "Servitude Martiale",
+                          },
+                          {
+                            key: "banPublicSlaveMarket",
+                            label: "Interdire marché esclaves",
+                          },
+                          {
+                            key: "allowWeapons",
+                            label: "Autoriser le port d'armes",
+                          },
+                          { key: "mailCensorship", label: "Censure Postale" },
+                        ].map((f) => (
+                          <div
+                            key={f.key}
+                            className="flex justify-between items-center p-3 bg-white border rounded"
+                          >
+                            <span className="text-xs font-bold text-stone-700">
+                              {f.label}
+                            </span>
+                            {canEdit ? (
+                              <label className="switch">
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedCountry.laws[f.key]}
+                                  onChange={() =>
+                                    updateSelected({
+                                      laws: {
+                                        ...selectedCountry.laws,
+                                        [f.key]: !selectedCountry.laws[f.key],
+                                      },
+                                    })
+                                  }
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-xs">
+                                {selectedCountry.laws[f.key] ? "OUI" : "NON"}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        {/* Cas Spécial : Frais de Visa */}
+                        <div className="flex justify-between items-center p-3 bg-white border rounded">
+                          <span className="text-xs font-bold text-stone-700">
+                            Frais Visa Entrée
+                          </span>
+                          {canEdit ? (
+                            <input
+                              type="number"
+                              className="w-20 p-1 border rounded text-xs"
+                              value={selectedCountry.laws.entryVisaFee || 0}
+                              onChange={(e) =>
+                                updateSelected({
+                                  laws: {
+                                    ...selectedCountry.laws,
+                                    entryVisaFee: parseInt(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                            />
+                          ) : (
+                            <span className="text-xs">
+                              {selectedCountry.laws.entryVisaFee || 0} Écus
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-stone-500 italic">
+                        Format ancien.{" "}
+                        <button
+                          onClick={migrateSelectedCountry}
+                          className="underline text-blue-600"
+                        >
+                          Migrer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SECTION IMPORT & LISTE DECRETS */}
+                  <div className="mt-6 pt-6 border-t border-stone-200">
+                    <h3 className="font-black uppercase text-xs mb-4 text-stone-400">
+                      Décrets Spéciaux
+                    </h3>
+                    {canEdit && (
+                      <div className="mb-6 p-4 bg-stone-100 border border-stone-300 rounded-xl shadow-inner">
+                        <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest mb-2 flex items-center gap-2">
+                          <Link size={12} /> Importer GDoc
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 p-2 border border-stone-300 rounded text-xs"
+                            placeholder="Lien public..."
+                            value={gDocUrl}
+                            onChange={(e) => setGDocUrl(e.target.value)}
+                          />
+                          <button
+                            onClick={handleImportGDoc}
+                            disabled={isLoadingDoc || !gDocUrl}
+                            className="bg-stone-800 text-white px-4 rounded text-[10px] font-bold uppercase"
+                          >
+                            {isLoadingDoc ? "..." : <DownloadCloud size={14} />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      {(
+                        (Array.isArray(selectedCountry.laws)
+                          ? selectedCountry.laws
+                          : selectedCountry.decrees) || []
+                      ).map((l) => (
+                        <div
+                          key={l.id}
+                          className="flex justify-between items-center p-4 bg-white border border-stone-100 rounded-xl shadow-md"
+                        >
+                          <span className="font-bold text-stone-800 text-sm">
+                            📜 {l.name}
+                          </span>
+                          {canEdit && (
+                            <SecureDeleteButton
+                              onClick={() => {
+                                if (Array.isArray(selectedCountry.laws)) {
+                                  updateSelected({
+                                    laws: selectedCountry.laws.filter(
+                                      (x) => x.id !== l.id
+                                    ),
+                                  });
+                                } else {
+                                  updateSelected({
+                                    decrees: (
+                                      selectedCountry.decrees || []
+                                    ).filter((x) => x.id !== l.id),
+                                  });
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* --- ONGLET TERRITOIRES --- */}
+              {activeTab === "regions" && (
+                <Card title="Territoires" icon={Map}>
+                  {canEdit && (
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        className="flex-1 p-2 border rounded text-xs"
+                        placeholder="Nom..."
+                        value={newRegionName}
+                        onChange={(e) => setNewRegionName(e.target.value)}
+                      />
+                      <button
+                        onClick={() => {
+                          if (newRegionName) {
+                            updateSelected({
+                              regions: [
+                                ...(selectedCountry.regions || []),
+                                { id: Date.now(), name: newRegionName },
+                              ],
+                            });
+                            setNewRegionName("");
+                          }
+                        }}
+                        className="bg-stone-800 text-white px-3 rounded uppercase text-[10px]"
+                      >
+                        Ajouter
+                      </button>
+                    </div>
+                  )}
+                  <div className="grid gap-2">
+                    {(selectedCountry.regions || []).map((r) => (
+                      <div
+                        key={r.id}
+                        className="flex justify-between p-3 bg-stone-50 rounded border"
+                      >
+                        <span className="font-bold">📍 {r.name}</span>
+                        {canEdit && (
+                          <SecureDeleteButton
+                            onClick={() =>
+                              updateSelected({
+                                regions: selectedCountry.regions.filter(
+                                  (x) => x.id !== r.id
+                                ),
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* --- ONGLET HIERARCHIE (RANGS & STATUTS) --- */}
+              {activeTab === "ranks" && (
+                <div className="space-y-6">
+                  {canEdit && (
+                    <div className="bg-stone-100 p-4 rounded-xl border border-stone-300 shadow-sm">
+                      <div className="text-[10px] uppercase font-black mb-2 text-stone-500">
+                        Ajouter un rang / statut
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 p-2 border rounded text-xs"
+                            placeholder="Nom (ex: Duc, Banni...)"
+                            value={newRoleName}
+                            onChange={(e) => setNewRoleName(e.target.value)}
+                          />
+                          <select
+                            className="p-2 border rounded text-xs font-bold"
+                            value={newRoleType}
+                            onChange={(e) => setNewRoleType(e.target.value)}
+                          >
+                            <option value="ROLE">Titre</option>
+                            <option value="STATUS">Statut</option>
+                          </select>
+                        </div>
+
+                        {/* RESTAURATION : CONFIGURATION DES RÔLES/STATUTS */}
+                        {newRoleType === "ROLE" && (
+                          <div className="bg-white p-2 rounded border">
+                            <label className="text-[9px] uppercase font-bold block mb-1">
+                              Niveau accréditation: {newRoleLevel}
+                            </label>
+                            <input
+                              type="range"
+                              min="0"
+                              max={Math.max(0, safeRoleInfo.level - 1)}
+                              value={newRoleLevel}
+                              onChange={(e) => setNewRoleLevel(e.target.value)}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                        {newRoleType === "STATUS" && (
+                          <label className="flex items-center gap-2 text-xs font-bold text-red-800 bg-red-50 p-2 rounded border border-red-200 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isRestrictedStatus}
+                              onChange={(e) =>
+                                setIsRestrictedStatus(e.target.checked)
+                              }
+                            />
+                            <Lock size={12} /> Restreindre les libertés
+                            (Prisonnier/Esclave)
+                          </label>
+                        )}
+
+                        <button
+                          onClick={addCustomRole}
+                          disabled={!newRoleName}
+                          className="w-full bg-stone-800 text-white py-2 rounded text-[10px] uppercase font-bold hover:bg-stone-700"
+                        >
+                          Enregistrer
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <Card title="Rangs & Statuts Définis" icon={Award}>
+                    {(selectedCountry.customRoles || []).map((r) => (
+                      <div
+                        key={r.id}
+                        className={`flex justify-between items-center p-3 border-b last:border-0 ${
+                          r.isRestricted ? "bg-red-50" : ""
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm flex items-center gap-2">
+                            {r.type === "STATUS" ? "⚠️" : "🎖️"} {r.name}
+                          </span>
+                          <span className="text-[9px] text-stone-400 uppercase">
+                            {r.type === "ROLE"
+                              ? `Niveau ${r.level}`
+                              : r.isRestricted
+                              ? "Restreint"
+                              : "Libre"}
+                          </span>
+                        </div>
+                        {canEdit && (
+                          <SecureDeleteButton
+                            onClick={() => removeCustomRole(r.id)}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </Card>
+                </div>
+              )}
+            </div>
           </div>
-        </main>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-stone-400 italic">
+            Sélectionnez un territoire dans l'Atlas.
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-export default CitizenLayout;
+export default GeopoliticsView;

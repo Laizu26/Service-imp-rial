@@ -7,7 +7,7 @@ const LibraryView = ({ countries, session }) => {
   // "Trier par pays" : On initialise avec le pays du citoyen, mais on peut changer
   const [viewingCountryId, setViewingCountryId] = useState(session?.countryId);
 
-  // Sécurité : on s'assure qu'on a bien une liste de pays
+  // SÉCURITÉ : on s'assure qu'on a bien une liste de pays
   const safeCountries = Array.isArray(countries) ? countries : [];
 
   // Le pays actuellement consulté
@@ -21,9 +21,12 @@ const LibraryView = ({ countries, session }) => {
     }
   }, [session, viewingCountryId]);
 
+  // Si aucun pays n'est chargé, on affiche un message d'attente
   if (!currentCountry)
     return (
-      <div className="p-8 text-center italic">Archives inaccessibles.</div>
+      <div className="p-8 text-center italic text-stone-500">
+        Chargement des archives...
+      </div>
     );
 
   // --- GÉNÉRATEUR DE TEXTE JURIDIQUE COMPLET ---
@@ -162,10 +165,17 @@ const LibraryView = ({ countries, session }) => {
 
   const legalCode = generateLegalCode();
 
-  // On récupère les décrets (Support ancien et nouveau format)
-  const decrees = Array.isArray(currentCountry.laws)
+  // --- CORRECTION MAJEURE : FUSION DES SOURCES DE DÉCRETS ---
+  // 1. Récupérer les anciens décrets (stockés dans 'laws' si c'est un tableau)
+  const legacyDecrees = Array.isArray(currentCountry.laws)
     ? currentCountry.laws
-    : currentCountry.decrees || [];
+    : [];
+  // 2. Récupérer les nouveaux décrets (stockés dans 'decrees')
+  const newDecrees = currentCountry.decrees || [];
+
+  // 3. Fusionner les deux listes pour l'affichage
+  const decrees = [...newDecrees, ...legacyDecrees];
+  // ----------------------------------------------------------
 
   return (
     <div className="h-full flex flex-col font-serif bg-[#fdf6e3] rounded-2xl shadow-xl overflow-hidden border border-stone-300 animate-in fade-in duration-500">
@@ -317,19 +327,17 @@ const LibraryView = ({ countries, session }) => {
                           fill="#ca8a04"
                         />
 
-                        {/* TITRE DU DÉCRET */}
+                        {/* TITRE DU DÉCRET (OU NOM SIMPLE) */}
                         <h3 className="font-bold text-sm text-stone-400 mb-3 font-sans uppercase tracking-[0.3em]">
                           {d.content ? d.name : `Proclamation N°${i + 1}`}
                         </h3>
 
-                        {/* CONTENU DU DÉCRET */}
+                        {/* CONTENU (RICHE OU SIMPLE) */}
                         {d.content ? (
-                          // NOUVEAU FORMAT : Contenu riche importé
                           <div className="text-lg text-stone-900 leading-loose font-serif whitespace-pre-line text-justify">
                             {d.content}
                           </div>
                         ) : (
-                          // ANCIEN FORMAT : Juste le nom qui sert de texte
                           <p className="text-xl text-stone-900 leading-relaxed font-serif italic">
                             "{d.name}"
                           </p>
