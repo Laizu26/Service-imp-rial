@@ -67,11 +67,11 @@ const CitizenSelect = ({
               : "text-stone-400 italic"
           }
         >
-          {!isMulti && safeUsers.find((u) => u.id == value) ? (
+          {!isMulti && safeUsers.find((u) => u.id === value) ? (
             <span className="flex items-center gap-2">
-              <User size={14} /> {safeUsers.find((u) => u.id == value).name}
+              <User size={14} /> {safeUsers.find((u) => u.id === value).name}
               <span className="text-xs font-normal opacity-50 ml-1">
-                ({safeUsers.find((u) => u.id == value).role || "Citoyen"})
+                ({safeUsers.find((u) => u.id === value).role || "Citoyen"})
               </span>
             </span>
           ) : isMulti && value?.length > 0 ? (
