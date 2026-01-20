@@ -4,11 +4,10 @@ import {
   Users,
   LogOut,
   Plus,
-  Trash2,
   Heart,
   DollarSign,
   UserPlus,
-} from "lucide-react";
+} from "lucide-react"; // Correction : Suppression de Trash2
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 
 const MaisonDeAsiaAdmin = ({

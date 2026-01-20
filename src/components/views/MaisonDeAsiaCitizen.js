@@ -1,5 +1,5 @@
 import React from "react";
-import { Gem, Heart, Sparkles, LogOut, Info } from "lucide-react";
+import { Gem, Heart, LogOut } from "lucide-react"; // Correction : Suppression de Sparkles et Info
 
 const MaisonDeAsiaCitizen = ({
   citizens,
