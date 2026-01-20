@@ -1,12 +1,12 @@
 export const SYSTEM_CONFIG = {
   firebase: {
-    apiKey: "AIzaSyAmAK0k0yeVNjTKc5T2db_6QfZ6bZykGI8",
-    authDomain: "rpempire-f3123.firebaseapp.com",
-    projectId: "rpempire-f3123",
-    storageBucket: "rpempire-f3123.firebasestorage.app",
-    messagingSenderId: "1026740352554",
-    appId: "1:1026740352554:web:5dddfcad63ff16bc273553",
-    measurementId: "G-5EWR3WZR7S",
+    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+    authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.REACT_APP_FIREBASE_APP_ID,
+    measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
   },
   appId: "empire-prod-v1",
   dbPath: [
