@@ -78,7 +78,7 @@ const MaisonDeAsiaCitizen = ({
             </p>
 
             <div className="text-xs text-stone-400 mb-8 font-mono">
-              Début : {new Date(myBooking.startTime).toLocaleTimeString()}
+              Début : {myBooking.startTime ? new Date(myBooking.startTime).toLocaleTimeString() : "—"}
             </div>
 
             <button

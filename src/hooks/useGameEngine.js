@@ -38,6 +38,8 @@ export const useGameEngine = (firebaseUser, notify) => {
             travelRequests: d.travelRequests || [],
             debtRegistry: d.debtRegistry || [],
             companies: d.companies || [],
+            maisonStaff: d.maisonStaff || [],
+            maisonRegistry: d.maisonRegistry || [],
           }));
           setDbError(null);
         } else {

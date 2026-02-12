@@ -194,6 +194,7 @@ export default function App() {
             users={state.citizens || []}
             companies={state.companies || []}
             houseRegistry={state.maisonRegistry || []}
+            maisonStaff={state.maisonStaff || []}
             onBookMaison={actions.onBookMaison}
             countries={state.countries || []}
             travelRequests={state.travelRequests || []}
@@ -556,7 +557,9 @@ export default function App() {
                       citizens={state.citizens || []}
                       countries={state.countries || []}
                       houseRegistry={state.maisonRegistry || []}
+                      staff={state.maisonStaff || []}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
+                      onUpdateStaff={actions.onUpdateMaisonStaff}
                     />
                   )}
                 </div>

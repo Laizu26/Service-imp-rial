@@ -400,14 +400,72 @@ export const useGameActions = (session, state, saveState, notify) => {
       onSelfManumit: () => {},
       onUpdateHouseRegistry: (reg) =>
         saveState({ ...state, maisonRegistry: reg }),
-      onBookMaison: (entryId, price) => {
-        const clientIdx = state.citizens.findIndex((c) => c.id === session.id);
+      onUpdateMaisonStaff: (staff) =>
+        saveState({ ...state, maisonStaff: staff }),
+      onBookMaison: (staffId) => {
+        if (!session) return;
+        const registry = state.maisonRegistry || [];
+
+        // Départ : staffId === null → retirer du registre
+        if (staffId === null) {
+          saveState({
+            ...state,
+            maisonRegistry: registry.filter(
+              (r) => r.citizenId !== session.id
+            ),
+          });
+          notify("Vous avez quitté la Maison.", "info");
+          return;
+        }
+
+        // Réservation : trouver le staff et vérifier le solde
+        const worker = (state.maisonStaff || []).find(
+          (s) => s.id === staffId
+        );
+        if (!worker) {
+          notify("Personnel introuvable.", "error");
+          return;
+        }
+
+        // Vérifier si déjà occupé
+        if (registry.some((r) => r.staffId === staffId)) {
+          notify("Cette personne est déjà occupée.", "error");
+          return;
+        }
+
+        // Vérifier si le client a déjà une réservation
+        if (registry.some((r) => r.citizenId === session.id)) {
+          notify("Vous êtes déjà en compagnie.", "error");
+          return;
+        }
+
+        const clientIdx = state.citizens.findIndex(
+          (c) => c.id === session.id
+        );
         if (clientIdx === -1) return;
+
+        const price = worker.price || 0;
+        if (state.citizens[clientIdx].balance < price) {
+          notify("Fonds insuffisants.", "error");
+          return;
+        }
+
         const newCitizens = [...state.citizens];
-        newCitizens[clientIdx].balance -= price;
+        newCitizens[clientIdx] = {
+          ...newCitizens[clientIdx],
+          balance: newCitizens[clientIdx].balance - price,
+        };
+
+        const newEntry = {
+          citizenId: session.id,
+          staffId: staffId,
+          startTime: Date.now(),
+        };
+
         saveState({
           ...state,
           citizens: newCitizens,
+          maisonRegistry: [...registry, newEntry],
           treasury: (state.treasury || 0) + price,
         });
         notify("Réservé.", "success");

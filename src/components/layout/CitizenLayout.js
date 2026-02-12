@@ -56,6 +56,7 @@ const CitizenLayout = (props) => {
     onSwitchBack,
     travelRequests,
     houseRegistry,
+    maisonStaff = [],
     onBookMaison,
     isBanned,
     isPrisoner,
@@ -552,9 +553,10 @@ const CitizenLayout = (props) => {
                 citizens={safeUsers}
                 countries={safeCountries}
                 houseRegistry={houseRegistry}
+                staff={maisonStaff}
                 onBook={onBookMaison}
                 userBalance={user.balance}
-                user={user} // PASSAGE DE L'USER POUR VÉRIFIER LA RÉSERVATION
+                user={user}
               />
             )}
             {active === "slaves" && (
