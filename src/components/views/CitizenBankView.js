@@ -8,7 +8,6 @@ import {
   ArrowDownLeft,
   Handshake,
   ShieldAlert,
-  History,
   Wallet,
   Stamp,
   PenTool,

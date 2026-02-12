@@ -19,7 +19,6 @@ import {
   Book, // Icône Bibliothèque
 } from "lucide-react";
 
-import Card from "../ui/Card";
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";

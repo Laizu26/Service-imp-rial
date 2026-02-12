@@ -1,12 +1,10 @@
 import React, { useState, useMemo } from "react";
 import {
-  Crown,
   Coins,
   Users,
   History,
   Newspaper,
   Send,
-  Calendar,
   Edit3,
   Save,
   Flag,

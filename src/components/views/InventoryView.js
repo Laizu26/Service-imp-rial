@@ -2,11 +2,8 @@ import React, { useState, useMemo } from "react";
 import {
   Box,
   Plus,
-  Eye,
   EyeOff,
   Search,
-  Filter,
-  Trash2,
   Save,
   X,
   PackageOpen,
@@ -15,7 +12,6 @@ import {
   Coins,
   ImageIcon,
 } from "lucide-react";
-import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { ROLES } from "../../lib/constants";
 
@@ -46,7 +42,7 @@ const InventoryView = ({ items, onUpdate, session, roleInfo }) => {
   const [filterRarity, setFilterRarity] = useState("ALL");
 
   const canEdit = (ROLES[session?.role]?.level || 0) >= 90;
-  const safeItems = Array.isArray(items) ? items : [];
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
   const selected = safeItems.find((i) => i.id === selectedId);
 

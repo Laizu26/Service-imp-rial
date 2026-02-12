@@ -3,7 +3,6 @@ import {
   Book,
   Scroll,
   DownloadCloud,
-  Trash2,
   Link,
   Library,
   AlertTriangle,

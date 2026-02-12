@@ -58,7 +58,6 @@ export default function App() {
   const {
     firebaseUser,
     session,
-    setSession,
     authLoading,
     loginGame,
     connectedAccounts,

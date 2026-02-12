@@ -4,24 +4,19 @@ import {
   Plus,
   Flag,
   Edit3,
-  X,
   Crown,
-  Briefcase,
   Users,
   Coins,
   Activity,
   Gavel,
   Lock,
-  ShieldAlert,
   Award,
   Globe,
-  Scroll,
   Link,
   DownloadCloud,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
-import { ROLES } from "../../lib/constants";
 
 const GeopoliticsView = ({
   countries,

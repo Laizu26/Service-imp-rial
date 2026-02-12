@@ -4,7 +4,6 @@ import {
   MapPin,
   ArrowRight,
   XCircle,
-  FileText,
   CheckCircle,
 } from "lucide-react";
 
