@@ -360,6 +360,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           toCountry: toCountryId,
           toRegion: toRegion,
           status: "PENDING",
+          validations: { exit: false, entry: false },
           timestamp: Date.now(),
         };
         saveState({

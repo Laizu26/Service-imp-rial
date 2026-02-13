@@ -25,6 +25,9 @@ const PostOfficeView = ({
     return travelRequests.filter((req) => {
       if (req.status === "APPROVED" || req.status === "REJECTED") return false;
 
+      // Protection contre requêtes sans validations (données legacy)
+      const validations = req.validations || { exit: false, entry: false };
+
       const isIntra = req.fromCountry === req.toCountry;
       const isDeparture = req.fromCountry === myCountryId;
       const isArrival = req.toCountry === myCountryId;
@@ -38,11 +41,10 @@ const PostOfficeView = ({
       if (isIntra && isDeparture) return true;
 
       // Inter - Visa Sortie : Je suis au départ et sortie non validée
-      if (isDeparture && !req.validations.exit) return true;
+      if (isDeparture && !validations.exit) return true;
 
       // Inter - Visa Entrée : Je suis à l'arrivée, sortie OK, entrée non validée
-      if (isArrival && req.validations.exit && !req.validations.entry)
-        return true;
+      if (isArrival && validations.exit && !validations.entry) return true;
 
       return false;
     });
@@ -67,7 +69,8 @@ const PostOfficeView = ({
 
   // Action : VALIDATION
   const handleValidate = (req) => {
-    let updatedReq = { ...req, validations: { ...req.validations } };
+    const safeValidations = req.validations || { exit: false, entry: false };
+    let updatedReq = { ...req, validations: { ...safeValidations } };
     let moveCitizen = false;
     const isIntra = req.fromCountry === req.toCountry;
 
@@ -171,8 +174,9 @@ const PostOfficeView = ({
 
         {relevantRequests.map((req) => {
           const citizen = citizens.find((c) => c.id === req.citizenId);
+          const reqValidations = req.validations || { exit: false, entry: false };
           const isExitStep =
-            !req.validations.exit && req.fromCountry !== req.toCountry;
+            !reqValidations.exit && req.fromCountry !== req.toCountry;
 
           return (
             <div
