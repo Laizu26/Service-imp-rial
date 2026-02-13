@@ -191,7 +191,12 @@ const PostOfficeView = ({
                     {req.citizenName}
                   </div>
                   <div className="text-[10px] text-stone-400 font-mono mt-1">
-                    {citizen?.role || "CITOYEN"}
+                    {citizen?.role || "CITOYEN"} —{" "}
+                    <span className="text-stone-500">
+                      Allégeance:{" "}
+                      {countries.find((c) => c.id === citizen?.countryId)
+                        ?.name || "?"}
+                    </span>
                   </div>
                 </div>
                 <span className="text-[9px] bg-stone-100 px-2 py-1 rounded text-stone-500 uppercase tracking-widest font-bold border border-stone-200">

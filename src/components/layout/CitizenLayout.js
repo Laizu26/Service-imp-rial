@@ -493,13 +493,21 @@ const CitizenLayout = (props) => {
                         >
                           <option value="">— Destination —</option>
                           {safeCountries
-                            .filter((c) => c.id !== user.countryId)
+                            .filter(
+                              (c) =>
+                                c.id !==
+                                (user.locationCountryId || user.countryId)
+                            )
                             .map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.name}
                               </option>
                             ))}
-                          <option value={user.countryId}>
+                          <option
+                            value={
+                              user.locationCountryId || user.countryId
+                            }
+                          >
                             Voyage Intérieur
                           </option>
                         </select>
@@ -601,11 +609,26 @@ const CitizenLayout = (props) => {
                     </div>
                     <div>
                       <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Nation
+                        Allégeance
                       </span>
                       <div className="font-bold text-lg text-stone-800">
                         {safeCountries.find((c) => c.id === user?.countryId)
                           ?.name || "Empire"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
+                        Localisation
+                      </span>
+                      <div className="font-bold text-lg text-stone-800">
+                        {safeCountries.find(
+                          (c) =>
+                            c.id ===
+                            (user?.locationCountryId || user?.countryId)
+                        )?.name || "Empire"}{" "}
+                        <span className="text-sm text-stone-500">
+                          — {user?.currentPosition || "Inconnue"}
+                        </span>
                       </div>
                     </div>
                     <div>

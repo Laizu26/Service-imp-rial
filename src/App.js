@@ -513,15 +513,17 @@ export default function App() {
                       }
                       onVisaGranted={(
                         citizenId,
-                        countryId,
+                        toCountryId,
                         region,
                         updatedRequests
                       ) => {
+                        // Le voyage change la LOCALISATION (locationCountryId + currentPosition),
+                        // PAS l'allégeance (countryId)
                         const newCitizens = state.citizens.map((c) =>
                           c.id === citizenId
                             ? {
                                 ...c,
-                                countryId: countryId,
+                                locationCountryId: toCountryId,
                                 currentPosition: region || c.currentPosition,
                               }
                             : c
@@ -533,11 +535,12 @@ export default function App() {
                         });
                       }}
                       onUpdateCitizen={(id, newCountryId, newRegion) => {
+                        // Ancien callback — change aussi la localisation, pas l'allégeance
                         const newCitizens = state.citizens.map((c) =>
                           c.id === id
                             ? {
                                 ...c,
-                                countryId: newCountryId,
+                                locationCountryId: newCountryId,
                                 currentPosition: newRegion || c.currentPosition,
                               }
                             : c

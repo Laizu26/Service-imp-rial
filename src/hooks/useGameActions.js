@@ -343,11 +343,20 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Message envoyé.", "success");
       },
       onRequestTravel: (toCountryId, toRegion) => {
+        // Utiliser locationCountryId (position physique) comme pays d'origine,
+        // pas countryId (allégeance politique)
+        const currentCitizen = (state.citizens || []).find(
+          (c) => c.id === session.id
+        );
+        const fromCountry =
+          currentCitizen?.locationCountryId ||
+          currentCitizen?.countryId ||
+          session.countryId;
         const newReq = {
           id: `req_${Date.now()}`,
           citizenId: session.id,
           citizenName: session.name,
-          fromCountry: session.countryId,
+          fromCountry: fromCountry,
           toCountry: toCountryId,
           toRegion: toRegion,
           status: "PENDING",
@@ -505,9 +514,9 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
-        // Vérifier la loi du pays
+        // Vérifier la loi du pays de localisation physique
         const country = (state.countries || []).find(
-          (c) => c.id === citizen.countryId
+          (c) => c.id === (citizen.locationCountryId || citizen.countryId)
         );
         if (!country || !country.laws || !country.laws.allowSelfManumission) {
           notify(

@@ -37,8 +37,10 @@ const SlaveManagementView = ({
   };
 
   const getCountryLaws = (slave) => {
-    if (!slave || !slave.countryId) return defaultLaws;
-    const c = (countries || []).find((x) => x.id === slave.countryId);
+    // Les lois s'appliquent selon le pays de localisation physique, pas l'allégeance
+    const locId = slave?.locationCountryId || slave?.countryId;
+    if (!slave || !locId) return defaultLaws;
+    const c = (countries || []).find((x) => x.id === locId);
     return c?.laws || defaultLaws;
   };
 
@@ -58,12 +60,13 @@ const SlaveManagementView = ({
     if (session?.id === slave.ownerId) return true;
     // Global admins can manage any slave
     if (isGlobalAdmin) return true;
-    // Local admins can manage only slaves within their country
+    // Local admins can manage slaves physically located in their country
+    const slaveLocation = slave.locationCountryId || slave.countryId;
     if (
       isLocalAdmin &&
-      slave.countryId &&
+      slaveLocation &&
       session?.countryId &&
-      slave.countryId === session.countryId
+      slaveLocation === session.countryId
     )
       return true;
     return false;
