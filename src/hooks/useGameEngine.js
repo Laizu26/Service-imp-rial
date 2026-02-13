@@ -38,6 +38,7 @@ export const useGameEngine = (firebaseUser, notify) => {
             travelRequests: d.travelRequests || [],
             debtRegistry: d.debtRegistry || [],
             companies: d.companies || [],
+            gazette: d.gazette || [],
             maisonStaff: d.maisonStaff || [],
             maisonRegistry: d.maisonRegistry || [],
           }));

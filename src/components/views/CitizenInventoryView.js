@@ -34,7 +34,9 @@ const CitizenInventoryView = ({
     return (user.inventory || [])
       .map((slot) => {
         const itemDef = catalog.find((i) => i.id === slot.itemId);
-        return itemDef ? { ...itemDef, qty: slot.qty } : null;
+        return itemDef
+          ? { ...itemDef, qty: slot.quantity || slot.qty || 0 }
+          : null;
       })
       .filter(
         (i) => i && i.name.toLowerCase().includes(searchTerm.toLowerCase())

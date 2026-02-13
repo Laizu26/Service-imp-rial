@@ -375,8 +375,105 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: freshCitizens });
         notify("Registres mis à jour.", "success");
       },
-      onBuyItem: () => notify("Achat OK", "success"),
-      onGiveItem: () => {},
+      onBuyItem: (itemId, quantity) => {
+        if (!session) return;
+        const item = (state.inventoryCatalog || []).find(
+          (i) => i.id === itemId
+        );
+        if (!item) {
+          notify("Objet introuvable.", "error");
+          return;
+        }
+        const qty = parseInt(quantity) || 1;
+        const cost = (item.price || 0) * qty;
+
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        if (state.citizens[userIdx].balance < cost) {
+          notify("Fonds insuffisants.", "error");
+          return;
+        }
+
+        const newCitizens = [...state.citizens];
+        const inv = [...(newCitizens[userIdx].inventory || [])];
+        const existing = inv.findIndex((e) => e.itemId === itemId);
+        if (existing !== -1) {
+          inv[existing] = {
+            ...inv[existing],
+            quantity: inv[existing].quantity + qty,
+          };
+        } else {
+          inv.push({ itemId, quantity: qty });
+        }
+        newCitizens[userIdx] = {
+          ...newCitizens[userIdx],
+          balance: newCitizens[userIdx].balance - cost,
+          inventory: inv,
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          treasury: (state.treasury || 0) + cost,
+        });
+        notify(
+          `${qty}x ${item.name} acheté(s) pour ${cost} Écus.`,
+          "success"
+        );
+      },
+      onGiveItem: (targetId, itemId, quantity) => {
+        if (!session) return;
+        const qty = parseInt(quantity) || 1;
+
+        const srcIdx = state.citizens.findIndex((c) => c.id === session.id);
+        const tgtIdx = state.citizens.findIndex((c) => c.id === targetId);
+        if (srcIdx === -1 || tgtIdx === -1) return;
+
+        const srcInv = [...(state.citizens[srcIdx].inventory || [])];
+        const slotIdx = srcInv.findIndex((e) => e.itemId === itemId);
+        if (slotIdx === -1 || srcInv[slotIdx].quantity < qty) {
+          notify("Quantité insuffisante.", "error");
+          return;
+        }
+
+        // Décrémenter source
+        if (srcInv[slotIdx].quantity === qty) {
+          srcInv.splice(slotIdx, 1);
+        } else {
+          srcInv[slotIdx] = {
+            ...srcInv[slotIdx],
+            quantity: srcInv[slotIdx].quantity - qty,
+          };
+        }
+
+        // Incrémenter cible
+        const tgtInv = [...(state.citizens[tgtIdx].inventory || [])];
+        const tgtSlot = tgtInv.findIndex((e) => e.itemId === itemId);
+        if (tgtSlot !== -1) {
+          tgtInv[tgtSlot] = {
+            ...tgtInv[tgtSlot],
+            quantity: tgtInv[tgtSlot].quantity + qty,
+          };
+        } else {
+          tgtInv.push({ itemId, quantity: qty });
+        }
+
+        const newCitizens = [...state.citizens];
+        newCitizens[srcIdx] = {
+          ...newCitizens[srcIdx],
+          inventory: srcInv,
+        };
+        newCitizens[tgtIdx] = {
+          ...newCitizens[tgtIdx],
+          inventory: tgtInv,
+        };
+
+        const itemName =
+          (state.inventoryCatalog || []).find((i) => i.id === itemId)?.name ||
+          "objet";
+        saveState({ ...state, citizens: newCitizens });
+        notify(`${qty}x ${itemName} donné(s).`, "success");
+      },
       onBuySlave: (slaveId, price) => {
         // Logique simplifiée pour slave
         if (!session) return;
@@ -397,7 +494,56 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: newCitizens });
         notify("Esclave acheté.", "success");
       },
-      onSelfManumit: () => {},
+      onSelfManumit: () => {
+        if (!session) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+
+        const citizen = state.citizens[userIdx];
+        if (citizen.status !== "Esclave") {
+          notify("Vous n'êtes pas esclave.", "error");
+          return;
+        }
+
+        // Vérifier la loi du pays
+        const country = (state.countries || []).find(
+          (c) => c.id === citizen.countryId
+        );
+        if (!country || !country.laws || !country.laws.allowSelfManumission) {
+          notify(
+            "L'auto-affranchissement est interdit dans ce pays.",
+            "error"
+          );
+          return;
+        }
+
+        // Le prix est basé sur le prix de vente ou 500 par défaut
+        const price = citizen.salePrice || 500;
+        if ((citizen.balance || 0) < price) {
+          notify(
+            `Fonds insuffisants. Il faut ${price} Écus pour racheter votre liberté.`,
+            "error"
+          );
+          return;
+        }
+
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = {
+          ...citizen,
+          balance: citizen.balance - price,
+          status: "Actif",
+          ownerId: null,
+          isForSale: false,
+          salePrice: null,
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          treasury: (state.treasury || 0) + price,
+        });
+        notify("Vous êtes libre !", "success");
+      },
       onUpdateHouseRegistry: (reg) =>
         saveState({ ...state, maisonRegistry: reg }),
       onUpdateMaisonStaff: (staff) =>
@@ -470,10 +616,139 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
         notify("Réservé.", "success");
       },
-      onProposeDebt: () => {},
-      onSignDebt: () => {},
-      onPayDebt: () => {},
-      onCancelDebt: () => {},
+      onProposeDebt: (targetId, amount, interest, reason) => {
+        if (!session) return;
+        const val = parseInt(amount);
+        const rate = parseFloat(interest) || 0;
+        if (!val || val <= 0) {
+          notify("Montant invalide.", "error");
+          return;
+        }
+        if (!targetId || targetId === session.id) {
+          notify("Débiteur invalide.", "error");
+          return;
+        }
+
+        const newDebt = {
+          id: Date.now(),
+          creditorId: session.id,
+          debtorId: targetId,
+          amount: val,
+          interest: rate,
+          total: Math.round(val * (1 + rate / 100)),
+          reason: reason || "",
+          status: "PENDING",
+          createdAt: Date.now(),
+        };
+
+        saveState({
+          ...state,
+          debtRegistry: [newDebt, ...(state.debtRegistry || [])],
+        });
+        notify("Contrat de dette proposé.", "success");
+      },
+      onSignDebt: (debtId) => {
+        if (!session) return;
+        const registry = [...(state.debtRegistry || [])];
+        const idx = registry.findIndex((d) => d.id === debtId);
+        if (idx === -1) return;
+
+        const debt = registry[idx];
+        if (debt.debtorId !== session.id) {
+          notify("Seul le débiteur peut signer.", "error");
+          return;
+        }
+        if (debt.status !== "PENDING") {
+          notify("Ce contrat n'est plus en attente.", "error");
+          return;
+        }
+
+        registry[idx] = { ...debt, status: "ACTIVE", signedAt: Date.now() };
+        saveState({ ...state, debtRegistry: registry });
+        notify("Contrat signé. La dette est active.", "success");
+      },
+      onPayDebt: (debtId) => {
+        if (!session) return;
+        const registry = [...(state.debtRegistry || [])];
+        const idx = registry.findIndex((d) => d.id === debtId);
+        if (idx === -1) return;
+
+        const debt = registry[idx];
+        if (debt.debtorId !== session.id) {
+          notify("Seul le débiteur peut rembourser.", "error");
+          return;
+        }
+        if (debt.status !== "ACTIVE") {
+          notify("Cette dette n'est pas active.", "error");
+          return;
+        }
+
+        const debtorIdx = state.citizens.findIndex(
+          (c) => c.id === debt.debtorId
+        );
+        const creditorIdx = state.citizens.findIndex(
+          (c) => c.id === debt.creditorId
+        );
+        if (debtorIdx === -1 || creditorIdx === -1) return;
+
+        const total = debt.total || debt.amount;
+        if ((state.citizens[debtorIdx].balance || 0) < total) {
+          notify(
+            `Fonds insuffisants. Il faut ${total} Écus.`,
+            "error"
+          );
+          return;
+        }
+
+        const newCitizens = [...state.citizens];
+        newCitizens[debtorIdx] = {
+          ...newCitizens[debtorIdx],
+          balance: newCitizens[debtorIdx].balance - total,
+        };
+        newCitizens[creditorIdx] = {
+          ...newCitizens[creditorIdx],
+          balance: (newCitizens[creditorIdx].balance || 0) + total,
+        };
+
+        registry[idx] = { ...debt, status: "PAID", paidAt: Date.now() };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          debtRegistry: registry,
+        });
+        notify(`Dette remboursée (${total} Écus).`, "success");
+      },
+      onCancelDebt: (debtId) => {
+        if (!session) return;
+        const registry = [...(state.debtRegistry || [])];
+        const idx = registry.findIndex((d) => d.id === debtId);
+        if (idx === -1) return;
+
+        const debt = registry[idx];
+        // Le créancier peut annuler à tout moment, le débiteur seulement si PENDING
+        const isCreditor = debt.creditorId === session.id;
+        const isDebtor = debt.debtorId === session.id;
+
+        if (!isCreditor && !isDebtor) {
+          notify("Vous n'êtes pas partie de ce contrat.", "error");
+          return;
+        }
+        if (isDebtor && debt.status !== "PENDING") {
+          notify(
+            "Impossible d'annuler une dette déjà signée.",
+            "error"
+          );
+          return;
+        }
+
+        registry[idx] = {
+          ...debt,
+          status: "CANCELLED",
+          cancelledAt: Date.now(),
+        };
+        saveState({ ...state, debtRegistry: registry });
+        notify("Contrat annulé.", "info");
+      },
     };
   }, [session, state, saveState, notify]);
 };

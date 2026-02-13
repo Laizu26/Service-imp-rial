@@ -44,7 +44,6 @@ const CitizenLayout = (props) => {
     onTransfer,
     onProposeDebt,
     onSignDebt,
-    onCreateDebt,
     onPayDebt,
     onCancelDebt,
     onBuyItem,
@@ -416,7 +415,6 @@ const CitizenLayout = (props) => {
                 globalLedger={globalLedger}
                 debtRegistry={debtRegistry}
                 onTransfer={onTransfer}
-                onCreateDebt={onCreateDebt}
                 onPayDebt={onPayDebt}
                 onCancelDebt={onCancelDebt}
                 canUseBank={canUseBank}

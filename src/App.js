@@ -102,6 +102,8 @@ export default function App() {
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
   const isSlave = currentStatus === "Esclave";
+  const isBanned = currentStatus === "Banni";
+  const isPrisoner = currentStatus === "Prisonnier";
 
   const isRestricted = useMemo(() => {
     if (["Malade", "Prisonnier", "Banni", "Décédé"].includes(currentStatus))
@@ -221,6 +223,8 @@ export default function App() {
             onGiveItem={actions.onGiveItem}
             notify={notify}
             isGraded={canAccessAdmin}
+            isBanned={isBanned}
+            isPrisoner={isPrisoner}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
             onCompanyTreasury={actions.onCompanyTreasury}
             onSendJobOffer={actions.onSendJobOffer}

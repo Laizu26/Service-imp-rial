@@ -94,20 +94,20 @@ const DashboardView = ({
   // --- ACTIONS ---
 
   const handleUpdateDate = () => {
+    const day = Math.min(30, Math.max(1, parseInt(tempDate.day) || 1));
+    const month = Math.min(12, Math.max(1, parseInt(tempDate.month) || 1));
+    const year = Math.max(1, parseInt(tempDate.year) || 1200);
     onUpdateState({
       ...state,
-      gameDate: {
-        day: parseInt(tempDate.day),
-        month: parseInt(tempDate.month),
-        year: parseInt(tempDate.year),
-      },
+      gameDate: { day, month, year },
     });
     setEditingDate(false);
   };
 
   const handleMintMoney = () => {
-    if (onAddTreasury && mintAmount) {
-      onAddTreasury(mintAmount);
+    const val = parseInt(mintAmount);
+    if (onAddTreasury && val > 0) {
+      onAddTreasury(val);
       setMintAmount("");
     }
   };

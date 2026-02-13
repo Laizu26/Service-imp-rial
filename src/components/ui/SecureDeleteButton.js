@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 
-const SecureDeleteButton = ({ onClick, className = "" }) => {
+const SecureDeleteButton = ({ onClick, className = "", label, icon: Icon }) => {
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
@@ -9,6 +9,8 @@ const SecureDeleteButton = ({ onClick, className = "" }) => {
     if (confirming) t = setTimeout(() => setConfirming(false), 3000);
     return () => clearTimeout(t);
   }, [confirming]);
+
+  const DisplayIcon = Icon || Trash2;
 
   return (
     <button
@@ -22,12 +24,12 @@ const SecureDeleteButton = ({ onClick, className = "" }) => {
           ? "bg-red-600 text-white px-4 scale-105"
           : "text-red-400 hover:text-red-600 hover:bg-red-50"
       } ${className}`}
-      title="Supprimer"
+      title={label || "Supprimer"}
     >
-      <Trash2 size={16} className={confirming ? "animate-pulse" : ""} />
+      <DisplayIcon size={16} className={confirming ? "animate-pulse" : ""} />
       {confirming && (
         <span className="text-[10px] font-black uppercase whitespace-nowrap">
-          Confirmer ?
+          {label || "Confirmer ?"}
         </span>
       )}
     </button>

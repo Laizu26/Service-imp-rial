@@ -103,9 +103,12 @@ export const DEFAULT_GAME_STATE = {
       books: [],
     },
   ],
+  gameDate: { day: 1, month: 1, year: 1200 },
   citizens: [],
+  companies: [],
   travelRequests: [],
   debtRegistry: [],
+  maisonRegistry: [],
   inventoryCatalog: [
     {
       id: "i1",
