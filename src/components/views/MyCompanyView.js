@@ -10,6 +10,7 @@ import {
   XCircle,
   Send,
   Briefcase,
+  TrendingUp,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -319,6 +320,77 @@ const MyCompanyView = ({
               </div>
             </Card>
           </div>
+
+          <Card title="Production & Rendement" icon={TrendingUp}>
+            {(() => {
+              const empCount = (myCompany.employees || []).length;
+              const slaveCount = (myCompany.slaves || []).length;
+              const level = myCompany.level || 1;
+              const dailyRevenue = (empCount * 10 + slaveCount * 8) * level;
+              const dailyTax = Math.floor(dailyRevenue * 0.1);
+              const dailyNet = dailyRevenue - dailyTax;
+              const totalWorkers = empCount + slaveCount;
+              const requiredWorkers = level * 2;
+              const requiredFunds = level * 500;
+              return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <div className="text-lg font-black text-green-700 font-mono">
+                        {dailyNet.toLocaleString()}
+                      </div>
+                      <div className="text-[9px] uppercase font-bold text-green-500 tracking-widest">
+                        Revenu Net / Jour
+                      </div>
+                    </div>
+                    <div className="bg-stone-50 border border-stone-200 rounded-lg p-3">
+                      <div className="text-lg font-black text-stone-700 font-mono">
+                        {dailyTax.toLocaleString()}
+                      </div>
+                      <div className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">
+                        Taxe / Jour
+                      </div>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <div className="text-lg font-black text-yellow-700 font-mono">
+                        Niv. {level}
+                      </div>
+                      <div className="text-[9px] uppercase font-bold text-yellow-500 tracking-widest">
+                        Niveau
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Employés ({empCount}) x 10 Écus x Niv.{level}</span>
+                      <span className="font-mono font-bold">{(empCount * 10 * level).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Esclaves ({slaveCount}) x 8 Écus x Niv.{level}</span>
+                      <span className="font-mono font-bold">{(slaveCount * 8 * level).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-500">
+                    <div className="text-[9px] uppercase font-bold tracking-widest mb-2">
+                      Progression niveau {level} → {level + 1}
+                    </div>
+                    <div className="flex justify-between mb-1">
+                      <span>Travailleurs</span>
+                      <span className={`font-bold ${totalWorkers >= requiredWorkers ? "text-green-600" : "text-red-500"}`}>
+                        {totalWorkers} / {requiredWorkers}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Trésorerie requise</span>
+                      <span className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}>
+                        {(myCompany.balance || 0).toLocaleString()} / {requiredFunds.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </Card>
 
           <Card title="Versement des Salaires" icon={Wallet}>
             <div className="bg-stone-50 p-6 rounded-xl border border-stone-200 flex flex-col md:flex-row items-end gap-6">

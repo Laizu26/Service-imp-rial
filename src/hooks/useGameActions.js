@@ -24,6 +24,58 @@ export const useGameActions = (session, state, saveState, notify) => {
         else if (m >= 6 && m <= 8) season = "Été";
         else if (m >= 9 && m <= 11) season = "Automne";
 
+        // --- Production journalière des entreprises ---
+        const companies = ns.companies || [];
+        companies.forEach((company, compIdx) => {
+          const empCount = (company.employees || []).length;
+          const slaveCount = (company.slaves || []).length;
+          const level = company.level || 1;
+
+          const revenue = (empCount * 10 + slaveCount * 8) * level;
+          if (revenue <= 0) return;
+
+          // Taxe 10% au pays d'enregistrement
+          const tax = Math.floor(revenue * 0.1);
+          const net = revenue - tax;
+
+          ns.companies[compIdx] = {
+            ...ns.companies[compIdx],
+            balance: (ns.companies[compIdx].balance || 0) + net,
+          };
+
+          const countryIdx = (ns.countries || []).findIndex(
+            (c) => c.id === company.countryId
+          );
+          if (countryIdx !== -1) {
+            ns.countries[countryIdx] = {
+              ...ns.countries[countryIdx],
+              treasury: (ns.countries[countryIdx].treasury || 0) + tax,
+            };
+          } else {
+            ns.treasury = (ns.treasury || 0) + tax;
+          }
+        });
+
+        // --- Progression de niveau (mensuelle) ---
+        if (ns.gameDate.day === 1) {
+          (ns.companies || []).forEach((company, compIdx) => {
+            const totalWorkers =
+              (company.employees || []).length +
+              (company.slaves || []).length;
+            const requiredWorkers = (company.level || 1) * 2;
+            const requiredFunds = (company.level || 1) * 500;
+            if (
+              totalWorkers >= requiredWorkers &&
+              (company.balance || 0) >= requiredFunds
+            ) {
+              ns.companies[compIdx] = {
+                ...ns.companies[compIdx],
+                level: (ns.companies[compIdx].level || 1) + 1,
+              };
+            }
+          });
+        }
+
         saveState(ns);
         notify(
           `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
@@ -74,6 +126,38 @@ export const useGameActions = (session, state, saveState, notify) => {
           companies: [newCompany, ...(state.companies || [])],
         });
         notify(`Entreprise "${name}" créée.`, "success");
+      },
+      onDeleteCompany: (companyId) => {
+        if (!session) return;
+        const company = (state.companies || []).find(
+          (c) => c.id === companyId
+        );
+        if (!company) return;
+
+        const newCitizens = [...state.citizens];
+        // Restituer le solde au propriétaire
+        if (company.balance > 0) {
+          const ownerIdx = newCitizens.findIndex(
+            (c) => c.id === company.ownerId
+          );
+          if (ownerIdx !== -1) {
+            newCitizens[ownerIdx] = {
+              ...newCitizens[ownerIdx],
+              balance:
+                (newCitizens[ownerIdx].balance || 0) + company.balance,
+            };
+          }
+        }
+
+        const newCompanies = (state.companies || []).filter(
+          (c) => c.id !== companyId
+        );
+        saveState({
+          ...state,
+          companies: newCompanies,
+          citizens: newCitizens,
+        });
+        notify(`Entreprise "${company.name}" dissoute.`, "info");
       },
 
       // --- GESTION TRÉSORERIE ---
@@ -485,24 +569,110 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`${qty}x ${itemName} donné(s).`, "success");
       },
       onBuySlave: (slaveId, price) => {
-        // Logique simplifiée pour slave
         if (!session) return;
-        const buyerIdx = state.citizens.findIndex((c) => c.id === session.id);
-        const slaveIdx = state.citizens.findIndex((c) => c.id === slaveId);
-        if (buyerIdx === -1 || slaveIdx === -1) return;
         const newCitizens = [...state.citizens];
-        if (newCitizens[buyerIdx].balance < price) {
+        const buyerIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        if (buyerIdx === -1 || slaveIdx === -1) return;
+
+        if ((newCitizens[buyerIdx].balance || 0) < price) {
           notify("Fonds insuffisants", "error");
           return;
         }
-        newCitizens[buyerIdx].balance -= price;
+
+        const previousOwnerId = newCitizens[slaveIdx].ownerId;
+
+        // Débit acheteur
+        newCitizens[buyerIdx] = {
+          ...newCitizens[buyerIdx],
+          balance: (newCitizens[buyerIdx].balance || 0) - price,
+        };
+
+        // Crédit vendeur (ancien propriétaire)
+        let newTreasury = state.treasury || 0;
+        if (previousOwnerId) {
+          const sellerIdx = newCitizens.findIndex(
+            (c) => c.id === previousOwnerId
+          );
+          if (sellerIdx !== -1) {
+            newCitizens[sellerIdx] = {
+              ...newCitizens[sellerIdx],
+              balance: (newCitizens[sellerIdx].balance || 0) + price,
+            };
+          }
+        } else {
+          // Pas de propriétaire → trésor impérial
+          newTreasury += price;
+        }
+
+        // Transfert de propriété
         newCitizens[slaveIdx] = {
           ...newCitizens[slaveIdx],
           ownerId: session.id,
           isForSale: false,
+          salePrice: 0,
         };
-        saveState({ ...state, citizens: newCitizens });
+
+        // Entrée ledger
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: newCitizens[buyerIdx].name,
+          toName: previousOwnerId
+            ? newCitizens.find((c) => c.id === previousOwnerId)?.name ||
+              "Ancien propriétaire"
+            : "Trésor Impérial",
+          amount: price,
+          timestamp: Date.now(),
+          reason: `Achat esclave: ${newCitizens[slaveIdx].name}`,
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          treasury: newTreasury,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
         notify("Esclave acheté.", "success");
+      },
+      onConfiscateSlaveMoney: (slaveId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        const ownerIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (slaveIdx === -1 || ownerIdx === -1) return;
+
+        const amount = newCitizens[slaveIdx].balance || 0;
+        if (amount <= 0) return;
+
+        // Débit esclave
+        newCitizens[slaveIdx] = {
+          ...newCitizens[slaveIdx],
+          balance: 0,
+        };
+        // Crédit propriétaire
+        newCitizens[ownerIdx] = {
+          ...newCitizens[ownerIdx],
+          balance: (newCitizens[ownerIdx].balance || 0) + amount,
+        };
+
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: newCitizens[slaveIdx].name,
+          toName: newCitizens[ownerIdx].name,
+          amount,
+          timestamp: Date.now(),
+          reason: "Confiscation (Main d'Oeuvre)",
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(
+          `${amount} Écus confisqués à ${newCitizens[slaveIdx].name}.`,
+          "info"
+        );
       },
       onSelfManumit: () => {
         if (!session) return;

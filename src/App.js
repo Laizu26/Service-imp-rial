@@ -212,6 +212,7 @@ export default function App() {
             onLogout={() => logoutAccount(null)}
             onUpdateUser={actions.onUpdateCitizen}
             onBuySlave={actions.onBuySlave}
+            onConfiscateSlaveMoney={actions.onConfiscateSlaveMoney}
             onSelfManumit={actions.onSelfManumit}
             onSend={actions.onSendPost}
             onTransfer={actions.onTransfer}
@@ -556,6 +557,7 @@ export default function App() {
                       citizens={state.citizens}
                       countries={state.countries}
                       onCreateCompany={actions.onCreateCompany}
+                      onDeleteCompany={actions.onDeleteCompany}
                     />
                   )}
 

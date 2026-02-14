@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { Briefcase, Building2, User, Globe, Plus } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import SecureDeleteButton from "../ui/SecureDeleteButton";
 
 const CompaniesAdminView = ({
   companies,
   citizens,
   countries,
   onCreateCompany,
+  onDeleteCompany,
 }) => {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("SERVICE");
@@ -123,13 +125,14 @@ const CompaniesAdminView = ({
                     <th className="p-3">Propriétaire</th>
                     <th className="p-3">Localisation</th>
                     <th className="p-3 text-right">Trésorerie</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {(companies || []).length === 0 && (
                     <tr>
                       <td
-                        colSpan="5"
+                        colSpan="6"
                         className="p-6 text-center text-stone-400 italic"
                       >
                         Aucune entreprise enregistrée.
@@ -163,6 +166,14 @@ const CompaniesAdminView = ({
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-stone-700">
                           {comp.balance?.toLocaleString()} ¢
+                        </td>
+                        <td className="p-3 text-right">
+                          {onDeleteCompany && (
+                            <SecureDeleteButton
+                              onClick={() => onDeleteCompany(comp.id)}
+                              label="Dissoudre"
+                            />
+                          )}
                         </td>
                       </tr>
                     );

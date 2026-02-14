@@ -15,6 +15,7 @@ import Card from "../ui/Card";
 const SlaveManagementView = ({
   slaves,
   onUpdateCitizen,
+  onConfiscateSlaveMoney,
   onSelfManumit,
   notify,
   catalog,
@@ -123,9 +124,12 @@ const SlaveManagementView = ({
       return;
     }
     if (!slave.balance || slave.balance <= 0) return;
-    const amount = slave.balance;
-    onUpdateCitizen({ ...slave, balance: 0 });
-    notify(`Vous avez confisqué ${amount} Écus à ${slave.name}.`, "info");
+    if (typeof onConfiscateSlaveMoney === "function") {
+      onConfiscateSlaveMoney(slave.id);
+    } else {
+      onUpdateCitizen({ ...slave, balance: 0 });
+      notify(`Vous avez confisqué ${slave.balance} Écus à ${slave.name}.`, "info");
+    }
     if (selectedSlave) setSelectedSlave({ ...selectedSlave, balance: 0 });
   };
 
