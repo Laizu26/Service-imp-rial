@@ -728,6 +728,19 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, maisonRegistry: reg }),
       onUpdateMaisonStaff: (staff) =>
         saveState({ ...state, maisonStaff: staff }),
+      onRemoveMaisonStaff: (staffId) => {
+        const newStaff = (state.maisonStaff || []).filter(
+          (s) => s.id !== staffId
+        );
+        const newRegistry = (state.maisonRegistry || []).filter(
+          (r) => r.staffId !== staffId
+        );
+        saveState({
+          ...state,
+          maisonStaff: newStaff,
+          maisonRegistry: newRegistry,
+        });
+      },
       onBookMaison: (staffId) => {
         if (!session) return;
         const registry = state.maisonRegistry || [];

@@ -16,6 +16,7 @@ const MaisonDeAsiaAdmin = ({
   staff = [],
   onUpdateRegistry,
   onUpdateStaff,
+  onRemoveStaff,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -69,7 +70,11 @@ const MaisonDeAsiaAdmin = ({
   };
 
   const handleRemoveStaff = (id) => {
-    onUpdateStaff(staff.filter((s) => s.id !== id));
+    if (typeof onRemoveStaff === "function") {
+      onRemoveStaff(id);
+    } else {
+      onUpdateStaff(staff.filter((s) => s.id !== id));
+    }
   };
 
   // --- GESTION DES CLIENTS ---

@@ -569,6 +569,7 @@ export default function App() {
                       staff={state.maisonStaff || []}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
                       onUpdateStaff={actions.onUpdateMaisonStaff}
+                      onRemoveStaff={actions.onRemoveMaisonStaff}
                     />
                   )}
                 </div>
