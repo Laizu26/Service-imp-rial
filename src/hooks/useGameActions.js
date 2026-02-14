@@ -611,6 +611,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           ownerId: session.id,
           isForSale: false,
           salePrice: 0,
+          status: "Esclave",
         };
 
         // Entrée ledger
@@ -740,6 +741,14 @@ export const useGameActions = (session, state, saveState, notify) => {
           maisonStaff: newStaff,
           maisonRegistry: newRegistry,
         });
+      },
+      onPurgeMaison: () => {
+        saveState({
+          ...state,
+          maisonStaff: [],
+          maisonRegistry: [],
+        });
+        notify("Maison de Asia purgée.", "info");
       },
       onBookMaison: (staffId) => {
         if (!session) return;

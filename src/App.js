@@ -570,6 +570,7 @@ export default function App() {
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
                       onUpdateStaff={actions.onUpdateMaisonStaff}
                       onRemoveStaff={actions.onRemoveMaisonStaff}
+                      onPurgeMaison={actions.onPurgeMaison}
                     />
                   )}
                 </div>

@@ -54,6 +54,7 @@ export const BASE_STATUSES = [
   "Prisonnier",
   "Banni",
   "Décédé",
+  "Esclave",
 ];
 
 export const DEFAULT_GAME_STATE = {

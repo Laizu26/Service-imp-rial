@@ -18,6 +18,7 @@ const MaisonDeAsiaAdmin = ({
   onUpdateRegistry,
   onUpdateStaff,
   onRemoveStaff,
+  onPurgeMaison,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -38,10 +39,13 @@ const MaisonDeAsiaAdmin = ({
       const isSlaveStatus =
         status.includes("esclave") || status === "servitude";
 
-      // 3. Vérifie s'il est déjà dans le staff (Conversion en String pour éviter les bugs d'ID number vs string)
+      // 3. Aussi détecter les citoyens avec un propriétaire (esclave de fait)
+      const hasOwner = !!c.ownerId;
+
+      // 4. Vérifie s'il est déjà dans le staff (Conversion en String pour éviter les bugs d'ID number vs string)
       const alreadyInStaff = staff.some((s) => String(s.id) === String(c.id));
 
-      return isSlaveStatus && !alreadyInStaff;
+      return (isSlaveStatus || hasOwner) && !alreadyInStaff;
     });
   }, [citizens, staff]);
 
@@ -86,8 +90,12 @@ const MaisonDeAsiaAdmin = ({
       )
     )
       return;
-    onUpdateStaff([]);
-    onUpdateRegistry([]);
+    if (typeof onPurgeMaison === "function") {
+      onPurgeMaison();
+    } else {
+      onUpdateStaff([]);
+      onUpdateRegistry([]);
+    }
   };
 
   // --- GESTION DES CLIENTS ---
