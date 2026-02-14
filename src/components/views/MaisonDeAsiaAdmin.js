@@ -7,7 +7,8 @@ import {
   Heart,
   DollarSign,
   UserPlus,
-} from "lucide-react"; // Correction : Suppression de Trash2
+  Trash2,
+} from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 
 const MaisonDeAsiaAdmin = ({
@@ -77,6 +78,18 @@ const MaisonDeAsiaAdmin = ({
     }
   };
 
+  // --- PURGE COMPLÈTE ---
+  const handlePurge = () => {
+    if (
+      !window.confirm(
+        "PURGER la Maison de Asia ?\n\nCela supprimera TOUT le personnel et TOUTES les réservations. Cette action est irréversible."
+      )
+    )
+      return;
+    onUpdateStaff([]);
+    onUpdateRegistry([]);
+  };
+
   // --- GESTION DES CLIENTS ---
   const handleEvict = (citizenId) => {
     const newRegistry = houseRegistry.filter((r) => r.citizenId !== citizenId);
@@ -120,6 +133,13 @@ const MaisonDeAsiaAdmin = ({
             }`}
           >
             <Users size={14} /> Clients ({houseRegistry.length})
+          </button>
+          <button
+            onClick={handlePurge}
+            className="px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all text-red-300 hover:text-white hover:bg-red-600/50 ml-2"
+            title="Purger toutes les données de la Maison"
+          >
+            <Trash2 size={14} /> Purger
           </button>
         </div>
       </div>
