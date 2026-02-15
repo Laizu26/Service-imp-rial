@@ -288,30 +288,32 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, companies: newCompanies, citizens: newCitizens });
       },
 
-      // --- PAYER SALAIRES (individuel ou uniforme) ---
+      // --- PAYER SALAIRES (individuel ou uniforme, employés + esclaves) ---
       onPaySalaries: (companyId, salaryData) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
 
         const company = state.companies[compIdx];
         const employees = company.employees || [];
-        if (employees.length === 0) {
-          notify("Aucun salarié à payer.", "info");
+        const slaves = company.slaves || [];
+        const allWorkers = [...employees, ...slaves];
+        if (allWorkers.length === 0) {
+          notify("Aucun travailleur à payer.", "info");
           return;
         }
 
-        // salaryData peut être un nombre (uniforme) ou un objet { empId: montant }
+        // salaryData peut être un nombre (uniforme) ou un objet { workerId: montant }
         const isMap =
           typeof salaryData === "object" && !Array.isArray(salaryData);
         let totalCost = 0;
         const payments = {};
 
-        employees.forEach((empId) => {
+        allWorkers.forEach((wId) => {
           const val = isMap
-            ? parseInt(salaryData[empId]) || 0
+            ? parseInt(salaryData[wId]) || 0
             : parseInt(salaryData) || 0;
           if (val > 0) {
-            payments[empId] = val;
+            payments[wId] = val;
             totalCost += val;
           }
         });

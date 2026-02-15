@@ -500,44 +500,102 @@ const MyCompanyView = ({
 
           {/* SALAIRES INDIVIDUELS */}
           <Card title="Versement des Salaires" icon={Wallet}>
-            {empCount === 0 ? (
+            {empCount === 0 && (myCompany.slaves || []).length === 0 ? (
               <div className="text-center text-stone-400 italic py-4 text-sm">
-                Aucun salarié à payer.
+                Aucun travailleur à payer.
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="divide-y divide-stone-100">
-                  {(myCompany.employees || []).map((empId) => {
-                    const emp = citizens.find((c) => c.id === empId);
-                    return (
-                      <div
-                        key={empId}
-                        className="py-3 flex justify-between items-center gap-3"
-                      >
-                        <span className="font-bold text-stone-700 text-sm flex-1 truncate">
-                          {emp ? emp.name : empId}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            className="w-24 p-2 border rounded font-mono text-sm text-right"
-                            placeholder="0"
-                            value={salaryMap[empId] || ""}
-                            onChange={(e) =>
-                              setSalaryMap({
-                                ...salaryMap,
-                                [empId]: e.target.value,
-                              })
-                            }
-                          />
-                          <span className="text-[10px] font-bold text-stone-400">
-                            Écus
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Employés */}
+                {empCount > 0 && (
+                  <div>
+                    <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">
+                      Employés
+                    </div>
+                    <div className="divide-y divide-stone-100">
+                      {(myCompany.employees || []).map((empId) => {
+                        const emp = citizens.find((c) => c.id === empId);
+                        return (
+                          <div
+                            key={empId}
+                            className="py-3 flex justify-between items-center gap-3"
+                          >
+                            <span className="font-bold text-stone-700 text-sm flex-1 truncate">
+                              {emp ? emp.name : empId}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                className="w-24 p-2 border rounded font-mono text-sm text-right"
+                                placeholder="0"
+                                value={salaryMap[empId] || ""}
+                                onChange={(e) =>
+                                  setSalaryMap({
+                                    ...salaryMap,
+                                    [empId]: e.target.value,
+                                  })
+                                }
+                              />
+                              <span className="text-[10px] font-bold text-stone-400">
+                                Écus
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Esclaves */}
+                {(myCompany.slaves || []).length > 0 && (
+                  <div>
+                    <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2 flex items-center gap-2">
+                      Esclaves
+                      <span className="text-[8px] font-normal normal-case tracking-normal italic opacity-60">
+                        (salaire optionnel)
+                      </span>
+                    </div>
+                    <div className="divide-y divide-stone-100">
+                      {(myCompany.slaves || []).map((slaveId) => {
+                        const slave = citizens.find((c) => c.id === slaveId);
+                        return (
+                          <div
+                            key={slaveId}
+                            className="py-3 flex justify-between items-center gap-3"
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="bg-stone-200 text-stone-500 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0">
+                                Escl.
+                              </span>
+                              <span className="font-bold text-stone-700 text-sm truncate">
+                                {slave ? slave.name : slaveId}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                className="w-24 p-2 border rounded font-mono text-sm text-right"
+                                placeholder="0"
+                                value={salaryMap[slaveId] || ""}
+                                onChange={(e) =>
+                                  setSalaryMap({
+                                    ...salaryMap,
+                                    [slaveId]: e.target.value,
+                                  })
+                                }
+                              />
+                              <span className="text-[10px] font-bold text-stone-400">
+                                Écus
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center pt-3 border-t border-stone-200">
                   <div>
                     <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
