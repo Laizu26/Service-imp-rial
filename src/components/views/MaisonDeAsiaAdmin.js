@@ -10,6 +10,9 @@ import {
   Trash2,
   Wallet,
   Building2,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 
@@ -31,6 +34,11 @@ const MaisonDeAsiaAdmin = ({
   const [selectedSlaveId, setSelectedSlaveId] = useState("");
   const [newStaffSpecialty, setNewStaffSpecialty] = useState("");
   const [newStaffPrice, setNewStaffPrice] = useState(50);
+
+  // Édition d'un membre existant
+  const [editingId, setEditingId] = useState(null);
+  const [editSpecialty, setEditSpecialty] = useState("");
+  const [editPrice, setEditPrice] = useState("");
 
   // --- FILTRER LES ESCLAVES DISPONIBLES (CORRIGÉ & ROBUSTE) ---
   const availableSlaves = useMemo(() => {
@@ -85,6 +93,28 @@ const MaisonDeAsiaAdmin = ({
     } else {
       onUpdateStaff(staff.filter((s) => s.id !== id));
     }
+  };
+
+  const startEdit = (member) => {
+    setEditingId(member.id);
+    setEditSpecialty(member.specialty || "");
+    setEditPrice(String(member.price || 0));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditSpecialty("");
+    setEditPrice("");
+  };
+
+  const saveEdit = (id) => {
+    const updated = staff.map((s) =>
+      s.id === id
+        ? { ...s, specialty: editSpecialty, price: parseInt(editPrice) || 0 }
+        : s
+    );
+    onUpdateStaff(updated);
+    setEditingId(null);
   };
 
   // --- PURGE COMPLÈTE ---
@@ -240,46 +270,104 @@ const MaisonDeAsiaAdmin = ({
 
             {/* Liste du Staff */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {staff.map((member) => (
-                <div
-                  key={member.id}
-                  className="bg-white p-4 rounded-xl shadow-sm border border-stone-200 flex gap-4 items-center group relative"
-                >
-                  <img
-                    src={member.avatarUrl || "https://i.pravatar.cc/150?img=5"}
-                    alt={member.name}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-fuchsia-100"
-                  />
-                  <div className="flex-1">
-                    <h4 className="font-bold text-stone-800">{member.name}</h4>
-                    <p className="text-xs text-fuchsia-600 font-medium">
-                      {member.specialty}
-                    </p>
-                    <p className="text-xs text-stone-400 mt-1 font-mono">
-                      {member.price} Écus
-                    </p>
-                  </div>
+              {staff.map((member) => {
+                const isEditing = editingId === member.id;
 
-                  {/* Badge de statut */}
-                  {houseRegistry.find((r) => r.staffId === member.id) ? (
-                    <span
-                      className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-sm"
-                      title="Occupée"
-                    ></span>
-                  ) : (
-                    <span
-                      className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"
-                      title="Disponible"
-                    ></span>
-                  )}
-
-                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <SecureDeleteButton
-                      onClick={() => handleRemoveStaff(member.id)}
+                return (
+                  <div
+                    key={member.id}
+                    className={`bg-white p-4 rounded-xl shadow-sm border flex gap-4 items-start group relative ${
+                      isEditing
+                        ? "border-fuchsia-400 ring-2 ring-fuchsia-200"
+                        : "border-stone-200"
+                    }`}
+                  >
+                    <img
+                      src={member.avatarUrl || "https://i.pravatar.cc/150?img=5"}
+                      alt={member.name}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-fuchsia-100 flex-shrink-0"
                     />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-stone-800">{member.name}</h4>
+
+                      {isEditing ? (
+                        <div className="mt-2 space-y-2">
+                          <input
+                            className="w-full p-1.5 border rounded text-xs bg-stone-50 outline-none focus:border-fuchsia-500"
+                            value={editSpecialty}
+                            onChange={(e) => setEditSpecialty(e.target.value)}
+                            placeholder="Spécialité..."
+                          />
+                          <div className="relative">
+                            <input
+                              type="number"
+                              className="w-full p-1.5 pl-6 border rounded text-xs bg-stone-50 outline-none focus:border-fuchsia-500 font-mono"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              placeholder="Prix"
+                            />
+                            <DollarSign
+                              size={12}
+                              className="absolute left-2 top-2 text-stone-400"
+                            />
+                          </div>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => saveEdit(member.id)}
+                              className="flex-1 bg-fuchsia-900 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
+                            >
+                              <Check size={12} /> OK
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="px-3 py-1.5 bg-stone-100 text-stone-500 rounded text-[10px] font-bold uppercase hover:bg-stone-200 flex items-center gap-1"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-xs text-fuchsia-600 font-medium">
+                            {member.specialty}
+                          </p>
+                          <p className="text-xs text-stone-400 mt-1 font-mono">
+                            {member.price} Écus
+                          </p>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Badge de statut */}
+                    {houseRegistry.find((r) => r.staffId === member.id) ? (
+                      <span
+                        className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white shadow-sm"
+                        title="Occupée"
+                      ></span>
+                    ) : (
+                      <span
+                        className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm"
+                        title="Disponible"
+                      ></span>
+                    )}
+
+                    {!isEditing && (
+                      <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5">
+                        <button
+                          onClick={() => startEdit(member)}
+                          className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-fuchsia-100 hover:text-fuchsia-700 transition-colors"
+                          title="Modifier"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <SecureDeleteButton
+                          onClick={() => handleRemoveStaff(member.id)}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {staff.length === 0 && (
                 <div className="col-span-full text-center py-10 text-stone-400 italic">
                   Aucun personnel enregistré.
