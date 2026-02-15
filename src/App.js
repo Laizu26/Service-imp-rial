@@ -254,6 +254,7 @@ export default function App() {
             onCompanyFire={actions.onCompanyFire}
             onCustomizeCompany={actions.onCustomizeCompany}
             onDeleteCompany={actions.onDeleteCompany}
+            onQuitCompany={actions.onQuitCompany}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">

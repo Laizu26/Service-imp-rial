@@ -75,6 +75,7 @@ const CitizenLayout = (props) => {
     onCompanyFire,
     onCustomizeCompany,
     onDeleteCompany,
+    onQuitCompany,
     settings,
     isDark,
     updateSetting,
@@ -466,6 +467,7 @@ const CitizenLayout = (props) => {
                 onCompanyFire={onCompanyFire}
                 onCustomizeCompany={onCustomizeCompany}
                 onDeleteCompany={onDeleteCompany}
+                onQuitCompany={onQuitCompany}
               />
             )}
 

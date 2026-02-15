@@ -466,6 +466,30 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, companies: newCompanies });
       },
 
+      // --- DÉMISSION (employé quitte de lui-même) ---
+      onQuitCompany: (companyId) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex(
+          (c) => c.id === companyId
+        );
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        const isEmployee = (company.employees || []).includes(session.id);
+        if (!isEmployee) {
+          notify("Vous n'êtes pas employé ici.", "error");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = {
+          ...company,
+          employees: (company.employees || []).filter(
+            (id) => id !== session.id
+          ),
+        };
+        saveState({ ...state, companies: newCompanies });
+        notify(`Vous avez quitté ${company.name}.`, "info");
+      },
+
       // --- LE RESTE EST INCHANGÉ (POUR COMPATIBILITÉ) ---
       onTransfer: (srcRaw, tgtRaw, amount) => {
         if (!session) return;

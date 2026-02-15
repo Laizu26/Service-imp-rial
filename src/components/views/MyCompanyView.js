@@ -35,8 +35,20 @@ const MyCompanyView = ({
   onCompanyFire,
   onCustomizeCompany,
   onDeleteCompany,
+  onQuitCompany,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
+  const employedAt = !myCompany
+    ? (companies || []).find((c) =>
+        (c.employees || []).includes(user.id)
+      )
+    : null;
+  const slavedAt =
+    !myCompany && !employedAt
+      ? (companies || []).find((c) =>
+          (c.slaves || []).includes(user.id)
+        )
+      : null;
   const myJobOffers = user.jobOffers || [];
 
   const [depositAmount, setDepositAmount] = useState("");
@@ -80,21 +92,185 @@ const MyCompanyView = ({
     }
   };
 
-  // --- CAS 1 : CITOYEN SANS ENTREPRISE ---
+  // --- CAS 1 : CITOYEN SANS ENTREPRISE (ni propriétaire, ni employé, ni esclave) ---
   if (!myCompany) {
+    const workerCompany = employedAt || slavedAt;
+    const isEmployee = !!employedAt;
+    const isSlave = !!slavedAt;
+
     return (
       <div className="space-y-6 animate-fadeIn">
-        <div className="h-[30vh] flex flex-col items-center justify-center text-stone-400 p-8 text-center border-2 border-dashed border-stone-300 rounded-xl">
-          <Building2 size={64} className="mb-4 text-stone-300" />
-          <h3 className="text-xl font-bold text-stone-600 mb-2">
-            Aucune Entreprise
-          </h3>
-          <p className="text-sm max-w-md">
-            Vous ne possédez pas de charte commerciale. Rapprochez-vous de
-            l'administration pour en fonder une.
-          </p>
-        </div>
+        {/* FICHE EMPLOYÉ / ESCLAVE */}
+        {workerCompany && (() => {
+          const owner = citizens.find((c) => c.id === workerCompany.ownerId);
+          const wRates = TYPE_RATES[workerCompany.type] || { emp: 10, slave: 8, label: workerCompany.type };
+          const wEmpCount = (workerCompany.employees || []).length;
+          const wSlaveCount = (workerCompany.slaves || []).length;
+          const wLevel = workerCompany.level || 1;
+          const colleagues = (workerCompany.employees || [])
+            .filter((id) => id !== user.id)
+            .map((id) => citizens.find((c) => c.id === id))
+            .filter(Boolean);
 
+          return (
+            <div className="space-y-6">
+              {/* Header entreprise */}
+              <div
+                className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg"
+                style={{ borderColor: workerCompany.color || "#8B5CF6" }}
+              >
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex-1">
+                    <div className="text-xs font-black uppercase text-stone-400 tracking-widest mb-1">
+                      {isEmployee ? "Employé chez" : "Affecté à"}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: workerCompany.color || "#8B5CF6" }}
+                      />
+                      <h1 className="text-3xl font-black font-serif text-stone-900">
+                        {workerCompany.name}
+                      </h1>
+                    </div>
+                    <div className="flex gap-3 mt-2 flex-wrap">
+                      <span className="bg-stone-100 text-stone-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">
+                        {wRates.label}
+                      </span>
+                      <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">
+                        Niveau {wLevel}
+                      </span>
+                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                        isEmployee
+                          ? "bg-green-100 text-green-600"
+                          : "bg-stone-200 text-stone-500"
+                      }`}>
+                        {isEmployee ? "Salarié" : "Esclave"}
+                      </span>
+                      {workerCompany.frozen && (
+                        <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded text-[10px] font-bold uppercase">
+                          Gelée
+                        </span>
+                      )}
+                    </div>
+                    {workerCompany.motto && (
+                      <div className="text-xs italic text-stone-400 mt-2">
+                        "{workerCompany.motto}"
+                      </div>
+                    )}
+                    {workerCompany.description && (
+                      <div className="text-xs text-stone-500 mt-1">
+                        {workerCompany.description}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right bg-stone-50 p-4 rounded-xl border border-stone-200 min-w-[160px]">
+                    <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
+                      Votre solde
+                    </div>
+                    <div className="text-3xl font-mono font-black text-stone-800">
+                      {(user.balance || 0).toLocaleString()}{" "}
+                      <span className="text-sm">Écus</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Infos entreprise */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card title="Informations" icon={Building2}>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-stone-100">
+                      <span className="text-xs text-stone-500">Propriétaire</span>
+                      <span className="text-sm font-bold text-stone-800">
+                        {owner ? owner.name : "Inconnu"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-stone-100">
+                      <span className="text-xs text-stone-500">Employés</span>
+                      <span className="text-sm font-bold text-stone-800">{wEmpCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-stone-100">
+                      <span className="text-xs text-stone-500">Esclaves</span>
+                      <span className="text-sm font-bold text-stone-800">{wSlaveCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-stone-100">
+                      <span className="text-xs text-stone-500">Production / jour</span>
+                      <span className="text-sm font-mono font-bold text-green-600">
+                        {((wEmpCount * wRates.emp + wSlaveCount * wRates.slave) * wLevel).toLocaleString()} Écus
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-xs text-stone-500">Taxe</span>
+                      <span className="text-sm font-bold text-stone-600">
+                        {workerCompany.taxRate ?? 10}%
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card title="Collègues" icon={Users}>
+                  {colleagues.length === 0 ? (
+                    <div className="text-center text-stone-400 italic py-4 text-xs">
+                      Aucun autre employé.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
+                      {colleagues.map((c) => (
+                        <div key={c.id} className="py-2.5 flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0">
+                            {(c.name || "?")[0]}
+                          </div>
+                          <span className="text-sm font-bold text-stone-700">{c.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              {/* Démission (seulement employé, pas esclave) */}
+              {isEmployee && onQuitCompany && (
+                <Card title="Contrat de travail" icon={Briefcase}>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-stone-600">
+                        Vous pouvez démissionner de votre poste. Cette action est immédiate.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Voulez-vous vraiment quitter ${workerCompany.name} ?`)) {
+                          onQuitCompany(workerCompany.id);
+                        }
+                      }}
+                      className="bg-red-600 text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-wide hover:bg-red-500 flex-shrink-0"
+                    >
+                      Démissionner
+                    </button>
+                  </div>
+                </Card>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Si ni propriétaire, ni employé, ni esclave → message vide */}
+        {!workerCompany && (
+          <div className="h-[30vh] flex flex-col items-center justify-center text-stone-400 p-8 text-center border-2 border-dashed border-stone-300 rounded-xl">
+            <Building2 size={64} className="mb-4 text-stone-300" />
+            <h3 className="text-xl font-bold text-stone-600 mb-2">
+              Aucune Entreprise
+            </h3>
+            <p className="text-sm max-w-md">
+              Vous ne possédez pas de charte commerciale et n'êtes employé
+              nulle part. Rapprochez-vous de l'administration pour en fonder
+              une, ou attendez une offre d'emploi.
+            </p>
+          </div>
+        )}
+
+        {/* Offres d'emploi (toujours visible) */}
         <Card
           title={`Offres d'Emploi (${myJobOffers.length})`}
           icon={Briefcase}
