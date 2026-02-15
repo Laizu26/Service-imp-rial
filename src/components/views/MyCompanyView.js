@@ -11,9 +11,18 @@ import {
   Send,
   Briefcase,
   TrendingUp,
+  Palette,
+  Trash2,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import SecureDeleteButton from "../ui/SecureDeleteButton";
+
+const TYPE_RATES = {
+  SERVICE: { emp: 12, slave: 9, label: "Services / Commerce" },
+  MANUFACTURE: { emp: 10, slave: 8, label: "Manufacture / Artisanat" },
+  EXTRACTION: { emp: 8, slave: 7, label: "Extraction / Ferme" },
+};
 
 const MyCompanyView = ({
   user,
@@ -24,21 +33,54 @@ const MyCompanyView = ({
   onRespondJobOffer,
   onPaySalaries,
   onCompanyFire,
+  onCustomizeCompany,
+  onDeleteCompany,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const myJobOffers = user.jobOffers || [];
 
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [salaryAmount, setSalaryAmount] = useState("");
   const [hireTarget, setHireTarget] = useState("");
   const [activeTab, setActiveTab] = useState("hr");
+
+  // Salaires individuels
+  const [salaryMap, setSalaryMap] = useState({});
+
+  // Personnalisation
+  const [editDesc, setEditDesc] = useState("");
+  const [editMotto, setEditMotto] = useState("");
+  const [editColor, setEditColor] = useState("#8B5CF6");
+  const [editHiring, setEditHiring] = useState(true);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const mySlaves = (citizens || []).filter(
     (c) => c.ownerId === user.id && !c.isForSale
   );
 
-  // --- CAS 1 : CITOYEN SANS ENTREPRISE (CHÔMEUR OU SALARIÉ) ---
+  const openCustomize = () => {
+    if (myCompany) {
+      setEditDesc(myCompany.description || "");
+      setEditMotto(myCompany.motto || "");
+      setEditColor(myCompany.color || "#8B5CF6");
+      setEditHiring(myCompany.hiringOpen !== false);
+      setCustomizeOpen(true);
+    }
+  };
+
+  const saveCustomize = () => {
+    if (myCompany && onCustomizeCompany) {
+      onCustomizeCompany(myCompany.id, {
+        description: editDesc,
+        motto: editMotto,
+        color: editColor,
+        hiringOpen: editHiring,
+      });
+      setCustomizeOpen(false);
+    }
+  };
+
+  // --- CAS 1 : CITOYEN SANS ENTREPRISE ---
   if (!myCompany) {
     return (
       <div className="space-y-6 animate-fadeIn">
@@ -103,24 +145,77 @@ const MyCompanyView = ({
   }
 
   // --- CAS 2 : PROPRIÉTAIRE D'ENTREPRISE ---
+  const rates = TYPE_RATES[myCompany.type] || { emp: 10, slave: 8, label: myCompany.type };
+  const empCount = (myCompany.employees || []).length;
+  const slaveCount = (myCompany.slaves || []).length;
+  const level = myCompany.level || 1;
+  const taxRate = (myCompany.taxRate ?? 10) / 100;
+  const dailyRevenue = (empCount * rates.emp + slaveCount * rates.slave) * level;
+  const dailyTax = Math.floor(dailyRevenue * taxRate);
+  const dailyNet = dailyRevenue - dailyTax;
+
+  const totalSalary = Object.values(salaryMap).reduce(
+    (sum, v) => sum + (parseInt(v) || 0),
+    0
+  );
+
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
-      <div className="bg-white border-l-8 border-stone-800 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
+      {/* HEADER */}
+      <div
+        className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+        style={{ borderColor: myCompany.color || "#8B5CF6" }}
+      >
+        <div className="flex-1">
           <div className="text-xs font-black uppercase text-stone-400 tracking-widest mb-1">
             Société Privée
           </div>
-          <h1 className="text-3xl font-black font-serif text-stone-900">
-            {myCompany.name}
-          </h1>
-          <div className="flex gap-4 mt-2">
+          <div className="flex items-center gap-3">
+            <span
+              className="w-4 h-4 rounded-full flex-shrink-0"
+              style={{ backgroundColor: myCompany.color || "#8B5CF6" }}
+            />
+            <h1 className="text-3xl font-black font-serif text-stone-900">
+              {myCompany.name}
+            </h1>
+          </div>
+          <div className="flex gap-3 mt-2 flex-wrap">
             <span className="bg-stone-100 text-stone-600 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">
-              {myCompany.type}
+              {rates.label}
             </span>
             <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">
-              Niveau {myCompany.level}
+              Niveau {level}
+            </span>
+            <span className="bg-stone-100 text-stone-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide">
+              Taxe: {myCompany.taxRate ?? 10}%
+            </span>
+            {myCompany.frozen && (
+              <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded text-[10px] font-bold uppercase">
+                Gelée
+              </span>
+            )}
+            <span
+              className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                myCompany.hiringOpen !== false
+                  ? "bg-green-100 text-green-600"
+                  : "bg-red-100 text-red-500"
+              }`}
+            >
+              {myCompany.hiringOpen !== false
+                ? "Recrutement ouvert"
+                : "Recrutement fermé"}
             </span>
           </div>
+          {myCompany.motto && (
+            <div className="text-xs italic text-stone-400 mt-2">
+              "{myCompany.motto}"
+            </div>
+          )}
+          {myCompany.description && (
+            <div className="text-xs text-stone-500 mt-1">
+              {myCompany.description}
+            </div>
+          )}
         </div>
         <div className="text-right bg-stone-50 p-4 rounded-xl border border-stone-200 min-w-[200px]">
           <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
@@ -133,29 +228,28 @@ const MyCompanyView = ({
         </div>
       </div>
 
+      {/* ONGLETS */}
       <div className="flex gap-2 border-b border-stone-200 pb-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab("hr")}
-          className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest ${
-            activeTab === "hr"
-              ? "bg-stone-800 text-white"
-              : "text-stone-500 hover:bg-stone-100"
-          }`}
-        >
-          Personnel
-        </button>
-        <button
-          onClick={() => setActiveTab("finance")}
-          className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest ${
-            activeTab === "finance"
-              ? "bg-stone-800 text-white"
-              : "text-stone-500 hover:bg-stone-100"
-          }`}
-        >
-          Banque & Salaires
-        </button>
+        {[
+          { id: "hr", label: "Personnel" },
+          { id: "finance", label: "Banque & Salaires" },
+          { id: "customize", label: "Personnalisation" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest whitespace-nowrap ${
+              activeTab === tab.id
+                ? "bg-stone-800 text-white"
+                : "text-stone-500 hover:bg-stone-100"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
+      {/* ONGLET PERSONNEL */}
       {activeTab === "hr" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card title="Recrutement" icon={Users}>
@@ -188,10 +282,10 @@ const MyCompanyView = ({
 
               <div className="border-t border-stone-100 pt-2">
                 <div className="text-[10px] font-black uppercase text-stone-400 mb-2">
-                  Effectifs Actuels ({(myCompany.employees || []).length})
+                  Effectifs Actuels ({empCount})
                 </div>
                 <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
-                  {(myCompany.employees || []).length === 0 && (
+                  {empCount === 0 && (
                     <div className="py-4 text-center text-stone-400 italic text-xs">
                       Aucun salarié.
                     </div>
@@ -276,6 +370,7 @@ const MyCompanyView = ({
         </div>
       )}
 
+      {/* ONGLET FINANCE */}
       {activeTab === "finance" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -310,7 +405,11 @@ const MyCompanyView = ({
                 />
                 <button
                   onClick={() => {
-                    onCompanyTreasury(myCompany.id, withdrawAmount, "WITHDRAW");
+                    onCompanyTreasury(
+                      myCompany.id,
+                      withdrawAmount,
+                      "WITHDRAW"
+                    );
                     setWithdrawAmount("");
                   }}
                   className="bg-stone-800 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700"
@@ -322,119 +421,318 @@ const MyCompanyView = ({
           </div>
 
           <Card title="Production & Rendement" icon={TrendingUp}>
-            {(() => {
-              const empCount = (myCompany.employees || []).length;
-              const slaveCount = (myCompany.slaves || []).length;
-              const level = myCompany.level || 1;
-              const dailyRevenue = (empCount * 10 + slaveCount * 8) * level;
-              const dailyTax = Math.floor(dailyRevenue * 0.1);
-              const dailyNet = dailyRevenue - dailyTax;
-              const totalWorkers = empCount + slaveCount;
-              const requiredWorkers = level * 2;
-              const requiredFunds = level * 500;
-              return (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="text-lg font-black text-green-700 font-mono">
-                        {dailyNet.toLocaleString()}
-                      </div>
-                      <div className="text-[9px] uppercase font-bold text-green-500 tracking-widest">
-                        Revenu Net / Jour
-                      </div>
-                    </div>
-                    <div className="bg-stone-50 border border-stone-200 rounded-lg p-3">
-                      <div className="text-lg font-black text-stone-700 font-mono">
-                        {dailyTax.toLocaleString()}
-                      </div>
-                      <div className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">
-                        Taxe / Jour
-                      </div>
-                    </div>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <div className="text-lg font-black text-yellow-700 font-mono">
-                        Niv. {level}
-                      </div>
-                      <div className="text-[9px] uppercase font-bold text-yellow-500 tracking-widest">
-                        Niveau
-                      </div>
-                    </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-lg font-black text-green-700 font-mono">
+                    {dailyNet.toLocaleString()}
                   </div>
-                  <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-600 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Employés ({empCount}) x 10 Écus x Niv.{level}</span>
-                      <span className="font-mono font-bold">{(empCount * 10 * level).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Esclaves ({slaveCount}) x 8 Écus x Niv.{level}</span>
-                      <span className="font-mono font-bold">{(slaveCount * 8 * level).toLocaleString()}</span>
-                    </div>
+                  <div className="text-[9px] uppercase font-bold text-green-500 tracking-widest">
+                    Revenu Net / Jour
                   </div>
+                </div>
+                <div className="bg-stone-50 border border-stone-200 rounded-lg p-3">
+                  <div className="text-lg font-black text-stone-700 font-mono">
+                    {dailyTax.toLocaleString()}
+                  </div>
+                  <div className="text-[9px] uppercase font-bold text-stone-400 tracking-widest">
+                    Taxe / Jour ({myCompany.taxRate ?? 10}%)
+                  </div>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="text-lg font-black text-yellow-700 font-mono">
+                    Niv. {level}
+                  </div>
+                  <div className="text-[9px] uppercase font-bold text-yellow-500 tracking-widest">
+                    Niveau
+                  </div>
+                </div>
+              </div>
+              <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>
+                    Employés ({empCount}) x {rates.emp} Écus x Niv.{level}
+                  </span>
+                  <span className="font-mono font-bold">
+                    {(empCount * rates.emp * level).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>
+                    Esclaves ({slaveCount}) x {rates.slave} Écus x Niv.{level}
+                  </span>
+                  <span className="font-mono font-bold">
+                    {(slaveCount * rates.slave * level).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              {(() => {
+                const totalWorkers = empCount + slaveCount;
+                const requiredWorkers = level * 2;
+                const requiredFunds = level * 500;
+                return (
                   <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-500">
                     <div className="text-[9px] uppercase font-bold tracking-widest mb-2">
-                      Progression niveau {level} → {level + 1}
+                      Progression niveau {level} &rarr; {level + 1}
                     </div>
                     <div className="flex justify-between mb-1">
                       <span>Travailleurs</span>
-                      <span className={`font-bold ${totalWorkers >= requiredWorkers ? "text-green-600" : "text-red-500"}`}>
+                      <span
+                        className={`font-bold ${totalWorkers >= requiredWorkers ? "text-green-600" : "text-red-500"}`}
+                      >
                         {totalWorkers} / {requiredWorkers}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Trésorerie requise</span>
-                      <span className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}>
-                        {(myCompany.balance || 0).toLocaleString()} / {requiredFunds.toLocaleString()}
+                      <span
+                        className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}
+                      >
+                        {(myCompany.balance || 0).toLocaleString()} /{" "}
+                        {requiredFunds.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </Card>
+
+          {/* SALAIRES INDIVIDUELS */}
+          <Card title="Versement des Salaires" icon={Wallet}>
+            {empCount === 0 ? (
+              <div className="text-center text-stone-400 italic py-4 text-sm">
+                Aucun salarié à payer.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="divide-y divide-stone-100">
+                  {(myCompany.employees || []).map((empId) => {
+                    const emp = citizens.find((c) => c.id === empId);
+                    return (
+                      <div
+                        key={empId}
+                        className="py-3 flex justify-between items-center gap-3"
+                      >
+                        <span className="font-bold text-stone-700 text-sm flex-1 truncate">
+                          {emp ? emp.name : empId}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            className="w-24 p-2 border rounded font-mono text-sm text-right"
+                            placeholder="0"
+                            value={salaryMap[empId] || ""}
+                            onChange={(e) =>
+                              setSalaryMap({
+                                ...salaryMap,
+                                [empId]: e.target.value,
+                              })
+                            }
+                          />
+                          <span className="text-[10px] font-bold text-stone-400">
+                            Écus
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-stone-200">
+                  <div>
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                      Coût Total
+                    </span>
+                    <span className="ml-2 text-sm font-mono font-bold text-stone-700">
+                      {totalSalary.toLocaleString()} Écus
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (totalSalary > 0) {
+                        onPaySalaries(myCompany.id, salaryMap);
+                        setSalaryMap({});
+                      }
+                    }}
+                    disabled={totalSalary <= 0}
+                    className="bg-yellow-500 text-stone-900 px-6 py-2.5 rounded-lg font-black uppercase text-xs shadow hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <Wallet size={14} /> Verser
+                  </button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* ONGLET PERSONNALISATION */}
+      {activeTab === "customize" && (
+        <div className="space-y-6">
+          <Card title="Identité de l'Entreprise" icon={Palette}>
+            {!customizeOpen ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                    <div className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">
+                      Devise
+                    </div>
+                    <div className="text-sm font-bold text-stone-700 italic">
+                      {myCompany.motto || "(aucune)"}
+                    </div>
+                  </div>
+                  <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                    <div className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">
+                      Couleur
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-6 h-6 rounded-full border border-stone-300"
+                        style={{
+                          backgroundColor: myCompany.color || "#8B5CF6",
+                        }}
+                      />
+                      <span className="text-xs font-mono text-stone-500">
+                        {myCompany.color || "#8B5CF6"}
                       </span>
                     </div>
                   </div>
                 </div>
-              );
-            })()}
-          </Card>
-
-          <Card title="Versement des Salaires" icon={Wallet}>
-            <div className="bg-stone-50 p-6 rounded-xl border border-stone-200 flex flex-col md:flex-row items-end gap-6">
-              <div className="flex-1 w-full">
-                <label className="text-[10px] font-black uppercase text-stone-400 mb-2 block tracking-widest">
-                  Montant de la Prime (Par Employé)
-                </label>
-                <div className="relative">
+                <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                  <div className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">
+                    Description
+                  </div>
+                  <div className="text-sm text-stone-600">
+                    {myCompany.description || "(aucune description)"}
+                  </div>
+                </div>
+                <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                  <div className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-1">
+                    Statut du recrutement
+                  </div>
+                  <div
+                    className={`text-sm font-bold ${myCompany.hiringOpen !== false ? "text-green-600" : "text-red-500"}`}
+                  >
+                    {myCompany.hiringOpen !== false ? "Ouvert" : "Fermé"}
+                  </div>
+                </div>
+                <button
+                  onClick={openCustomize}
+                  className="w-full bg-stone-800 text-white py-3 rounded font-bold uppercase text-xs tracking-widest hover:bg-stone-700 flex items-center justify-center gap-2"
+                >
+                  <Palette size={14} /> Modifier l'identité
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[9px] font-bold uppercase text-stone-400 block mb-1">
+                    Devise / Slogan
+                  </label>
                   <input
-                    type="number"
-                    className="w-full p-3 pl-4 bg-white border border-stone-300 rounded-lg font-mono font-bold text-stone-800"
-                    placeholder="Ex: 50"
-                    value={salaryAmount}
-                    onChange={(e) => setSalaryAmount(e.target.value)}
+                    className="w-full p-2 border rounded text-sm"
+                    value={editMotto}
+                    onChange={(e) => setEditMotto(e.target.value)}
+                    placeholder="Ex: L'excellence au service de l'Empire..."
+                    maxLength={100}
                   />
-                  <span className="absolute right-4 top-3.5 text-xs font-bold text-stone-400">
-                    ÉCUS
-                  </span>
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold uppercase text-stone-400 block mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    className="w-full p-2 border rounded text-sm resize-none"
+                    rows={3}
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    placeholder="Décrivez votre entreprise..."
+                    maxLength={300}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-bold uppercase text-stone-400 block mb-1">
+                      Couleur
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editColor}
+                        onChange={(e) => setEditColor(e.target.value)}
+                        className="w-10 h-10 rounded border cursor-pointer"
+                      />
+                      <div className="flex gap-1 flex-wrap">
+                        {[
+                          "#8B5CF6",
+                          "#EF4444",
+                          "#F59E0B",
+                          "#10B981",
+                          "#3B82F6",
+                          "#EC4899",
+                          "#6366F1",
+                          "#14B8A6",
+                        ].map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setEditColor(c)}
+                            className={`w-6 h-6 rounded-full border-2 ${editColor === c ? "border-stone-800 scale-110" : "border-transparent"}`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold uppercase text-stone-400 block mb-1">
+                      Recrutement
+                    </label>
+                    <button
+                      onClick={() => setEditHiring(!editHiring)}
+                      className={`w-full p-2 rounded font-bold text-xs uppercase ${
+                        editHiring
+                          ? "bg-green-100 text-green-700 border border-green-300"
+                          : "bg-red-100 text-red-600 border border-red-300"
+                      }`}
+                    >
+                      {editHiring ? "Ouvert" : "Fermé"}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-stone-200">
+                  <button
+                    onClick={saveCustomize}
+                    className="flex-1 bg-stone-900 text-yellow-400 py-2.5 rounded font-black uppercase text-xs hover:bg-stone-700"
+                  >
+                    Enregistrer
+                  </button>
+                  <button
+                    onClick={() => setCustomizeOpen(false)}
+                    className="px-4 py-2.5 border border-stone-300 rounded text-xs font-bold text-stone-500 hover:bg-stone-100"
+                  >
+                    Annuler
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  onPaySalaries(myCompany.id, salaryAmount);
-                  setSalaryAmount("");
-                }}
-                className="bg-yellow-500 text-stone-900 px-8 py-3.5 rounded-lg font-black uppercase text-xs shadow-lg hover:bg-yellow-400 active:scale-95 transition-all w-full md:w-auto flex items-center justify-center gap-2"
-              >
-                <Wallet size={16} /> Verser aux{" "}
-                {(myCompany.employees || []).length} salariés
-              </button>
-            </div>
-            <div className="mt-3 flex justify-between items-center px-2">
-              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                Coût Total Estimé
-              </span>
-              <span className="text-sm font-mono font-bold text-stone-600">
-                {(
-                  (parseInt(salaryAmount) || 0) *
-                  (myCompany.employees || []).length
-                ).toLocaleString()}{" "}
-                Écus
-              </span>
-            </div>
+            )}
           </Card>
+
+          {/* DISSOLUTION */}
+          {onDeleteCompany && (
+            <Card title="Zone Dangereuse" icon={Trash2}>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-xs text-red-600 mb-3">
+                  La dissolution est irréversible. Le solde restant sera
+                  restitué à votre compte personnel. Tous les employés seront
+                  licenciés.
+                </p>
+                <SecureDeleteButton
+                  onClick={() => onDeleteCompany(myCompany.id)}
+                  label="Dissoudre mon entreprise"
+                />
+              </div>
+            </Card>
+          )}
         </div>
       )}
     </div>

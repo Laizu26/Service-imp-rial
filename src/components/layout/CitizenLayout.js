@@ -70,6 +70,8 @@ const CitizenLayout = (props) => {
     onRespondJobOffer,
     onPaySalaries,
     onCompanyFire,
+    onCustomizeCompany,
+    onDeleteCompany,
   } = props;
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
@@ -446,6 +448,8 @@ const CitizenLayout = (props) => {
                 onRespondJobOffer={onRespondJobOffer}
                 onPaySalaries={onPaySalaries}
                 onCompanyFire={onCompanyFire}
+                onCustomizeCompany={onCustomizeCompany}
+                onDeleteCompany={onDeleteCompany}
               />
             )}
 

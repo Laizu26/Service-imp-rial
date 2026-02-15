@@ -25,17 +25,26 @@ export const useGameActions = (session, state, saveState, notify) => {
         else if (m >= 9 && m <= 11) season = "Automne";
 
         // --- Production journalière des entreprises ---
+        const TYPE_RATES = {
+          SERVICE: { emp: 12, slave: 9 },
+          MANUFACTURE: { emp: 10, slave: 8 },
+          EXTRACTION: { emp: 8, slave: 7 },
+        };
         const companies = ns.companies || [];
         companies.forEach((company, compIdx) => {
+          if (company.frozen) return;
+
           const empCount = (company.employees || []).length;
           const slaveCount = (company.slaves || []).length;
           const level = company.level || 1;
+          const rates = TYPE_RATES[company.type] || { emp: 10, slave: 8 };
 
-          const revenue = (empCount * 10 + slaveCount * 8) * level;
+          const revenue =
+            (empCount * rates.emp + slaveCount * rates.slave) * level;
           if (revenue <= 0) return;
 
-          // Taxe 10% au pays d'enregistrement
-          const tax = Math.floor(revenue * 0.1);
+          const taxRate = (company.taxRate ?? 10) / 100;
+          const tax = Math.floor(revenue * taxRate);
           const net = revenue - tax;
 
           ns.companies[compIdx] = {
@@ -59,6 +68,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         // --- Progression de niveau (mensuelle) ---
         if (ns.gameDate.day === 1) {
           (ns.companies || []).forEach((company, compIdx) => {
+            if (company.frozen) return;
             const totalWorkers =
               (company.employees || []).length +
               (company.slaves || []).length;
@@ -120,6 +130,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           slaves: [],
           inventory: [],
           createdAt: Date.now(),
+          taxRate: 10,
+          frozen: false,
+          description: "",
+          color: "#8B5CF6",
+          motto: "",
+          hiringOpen: true,
         };
         saveState({
           ...state,
@@ -133,6 +149,13 @@ export const useGameActions = (session, state, saveState, notify) => {
           (c) => c.id === companyId
         );
         if (!company) return;
+        // Autorisé si admin OU propriétaire
+        const isAdmin = session.role === "admin";
+        const isOwner = company.ownerId === session.id;
+        if (!isAdmin && !isOwner) {
+          notify("Non autorisé.", "error");
+          return;
+        }
 
         const newCitizens = [...state.citizens];
         // Restituer le solde au propriétaire
@@ -158,6 +181,64 @@ export const useGameActions = (session, state, saveState, notify) => {
           citizens: newCitizens,
         });
         notify(`Entreprise "${company.name}" dissoute.`, "info");
+      },
+
+      // --- ÉDITION ADMIN COMPLÈTE ---
+      onEditCompany: (companyId, updates) => {
+        const compIdx = (state.companies || []).findIndex(
+          (c) => c.id === companyId
+        );
+        if (compIdx === -1) return;
+        const allowed = [
+          "name",
+          "type",
+          "level",
+          "balance",
+          "ownerId",
+          "countryId",
+          "taxRate",
+          "frozen",
+        ];
+        const sanitized = {};
+        allowed.forEach((key) => {
+          if (updates[key] !== undefined) sanitized[key] = updates[key];
+        });
+        if (sanitized.level !== undefined)
+          sanitized.level = Math.max(1, parseInt(sanitized.level) || 1);
+        if (sanitized.balance !== undefined)
+          sanitized.balance = parseInt(sanitized.balance) || 0;
+        if (sanitized.taxRate !== undefined)
+          sanitized.taxRate = Math.max(
+            0,
+            Math.min(100, parseInt(sanitized.taxRate) || 0)
+          );
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...newCompanies[compIdx], ...sanitized };
+        saveState({ ...state, companies: newCompanies });
+        notify("Entreprise modifiée.", "success");
+      },
+
+      // --- PERSONNALISATION JOUEUR ---
+      onCustomizeCompany: (companyId, updates) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex(
+          (c) => c.id === companyId
+        );
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          notify("Vous n'êtes pas propriétaire.", "error");
+          return;
+        }
+        const allowed = ["description", "color", "motto", "hiringOpen"];
+        const sanitized = {};
+        allowed.forEach((key) => {
+          if (updates[key] !== undefined) sanitized[key] = updates[key];
+        });
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...newCompanies[compIdx], ...sanitized };
+        saveState({ ...state, companies: newCompanies });
+        notify("Entreprise personnalisée.", "success");
       },
 
       // --- GESTION TRÉSORERIE ---
@@ -207,8 +288,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, companies: newCompanies, citizens: newCitizens });
       },
 
-      // --- NOUVEAU : PAYER SALAIRES ---
-      onPaySalaries: (companyId, amountPerEmployee) => {
+      // --- PAYER SALAIRES (individuel ou uniforme) ---
+      onPaySalaries: (companyId, salaryData) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
 
@@ -219,13 +300,26 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
-        const val = parseInt(amountPerEmployee);
-        if (!val || val <= 0) {
-          notify("Montant invalide.", "error");
+        // salaryData peut être un nombre (uniforme) ou un objet { empId: montant }
+        const isMap =
+          typeof salaryData === "object" && !Array.isArray(salaryData);
+        let totalCost = 0;
+        const payments = {};
+
+        employees.forEach((empId) => {
+          const val = isMap
+            ? parseInt(salaryData[empId]) || 0
+            : parseInt(salaryData) || 0;
+          if (val > 0) {
+            payments[empId] = val;
+            totalCost += val;
+          }
+        });
+
+        if (totalCost <= 0) {
+          notify("Aucun salaire à verser.", "error");
           return;
         }
-
-        const totalCost = val * employees.length;
         if (company.balance < totalCost) {
           notify(`Fonds insuffisants. Il faut ${totalCost} écus.`, "error");
           return;
@@ -234,14 +328,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCompanies = [...state.companies];
         const newCitizens = [...state.citizens];
 
-        // Débit Entreprise
         newCompanies[compIdx] = {
           ...company,
           balance: company.balance - totalCost,
         };
 
-        // Crédit Employés
-        employees.forEach((empId) => {
+        Object.entries(payments).forEach(([empId, val]) => {
           const empIdx = newCitizens.findIndex((c) => c.id === empId);
           if (empIdx !== -1) {
             newCitizens[empIdx] = {
@@ -252,7 +344,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
 
         saveState({ ...state, companies: newCompanies, citizens: newCitizens });
-        notify(`Salaires versés (${val} écus/personne).`, "success");
+        notify(
+          `Salaires versés : ${totalCost.toLocaleString()} écus au total.`,
+          "success"
+        );
       },
 
       // --- NOUVEAU : OFFRES D'EMPLOI ---

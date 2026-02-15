@@ -232,6 +232,8 @@ export default function App() {
             onRespondJobOffer={actions.onRespondJobOffer}
             onPaySalaries={actions.onPaySalaries}
             onCompanyFire={actions.onCompanyFire}
+            onCustomizeCompany={actions.onCustomizeCompany}
+            onDeleteCompany={actions.onDeleteCompany}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -558,6 +560,7 @@ export default function App() {
                       countries={state.countries}
                       onCreateCompany={actions.onCreateCompany}
                       onDeleteCompany={actions.onDeleteCompany}
+                      onEditCompany={actions.onEditCompany}
                     />
                   )}
 
