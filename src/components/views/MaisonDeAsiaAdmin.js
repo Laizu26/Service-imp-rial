@@ -8,17 +8,22 @@ import {
   DollarSign,
   UserPlus,
   Trash2,
+  Wallet,
+  Building2,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 
 const MaisonDeAsiaAdmin = ({
   citizens = [],
+  companies = [],
   houseRegistry = [],
   staff = [],
+  maisonCompanyId,
   onUpdateRegistry,
   onUpdateStaff,
   onRemoveStaff,
   onPurgeMaison,
+  onSetMaisonCompany,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -141,6 +146,16 @@ const MaisonDeAsiaAdmin = ({
             }`}
           >
             <Users size={14} /> Clients ({houseRegistry.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("finances")}
+            className={`px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all ${
+              activeTab === "finances"
+                ? "bg-white text-fuchsia-900 shadow"
+                : "text-fuchsia-300 hover:text-white"
+            }`}
+          >
+            <Wallet size={14} /> Finances
           </button>
           <button
             onClick={handlePurge}
@@ -273,6 +288,128 @@ const MaisonDeAsiaAdmin = ({
             </div>
           </div>
         )}
+
+        {/* --- ONGLET 3 : FINANCES (Entreprise Maison d'Asia) --- */}
+        {activeTab === "finances" && (() => {
+          const linkedCompany = maisonCompanyId
+            ? companies.find((c) => c.id === maisonCompanyId)
+            : null;
+
+          // Calculer les revenus potentiels par jour
+          const totalStaffPrices = staff.reduce(
+            (sum, s) => sum + (s.price || 0),
+            0
+          );
+
+          return (
+            <div className="space-y-6">
+              {/* Sélection de l'entreprise liée */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                <h3 className="text-xs font-black uppercase text-stone-400 mb-4 flex items-center gap-2">
+                  <Building2 size={14} /> Entreprise liée
+                </h3>
+                <p className="text-xs text-stone-500 mb-3">
+                  80% des revenus de la Maison seront versés à cette entreprise. Les 20% restants iront au Trésor Impérial.
+                </p>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <select
+                      className="w-full p-3 border rounded-lg text-sm bg-stone-50 outline-none focus:border-fuchsia-500"
+                      value={maisonCompanyId || ""}
+                      onChange={(e) => onSetMaisonCompany(e.target.value || null)}
+                    >
+                      <option value="">-- Aucune entreprise --</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} (Solde : {(c.balance || 0).toLocaleString()} Écus)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fiche de l'entreprise liée */}
+              {linkedCompany ? (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-fuchsia-200 border-l-8 border-l-fuchsia-600">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-fuchsia-400 tracking-widest mb-1">
+                        Trésorerie de la Maison
+                      </div>
+                      <h2 className="text-2xl font-black text-stone-900">
+                        {linkedCompany.name}
+                      </h2>
+                      <div className="flex gap-2 mt-1">
+                        <span className="bg-fuchsia-100 text-fuchsia-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                          {linkedCompany.type || "SERVICE"}
+                        </span>
+                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                          Niveau {linkedCompany.level || 1}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="bg-fuchsia-50 p-4 rounded-xl border border-fuchsia-200 text-right min-w-[180px]">
+                      <div className="text-[10px] font-black uppercase text-fuchsia-400 tracking-widest mb-1">
+                        Solde actuel
+                      </div>
+                      <div className="text-3xl font-mono font-black text-fuchsia-800">
+                        {(linkedCompany.balance || 0).toLocaleString()}{" "}
+                        <span className="text-sm">Écus</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
+                        Personnel actif
+                      </div>
+                      <div className="text-xl font-black text-stone-800">
+                        {staff.length}
+                      </div>
+                    </div>
+                    <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
+                        Clients en cours
+                      </div>
+                      <div className="text-xl font-black text-stone-800">
+                        {houseRegistry.length}
+                      </div>
+                    </div>
+                    <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
+                        Revenu max / session
+                      </div>
+                      <div className="text-xl font-mono font-black text-green-600">
+                        {Math.floor(totalStaffPrices * 0.8).toLocaleString()} Écus
+                      </div>
+                      <div className="text-[9px] text-stone-400">
+                        (80% de {totalStaffPrices.toLocaleString()})
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-stone-50 p-8 rounded-xl border-2 border-dashed border-stone-300 text-center">
+                  <Building2
+                    size={48}
+                    className="mx-auto mb-3 text-stone-300"
+                  />
+                  <h3 className="font-bold text-stone-500 mb-1">
+                    Aucune entreprise liée
+                  </h3>
+                  <p className="text-xs text-stone-400 max-w-md mx-auto">
+                    Sélectionnez une entreprise ci-dessus pour y verser
+                    automatiquement 80% des revenus de la Maison.
+                    En attendant, tous les revenus iront au Trésor Impérial.
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* --- ONGLET 2 : CLIENTS --- */}
         {activeTab === "clients" && (

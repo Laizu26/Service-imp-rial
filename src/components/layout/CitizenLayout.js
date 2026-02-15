@@ -432,6 +432,7 @@ const CitizenLayout = (props) => {
               <CitizenBankView
                 user={user}
                 users={safeUsers}
+                companies={companies}
                 globalLedger={globalLedger}
                 debtRegistry={debtRegistry}
                 onTransfer={onTransfer}

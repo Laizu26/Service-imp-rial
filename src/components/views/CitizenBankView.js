@@ -20,6 +20,7 @@ import UserSearchSelect from "../ui/UserSearchSelect";
 const CitizenBankView = ({
   user,
   users,
+  companies = [],
   globalLedger,
   debtRegistry,
   onTransfer,
@@ -34,8 +35,10 @@ const CitizenBankView = ({
 
   // --- ÉTATS FORMULAIRES ---
   // Virement
+  const [transferTargetType, setTransferTargetType] = useState("CITIZEN");
   const [transferTarget, setTransferTarget] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+  const safeCompanies = Array.isArray(companies) ? companies : [];
 
   // Proposition de Prêt (Nouveau)
   const [loanTarget, setLoanTarget] = useState(""); // Le futur débiteur
@@ -76,7 +79,11 @@ const CitizenBankView = ({
   const handleTransfer = () => {
     if (!transferTarget || !transferAmount || parseInt(transferAmount) <= 0)
       return;
-    onTransfer(`U-${user.id}`, `U-${transferTarget}`, parseInt(transferAmount));
+    const tgtRaw =
+      transferTargetType === "COMPANY"
+        ? `E-${transferTarget}`
+        : `U-${transferTarget}`;
+    onTransfer(`U-${user.id}`, tgtRaw, parseInt(transferAmount));
     setTransferAmount("");
     setTransferTarget("");
   };
@@ -175,15 +182,63 @@ const CitizenBankView = ({
               <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
+                    Type de bénéficiaire
+                  </label>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => {
+                        setTransferTargetType("CITIZEN");
+                        setTransferTarget("");
+                      }}
+                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                        transferTargetType === "CITIZEN"
+                          ? "bg-stone-800 text-white border-stone-800"
+                          : "bg-white text-stone-500 hover:bg-stone-100"
+                      }`}
+                    >
+                      Citoyen
+                    </button>
+                    {safeCompanies.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setTransferTargetType("COMPANY");
+                          setTransferTarget(safeCompanies[0]?.id || "");
+                        }}
+                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                          transferTargetType === "COMPANY"
+                            ? "bg-stone-800 text-white border-stone-800"
+                            : "bg-white text-stone-500 hover:bg-stone-100"
+                        }`}
+                      >
+                        Entreprise
+                      </button>
+                    )}
+                  </div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
                     Bénéficiaire
                   </label>
-                  <UserSearchSelect
-                    users={users}
-                    onSelect={setTransferTarget}
-                    placeholder="Rechercher un citoyen..."
-                    excludeIds={[user.id]}
-                    value={transferTarget}
-                  />
+                  {transferTargetType === "CITIZEN" ? (
+                    <UserSearchSelect
+                      users={users}
+                      onSelect={setTransferTarget}
+                      placeholder="Rechercher un citoyen..."
+                      excludeIds={[user.id]}
+                      value={transferTarget}
+                    />
+                  ) : (
+                    <select
+                      className="w-full p-3 border rounded font-bold text-sm bg-white"
+                      value={transferTarget}
+                      onChange={(e) => setTransferTarget(e.target.value)}
+                    >
+                      <option value="">-- Choisir une entreprise --</option>
+                      {safeCompanies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">

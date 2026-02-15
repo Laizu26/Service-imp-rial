@@ -5,6 +5,7 @@ import UserSearchSelect from "../ui/UserSearchSelect";
 const BankView = ({
   users,
   countries,
+  companies = [],
   treasury,
   ledger,
   onTransfer,
@@ -29,6 +30,7 @@ const BankView = ({
   ].includes(session?.role);
   const safeUsers = Array.isArray(users) ? users : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
+  const safeCompanies = Array.isArray(companies) ? companies : [];
   const safeLedger = Array.isArray(ledger) ? ledger : [];
   const allowedCountries = isGlobalAdmin
     ? safeCountries
@@ -39,6 +41,7 @@ const BankView = ({
     if (type === "GLOBAL") return "GLOBAL";
     if (type === "COUNTRY") return `C-${id}`;
     if (type === "CITIZEN") return `U-${id}`;
+    if (type === "COMPANY") return `E-${id}`;
     return "";
   };
 
@@ -49,6 +52,8 @@ const BankView = ({
       return safeCountries.find((c) => c.id === id)?.treasury || 0;
     if (type === "CITIZEN")
       return safeUsers.find((u) => u.id === id)?.balance || 0;
+    if (type === "COMPANY")
+      return safeCompanies.find((c) => c.id === id)?.balance || 0;
     return 0;
   };
 
@@ -162,6 +167,21 @@ const BankView = ({
               >
                 Citoyen
               </button>
+              {safeCompanies.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSrcType("COMPANY");
+                    setSrcId(safeCompanies[0]?.id || "");
+                  }}
+                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                    srcType === "COMPANY"
+                      ? "bg-stone-800 text-white border-stone-800"
+                      : "bg-white text-stone-500 hover:bg-stone-100"
+                  }`}
+                >
+                  Entreprise
+                </button>
+              )}
             </div>
 
             {/* Source Selector */}
@@ -195,6 +215,19 @@ const BankView = ({
                       : "Rechercher le débiteur..."
                   }
                 />
+              )}
+              {srcType === "COMPANY" && (
+                <select
+                  className="w-full p-3 border rounded font-bold text-sm bg-white"
+                  value={srcId}
+                  onChange={(e) => setSrcId(e.target.value)}
+                >
+                  {safeCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({(c.balance || 0).toLocaleString()} Écus)
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
 
@@ -281,6 +314,21 @@ const BankView = ({
               >
                 Citoyen
               </button>
+              {safeCompanies.length > 0 && (
+                <button
+                  onClick={() => {
+                    setTgtType("COMPANY");
+                    setTgtId(safeCompanies[0]?.id || "");
+                  }}
+                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                    tgtType === "COMPANY"
+                      ? "bg-stone-800 text-white border-stone-800"
+                      : "bg-white text-stone-500 hover:bg-stone-100"
+                  }`}
+                >
+                  Entreprise
+                </button>
+              )}
             </div>
 
             {/* Target Selector */}
@@ -310,6 +358,19 @@ const BankView = ({
                   value={tgtId}
                   placeholder="Rechercher le bénéficiaire..."
                 />
+              )}
+              {tgtType === "COMPANY" && (
+                <select
+                  className="w-full p-3 border rounded font-bold text-sm bg-white"
+                  value={tgtId}
+                  onChange={(e) => setTgtId(e.target.value)}
+                >
+                  {safeCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({(c.balance || 0).toLocaleString()} Écus)
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
           </div>

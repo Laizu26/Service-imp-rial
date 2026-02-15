@@ -507,6 +507,7 @@ export default function App() {
                     <BankView
                       users={state.citizens}
                       countries={state.countries}
+                      companies={state.companies}
                       treasury={state.treasury}
                       ledger={state.globalLedger}
                       session={session}
@@ -594,13 +595,16 @@ export default function App() {
                   {activeTab === "asia_admin" && (
                     <MaisonDeAsiaAdmin
                       citizens={state.citizens || []}
+                      companies={state.companies || []}
                       countries={state.countries || []}
                       houseRegistry={state.maisonRegistry || []}
                       staff={state.maisonStaff || []}
+                      maisonCompanyId={state.maisonCompanyId}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
                       onUpdateStaff={actions.onUpdateMaisonStaff}
                       onRemoveStaff={actions.onRemoveMaisonStaff}
                       onPurgeMaison={actions.onPurgeMaison}
+                      onSetMaisonCompany={actions.onSetMaisonCompany}
                     />
                   )}
                 </div>

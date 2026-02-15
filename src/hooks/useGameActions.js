@@ -519,6 +519,15 @@ export const useGameActions = (session, state, saveState, notify) => {
               return s.countries[idx].name;
             }
           }
+          if (raw.startsWith("E-")) {
+            const idx = (s.companies || []).findIndex(
+              (x) => x.id === raw.slice(2)
+            );
+            if (idx !== -1) {
+              s.companies[idx].balance = (s.companies[idx].balance || 0) + v;
+              return s.companies[idx].name;
+            }
+          }
           return "Autre";
         };
         process(srcRaw, false);
@@ -863,6 +872,14 @@ export const useGameActions = (session, state, saveState, notify) => {
           maisonRegistry: newRegistry,
         });
       },
+      onSetMaisonCompany: (companyId) => {
+        saveState({ ...state, maisonCompanyId: companyId || null });
+        const name = companyId
+          ? (state.companies || []).find((c) => c.id === companyId)?.name ||
+            "?"
+          : "aucune";
+        notify(`Entreprise Maison d'Asia : ${name}`, "success");
+      },
       onPurgeMaison: () => {
         saveState({
           ...state,
@@ -931,11 +948,31 @@ export const useGameActions = (session, state, saveState, notify) => {
           startTime: Date.now(),
         };
 
+        // 80% va à l'entreprise Maison d'Asia, 20% au trésor impérial
+        const maisonCompId = state.maisonCompanyId;
+        const maisonCompIdx = maisonCompId
+          ? (state.companies || []).findIndex((c) => c.id === maisonCompId)
+          : -1;
+        const maisonCut = Math.floor(price * 0.8);
+        const treasuryCut = price - maisonCut;
+
+        const updatedCompanies = [...(state.companies || [])];
+        if (maisonCompIdx !== -1) {
+          updatedCompanies[maisonCompIdx] = {
+            ...updatedCompanies[maisonCompIdx],
+            balance:
+              (updatedCompanies[maisonCompIdx].balance || 0) + maisonCut,
+          };
+        }
+
         saveState({
           ...state,
           citizens: newCitizens,
           maisonRegistry: [...registry, newEntry],
-          treasury: (state.treasury || 0) + price,
+          treasury:
+            (state.treasury || 0) +
+            (maisonCompIdx !== -1 ? treasuryCut : price),
+          companies: maisonCompIdx !== -1 ? updatedCompanies : state.companies,
         });
         notify("Réservé.", "success");
       },
