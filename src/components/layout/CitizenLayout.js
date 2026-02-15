@@ -17,7 +17,10 @@ import {
   Gavel,
   Briefcase,
   Book, // Icône Bibliothèque
+  Settings,
 } from "lucide-react";
+
+import SettingsPanel from "../ui/SettingsPanel";
 
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
@@ -72,11 +75,16 @@ const CitizenLayout = (props) => {
     onCompanyFire,
     onCustomizeCompany,
     onDeleteCompany,
+    settings,
+    isDark,
+    updateSetting,
+    resetSettings,
   } = props;
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
   const [active, setActive] = useState("gazette");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Formulaires (avec valeurs par défaut vides)
   const [editOccupation, setEditOccupation] = useState("");
@@ -208,10 +216,18 @@ const CitizenLayout = (props) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-stone-800 text-center opacity-30">
-          <Shield className="mx-auto mb-2 text-stone-600" size={24} />
-          <div className="text-[9px] uppercase tracking-[0.2em] font-black">
-            Service Impérial
+        <div className="p-4 border-t border-stone-800 space-y-2">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="w-full p-2 text-[10px] font-black uppercase text-stone-500 hover:text-yellow-400 flex items-center gap-2 justify-center transition-all hover:bg-stone-800 rounded-lg tracking-widest"
+          >
+            <Settings size={14} /> Paramètres
+          </button>
+          <div className="text-center opacity-30">
+            <Shield className="mx-auto mb-1 text-stone-600" size={20} />
+            <div className="text-[9px] uppercase tracking-[0.2em] font-black">
+              Service Impérial
+            </div>
           </div>
         </div>
       </aside>
@@ -719,6 +735,16 @@ const CitizenLayout = (props) => {
           </div>
         </main>
       </div>
+
+      {settingsOpen && (
+        <SettingsPanel
+          settings={settings}
+          isDark={isDark}
+          updateSetting={updateSetting}
+          resetSettings={resetSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 };

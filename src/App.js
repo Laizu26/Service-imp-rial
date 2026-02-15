@@ -20,6 +20,7 @@ import {
   Trash2,
   Briefcase,
   Library, // <--- 1. ICÔNE AJOUTÉE
+  Settings,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -27,10 +28,12 @@ import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
+import { useSettings } from "./hooks/useSettings";
 
 // UI Components
 import Toast from "./components/ui/Toast";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import SettingsPanel from "./components/ui/SettingsPanel";
 
 // Views
 import LoginScreen from "./components/views/LoginScreen";
@@ -70,6 +73,9 @@ export default function App() {
     useGameEngine(firebaseUser, notify);
 
   const actions = useGameActions(session, state, saveState, notify);
+
+  const { settings, isDark, updateSetting, resetSettings } = useSettings();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -183,6 +189,16 @@ export default function App() {
           onClose={() => setToast({ ...toast, msg: null })}
         />
 
+        {settingsOpen && (
+          <SettingsPanel
+            settings={settings}
+            isDark={isDark}
+            updateSetting={updateSetting}
+            resetSettings={resetSettings}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+
         {!session ? (
           <LoginScreen
             onLogin={loginGame}
@@ -227,6 +243,10 @@ export default function App() {
             isBanned={isBanned}
             isPrisoner={isPrisoner}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
+            settings={settings}
+            isDark={isDark}
+            updateSetting={updateSetting}
+            resetSettings={resetSettings}
             onCompanyTreasury={actions.onCompanyTreasury}
             onSendJobOffer={actions.onSendJobOffer}
             onRespondJobOffer={actions.onRespondJobOffer}
@@ -382,6 +402,12 @@ export default function App() {
                     <UserCircle size={18} /> Mode Citoyen
                   </button>
                 )}
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="w-full p-3 text-xs font-black uppercase text-stone-500 hover:text-yellow-400 flex items-center gap-3 justify-center transition-all hover:bg-stone-800 rounded-xl tracking-widest"
+                >
+                  <Settings size={16} /> Paramètres
+                </button>
                 <button
                   onClick={() => logoutAccount(null)}
                   className="w-full p-3 text-xs font-black uppercase text-stone-500 hover:text-red-400 flex items-center gap-3 justify-center transition-all hover:bg-red-900/10 rounded-xl tracking-widest"
