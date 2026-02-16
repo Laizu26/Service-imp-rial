@@ -736,12 +736,17 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
 
         // Transfert de propriété
+        const slave = newCitizens[slaveIdx];
+        const hadRole =
+          slave.role && slave.role !== "CITOYEN" ? slave.role : null;
+
         newCitizens[slaveIdx] = {
-          ...newCitizens[slaveIdx],
+          ...slave,
           ownerId: session.id,
           isForSale: false,
           salePrice: 0,
           status: "Esclave",
+          role: "CITOYEN",
         };
 
         // Entrée ledger
@@ -757,11 +762,36 @@ export const useGameActions = (session, state, saveState, notify) => {
           reason: `Achat esclave: ${newCitizens[slaveIdx].name}`,
         };
 
+        // Gazette si déchéance d'un gradé
+        const newGazette = [...(state.gazette || [])];
+        if (hadRole) {
+          const ROLE_LABELS = {
+            EMPEREUR: "Grand Empereur",
+            GRAND_FONC_GLOBAL: "Grand Fonctionnaire Impérial",
+            ROI: "Roi",
+            INTENDANT: "Intendant",
+            GRAND_FONC_LOCAL: "Grand Fonctionnaire",
+            FONCTIONNAIRE: "Fonctionnaire",
+            POSTIERE: "Postière",
+          };
+          newGazette.unshift({
+            id: Date.now() + 1,
+            date: new Date().toLocaleDateString("fr-FR"),
+            author: "Chancellerie Impériale",
+            authorRole: "Système",
+            title: `Déchéance — ${slave.name}`,
+            content: `L'ancien ${ROLE_LABELS[hadRole] || hadRole} ${slave.name} a été réduit en servitude. Son titre et ses fonctions lui ont été retirés par la force des choses.`,
+            scope: "GLOBAL",
+            countryId: null,
+          });
+        }
+
         saveState({
           ...state,
           citizens: newCitizens,
           treasury: newTreasury,
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+          gazette: newGazette,
         });
         notify("Esclave acheté.", "success");
       },
