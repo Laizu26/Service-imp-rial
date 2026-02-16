@@ -18,6 +18,7 @@ import {
   Briefcase,
   Book, // Icône Bibliothèque
   Settings,
+  ShieldAlert,
 } from "lucide-react";
 
 import SettingsPanel from "../ui/SettingsPanel";
@@ -29,6 +30,7 @@ import CitizenBankView from "../views/CitizenBankView";
 import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 import MyCompanyView from "../views/MyCompanyView";
+import SlavePersonalView from "../views/SlavePersonalView";
 import LibraryView from "../views/LibraryView"; // Vue Bibliothèque
 
 const CitizenLayout = (props) => {
@@ -76,6 +78,10 @@ const CitizenLayout = (props) => {
     onCustomizeCompany,
     onDeleteCompany,
     onQuitCompany,
+    onHideMoney,
+    onWithdrawHiddenMoney,
+    onHiddenTransfer,
+    onDismissSlaveAlert,
     settings,
     isDark,
     updateSetting,
@@ -155,6 +161,7 @@ const CitizenLayout = (props) => {
       !isPrisoner &&
       canUseTravel && { id: "travel", label: "Voyage", icon: Map },
     { id: "asia", label: "Maison Asia", icon: Gem },
+    isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
   ].filter(Boolean);
 
@@ -589,6 +596,16 @@ const CitizenLayout = (props) => {
                 user={user}
               />
             )}
+            {active === "servitude" && isSlave && (
+              <SlavePersonalView
+                user={user}
+                users={safeUsers}
+                owner={safeUsers.find((u) => u.id === user.ownerId)}
+                onHideMoney={onHideMoney}
+                onWithdrawHiddenMoney={onWithdrawHiddenMoney}
+                onHiddenTransfer={onHiddenTransfer}
+              />
+            )}
             {active === "slaves" && (
               <SlaveManagementView
                 slaves={mySlaves}
@@ -596,6 +613,7 @@ const CitizenLayout = (props) => {
                 onConfiscateSlaveMoney={onConfiscateSlaveMoney}
                 onBuySlave={onBuySlave}
                 onSelfManumit={onSelfManumit}
+                onDismissSlaveAlert={onDismissSlaveAlert}
                 notify={notify}
                 catalog={catalog}
                 session={user}

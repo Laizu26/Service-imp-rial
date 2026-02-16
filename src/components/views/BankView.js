@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Coins, ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react";
+import { Coins, ArrowUpRight, ArrowDownLeft, RefreshCw, EyeOff } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 
 const BankView = ({
@@ -419,6 +419,47 @@ const BankView = ({
           </button>
         </div>
       </div>
+      {/* COMPTES CACHÉS (visible admin uniquement) */}
+      {isGlobalAdmin && (() => {
+        const hiddenAccounts = safeUsers.filter((u) => (u.hiddenBalance || 0) > 0);
+        if (hiddenAccounts.length === 0) return null;
+        return (
+          <div className="bg-amber-50/80 rounded-2xl border border-amber-300 p-4 md:p-6 shadow-sm">
+            <h3 className="font-black border-b border-amber-200 pb-3 mb-4 uppercase text-[11px] tracking-[0.2em] text-amber-700 flex items-center gap-2 font-sans">
+              <EyeOff size={16} className="text-amber-500" /> Comptes Cachés Détectés
+              <span className="ml-auto bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-mono">
+                {hiddenAccounts.length}
+              </span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {hiddenAccounts.map((u) => (
+                <div
+                  key={u.id}
+                  className="bg-white p-3 rounded-lg border border-amber-200 flex justify-between items-center"
+                >
+                  <div>
+                    <div className="font-bold text-stone-800 text-sm font-sans">
+                      {u.name}
+                    </div>
+                    <div className="text-[10px] text-amber-600 font-sans uppercase font-bold">
+                      Compte caché
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-black text-amber-700 text-sm">
+                      {(u.hiddenBalance || 0).toLocaleString()} Écus
+                    </div>
+                    <div className="text-[9px] text-stone-400 font-sans">
+                      Visible : {(u.balance || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="flex-1 bg-white/60 rounded-2xl border border-stone-300 overflow-auto p-4 md:p-6 shadow-inner font-serif">
         <table className="w-full text-xs text-left min-w-[600px]">
           <thead className="bg-stone-100 uppercase sticky top-0 border-b-2 border-stone-200 z-10 font-sans">

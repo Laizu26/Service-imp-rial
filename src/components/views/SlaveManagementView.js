@@ -9,6 +9,8 @@ import {
   Globe,
   Shield,
   Eye,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import Card from "../ui/Card";
 
@@ -17,6 +19,7 @@ const SlaveManagementView = ({
   onUpdateCitizen,
   onConfiscateSlaveMoney,
   onSelfManumit,
+  onDismissSlaveAlert,
   notify,
   catalog,
   session,
@@ -144,8 +147,43 @@ const SlaveManagementView = ({
       .filter((i) => i.name);
   };
 
+  const slaveAlerts = session?.slaveAlerts || [];
+
   return (
-    <div className="h-full flex gap-6 font-sans">
+    <div className="h-full flex flex-col gap-4 font-sans">
+      {/* ALERTES DE DISSIMULATION */}
+      {slaveAlerts.length > 0 && (
+        <div className="space-y-2 shrink-0">
+          {slaveAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3 animate-fadeIn"
+            >
+              <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
+              <div className="flex-1 text-xs text-red-800">
+                <strong>{alert.slaveName}</strong> a tenté de dissimuler{" "}
+                <strong>{alert.amount} Écus</strong> !
+                <span className="text-[10px] text-red-400 ml-2">
+                  {alert.timestamp
+                    ? new Date(alert.timestamp).toLocaleString()
+                    : ""}
+                </span>
+              </div>
+              {onDismissSlaveAlert && (
+                <button
+                  onClick={() => onDismissSlaveAlert(alert.id)}
+                  className="p-1 text-red-400 hover:text-red-700 rounded hover:bg-red-100"
+                  title="Ignorer"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1 flex gap-6 min-h-0">
       {/* LISTE DES ESCLAVES (COLONNE GAUCHE) */}
       <div className="w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md">
         <div className="p-4 bg-stone-100 border-b font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500 flex items-center gap-2">
@@ -647,6 +685,7 @@ const SlaveManagementView = ({
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

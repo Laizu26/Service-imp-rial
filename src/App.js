@@ -255,6 +255,10 @@ export default function App() {
             onCustomizeCompany={actions.onCustomizeCompany}
             onDeleteCompany={actions.onDeleteCompany}
             onQuitCompany={actions.onQuitCompany}
+            onHideMoney={actions.onHideMoney}
+            onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
+            onHiddenTransfer={actions.onHiddenTransfer}
+            onDismissSlaveAlert={actions.onDismissSlaveAlert}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">

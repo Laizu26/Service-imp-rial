@@ -805,6 +805,149 @@ export const useGameActions = (session, state, saveState, notify) => {
           "info"
         );
       },
+
+      // --- COMPTE CACHÉ (esclave dissimule son argent) ---
+      onHideMoney: (amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) return;
+
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const citizen = state.citizens[userIdx];
+
+        if (citizen.status !== "Esclave" && !citizen.ownerId) {
+          notify("Seuls les esclaves peuvent utiliser cette fonction.", "error");
+          return;
+        }
+        if ((citizen.balance || 0) < amt) {
+          notify("Fonds insuffisants.", "error");
+          return;
+        }
+
+        const newCitizens = [...state.citizens];
+
+        // Transfert vers le compte caché
+        newCitizens[userIdx] = {
+          ...citizen,
+          balance: (citizen.balance || 0) - amt,
+          hiddenBalance: (citizen.hiddenBalance || 0) + amt,
+        };
+
+        // Chance de détection : 10% de base + 5% par tranche de 15 écus
+        const detectionChance = 10 + Math.floor(amt / 15) * 5;
+        const roll = Math.random() * 100;
+        const detected = roll < detectionChance;
+
+        if (detected && citizen.ownerId) {
+          const ownerIdx = newCitizens.findIndex(
+            (c) => c.id === citizen.ownerId
+          );
+          if (ownerIdx !== -1) {
+            const owner = newCitizens[ownerIdx];
+            const alerts = [...(owner.slaveAlerts || [])];
+            alerts.unshift({
+              id: Date.now(),
+              slaveId: citizen.id,
+              slaveName: citizen.name,
+              amount: amt,
+              timestamp: Date.now(),
+              read: false,
+            });
+            newCitizens[ownerIdx] = { ...owner, slaveAlerts: alerts };
+          }
+        }
+
+        saveState({ ...state, citizens: newCitizens });
+
+        if (detected) {
+          notify(
+            `${amt} Écus dissimulés... mais votre maître a été alerté ! (${detectionChance}% de risque)`,
+            "error"
+          );
+        } else {
+          notify(
+            `${amt} Écus dissimulés avec succès. (${detectionChance}% de risque)`,
+            "success"
+          );
+        }
+      },
+
+      onWithdrawHiddenMoney: (amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) return;
+
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const citizen = state.citizens[userIdx];
+
+        if ((citizen.hiddenBalance || 0) < amt) {
+          notify("Fonds cachés insuffisants.", "error");
+          return;
+        }
+
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = {
+          ...citizen,
+          balance: (citizen.balance || 0) + amt,
+          hiddenBalance: (citizen.hiddenBalance || 0) - amt,
+        };
+
+        saveState({ ...state, citizens: newCitizens });
+        notify(
+          `${amt} Écus retirés du compte caché. Attention, ils sont maintenant visibles !`,
+          "info"
+        );
+      },
+
+      // --- TRANSFERT DEPUIS LE COMPTE CACHÉ ---
+      onHiddenTransfer: (targetId, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0 || !targetId) return;
+
+        const newCitizens = [...state.citizens];
+        const senderIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const targetIdx = newCitizens.findIndex((c) => c.id === targetId);
+        if (senderIdx === -1 || targetIdx === -1) return;
+
+        const sender = newCitizens[senderIdx];
+        if ((sender.hiddenBalance || 0) < amt) {
+          notify("Fonds cachés insuffisants.", "error");
+          return;
+        }
+
+        newCitizens[senderIdx] = {
+          ...sender,
+          hiddenBalance: (sender.hiddenBalance || 0) - amt,
+        };
+        newCitizens[targetIdx] = {
+          ...newCitizens[targetIdx],
+          balance: (newCitizens[targetIdx].balance || 0) + amt,
+        };
+
+        saveState({ ...state, citizens: newCitizens });
+        notify(
+          `${amt} Écus transférés discrètement à ${newCitizens[targetIdx].name}.`,
+          "success"
+        );
+      },
+
+      // --- ALERTES ESCLAVES (marquer comme lues) ---
+      onDismissSlaveAlert: (alertId) => {
+        if (!session) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const citizen = state.citizens[userIdx];
+        const newAlerts = (citizen.slaveAlerts || []).filter(
+          (a) => a.id !== alertId
+        );
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...citizen, slaveAlerts: newAlerts };
+        saveState({ ...state, citizens: newCitizens });
+      },
+
       onSelfManumit: () => {
         if (!session) return;
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);
