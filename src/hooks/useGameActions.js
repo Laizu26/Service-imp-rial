@@ -632,15 +632,27 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
       onBuyItem: (itemId, quantity) => {
         if (!session) return;
-        const item = (state.inventoryCatalog || []).find(
-          (i) => i.id === itemId
-        );
+        const catalog = state.inventoryCatalog || [];
+        const item = catalog.find((i) => i.id === itemId);
         if (!item) {
           notify("Objet introuvable.", "error");
           return;
         }
         const qty = parseInt(quantity) || 1;
         const cost = (item.price || 0) * qty;
+
+        // Vérifier le stock
+        if (item.stock !== undefined && item.stock !== -1) {
+          if (item.stock < qty) {
+            notify(
+              item.stock === 0
+                ? "Cet objet est épuisé."
+                : `Stock insuffisant (${item.stock} restant).`,
+              "error"
+            );
+            return;
+          }
+        }
 
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
@@ -666,10 +678,31 @@ export const useGameActions = (session, state, saveState, notify) => {
           inventory: inv,
         };
 
+        // Décrémenter le stock si limité
+        let newCatalog = catalog;
+        if (item.stock !== undefined && item.stock !== -1) {
+          newCatalog = catalog.map((i) =>
+            i.id === itemId ? { ...i, stock: i.stock - qty } : i
+          );
+        }
+
+        // Entrée ledger
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: newCitizens[userIdx].name,
+          toName: "Trésor Impérial",
+          amount: cost,
+          timestamp: Date.now(),
+          reason: `Achat: ${qty}x ${item.name}`,
+          type: "ITEM_PURCHASE",
+        };
+
         saveState({
           ...state,
           citizens: newCitizens,
+          inventoryCatalog: newCatalog,
           treasury: (state.treasury || 0) + cost,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
         notify(
           `${qty}x ${item.name} acheté(s) pour ${cost} Écus.`,
@@ -726,7 +759,23 @@ export const useGameActions = (session, state, saveState, notify) => {
         const itemName =
           (state.inventoryCatalog || []).find((i) => i.id === itemId)?.name ||
           "objet";
-        saveState({ ...state, citizens: newCitizens });
+
+        // Entrée ledger (don sans transfert monétaire)
+        const giftLedger = {
+          id: Date.now(),
+          fromName: state.citizens[srcIdx].name,
+          toName: state.citizens[tgtIdx].name,
+          amount: 0,
+          timestamp: Date.now(),
+          reason: `Don: ${qty}x ${itemName}`,
+          type: "ITEM_GIFT",
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          globalLedger: [giftLedger, ...(state.globalLedger || [])],
+        });
         notify(`${qty}x ${itemName} donné(s).`, "success");
       },
       onBuySlave: (slaveId, price) => {
