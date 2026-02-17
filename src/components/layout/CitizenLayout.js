@@ -91,6 +91,13 @@ const CitizenLayout = (props) => {
     onWithdrawHiddenMoney,
     onHiddenTransfer,
     onDismissSlaveAlert,
+    maisonQueue = [],
+    maisonHistory = [],
+    maisonReviews = [],
+    maisonDefaultDuration = 60,
+    onJoinMaisonQueue,
+    onLeaveMaisonQueue,
+    onSubmitMaisonReview,
     settings,
     isDark,
     updateSetting,
@@ -642,7 +649,14 @@ const CitizenLayout = (props) => {
                 countries={safeCountries}
                 houseRegistry={houseRegistry}
                 staff={maisonStaff}
+                maisonQueue={maisonQueue}
+                maisonHistory={maisonHistory}
+                maisonReviews={maisonReviews}
+                maisonDefaultDuration={maisonDefaultDuration}
                 onBook={onBookMaison}
+                onJoinQueue={onJoinMaisonQueue}
+                onLeaveQueue={onLeaveMaisonQueue}
+                onSubmitReview={onSubmitMaisonReview}
                 userBalance={user.balance}
                 user={user}
               />

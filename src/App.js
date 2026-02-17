@@ -259,6 +259,13 @@ export default function App() {
             onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
             onHiddenTransfer={actions.onHiddenTransfer}
             onDismissSlaveAlert={actions.onDismissSlaveAlert}
+            maisonQueue={state.maisonQueue || []}
+            maisonHistory={state.maisonHistory || []}
+            maisonReviews={state.maisonReviews || []}
+            maisonDefaultDuration={state.maisonDefaultDuration || 60}
+            onJoinMaisonQueue={actions.onJoinMaisonQueue}
+            onLeaveMaisonQueue={actions.onLeaveMaisonQueue}
+            onSubmitMaisonReview={actions.onSubmitMaisonReview}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -604,11 +611,17 @@ export default function App() {
                       houseRegistry={state.maisonRegistry || []}
                       staff={state.maisonStaff || []}
                       maisonCompanyId={state.maisonCompanyId}
+                      maisonQueue={state.maisonQueue || []}
+                      maisonHistory={state.maisonHistory || []}
+                      maisonReviews={state.maisonReviews || []}
+                      maisonDefaultDuration={state.maisonDefaultDuration || 60}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
                       onUpdateStaff={actions.onUpdateMaisonStaff}
                       onRemoveStaff={actions.onRemoveMaisonStaff}
                       onPurgeMaison={actions.onPurgeMaison}
                       onSetMaisonCompany={actions.onSetMaisonCompany}
+                      onDeleteReview={actions.onDeleteMaisonReview}
+                      onSetDefaultDuration={actions.onSetMaisonDefaultDuration}
                     />
                   )}
                 </div>

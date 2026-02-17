@@ -1083,17 +1083,20 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newRegistry = (state.maisonRegistry || []).filter(
           (r) => r.staffId !== staffId
         );
+        const newQueue = (state.maisonQueue || []).filter(
+          (q) => q.staffId !== staffId
+        );
         saveState({
           ...state,
           maisonStaff: newStaff,
           maisonRegistry: newRegistry,
+          maisonQueue: newQueue,
         });
       },
       onSetMaisonCompany: (companyId) => {
         saveState({ ...state, maisonCompanyId: companyId || null });
         const name = companyId
-          ? (state.companies || []).find((c) => c.id === companyId)?.name ||
-            "?"
+          ? (state.companies || []).find((c) => c.id === companyId)?.name || "?"
           : "aucune";
         notify(`Entreprise Maison d'Asia : ${name}`, "success");
       },
@@ -1102,56 +1105,239 @@ export const useGameActions = (session, state, saveState, notify) => {
           ...state,
           maisonStaff: [],
           maisonRegistry: [],
+          maisonQueue: [],
         });
         notify("Maison de Asia purgée.", "info");
       },
+      onSetMaisonDefaultDuration: (minutes) => {
+        const val = Math.max(10, Math.min(480, parseInt(minutes) || 60));
+        saveState({ ...state, maisonDefaultDuration: val });
+        notify(`Durée par défaut : ${val} minutes.`, "success");
+      },
+
+      // --- FILE D'ATTENTE ---
+      onJoinMaisonQueue: (staffId) => {
+        if (!session) return;
+        const queue = state.maisonQueue || [];
+        if (queue.some((q) => q.citizenId === session.id && q.staffId === staffId)) {
+          notify("Vous êtes déjà dans la file.", "info");
+          return;
+        }
+        if ((state.maisonRegistry || []).some((r) => r.citizenId === session.id)) {
+          notify("Vous êtes déjà en compagnie.", "error");
+          return;
+        }
+        if (queue.some((q) => q.citizenId === session.id)) {
+          notify("Vous êtes déjà dans une autre file.", "error");
+          return;
+        }
+        const position = queue.filter((q) => q.staffId === staffId).length + 1;
+        saveState({
+          ...state,
+          maisonQueue: [...queue, { citizenId: session.id, staffId, joinedAt: Date.now(), position }],
+        });
+        notify("Vous avez rejoint la file d'attente.", "success");
+      },
+      onLeaveMaisonQueue: (staffId) => {
+        if (!session) return;
+        const filtered = (state.maisonQueue || []).filter(
+          (q) => !(q.citizenId === session.id && q.staffId === staffId)
+        );
+        let pos = 0;
+        const reindexed = filtered.map((q) => {
+          if (q.staffId === staffId) {
+            pos++;
+            return { ...q, position: pos };
+          }
+          return q;
+        });
+        saveState({ ...state, maisonQueue: reindexed });
+        notify("Vous avez quitté la file.", "info");
+      },
+
+      // --- AVIS ---
+      onSubmitMaisonReview: (staffId, rating, comment) => {
+        if (!session) return;
+        const history = state.maisonHistory || [];
+        const unreviewed = history.find(
+          (h) => h.citizenId === session.id && h.staffId === staffId && !h.reviewed
+        );
+        if (!unreviewed) {
+          notify("Aucune visite à noter.", "error");
+          return;
+        }
+        const citizen = (state.citizens || []).find((c) => c.id === session.id);
+        const staff = (state.maisonStaff || []).find((s) => s.id === staffId);
+        const newReview = {
+          id: Date.now(),
+          historyId: unreviewed.id,
+          citizenId: session.id,
+          citizenName: citizen?.name || "Anonyme",
+          citizenAvatarUrl: citizen?.avatarUrl || "",
+          staffId,
+          staffName: staff?.name || "Inconnue",
+          rating: Math.max(1, Math.min(5, parseInt(rating) || 3)),
+          comment: (comment || "").slice(0, 200),
+          timestamp: Date.now(),
+        };
+        const updatedHistory = history.map((h) =>
+          h.id === unreviewed.id ? { ...h, reviewed: true } : h
+        );
+        saveState({
+          ...state,
+          maisonReviews: [newReview, ...(state.maisonReviews || [])],
+          maisonHistory: updatedHistory,
+        });
+        notify("Votre avis a été enregistré.", "success");
+      },
+      onDeleteMaisonReview: (reviewId) => {
+        saveState({
+          ...state,
+          maisonReviews: (state.maisonReviews || []).filter((r) => r.id !== reviewId),
+        });
+        notify("Avis supprimé.", "info");
+      },
+
+      // --- RÉSERVATION MAISON D'ASIA ---
       onBookMaison: (staffId) => {
         if (!session) return;
         const registry = state.maisonRegistry || [];
+        const queue = state.maisonQueue || [];
+        const history = state.maisonHistory || [];
+        const defaultDur = state.maisonDefaultDuration || 60;
 
-        // Départ : staffId === null → retirer du registre
+        // === QUITTER ===
         if (staffId === null) {
+          const myBooking = registry.find((r) => r.citizenId === session.id);
+          if (!myBooking) return;
+          const worker = (state.maisonStaff || []).find((s) => s.id === myBooking.staffId);
+
+          // Créer l'historique
+          const historyEntry = {
+            id: Date.now(),
+            citizenId: session.id,
+            citizenName: session.name,
+            staffId: myBooking.staffId,
+            staffName: worker?.name || "Inconnue",
+            startTime: myBooking.startTime,
+            endTime: Date.now(),
+            duration: myBooking.duration || worker?.sessionDuration || defaultDur,
+            pricePaid: myBooking.pricePaid || worker?.price || 0,
+            reviewed: false,
+          };
+
+          // Retirer du registre
+          let newRegistry = registry.filter((r) => r.citizenId !== session.id);
+          let newQueue = [...queue];
+          let newCitizens = [...state.citizens];
+          let newCompanies = [...(state.companies || [])];
+          let newLedger = [...(state.globalLedger || [])];
+          let newTreasury = state.treasury || 0;
+
+          // Auto-réserver le prochain dans la queue
+          if (worker) {
+            const staffQueue = newQueue
+              .filter((q) => q.staffId === myBooking.staffId)
+              .sort((a, b) => a.joinedAt - b.joinedAt);
+
+            if (staffQueue.length > 0) {
+              const next = staffQueue[0];
+              const nextIdx = newCitizens.findIndex((c) => c.id === next.citizenId);
+
+              if (nextIdx !== -1 && newCitizens[nextIdx].balance >= (worker.price || 0)) {
+                const price = worker.price || 0;
+                newCitizens[nextIdx] = {
+                  ...newCitizens[nextIdx],
+                  balance: newCitizens[nextIdx].balance - price,
+                };
+
+                // Revenue split
+                const maisonCompId = state.maisonCompanyId;
+                const maisonCompIdx = maisonCompId
+                  ? newCompanies.findIndex((c) => c.id === maisonCompId)
+                  : -1;
+                const maisonCut = Math.floor(price * 0.8);
+                const treasuryCut = price - maisonCut;
+                if (maisonCompIdx !== -1) {
+                  newCompanies[maisonCompIdx] = {
+                    ...newCompanies[maisonCompIdx],
+                    balance: (newCompanies[maisonCompIdx].balance || 0) + maisonCut,
+                  };
+                  newTreasury += treasuryCut;
+                } else {
+                  newTreasury += price;
+                }
+
+                newRegistry.push({
+                  citizenId: next.citizenId,
+                  staffId: worker.id,
+                  startTime: Date.now(),
+                  duration: worker.sessionDuration || defaultDur,
+                  pricePaid: price,
+                });
+
+                newLedger = [
+                  {
+                    id: Date.now() + 1,
+                    fromName: newCitizens[nextIdx].name,
+                    toName: maisonCompIdx !== -1 ? newCompanies[maisonCompIdx].name + " / Trésor" : "Trésor Impérial",
+                    amount: price,
+                    timestamp: Date.now(),
+                    reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
+                    type: "MAISON",
+                  },
+                  ...newLedger,
+                ];
+              }
+              // Retirer de la queue
+              newQueue = newQueue.filter(
+                (q) => !(q.citizenId === next.citizenId && q.staffId === next.staffId)
+              );
+              // Re-indexer
+              let pos = 0;
+              newQueue = newQueue.map((q) => {
+                if (q.staffId === myBooking.staffId) {
+                  pos++;
+                  return { ...q, position: pos };
+                }
+                return q;
+              });
+            }
+          }
+
           saveState({
             ...state,
-            maisonRegistry: registry.filter(
-              (r) => r.citizenId !== session.id
-            ),
+            maisonRegistry: newRegistry,
+            maisonHistory: [historyEntry, ...history],
+            maisonQueue: newQueue,
+            citizens: newCitizens,
+            companies: newCompanies,
+            treasury: newTreasury,
+            globalLedger: newLedger,
           });
           notify("Vous avez quitté la Maison.", "info");
           return;
         }
 
-        // Réservation : trouver le staff et vérifier le solde
-        const worker = (state.maisonStaff || []).find(
-          (s) => s.id === staffId
-        );
-        if (!worker) {
-          notify("Personnel introuvable.", "error");
-          return;
-        }
-
-        // Vérifier si déjà occupé
+        // === RÉSERVER ===
+        const worker = (state.maisonStaff || []).find((s) => s.id === staffId);
+        if (!worker) { notify("Personnel introuvable.", "error"); return; }
         if (registry.some((r) => r.staffId === staffId)) {
-          notify("Cette personne est déjà occupée.", "error");
-          return;
+          notify("Cette personne est déjà occupée.", "error"); return;
         }
-
-        // Vérifier si le client a déjà une réservation
         if (registry.some((r) => r.citizenId === session.id)) {
-          notify("Vous êtes déjà en compagnie.", "error");
-          return;
+          notify("Vous êtes déjà en compagnie.", "error"); return;
         }
 
-        const clientIdx = state.citizens.findIndex(
-          (c) => c.id === session.id
-        );
+        const clientIdx = state.citizens.findIndex((c) => c.id === session.id);
         if (clientIdx === -1) return;
-
         const price = worker.price || 0;
         if (state.citizens[clientIdx].balance < price) {
-          notify("Fonds insuffisants.", "error");
-          return;
+          notify("Fonds insuffisants.", "error"); return;
         }
+
+        // Retirer de toute queue
+        const cleanedQueue = queue.filter((q) => q.citizenId !== session.id);
 
         const newCitizens = [...state.citizens];
         newCitizens[clientIdx] = {
@@ -1161,34 +1347,31 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         const newEntry = {
           citizenId: session.id,
-          staffId: staffId,
+          staffId,
           startTime: Date.now(),
+          duration: worker.sessionDuration || defaultDur,
+          pricePaid: price,
         };
 
-        // 80% va à l'entreprise Maison d'Asia, 20% au trésor impérial
+        // Revenue split 80/20
         const maisonCompId = state.maisonCompanyId;
         const maisonCompIdx = maisonCompId
           ? (state.companies || []).findIndex((c) => c.id === maisonCompId)
           : -1;
         const maisonCut = Math.floor(price * 0.8);
         const treasuryCut = price - maisonCut;
-
         const updatedCompanies = [...(state.companies || [])];
         if (maisonCompIdx !== -1) {
           updatedCompanies[maisonCompIdx] = {
             ...updatedCompanies[maisonCompIdx],
-            balance:
-              (updatedCompanies[maisonCompIdx].balance || 0) + maisonCut,
+            balance: (updatedCompanies[maisonCompIdx].balance || 0) + maisonCut,
           };
         }
 
-        // Entrée ledger pour la transaction Maison d'Asia
         const maisonLedger = {
           id: Date.now(),
           fromName: session.name,
-          toName: maisonCompIdx !== -1
-            ? updatedCompanies[maisonCompIdx].name + " / Trésor"
-            : "Trésor Impérial",
+          toName: maisonCompIdx !== -1 ? updatedCompanies[maisonCompIdx].name + " / Trésor" : "Trésor Impérial",
           amount: price,
           timestamp: Date.now(),
           reason: `Réservation Maison d'Asia — ${worker.name || "Personnel"}`,
@@ -1199,9 +1382,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           ...state,
           citizens: newCitizens,
           maisonRegistry: [...registry, newEntry],
-          treasury:
-            (state.treasury || 0) +
-            (maisonCompIdx !== -1 ? treasuryCut : price),
+          maisonQueue: cleanedQueue,
+          treasury: (state.treasury || 0) + (maisonCompIdx !== -1 ? treasuryCut : price),
           companies: maisonCompIdx !== -1 ? updatedCompanies : state.companies,
           globalLedger: [maisonLedger, ...(state.globalLedger || [])],
         });

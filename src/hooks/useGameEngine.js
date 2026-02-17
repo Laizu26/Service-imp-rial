@@ -41,6 +41,10 @@ export const useGameEngine = (firebaseUser, notify) => {
             gazette: d.gazette || [],
             maisonStaff: d.maisonStaff || [],
             maisonRegistry: d.maisonRegistry || [],
+            maisonQueue: d.maisonQueue || [],
+            maisonHistory: d.maisonHistory || [],
+            maisonReviews: d.maisonReviews || [],
+            maisonDefaultDuration: d.maisonDefaultDuration || 60,
           }));
           setDbError(null);
         } else {
