@@ -96,6 +96,10 @@ const RegistryView = ({
                   avatarUrl: "",
                   inventory: [],
                   currentPosition: "",
+                  motto: "",
+                  title: "",
+                  religion: "",
+                  origin: "",
                 })
               }
               className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"

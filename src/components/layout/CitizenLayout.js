@@ -16,12 +16,20 @@ import {
   Map,
   Gavel,
   Briefcase,
-  Book, // Icône Bibliothèque
+  Book,
   Settings,
   ShieldAlert,
+  Coins,
+  Building2,
+  MapPin,
+  Church,
+  Quote,
+  Search,
+  Eye,
 } from "lucide-react";
 
 import SettingsPanel from "../ui/SettingsPanel";
+import { ROLES } from "../../lib/constants";
 
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
@@ -31,7 +39,8 @@ import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 import MyCompanyView from "../views/MyCompanyView";
 import SlavePersonalView from "../views/SlavePersonalView";
-import LibraryView from "../views/LibraryView"; // Vue Bibliothèque
+import LibraryView from "../views/LibraryView";
+import CitizenProfileCard from "../views/CitizenProfileCard";
 
 const CitizenLayout = (props) => {
   const {
@@ -97,7 +106,14 @@ const CitizenLayout = (props) => {
   const [editOccupation, setEditOccupation] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
+  const [editMotto, setEditMotto] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editReligion, setEditReligion] = useState("");
+  const [editOrigin, setEditOrigin] = useState("");
   const [np, setNp] = useState("");
+  const [annuaireSearch, setAnnuaireSearch] = useState("");
+  const [annuaireFilter, setAnnuaireFilter] = useState("ALL");
+  const [selectedCitizen, setSelectedCitizen] = useState(null);
 
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
@@ -108,6 +124,10 @@ const CitizenLayout = (props) => {
       setEditOccupation(user.occupation || "");
       setEditBio(user.bio || "");
       setEditAvatar(user.avatarUrl || "");
+      setEditMotto(user.motto || "");
+      setEditTitle(user.title || "");
+      setEditReligion(user.religion || "");
+      setEditOrigin(user.origin || "");
     }
   }, [user]);
 
@@ -148,6 +168,36 @@ const CitizenLayout = (props) => {
     (r) => r.citizenId === user.id && r.status === "PENDING"
   );
 
+  // Helper: couleur de thème selon le rôle
+  const getRoleTheme = (role) => {
+    switch (role) {
+      case "EMPEREUR":
+        return { border: "border-yellow-500", bg: "bg-yellow-50", accent: "text-yellow-700", badge: "bg-yellow-100 text-yellow-800 border-yellow-300" };
+      case "ROI":
+        return { border: "border-purple-500", bg: "bg-purple-50", accent: "text-purple-700", badge: "bg-purple-100 text-purple-800 border-purple-300" };
+      case "GRAND_FONC_GLOBAL":
+      case "GRAND_FONC_LOCAL":
+        return { border: "border-blue-500", bg: "bg-blue-50", accent: "text-blue-700", badge: "bg-blue-100 text-blue-800 border-blue-300" };
+      case "INTENDANT":
+        return { border: "border-emerald-500", bg: "bg-emerald-50", accent: "text-emerald-700", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" };
+      case "FONCTIONNAIRE":
+      case "POSTIERE":
+        return { border: "border-sky-500", bg: "bg-sky-50", accent: "text-sky-700", badge: "bg-sky-100 text-sky-800 border-sky-300" };
+      default:
+        return { border: "border-stone-400", bg: "bg-stone-50", accent: "text-stone-600", badge: "bg-stone-100 text-stone-700 border-stone-300" };
+    }
+  };
+
+  const theme = getRoleTheme(user.role);
+  const roleInfo = ROLES[user.role] || ROLES.CITOYEN;
+
+  // Badges du citoyen
+  const safeCompanies = Array.isArray(companies) ? companies : [];
+  const ownedCompany = safeCompanies.find((c) => c.ownerId === user.id);
+  const employedCompany = safeCompanies.find(
+    (c) => (c.employees || []).includes(user.id) || (c.slaves || []).includes(user.id)
+  );
+
   const menuItems = [
     { id: "gazette", label: "Gazette", icon: Scroll },
     { id: "library", label: "Bibliothèque", icon: Book },
@@ -163,6 +213,7 @@ const CitizenLayout = (props) => {
     { id: "asia", label: "Maison Asia", icon: Gem },
     isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
+    { id: "annuaire", label: "Annuaire", icon: Eye },
   ].filter(Boolean);
 
   // --- 4. RENDU ---
@@ -622,94 +673,244 @@ const CitizenLayout = (props) => {
             )}
 
             {active === "profil" && (
-              <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-yellow-600 overflow-hidden">
+              <div className={`bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 ${theme.border} overflow-hidden`}>
+                {/* === HEADER : Avatar + Identité + Badges === */}
                 <div className="p-6 md:p-8 border-b border-stone-300">
-                  <div className="flex justify-between items-start mb-6 border-b border-stone-200/50 pb-4">
-                    <h2 className="text-xl font-black uppercase text-stone-800 tracking-widest font-serif flex items-center gap-3">
-                      <User size={20} /> Dossier Civil
-                    </h2>
-                    <span
-                      className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${
-                        user.status === "Esclave"
-                          ? "bg-stone-800 text-white"
-                          : "bg-green-100 text-green-800"
-                      }`}
-                    >
-                      {user.status || "Actif"}
-                    </span>
+                  <div className="flex flex-col md:flex-row gap-6 items-start">
+                    {/* Avatar preview */}
+                    <div className="shrink-0">
+                      <div className={`w-32 h-32 rounded-xl border-4 ${theme.border} bg-stone-100 overflow-hidden shadow-lg`}>
+                        {(editAvatar || user.avatarUrl) ? (
+                          <img
+                            src={editAvatar || user.avatarUrl}
+                            className="w-full h-full object-cover"
+                            alt="Portrait"
+                            onError={(e) => { e.target.style.display = "none"; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-stone-200">
+                            <User size={48} className="text-stone-400" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Identité */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 flex-wrap mb-1">
+                        <h2 className="text-2xl font-black text-stone-800 font-serif leading-tight">
+                          {user.name}
+                        </h2>
+                        <span className="text-xs text-stone-400 font-mono">#{user.id}</span>
+                      </div>
+                      {(user.title || editTitle) && (
+                        <div className="text-sm font-bold text-stone-500 italic mb-1">
+                          « {editTitle || user.title} »
+                        </div>
+                      )}
+                      {(user.motto || editMotto) && (
+                        <div className="text-xs text-stone-400 italic flex items-center gap-1 mb-3">
+                          <Quote size={12} /> {editMotto || user.motto}
+                        </div>
+                      )}
+                      {/* Badges */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest border ${theme.badge}`}>
+                          {roleInfo.label}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${
+                          user.status === "Esclave" ? "bg-red-900 text-white" :
+                          user.status === "Prisonnier" ? "bg-orange-100 text-orange-800 border border-orange-300" :
+                          user.status === "Malade" ? "bg-yellow-100 text-yellow-800 border border-yellow-300" :
+                          user.status === "Banni" ? "bg-stone-800 text-white" :
+                          user.status === "Décédé" ? "bg-stone-900 text-stone-400" :
+                          "bg-green-100 text-green-800 border border-green-300"
+                        }`}>
+                          {user.status || "Actif"}
+                        </span>
+                        {ownedCompany && (
+                          <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                            <Building2 size={10} /> Patron
+                          </span>
+                        )}
+                        {employedCompany && !ownedCompany && (
+                          <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-sky-100 text-sky-800 border border-sky-300 flex items-center gap-1">
+                            <Briefcase size={10} /> Employé
+                          </span>
+                        )}
+                        {mySlaves.length > 0 && (
+                          <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-stone-200 text-stone-700 border border-stone-300 flex items-center gap-1">
+                            <Gavel size={10} /> {mySlaves.length} esclave{mySlaves.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                      {/* Fortune rapide */}
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-1.5 font-bold text-stone-700">
+                          <Coins size={16} className="text-yellow-600" />
+                          {(user.balance || 0).toLocaleString()} Écus
+                        </div>
+                        {(user.inventory || []).length > 0 && (
+                          <div className="flex items-center gap-1.5 text-stone-500">
+                            <Box size={14} />
+                            {(user.inventory || []).reduce((s, i) => s + (i.quantity || 1), 0)} objets
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm mb-6">
+                </div>
+
+                {/* === ÉTAT CIVIL (lecture seule) === */}
+                <div className="p-6 md:p-8 border-b border-stone-200 bg-white/30">
+                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
+                    <Shield size={14} /> État Civil
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Nom & Matricule
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {user.name}{" "}
-                        <span className="text-xs text-stone-400 font-mono ml-2">
-                          #{user.id}
-                        </span>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Allégeance</span>
+                      <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                        <Landmark size={14} className="text-stone-400" />
+                        {safeCountries.find((c) => c.id === user?.countryId)?.name || "Empire"}
                       </div>
                     </div>
                     <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Allégeance
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {safeCountries.find((c) => c.id === user?.countryId)
-                          ?.name || "Empire"}
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Localisation</span>
+                      <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                        <MapPin size={14} className="text-stone-400" />
+                        {safeCountries.find((c) => c.id === (user?.locationCountryId || user?.countryId))?.name || "Empire"}
+                        <span className="text-xs text-stone-500 font-normal">— {user?.currentPosition || "Inconnue"}</span>
                       </div>
                     </div>
                     <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Localisation
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {safeCountries.find(
-                          (c) =>
-                            c.id ===
-                            (user?.locationCountryId || user?.countryId)
-                        )?.name || "Empire"}{" "}
-                        <span className="text-sm text-stone-500">
-                          — {user?.currentPosition || "Inconnue"}
-                        </span>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Âge</span>
+                      <div className="font-bold text-stone-800">{user.age || "?"} ans</div>
+                    </div>
+                    {employedCompany && (
+                      <div>
+                        <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Entreprise</span>
+                        <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Building2 size={14} className="text-stone-400" />
+                          {employedCompany.name}
+                        </div>
+                      </div>
+                    )}
+                    {isSlave && owner && (
+                      <div>
+                        <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Propriétaire</span>
+                        <div className="font-bold text-red-800 flex items-center gap-1.5">
+                          <Lock size={14} className="text-red-400" />
+                          {owner.name}
+                        </div>
+                      </div>
+                    )}
+                    {user.origin && (
+                      <div>
+                        <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Lieu d'Origine</span>
+                        <div className="font-bold text-stone-800">{user.origin}</div>
+                      </div>
+                    )}
+                    {user.religion && (
+                      <div>
+                        <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Religion</span>
+                        <div className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Church size={14} className="text-stone-400" />
+                          {user.religion}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Droits de l'esclave */}
+                  {isSlave && (
+                    <div className="mt-4 pt-4 border-t border-stone-200">
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-2 tracking-widest">Droits Actuels</span>
+                      <div className="flex gap-3 flex-wrap">
+                        {[
+                          { key: "bank", label: "Banque", icon: Landmark },
+                          { key: "post", label: "Poste", icon: Mail },
+                          { key: "travel", label: "Voyage", icon: Map },
+                        ].map((p) => (
+                          <span key={p.key} className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            permissions[p.key] ? "bg-green-100 text-green-700" : "bg-red-100 text-red-500 line-through"
+                          }`}>
+                            <p.icon size={12} /> {p.label}
+                          </span>
+                        ))}
                       </div>
                     </div>
+                  )}
+                </div>
+
+                {/* === ÉDITION : Personnalisation === */}
+                <div className="p-6 md:p-8 border-b border-stone-200">
+                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
+                    <Settings size={14} /> Personnaliser
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
                     <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Occupation
-                      </span>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Portrait (URL)</span>
                       <input
-                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1"
+                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
+                        value={editAvatar}
+                        onChange={(e) => setEditAvatar(e.target.value)}
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Occupation</span>
+                      <input
+                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
                         value={editOccupation}
                         onChange={(e) => setEditOccupation(e.target.value)}
                         placeholder="Métier..."
                       />
                     </div>
                     <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Âge
-                      </span>
-                      <div className="font-bold text-lg text-stone-800">
-                        {user.age || "?"} Ans
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">
-                        Portrait (URL)
-                      </span>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Titre Honorifique</span>
                       <input
-                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1"
-                        value={editAvatar}
-                        onChange={(e) => setEditAvatar(e.target.value)}
+                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        placeholder="Le Magnifique, L'Intrépide..."
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Devise</span>
+                      <input
+                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
+                        value={editMotto}
+                        onChange={(e) => setEditMotto(e.target.value.slice(0, 80))}
+                        placeholder="Ma devise personnelle..."
+                        maxLength={80}
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Religion</span>
+                      <input
+                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
+                        value={editReligion}
+                        onChange={(e) => setEditReligion(e.target.value)}
+                        placeholder="Croyance..."
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Lieu d'Origine</span>
+                      <input
+                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
+                        value={editOrigin}
+                        onChange={(e) => setEditOrigin(e.target.value)}
+                        placeholder="D'où venez-vous..."
                       />
                     </div>
                   </div>
-                  <textarea
-                    className="w-full bg-white/50 border-2 border-stone-200 rounded-lg p-3 text-sm italic font-serif text-stone-700 min-h-[100px] mb-6"
-                    value={editBio}
-                    onChange={(e) => setEditBio(e.target.value)}
-                    placeholder="Biographie..."
-                  />
+                  <div className="mb-4">
+                    <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Biographie</span>
+                    <textarea
+                      className="w-full bg-white/50 border-2 border-stone-200 rounded-lg p-3 text-sm italic font-serif text-stone-700 min-h-[120px]"
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      placeholder="Racontez votre histoire..."
+                    />
+                  </div>
                   <button
                     onClick={() => {
                       onUpdateUser({
@@ -717,14 +918,22 @@ const CitizenLayout = (props) => {
                         occupation: editOccupation,
                         bio: editBio,
                         avatarUrl: editAvatar,
+                        motto: editMotto,
+                        title: editTitle,
+                        religion: editReligion,
+                        origin: editOrigin,
                       });
                       notify("Dossier mis à jour.", "success");
                     }}
-                    className="w-full bg-stone-800 text-white py-3 rounded uppercase font-bold text-[10px] tracking-widest hover:bg-stone-700 transition-all shadow-md active:scale-95"
+                    className={`w-full py-3 rounded uppercase font-bold text-[10px] tracking-widest transition-all shadow-md active:scale-95 text-white ${
+                      theme.border.replace("border-", "bg-").replace("-500", "-700")
+                    } hover:opacity-90`}
                   >
-                    Mettre à jour
+                    Mettre à jour le Dossier
                   </button>
                 </div>
+
+                {/* === SCEAU DE SÉCURITÉ === */}
                 <div className="p-6 md:p-8 bg-stone-100/50">
                   <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
                     <Lock size={16} /> Sceau de Sécurité
@@ -751,6 +960,125 @@ const CitizenLayout = (props) => {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* === ANNUAIRE DES CITOYENS === */}
+            {active === "annuaire" && (
+              <div className="space-y-4">
+                <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-stone-400 overflow-hidden p-6">
+                  <h2 className="text-xl font-black uppercase text-stone-800 tracking-widest font-serif flex items-center gap-3 mb-4">
+                    <Eye size={20} /> Annuaire Impérial
+                  </h2>
+                  <p className="text-xs text-stone-500 mb-4">
+                    Consultez les fiches des citoyens de l'Empire. Les informations financières restent privées.
+                  </p>
+                  {/* Barre de recherche + filtres */}
+                  <div className="flex flex-col md:flex-row gap-3 mb-4">
+                    <div className="flex-1 relative">
+                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 transition-colors"
+                        value={annuaireSearch}
+                        onChange={(e) => setAnnuaireSearch(e.target.value)}
+                        placeholder="Rechercher un citoyen..."
+                      />
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { key: "ALL", label: "Tous" },
+                        { key: "EMPEREUR", label: "Empereur" },
+                        { key: "ROI", label: "Rois" },
+                        { key: "FONC", label: "Fonctionnaires" },
+                        { key: "ESCLAVE", label: "Esclaves" },
+                      ].map((f) => (
+                        <button
+                          key={f.key}
+                          onClick={() => setAnnuaireFilter(f.key)}
+                          className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all ${
+                            annuaireFilter === f.key
+                              ? "bg-stone-800 text-white"
+                              : "bg-stone-200 text-stone-600 hover:bg-stone-300"
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Liste filtrée */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300">
+                    {safeUsers
+                      .filter((c) => {
+                        if (annuaireSearch) {
+                          const s = annuaireSearch.toLowerCase();
+                          if (!c.name?.toLowerCase().includes(s) && !c.id?.toLowerCase().includes(s)) return false;
+                        }
+                        if (annuaireFilter === "ALL") return true;
+                        if (annuaireFilter === "EMPEREUR") return c.role === "EMPEREUR";
+                        if (annuaireFilter === "ROI") return c.role === "ROI";
+                        if (annuaireFilter === "FONC") return ["GRAND_FONC_GLOBAL", "GRAND_FONC_LOCAL", "INTENDANT", "FONCTIONNAIRE", "POSTIERE"].includes(c.role);
+                        if (annuaireFilter === "ESCLAVE") return c.status === "Esclave";
+                        return true;
+                      })
+                      .sort((a, b) => (ROLES[b.role]?.level || 0) - (ROLES[a.role]?.level || 0))
+                      .map((c) => {
+                        const cTheme = getRoleTheme(c.role);
+                        const cRole = ROLES[c.role] || ROLES.CITOYEN;
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => setSelectedCitizen(c)}
+                            className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
+                              selectedCitizen?.id === c.id ? cTheme.border : "border-stone-200"
+                            } bg-white hover:shadow-md transition-all text-left`}
+                          >
+                            <div className={`w-10 h-10 rounded-lg ${cTheme.border} border-2 bg-stone-100 overflow-hidden shrink-0`}>
+                              {c.avatarUrl ? (
+                                <img src={c.avatarUrl} className="w-full h-full object-cover" alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <User size={16} className="text-stone-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-sm text-stone-800 truncate">
+                                {c.name}
+                                {c.title && <span className="text-xs text-stone-400 font-normal ml-1 italic">« {c.title} »</span>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${cTheme.badge}`}>
+                                  {cRole.label}
+                                </span>
+                                <span className={`text-[8px] font-bold uppercase ${
+                                  c.status === "Esclave" ? "text-red-600" :
+                                  c.status === "Actif" ? "text-green-600" :
+                                  "text-stone-400"
+                                }`}>
+                                  {c.status || "Actif"}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {safeUsers.length === 0 && (
+                    <div className="text-center text-stone-400 py-10 text-sm">Aucun citoyen enregistré.</div>
+                  )}
+                </div>
+
+                {/* Fiche sélectionnée */}
+                {selectedCitizen && (
+                  <CitizenProfileCard
+                    citizen={selectedCitizen}
+                    countries={safeCountries}
+                    companies={safeCompanies}
+                    users={safeUsers}
+                    onClose={() => setSelectedCitizen(null)}
+                  />
+                )}
               </div>
             )}
           </div>
