@@ -81,14 +81,8 @@ const DashboardView = ({
 
   const worldLedger = useMemo(() => {
     return (state.globalLedger || [])
-      .filter((tx) => {
-        const isEmpire =
-          tx.fromName.includes("Empire") ||
-          tx.toName.includes("Empire") ||
-          tx.fromName.includes("Hôtel des Monnaies");
-        return isEmpire || tx.amount > 1000;
-      })
-      .slice(0, 8);
+      .sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0))
+      .slice(0, 12);
   }, [state.globalLedger]);
 
   // --- ACTIONS ---
@@ -392,38 +386,69 @@ const DashboardView = ({
             <div className="overflow-y-auto flex-1 p-0 max-h-[500px]">
               <table className="w-full text-left text-sm">
                 <tbody className="divide-y divide-stone-100">
-                  {worldLedger.map((tx) => (
-                    <tr
-                      key={tx.id}
-                      className="hover:bg-yellow-50/50 transition-colors"
-                    >
-                      <td className="p-4">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-bold text-stone-700 text-xs">
-                              {tx.fromName}
-                            </span>
-                            <span className="text-stone-300">➜</span>
-                            <span className="font-bold text-stone-700 text-xs text-right">
-                              {tx.toName}
-                            </span>
+                  {worldLedger.map((tx) => {
+                    const typeLabels = {
+                      TRANSFER: "Virement",
+                      MINT: "Frappe",
+                      SLAVE_PURCHASE: "Esclave",
+                      CONFISCATION: "Confiscation",
+                      MAISON: "Maison",
+                      SALARY: "Salaire",
+                      MANUMISSION: "Affranch.",
+                      DEBT_PAYMENT: "Dette",
+                    };
+                    const typeColors = {
+                      TRANSFER: "bg-blue-100 text-blue-700",
+                      MINT: "bg-yellow-100 text-yellow-700",
+                      SLAVE_PURCHASE: "bg-red-100 text-red-700",
+                      CONFISCATION: "bg-orange-100 text-orange-700",
+                      MAISON: "bg-pink-100 text-pink-700",
+                      SALARY: "bg-green-100 text-green-700",
+                      MANUMISSION: "bg-purple-100 text-purple-700",
+                      DEBT_PAYMENT: "bg-emerald-100 text-emerald-700",
+                    };
+                    return (
+                      <tr
+                        key={tx.id}
+                        className="hover:bg-yellow-50/50 transition-colors"
+                      >
+                        <td className="p-4">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-stone-700 text-xs">
+                                {tx.fromName}
+                              </span>
+                              <span className="text-stone-300">➜</span>
+                              <span className="font-bold text-stone-700 text-xs text-right">
+                                {tx.toName}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center mt-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-black text-stone-900 bg-stone-100 px-1 rounded">
+                                  {tx.amount.toLocaleString()}{" "}
+                                  <span className="text-[9px]">Écus</span>
+                                </span>
+                                {tx.type && (
+                                  <span className={`px-1 py-0.5 rounded text-[8px] font-black uppercase ${typeColors[tx.type] || "bg-stone-100 text-stone-500"}`}>
+                                    {typeLabels[tx.type] || tx.type}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[9px] text-stone-400 font-mono">
+                                {tx.timestamp
+                                  ? new Date(tx.timestamp).toLocaleTimeString([], {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : ""}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center mt-1">
-                            <span className="font-mono font-black text-stone-900 bg-stone-100 px-1 rounded">
-                              {tx.amount.toLocaleString()}{" "}
-                              <span className="text-[9px]">Écus</span>
-                            </span>
-                            <span className="text-[9px] text-stone-400 font-mono">
-                              {new Date(tx.timestamp).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

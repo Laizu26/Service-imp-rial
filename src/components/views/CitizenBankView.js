@@ -277,48 +277,78 @@ const CitizenBankView = ({
                     Aucun mouvement de fonds enregistré.
                   </div>
                 )}
-                {myTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex justify-between items-center p-3 bg-white border border-stone-100 rounded-lg shadow-sm hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-center gap-3">
+                {myTransactions.map((tx) => {
+                  const isIncoming = tx.toName === user.name;
+                  const typeLabels = {
+                    TRANSFER: "Virement",
+                    MINT: "Frappe",
+                    SLAVE_PURCHASE: "Achat esclave",
+                    CONFISCATION: "Confiscation",
+                    MAISON: "Maison Asia",
+                    SALARY: "Salaire",
+                    MANUMISSION: "Affranchissement",
+                    DEBT_PAYMENT: "Remb. dette",
+                  };
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex justify-between items-center p-3 bg-white border border-stone-100 rounded-lg shadow-sm hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-full ${
+                            isIncoming
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {isIncoming ? (
+                            <ArrowDownLeft size={16} />
+                          ) : (
+                            <ArrowUpRight size={16} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-stone-800 text-sm">
+                            {isIncoming
+                              ? `Reçu de ${tx.fromName}`
+                              : `Envoyé à ${tx.toName}`}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {tx.type && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
+                                {typeLabels[tx.type] || tx.type}
+                              </span>
+                            )}
+                            {tx.reason && (
+                              <span className="text-[10px] text-stone-400 italic truncate max-w-[200px]">
+                                {tx.reason}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-stone-400 font-mono mt-0.5">
+                            {tx.timestamp
+                              ? new Date(tx.timestamp).toLocaleDateString("fr-FR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : `Ref: ${tx.id}`}
+                          </div>
+                        </div>
+                      </div>
                       <div
-                        className={`p-2 rounded-full ${
-                          tx.toName === user.name
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                        className={`font-black font-mono text-lg ${
+                          isIncoming ? "text-green-600" : "text-red-600"
                         }`}
                       >
-                        {tx.toName === user.name ? (
-                          <ArrowDownLeft size={16} />
-                        ) : (
-                          <ArrowUpRight size={16} />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-bold text-stone-800 text-sm">
-                          {tx.toName === user.name
-                            ? `Reçu de ${tx.fromName}`
-                            : `Envoyé à ${tx.toName}`}
-                        </div>
-                        <div className="text-[10px] text-stone-400 font-mono">
-                          Ref: {tx.id}
-                        </div>
+                        {isIncoming ? "+" : "-"}
+                        {tx.amount.toLocaleString()}
                       </div>
                     </div>
-                    <div
-                      className={`font-black font-mono ${
-                        tx.toName === user.name
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {tx.toName === user.name ? "+" : "-"}
-                      {tx.amount.toLocaleString()}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           </div>

@@ -102,6 +102,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             amount: val,
             timestamp: Date.now(),
             reason: "Frappe de monnaie (Création)",
+            type: "MINT",
           };
           saveState({
             ...state,
@@ -345,7 +346,26 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         });
 
-        saveState({ ...state, companies: newCompanies, citizens: newCitizens });
+        // Entrée ledger pour chaque paiement de salaire
+        const salaryLedger = Object.entries(payments).map(([empId, val]) => {
+          const emp = newCitizens.find((c) => c.id === empId);
+          return {
+            id: Date.now() + Math.random(),
+            fromName: company.name,
+            toName: emp?.name || empId,
+            amount: val,
+            timestamp: Date.now(),
+            reason: "Salaire",
+            type: "SALARY",
+          };
+        });
+
+        saveState({
+          ...state,
+          companies: newCompanies,
+          citizens: newCitizens,
+          globalLedger: [...salaryLedger, ...(state.globalLedger || [])],
+        });
         notify(
           `Salaires versés : ${totalCost.toLocaleString()} écus au total.`,
           "success"
@@ -497,13 +517,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Erreur virement.", "error");
           return;
         }
-        // ... (votre code transfert habituel) ...
         let s = JSON.parse(JSON.stringify(state));
         const process = (raw, isCredit) => {
           const v = isCredit ? parseInt(amount) : -parseInt(amount);
           if (raw === "GLOBAL") {
             s.treasury += v;
-            return "Trésor";
+            return "Trésor Impérial";
           }
           if (raw.startsWith("U-")) {
             const idx = s.citizens.findIndex((x) => x.id === raw.slice(2));
@@ -530,8 +549,20 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
           return "Autre";
         };
-        process(srcRaw, false);
-        process(tgtRaw, true);
+        const fromName = process(srcRaw, false);
+        const toName = process(tgtRaw, true);
+
+        // Enregistrer dans le grand livre
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName,
+          toName,
+          amount: parseInt(amount),
+          timestamp: Date.now(),
+          type: "TRANSFER",
+        };
+        s.globalLedger = [...(s.globalLedger || []), ledgerEntry];
+
         saveState(s);
         notify("Transfert validé.", "success");
       },
@@ -760,6 +791,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           amount: price,
           timestamp: Date.now(),
           reason: `Achat esclave: ${newCitizens[slaveIdx].name}`,
+          type: "SLAVE_PURCHASE",
         };
 
         // Gazette si déchéance d'un gradé
@@ -823,6 +855,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           amount,
           timestamp: Date.now(),
           reason: "Confiscation (Main d'Oeuvre)",
+          type: "CONFISCATION",
         };
 
         saveState({
@@ -1021,10 +1054,21 @@ export const useGameActions = (session, state, saveState, notify) => {
           salePrice: null,
         };
 
+        const manumitLedger = {
+          id: Date.now(),
+          fromName: citizen.name,
+          toName: "Trésor Impérial",
+          amount: price,
+          timestamp: Date.now(),
+          reason: "Auto-affranchissement",
+          type: "MANUMISSION",
+        };
+
         saveState({
           ...state,
           citizens: newCitizens,
           treasury: (state.treasury || 0) + price,
+          globalLedger: [manumitLedger, ...(state.globalLedger || [])],
         });
         notify("Vous êtes libre !", "success");
       },
@@ -1138,6 +1182,19 @@ export const useGameActions = (session, state, saveState, notify) => {
           };
         }
 
+        // Entrée ledger pour la transaction Maison d'Asia
+        const maisonLedger = {
+          id: Date.now(),
+          fromName: session.name,
+          toName: maisonCompIdx !== -1
+            ? updatedCompanies[maisonCompIdx].name + " / Trésor"
+            : "Trésor Impérial",
+          amount: price,
+          timestamp: Date.now(),
+          reason: `Réservation Maison d'Asia — ${worker.name || "Personnel"}`,
+          type: "MAISON",
+        };
+
         saveState({
           ...state,
           citizens: newCitizens,
@@ -1146,6 +1203,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             (state.treasury || 0) +
             (maisonCompIdx !== -1 ? treasuryCut : price),
           companies: maisonCompIdx !== -1 ? updatedCompanies : state.companies,
+          globalLedger: [maisonLedger, ...(state.globalLedger || [])],
         });
         notify("Réservé.", "success");
       },
@@ -1244,10 +1302,22 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
 
         registry[idx] = { ...debt, status: "PAID", paidAt: Date.now() };
+
+        const debtLedger = {
+          id: Date.now(),
+          fromName: newCitizens[debtorIdx].name,
+          toName: newCitizens[creditorIdx].name,
+          amount: total,
+          timestamp: Date.now(),
+          reason: `Remboursement dette${debt.reason ? " — " + debt.reason : ""}`,
+          type: "DEBT_PAYMENT",
+        };
+
         saveState({
           ...state,
           citizens: newCitizens,
           debtRegistry: registry,
+          globalLedger: [debtLedger, ...(state.globalLedger || [])],
         });
         notify(`Dette remboursée (${total} Écus).`, "success");
       },
