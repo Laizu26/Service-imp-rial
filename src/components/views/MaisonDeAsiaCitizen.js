@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom";
 import {
   Gem, Heart, LogOut, Star, Clock, Users, X, History,
-  MessageCircle, Timer, User, ChevronRight,
+  MessageCircle, Timer, User, ChevronRight, ChevronLeft, Images,
 } from "lucide-react";
 
 const MaisonDeAsiaCitizen = ({
@@ -110,8 +111,10 @@ const MaisonDeAsiaCitizen = ({
     setReviewComment("");
   };
 
-  // === MODAL PROFIL ===
+  // === MODAL PROFIL (avec portal pour éviter le clipping) ===
   const ProfileModal = ({ worker, onClose }) => {
+    const [galleryIdx, setGalleryIdx] = useState(0);
+
     if (!worker) return null;
     const rating = getStaffRating(worker.id);
     const isOccupied = houseRegistry.some((r) => r.staffId === worker.id);
@@ -120,27 +123,74 @@ const MaisonDeAsiaCitizen = ({
     const staffReviews = maisonReviews.filter((r) => r.staffId === worker.id).slice(0, 10);
     const dur = worker.sessionDuration || maisonDefaultDuration;
 
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    // Construire la liste d'images : avatar + galerie
+    const allImages = [];
+    if (worker.avatarUrl) allImages.push(worker.avatarUrl);
+    if (worker.gallery && worker.gallery.length > 0) {
+      worker.gallery.forEach((img) => {
+        if (!allImages.includes(img)) allImages.push(img);
+      });
+    }
+    const hasMultipleImages = allImages.length > 1;
+    const currentImage = allImages[galleryIdx % allImages.length] || null;
+
+    const modalContent = (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={onClose}>
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
         <div
           className="relative bg-stone-900 border border-fuchsia-800 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <button onClick={onClose} className="absolute top-4 right-4 text-stone-500 hover:text-white z-10">
+          <button onClick={onClose} className="absolute top-4 right-4 text-stone-500 hover:text-white z-20">
             <X size={20} />
           </button>
 
-          {/* Image */}
-          <div className="h-72 overflow-hidden rounded-t-2xl relative">
-            {worker.avatarUrl ? (
-              <img src={worker.avatarUrl} alt="" className="w-full h-full object-cover" />
+          {/* Image / Galerie */}
+          <div className="h-80 overflow-hidden rounded-t-2xl relative">
+            {currentImage ? (
+              <img src={currentImage} alt="" className="w-full h-full object-cover transition-all duration-300" />
             ) : (
               <div className="w-full h-full bg-fuchsia-950 flex items-center justify-center">
                 <User size={64} className="text-fuchsia-800" />
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent" />
+
+            {/* Navigation galerie */}
+            {hasMultipleImages && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGalleryIdx((galleryIdx - 1 + allImages.length) % allImages.length); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full w-9 h-9 flex items-center justify-center backdrop-blur-sm border border-white/20 transition-colors"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGalleryIdx((galleryIdx + 1) % allImages.length); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full w-9 h-9 flex items-center justify-center backdrop-blur-sm border border-white/20 transition-colors"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                {/* Indicateurs */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {allImages.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => { e.stopPropagation(); setGalleryIdx(i); }}
+                      className={`w-2 h-2 rounded-full transition-all ${
+                        i === galleryIdx % allImages.length
+                          ? "bg-fuchsia-400 w-4"
+                          : "bg-white/40 hover:bg-white/60"
+                      }`}
+                    />
+                  ))}
+                </div>
+                {/* Compteur */}
+                <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-sm px-2 py-1 rounded-full text-[10px] text-white/80 flex items-center gap-1 border border-white/10">
+                  <Images size={10} /> {(galleryIdx % allImages.length) + 1}/{allImages.length}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="p-6 -mt-16 relative z-10">
@@ -166,6 +216,25 @@ const MaisonDeAsiaCitizen = ({
                 </span>
               )}
             </div>
+
+            {/* Miniatures galerie */}
+            {hasMultipleImages && (
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                {allImages.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setGalleryIdx(i)}
+                    className={`w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                      i === galleryIdx % allImages.length
+                        ? "border-fuchsia-500 ring-1 ring-fuchsia-500/50"
+                        : "border-stone-700 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Disponibilité + Action */}
             <div className="mb-6">
@@ -233,6 +302,8 @@ const MaisonDeAsiaCitizen = ({
         </div>
       </div>
     );
+
+    return ReactDOM.createPortal(modalContent, document.body);
   };
 
   return (

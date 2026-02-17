@@ -20,6 +20,8 @@ import {
   ListOrdered,
   BarChart3,
   AlertTriangle,
+  ImagePlus,
+  Images,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 
@@ -39,6 +41,76 @@ const Stars = ({ rating, size = 12 }) => (
     ))}
   </span>
 );
+
+/* ───────────── Panneau galerie dépliable ───────────── */
+const GalleryPanel = ({ member, onAdd, onRemove, onClose }) => {
+  const [url, setUrl] = useState("");
+  const gallery = member.gallery || [];
+
+  return (
+    <div className="col-span-full bg-stone-50 rounded-xl border border-fuchsia-200 p-4 shadow-inner">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-xs font-black uppercase text-fuchsia-700 tracking-widest flex items-center gap-2">
+          <Images size={14} /> Galerie — {member.name} ({gallery.length} photo{gallery.length !== 1 ? "s" : ""})
+        </h4>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Images existantes */}
+      {gallery.length > 0 ? (
+        <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mb-3">
+          {gallery.map((img, idx) => (
+            <div key={idx} className="relative group/img aspect-square rounded-lg overflow-hidden border border-stone-200">
+              <img src={img} alt="" className="w-full h-full object-cover" />
+              <button
+                onClick={() => onRemove(idx)}
+                className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                title="Supprimer"
+              >
+                <X size={10} />
+              </button>
+              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] text-center py-0.5">
+                #{idx + 1}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-stone-400 italic mb-3">Aucune photo dans la galerie.</p>
+      )}
+
+      {/* Ajout d'image */}
+      <div className="flex gap-2">
+        <input
+          className="flex-1 p-2 border rounded-lg text-xs bg-white outline-none focus:border-fuchsia-500"
+          placeholder="URL de l'image..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && url.trim()) {
+              onAdd(url.trim());
+              setUrl("");
+            }
+          }}
+        />
+        <button
+          onClick={() => {
+            if (url.trim()) {
+              onAdd(url.trim());
+              setUrl("");
+            }
+          }}
+          disabled={!url.trim()}
+          className="px-3 py-2 bg-fuchsia-900 text-white rounded-lg text-[10px] font-bold uppercase hover:bg-fuchsia-800 disabled:opacity-50 flex items-center gap-1"
+        >
+          <ImagePlus size={12} /> Ajouter
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const MaisonDeAsiaAdmin = ({
   citizens = [],
@@ -67,12 +139,20 @@ const MaisonDeAsiaAdmin = ({
   const [newStaffDuration, setNewStaffDuration] = useState("");
   const [newStaffDescription, setNewStaffDescription] = useState("");
 
+  // Galerie images (ajout)
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newStaffGallery, setNewStaffGallery] = useState([]);
+
   // Édition d'un membre existant
   const [editingId, setEditingId] = useState(null);
   const [editSpecialty, setEditSpecialty] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDuration, setEditDuration] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editGallery, setEditGallery] = useState([]);
+
+  // Gestion galerie séparée (en dehors du mode edit)
+  const [galleryMemberId, setGalleryMemberId] = useState(null);
 
   // Durée par défaut (local)
   const [draftDefaultDuration, setDraftDefaultDuration] = useState(
@@ -163,6 +243,7 @@ const MaisonDeAsiaAdmin = ({
         ? parseInt(newStaffDuration)
         : undefined,
       specialtyDescription: newStaffDescription || "",
+      gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
       isBusy: false,
     };
 
@@ -172,6 +253,8 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffPrice(50);
     setNewStaffDuration("");
     setNewStaffDescription("");
+    setNewStaffGallery([]);
+    setNewImageUrl("");
   };
 
   const handleRemoveStaff = (id) => {
@@ -188,6 +271,7 @@ const MaisonDeAsiaAdmin = ({
     setEditPrice(String(member.price || 0));
     setEditDuration(String(member.sessionDuration || ""));
     setEditDescription(member.specialtyDescription || "");
+    setEditGallery([...(member.gallery || [])]);
   };
 
   const cancelEdit = () => {
@@ -196,6 +280,7 @@ const MaisonDeAsiaAdmin = ({
     setEditPrice("");
     setEditDuration("");
     setEditDescription("");
+    setEditGallery([]);
   };
 
   const saveEdit = (id) => {
@@ -207,11 +292,32 @@ const MaisonDeAsiaAdmin = ({
             price: parseInt(editPrice) || 0,
             sessionDuration: editDuration ? parseInt(editDuration) : undefined,
             specialtyDescription: editDescription,
+            gallery: editGallery,
           }
         : s
     );
     onUpdateStaff(updated);
     setEditingId(null);
+  };
+
+  // --- GESTION GALERIE (mode séparé, hors edit) ---
+  const handleAddGalleryImage = (memberId, url) => {
+    if (!url || !url.trim()) return;
+    const updated = staff.map((s) =>
+      s.id === memberId
+        ? { ...s, gallery: [...(s.gallery || []), url.trim()] }
+        : s
+    );
+    onUpdateStaff(updated);
+  };
+
+  const handleRemoveGalleryImage = (memberId, idx) => {
+    const updated = staff.map((s) =>
+      s.id === memberId
+        ? { ...s, gallery: (s.gallery || []).filter((_, i) => i !== idx) }
+        : s
+    );
+    onUpdateStaff(updated);
   };
 
   // --- PURGE ---
@@ -426,6 +532,55 @@ const MaisonDeAsiaAdmin = ({
                 maxLength={500}
               />
 
+              {/* Galerie images */}
+              <div className="mt-3 bg-stone-50 p-3 rounded-lg border border-stone-200">
+                <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2 flex items-center gap-1">
+                  <Images size={12} /> Galerie photos ({newStaffGallery.length})
+                </div>
+                {newStaffGallery.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {newStaffGallery.map((img, i) => (
+                      <div key={i} className="relative group/img">
+                        <img src={img} alt="" className="w-14 h-14 rounded-lg object-cover border border-stone-200" />
+                        <button
+                          onClick={() => setNewStaffGallery(newStaffGallery.filter((_, idx) => idx !== i))}
+                          className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                        >
+                          <X size={8} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 p-2 border rounded text-xs bg-white outline-none focus:border-fuchsia-500"
+                    placeholder="URL de l'image..."
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newImageUrl.trim()) {
+                        setNewStaffGallery([...newStaffGallery, newImageUrl.trim()]);
+                        setNewImageUrl("");
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newImageUrl.trim()) {
+                        setNewStaffGallery([...newStaffGallery, newImageUrl.trim()]);
+                        setNewImageUrl("");
+                      }
+                    }}
+                    disabled={!newImageUrl.trim()}
+                    className="px-3 py-1.5 bg-fuchsia-800 text-white rounded text-[10px] font-bold hover:bg-fuchsia-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <ImagePlus size={12} />
+                  </button>
+                </div>
+              </div>
+
               <button
                 onClick={handleAddStaff}
                 disabled={!selectedSlaveId || !newStaffSpecialty}
@@ -462,8 +617,8 @@ const MaisonDeAsiaAdmin = ({
                   member.sessionDuration || maisonDefaultDuration;
 
                 return (
+                  <React.Fragment key={member.id}>
                   <div
-                    key={member.id}
                     className={`bg-white p-4 rounded-xl shadow-sm border flex gap-4 items-start group relative ${
                       isEditing
                         ? "border-fuchsia-400 ring-2 ring-fuchsia-200"
@@ -591,6 +746,18 @@ const MaisonDeAsiaAdmin = ({
                     {!isEditing && (
                       <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5">
                         <button
+                          onClick={() => setGalleryMemberId(galleryMemberId === member.id ? null : member.id)}
+                          className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-fuchsia-100 hover:text-fuchsia-700 transition-colors"
+                          title="Galerie photos"
+                        >
+                          <Images size={12} />
+                          {(member.gallery || []).length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-fuchsia-600 text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                              {member.gallery.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
                           onClick={() => startEdit(member)}
                           className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-fuchsia-100 hover:text-fuchsia-700 transition-colors"
                           title="Modifier"
@@ -602,7 +769,37 @@ const MaisonDeAsiaAdmin = ({
                         />
                       </div>
                     )}
+
+                    {/* Mini galerie preview */}
+                    {(member.gallery || []).length > 0 && !isEditing && (
+                      <div className="absolute bottom-2 left-2 flex -space-x-2">
+                        {member.gallery.slice(0, 3).map((img, i) => (
+                          <img
+                            key={i}
+                            src={img}
+                            alt=""
+                            className="w-6 h-6 rounded-full object-cover border border-white shadow-sm"
+                          />
+                        ))}
+                        {member.gallery.length > 3 && (
+                          <span className="w-6 h-6 rounded-full bg-fuchsia-200 text-fuchsia-700 flex items-center justify-center text-[8px] font-bold border border-white">
+                            +{member.gallery.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Panneau galerie dépliable */}
+                  {galleryMemberId === member.id && (
+                    <GalleryPanel
+                      member={member}
+                      onAdd={(url) => { handleAddGalleryImage(member.id, url); }}
+                      onRemove={(idx) => handleRemoveGalleryImage(member.id, idx)}
+                      onClose={() => setGalleryMemberId(null)}
+                    />
+                  )}
+                </React.Fragment>
                 );
               })}
               {staff.length === 0 && (
