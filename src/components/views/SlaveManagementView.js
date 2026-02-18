@@ -79,6 +79,17 @@ const SlaveManagementView = ({
     return false;
   };
 
+  // Toggle dédié pour le grade : explicitement true ou false (jamais undefined)
+  const toggleGradePermission = (slave) => {
+    const currentGrade = slave.permissions?.grade;
+    const newGrade = currentGrade === false ? true : false;
+    const newPermissions = { ...(slave.permissions || {}), grade: newGrade };
+    onUpdateCitizen({ ...slave, permissions: newPermissions });
+    if (selectedSlave && selectedSlave.id === slave.id) {
+      setSelectedSlave({ ...slave, permissions: newPermissions });
+    }
+  };
+
   // Fonction pour basculer une permission
   const togglePermission = (slave, permission) => {
     const currentPermissions = slave.permissions || {};
@@ -462,6 +473,45 @@ const SlaveManagementView = ({
                       <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
                     </label>
                   </div>
+
+                  {/* Toggle grade admin — visible uniquement si l'esclave a un grade administratif */}
+                  {selectedSlave.role &&
+                    selectedSlave.role !== "CITOYEN" &&
+                    ROLES[selectedSlave.role]?.level >= 20 && (
+                      <div className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-100 rounded text-blue-700">
+                            <Shield size={16} />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold uppercase text-blue-800">
+                              Utilisation du Grade Admin
+                            </div>
+                            <div className="text-[9px] text-blue-500 italic">
+                              {ROLES[selectedSlave.role]?.label}
+                            </div>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={selectedSlave.permissions?.grade !== false}
+                            onChange={() => {
+                              if (!canManage(selectedSlave)) {
+                                notify(
+                                  "Action interdite: hors juridiction.",
+                                  "error"
+                                );
+                                return;
+                              }
+                              toggleGradePermission(selectedSlave);
+                            }}
+                          />
+                          <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    )}
                 </div>
               </Card>
 

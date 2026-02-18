@@ -129,7 +129,8 @@ export default function App() {
 
   const isIncapacitated = isRestricted;
   const isActuallyGraded = roleInfo.level >= 20;
-  const canAccessAdmin = isActuallyGraded && !isIncapacitated;
+  const slaveGradeBlocked = isSlave && currentUser?.permissions?.grade === false;
+  const canAccessAdmin = isActuallyGraded && !isIncapacitated && !slaveGradeBlocked;
   const shouldShowCitizenView = !canAccessAdmin || isViewingAsCitizen;
 
   const availableTabs = useMemo(() => {
