@@ -259,6 +259,7 @@ export default function App() {
             onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
             onHiddenTransfer={actions.onHiddenTransfer}
             onDismissSlaveAlert={actions.onDismissSlaveAlert}
+            onRestoreHiddenTransfer={actions.onRestoreHiddenTransfer}
             maisonQueue={state.maisonQueue || []}
             maisonHistory={state.maisonHistory || []}
             maisonReviews={state.maisonReviews || []}

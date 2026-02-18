@@ -11,8 +11,10 @@ import {
   Eye,
   AlertTriangle,
   X,
+  RotateCcw,
 } from "lucide-react";
 import Card from "../ui/Card";
+import { ROLES } from "../../lib/constants";
 
 const SlaveManagementView = ({
   slaves,
@@ -20,6 +22,7 @@ const SlaveManagementView = ({
   onConfiscateSlaveMoney,
   onSelfManumit,
   onDismissSlaveAlert,
+  onRestoreHiddenTransfer,
   notify,
   catalog,
   session,
@@ -169,6 +172,23 @@ const SlaveManagementView = ({
                     : ""}
                 </span>
               </div>
+              {onRestoreHiddenTransfer && (
+                <button
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Restituer ${alert.amount} Écus de ${alert.slaveName} vers votre compte ?`
+                      )
+                    ) {
+                      onRestoreHiddenTransfer(alert.id, alert.slaveId, alert.amount);
+                    }
+                  }}
+                  className="px-2 py-1 text-[9px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 flex items-center gap-1 whitespace-nowrap"
+                  title="Restituer le montant découvert"
+                >
+                  <RotateCcw size={11} /> Restituer
+                </button>
+              )}
               {onDismissSlaveAlert && (
                 <button
                   onClick={() => onDismissSlaveAlert(alert.id)}
@@ -259,12 +279,17 @@ const SlaveManagementView = ({
                   <h2 className="text-2xl font-black uppercase font-serif text-stone-900">
                     {selectedSlave.name}
                   </h2>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="bg-red-900 text-white text-[9px] px-2 py-0.5 rounded uppercase tracking-widest font-bold">
                       Esclave
                     </span>
+                    {selectedSlave.role && selectedSlave.role !== "CITOYEN" && ROLES[selectedSlave.role] && (
+                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-300 text-[9px] px-2 py-0.5 rounded uppercase tracking-widest font-bold">
+                        <Shield size={10} /> Grade : {ROLES[selectedSlave.role].label}
+                      </span>
+                    )}
                     {selectedSlave.isForSale && (
-                      <span className="ml-3 inline-block bg-yellow-100 text-yellow-800 text-[10px] px-2 py-0.5 rounded font-bold">
+                      <span className="inline-block bg-yellow-100 text-yellow-800 text-[10px] px-2 py-0.5 rounded font-bold">
                         En vente: {selectedSlave.salePrice}¢
                       </span>
                     )}

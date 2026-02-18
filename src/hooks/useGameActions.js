@@ -1060,6 +1060,43 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: newCitizens });
       },
 
+      // --- RESTITUTION D'UN TRANSFERT CACHÉ DÉCOUVERT ---
+      onRestoreHiddenTransfer: (alertId, slaveId, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0 || !slaveId) return;
+
+        const newCitizens = [...state.citizens];
+        const masterIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        if (masterIdx === -1 || slaveIdx === -1) return;
+
+        const slave = newCitizens[slaveIdx];
+        const master = newCitizens[masterIdx];
+
+        const available = slave.hiddenBalance || 0;
+        const toRestore = Math.min(amt, available);
+
+        // Prélever sur le compte caché de l'esclave
+        newCitizens[slaveIdx] = {
+          ...slave,
+          hiddenBalance: available - toRestore,
+        };
+
+        // Créditer le maître
+        newCitizens[masterIdx] = {
+          ...master,
+          balance: (master.balance || 0) + toRestore,
+          slaveAlerts: (master.slaveAlerts || []).filter((a) => a.id !== alertId),
+        };
+
+        saveState({ ...state, citizens: newCitizens });
+        notify(
+          `${toRestore} Écus restitués depuis le compte caché de ${slave.name}.`,
+          "success"
+        );
+      },
+
       onSelfManumit: () => {
         if (!session) return;
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);

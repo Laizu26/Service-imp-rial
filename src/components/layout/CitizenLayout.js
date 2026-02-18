@@ -91,6 +91,7 @@ const CitizenLayout = (props) => {
     onWithdrawHiddenMoney,
     onHiddenTransfer,
     onDismissSlaveAlert,
+    onRestoreHiddenTransfer,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -159,9 +160,9 @@ const CitizenLayout = (props) => {
 
   const permissions = user?.permissions || {};
 
-  const canUsePost = !isSlave || permissions.post || isGraded;
-  const canUseBank = !isSlave || permissions.bank || isGraded;
-  const canUseTravel = !isSlave || permissions.travel || isGraded;
+  const canUsePost = !isSlave || !!permissions.post;
+  const canUseBank = !isSlave || !!permissions.bank;
+  const canUseTravel = !isSlave || !!permissions.travel;
 
   // Sécurité sur users
   const safeUsers = Array.isArray(users) ? users : [];
@@ -679,6 +680,7 @@ const CitizenLayout = (props) => {
                 onBuySlave={onBuySlave}
                 onSelfManumit={onSelfManumit}
                 onDismissSlaveAlert={onDismissSlaveAlert}
+                onRestoreHiddenTransfer={onRestoreHiddenTransfer}
                 notify={notify}
                 catalog={catalog}
                 session={user}
