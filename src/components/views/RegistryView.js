@@ -216,7 +216,7 @@ const RegistryView = ({
                 </div>
               </div>
               <div className="flex gap-3 font-sans">
-                {canDelete && (
+                {canDelete && !(session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId)) && (
                   <SecureDeleteButton
                     onClick={() => {
                       onDelete(editForm || selected);
@@ -225,6 +225,11 @@ const RegistryView = ({
                     }}
                     className="font-sans"
                   />
+                )}
+                {session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId) && (
+                  <div className="flex items-center gap-2 text-red-600 text-[10px] font-black uppercase tracking-widest bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
+                    <Lock size={14} /> {selected.id === session.id ? "Votre dossier" : "Dossier de votre maître"} — Modification interdite
+                  </div>
                 )}
                 {editForm ? (
                   <button
@@ -237,7 +242,8 @@ const RegistryView = ({
                     Archiver
                   </button>
                 ) : (
-                  roleInfo.level >= 30 && (
+                  roleInfo.level >= 30 &&
+                  !(session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId)) && (
                     <button
                       onClick={() => setEditForm({ ...selected })}
                       className="bg-white border-2 border-stone-300 px-8 py-3 rounded-xl text-[11px] font-black uppercase flex items-center gap-3 shadow-md hover:bg-stone-50 transition-all active:scale-95 tracking-widest font-sans"
