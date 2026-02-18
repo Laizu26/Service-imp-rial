@@ -159,9 +159,9 @@ const CitizenLayout = (props) => {
 
   const permissions = user?.permissions || {};
 
-  const canUsePost = !isSlave || permissions.post;
-  const canUseBank = !isSlave || permissions.bank;
-  const canUseTravel = !isSlave || permissions.travel;
+  const canUsePost = !isSlave || permissions.post || isGraded;
+  const canUseBank = !isSlave || permissions.bank || isGraded;
+  const canUseTravel = !isSlave || permissions.travel || isGraded;
 
   // Sécurité sur users
   const safeUsers = Array.isArray(users) ? users : [];
