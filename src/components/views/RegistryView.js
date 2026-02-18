@@ -69,10 +69,10 @@ const RegistryView = ({
   );
 
   return (
-    <div className="flex flex-col md:flex-row h-full gap-6 font-sans">
-      {/* --- SIDEBAR LIST (Inchangé) --- */}
+    <div className="flex flex-col md:flex-row h-full gap-6 font-sans min-h-0">
+      {/* --- SIDEBAR LIST --- */}
       <div
-        className={`w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md font-sans ${
+        className={`w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md font-sans min-h-0 ${
           selectedId || editForm ? "hidden md:flex" : "flex"
         }`}
       >
@@ -163,7 +163,7 @@ const RegistryView = ({
 
       {/* --- MAIN CONTENT --- */}
       <div
-        className={`flex-1 bg-[#fdf6e3] rounded-xl border border-stone-300 p-6 md:p-10 overflow-auto relative shadow-2xl font-sans ${
+        className={`flex-1 min-h-0 bg-[#fdf6e3] rounded-xl border border-stone-300 p-6 md:p-10 overflow-y-auto relative shadow-2xl font-sans ${
           selectedId || editForm ? "flex flex-col" : "hidden md:flex flex-col"
         }`}
       >

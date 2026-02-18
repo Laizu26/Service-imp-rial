@@ -456,8 +456,8 @@ export default function App() {
                 </div>
               </header>
 
-              <main className="flex-1 p-4 md:p-8 overflow-y-auto relative z-10 scrollbar-thin scrollbar-thumb-stone-400 scrollbar-track-stone-200">
-                <div className="max-w-[1600px] mx-auto w-full pb-10">
+              <main className="flex-1 p-4 md:p-8 overflow-hidden relative z-10">
+                <div className="max-w-[1600px] mx-auto w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-stone-400 scrollbar-track-stone-200 pb-10">
                   {activeTab === "dashboard" &&
                     (roleInfo.level >= 90 || roleInfo.scope === "LOCAL") && (
                       <DashboardView
