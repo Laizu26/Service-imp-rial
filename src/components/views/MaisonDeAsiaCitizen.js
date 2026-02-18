@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import {
   Gem, Heart, LogOut, Star, Clock, Users, X, History,
@@ -26,10 +26,12 @@ const MaisonDeAsiaCitizen = ({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [, setTick] = useState(0);
+  const onBookRef = useRef(onBook);
+  onBookRef.current = onBook;
 
-  // Re-render toutes les 30s pour le timer
+  // Re-render toutes les 10s pour le timer
   useEffect(() => {
-    const interval = setInterval(() => setTick((t) => t + 1), 30000);
+    const interval = setInterval(() => setTick((t) => t + 1), 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -38,6 +40,7 @@ const MaisonDeAsiaCitizen = ({
   const myQueueEntry = maisonQueue.find((q) => q.citizenId === user?.id);
 
   const getTimeRemaining = (booking, worker) => {
+    if (!booking.startTime) return null;
     const dur = booking.duration || worker?.sessionDuration || maisonDefaultDuration;
     const end = booking.startTime + dur * 60000;
     const rem = end - Date.now();
@@ -50,7 +53,17 @@ const MaisonDeAsiaCitizen = ({
 
   const isSessionExpired = myBooking && !getTimeRemaining(myBooking, myWorker);
 
+  // Auto-fin de session quand le timer expire
+  useEffect(() => {
+    if (!isSessionExpired) return;
+    const timeout = setTimeout(() => {
+      onBookRef.current(null);
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [isSessionExpired]);
+
   const getProgress = (booking, worker) => {
+    if (!booking.startTime) return 100;
     const dur = booking.duration || worker?.sessionDuration || maisonDefaultDuration;
     const elapsed = Date.now() - booking.startTime;
     return Math.min(100, (elapsed / (dur * 60000)) * 100);
@@ -340,10 +353,10 @@ const MaisonDeAsiaCitizen = ({
             {/* Timer */}
             <div className="mb-6">
               {isSessionExpired ? (
-                <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
+                <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 animate-pulse">
                   <Timer size={24} className="mx-auto mb-2 text-red-400" />
                   <div className="text-red-300 font-black uppercase tracking-widest text-sm">Séance Terminée</div>
-                  <p className="text-red-400/70 text-xs mt-1">Prenez congé pour libérer la place.</p>
+                  <p className="text-red-400/70 text-xs mt-1">Départ automatique dans quelques instants...</p>
                 </div>
               ) : (
                 <div className="bg-fuchsia-900/20 border border-fuchsia-700/30 rounded-lg p-4">

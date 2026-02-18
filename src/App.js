@@ -622,6 +622,7 @@ export default function App() {
                       onSetMaisonCompany={actions.onSetMaisonCompany}
                       onDeleteReview={actions.onDeleteMaisonReview}
                       onSetDefaultDuration={actions.onSetMaisonDefaultDuration}
+                      onEvictMaison={actions.onEvictMaison}
                     />
                   )}
                 </div>

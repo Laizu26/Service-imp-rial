@@ -129,6 +129,7 @@ const MaisonDeAsiaAdmin = ({
   onSetMaisonCompany,
   onDeleteReview,
   onSetDefaultDuration,
+  onEvictMaison,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -336,10 +337,14 @@ const MaisonDeAsiaAdmin = ({
     }
   };
 
-  // --- EVICTION ---
+  // --- EVICTION (crée l'historique + gère la queue) ---
   const handleEvict = (citizenId) => {
-    const newRegistry = houseRegistry.filter((r) => r.citizenId !== citizenId);
-    onUpdateRegistry(newRegistry);
+    if (onEvictMaison) {
+      onEvictMaison(citizenId);
+    } else {
+      const newRegistry = houseRegistry.filter((r) => r.citizenId !== citizenId);
+      onUpdateRegistry(newRegistry);
+    }
   };
 
   // --- DURÉE PAR DEFAUT ---

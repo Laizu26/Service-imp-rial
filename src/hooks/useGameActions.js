@@ -1438,6 +1438,112 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
         notify("Réservé.", "success");
       },
+      onEvictMaison: (citizenId) => {
+        const registry = state.maisonRegistry || [];
+        const queue = state.maisonQueue || [];
+        const history = state.maisonHistory || [];
+        const defaultDur = state.maisonDefaultDuration || 60;
+        const booking = registry.find((r) => r.citizenId === citizenId);
+        if (!booking) return;
+        const worker = (state.maisonStaff || []).find((s) => s.id === booking.staffId);
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+
+        const historyEntry = {
+          id: Date.now(),
+          citizenId,
+          citizenName: citizen?.name || "Inconnu",
+          staffId: booking.staffId,
+          staffName: worker?.name || "Inconnue",
+          startTime: booking.startTime,
+          endTime: Date.now(),
+          duration: booking.duration || worker?.sessionDuration || defaultDur,
+          pricePaid: booking.pricePaid || worker?.price || 0,
+          reviewed: false,
+        };
+
+        let newRegistry = registry.filter((r) => r.citizenId !== citizenId);
+        let newQueue = [...queue];
+        let newCitizens = [...state.citizens];
+        let newCompanies = [...(state.companies || [])];
+        let newLedger = [...(state.globalLedger || [])];
+        let newTreasury = state.treasury || 0;
+
+        if (worker) {
+          const staffQueue = newQueue
+            .filter((q) => q.staffId === booking.staffId)
+            .sort((a, b) => a.joinedAt - b.joinedAt);
+
+          if (staffQueue.length > 0) {
+            const next = staffQueue[0];
+            const nextIdx = newCitizens.findIndex((c) => c.id === next.citizenId);
+
+            if (nextIdx !== -1 && newCitizens[nextIdx].balance >= (worker.price || 0)) {
+              const price = worker.price || 0;
+              newCitizens[nextIdx] = {
+                ...newCitizens[nextIdx],
+                balance: newCitizens[nextIdx].balance - price,
+              };
+              const maisonCompId = state.maisonCompanyId;
+              const maisonCompIdx = maisonCompId
+                ? newCompanies.findIndex((c) => c.id === maisonCompId)
+                : -1;
+              const maisonCut = Math.floor(price * 0.8);
+              const treasuryCut = price - maisonCut;
+              if (maisonCompIdx !== -1) {
+                newCompanies[maisonCompIdx] = {
+                  ...newCompanies[maisonCompIdx],
+                  balance: (newCompanies[maisonCompIdx].balance || 0) + maisonCut,
+                };
+                newTreasury += treasuryCut;
+              } else {
+                newTreasury += price;
+              }
+              newRegistry.push({
+                citizenId: next.citizenId,
+                staffId: worker.id,
+                startTime: Date.now(),
+                duration: worker.sessionDuration || defaultDur,
+                pricePaid: price,
+              });
+              newLedger = [
+                {
+                  id: Date.now() + 1,
+                  fromName: newCitizens[nextIdx].name,
+                  toName: maisonCompIdx !== -1 ? newCompanies[maisonCompIdx].name + " / Trésor" : "Trésor Impérial",
+                  amount: price,
+                  timestamp: Date.now(),
+                  reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
+                  type: "MAISON",
+                },
+                ...newLedger,
+              ];
+            }
+            newQueue = newQueue.filter(
+              (q) => !(q.citizenId === next.citizenId && q.staffId === next.staffId)
+            );
+            let pos = 0;
+            newQueue = newQueue.map((q) => {
+              if (q.staffId === booking.staffId) {
+                pos++;
+                return { ...q, position: pos };
+              }
+              return q;
+            });
+          }
+        }
+
+        saveState({
+          ...state,
+          maisonRegistry: newRegistry,
+          maisonHistory: [historyEntry, ...history],
+          maisonQueue: newQueue,
+          citizens: newCitizens,
+          companies: newCompanies,
+          treasury: newTreasury,
+          globalLedger: newLedger,
+        });
+        notify("Client retiré (historique créé).", "info");
+      },
       onProposeDebt: (targetId, amount, interest, reason) => {
         if (!session) return;
         const val = parseInt(amount);
