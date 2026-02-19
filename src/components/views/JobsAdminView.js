@@ -474,32 +474,32 @@ const JobsAdminView = ({
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
                     Ajouter un bénéficiaire
                   </label>
-                  <div className="flex gap-2">
+                  <div className="relative">
                     <input
-                      className="flex-1 p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-600 text-sm font-bold"
+                      className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-600 text-sm font-bold"
                       placeholder="Filtrer par nom ou ID…"
                       value={recipientSearch}
                       onChange={(e) => setRecipientSearch(e.target.value)}
                     />
+                    {recipientSearch && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto space-y-1 border border-stone-200 rounded-xl bg-white p-2 shadow-xl">
+                        {filteredCandidates.length === 0 && (
+                          <div className="text-xs text-stone-400 italic text-center py-2">Aucun résultat.</div>
+                        )}
+                        {filteredCandidates.slice(0, 8).map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => addRecipient(c.id)}
+                            className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                          >
+                            <User size={12} className="text-stone-400 shrink-0" />
+                            <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                            <span className="text-[9px] text-stone-400 ml-auto shrink-0">{c.id}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {recipientSearch && (
-                    <div className="max-h-40 overflow-y-auto space-y-1 border border-stone-200 rounded-xl bg-white p-2 shadow-md">
-                      {filteredCandidates.length === 0 && (
-                        <div className="text-xs text-stone-400 italic text-center py-2">Aucun résultat.</div>
-                      )}
-                      {filteredCandidates.slice(0, 8).map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => addRecipient(c.id)}
-                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
-                        >
-                          <User size={12} className="text-stone-400 shrink-0" />
-                          <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
-                          <span className="text-[9px] text-stone-400 ml-auto shrink-0">{c.id}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* Simulation */}
