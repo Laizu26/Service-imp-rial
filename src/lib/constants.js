@@ -138,4 +138,5 @@ export const DEFAULT_GAME_STATE = {
   treasury: 50000,
   dayCycle: 1,
   lastUpdate: 0,
+  jobContracts: [],
 };

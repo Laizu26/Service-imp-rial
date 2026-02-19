@@ -49,6 +49,7 @@ import PostOfficeView from "./components/views/PostOfficeView";
 import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
+import JobsAdminView from "./components/views/JobsAdminView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
 export default function App() {
@@ -160,6 +161,8 @@ export default function App() {
     tabs.push({ id: "post", label: "Poste", icon: Mail });
     if (roleInfo.level >= 40)
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
+    if (roleInfo.level >= 40)
+      tabs.push({ id: "jobs_admin", label: "Emplois", icon: Briefcase });
     if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
 
@@ -606,6 +609,20 @@ export default function App() {
                       onCreateCompany={actions.onCreateCompany}
                       onDeleteCompany={actions.onDeleteCompany}
                       onEditCompany={actions.onEditCompany}
+                    />
+                  )}
+
+                  {activeTab === "jobs_admin" && (
+                    <JobsAdminView
+                      jobs={state.jobContracts || []}
+                      citizens={state.citizens || []}
+                      countries={state.countries || []}
+                      companies={state.companies || []}
+                      session={session}
+                      roleInfo={roleInfo}
+                      onSaveJobContract={actions.onSaveJobContract}
+                      onDeleteJobContract={actions.onDeleteJobContract}
+                      onToggleJobContract={actions.onToggleJobContract}
                     />
                   )}
 

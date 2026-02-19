@@ -86,6 +86,61 @@ export const useGameActions = (session, state, saveState, notify) => {
           });
         }
 
+        // --- Exécution des contrats d'emploi ---
+        (ns.jobContracts || []).forEach((job) => {
+          if (!job.active) return;
+          const shouldTrigger =
+            job.frequency === "daily" ||
+            (job.frequency === "weekly" && ns.dayCycle % 7 === 0) ||
+            (job.frequency === "monthly" && ns.gameDate.day === 1);
+          if (!shouldTrigger) return;
+
+          const totalAmount = job.amount || 0;
+          if (totalAmount <= 0) return;
+
+          // Prélèvement selon la source
+          if (job.source?.type === "COUNTRY") {
+            const idx = (ns.countries || []).findIndex((c) => c.id === job.source.id);
+            if (idx === -1 || (ns.countries[idx].treasury || 0) < totalAmount) return;
+            ns.countries[idx] = { ...ns.countries[idx], treasury: ns.countries[idx].treasury - totalAmount };
+          } else if (job.source?.type === "GLOBAL") {
+            if ((ns.treasury || 0) < totalAmount) return;
+            ns.treasury -= totalAmount;
+          } else if (job.source?.type === "CITIZEN") {
+            const idx = (ns.citizens || []).findIndex((c) => c.id === job.source.id);
+            if (idx === -1 || (ns.citizens[idx].balance || 0) < totalAmount) return;
+            ns.citizens[idx] = { ...ns.citizens[idx], balance: ns.citizens[idx].balance - totalAmount };
+          } else if (job.source?.type === "COMPANY") {
+            const idx = (ns.companies || []).findIndex((c) => c.id === job.source.id);
+            if (idx === -1 || (ns.companies[idx].balance || 0) < totalAmount) return;
+            ns.companies[idx] = { ...ns.companies[idx], balance: ns.companies[idx].balance - totalAmount };
+          } else {
+            return;
+          }
+
+          // Distribution aux bénéficiaires
+          (job.recipients || []).forEach((recipient) => {
+            const share = Math.floor(totalAmount * (recipient.percent || 0) / 100);
+            if (share <= 0) return;
+            const idx = (ns.citizens || []).findIndex((c) => c.id === recipient.id);
+            if (idx !== -1) {
+              ns.citizens[idx] = { ...ns.citizens[idx], balance: (ns.citizens[idx].balance || 0) + share };
+            }
+          });
+
+          // Ledger
+          const ledgerEntry = {
+            id: Date.now() + Math.random(),
+            fromName: job.sourceName || "Contrat",
+            toName: (job.recipients || []).map((r) => r.name).join(", "),
+            amount: totalAmount,
+            timestamp: Date.now(),
+            reason: job.name,
+            type: "SALARY",
+          };
+          ns.globalLedger = [ledgerEntry, ...(ns.globalLedger || [])];
+        });
+
         saveState(ns);
         notify(
           `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
@@ -114,6 +169,32 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Montant invalide.", "error");
         }
       },
+      // --- CONTRATS D'EMPLOI ---
+      onSaveJobContract: (job) => {
+        const contracts = [...(state.jobContracts || [])];
+        const idx = contracts.findIndex((j) => j.id === job.id);
+        if (idx !== -1) {
+          contracts[idx] = job;
+        } else {
+          contracts.push(job);
+        }
+        saveState({ ...state, jobContracts: contracts });
+        notify(`Contrat "${job.name}" sauvegardé.`, "success");
+      },
+
+      onDeleteJobContract: (jobId) => {
+        const contracts = (state.jobContracts || []).filter((j) => j.id !== jobId);
+        saveState({ ...state, jobContracts: contracts });
+        notify("Contrat supprimé.", "info");
+      },
+
+      onToggleJobContract: (jobId) => {
+        const contracts = (state.jobContracts || []).map((j) =>
+          j.id === jobId ? { ...j, active: !j.active } : j
+        );
+        saveState({ ...state, jobContracts: contracts });
+      },
+
       onCreateCompany: (name, type, ownerId, countryId, startingBalance) => {
         if (!name || !type || !ownerId) {
           notify("Données incomplètes.", "error");
