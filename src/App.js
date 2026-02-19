@@ -506,6 +506,8 @@ export default function App() {
                       session={session}
                       roleInfo={roleInfo}
                       onSave={actions.onUpdateCitizen}
+                      onMarry={actions.onMarry}
+                      onDivorce={actions.onDivorce}
                       onDelete={(c) => {
                         saveState({
                           ...state,

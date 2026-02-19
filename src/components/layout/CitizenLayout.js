@@ -175,6 +175,19 @@ const CitizenLayout = (props) => {
     (r) => r.citizenId === user.id && r.status === "PENDING"
   );
 
+  // Helper: résout un rôle (standard ou custom) en objet { label, level, scope }
+  const resolveRole = (citizen) => {
+    if (ROLES[citizen.role]) return ROLES[citizen.role];
+    const country = safeCountries.find((c) => c.id === citizen.countryId);
+    if (country && country.customRoles) {
+      const custom = country.customRoles.find(
+        (r) => (r.id === citizen.role || r.name === citizen.role) && r.type === "ROLE"
+      );
+      if (custom) return { label: custom.name, level: custom.level || 0, scope: "LOCAL" };
+    }
+    return ROLES.CITOYEN;
+  };
+
   // Helper: couleur de thème selon le rôle
   const getRoleTheme = (role) => {
     switch (role) {
@@ -196,7 +209,7 @@ const CitizenLayout = (props) => {
   };
 
   const theme = getRoleTheme(user.role);
-  const roleInfo = ROLES[user.role] || ROLES.CITOYEN;
+  const roleInfo = resolveRole(user);
 
   // Badges du citoyen
   const safeCompanies = Array.isArray(companies) ? companies : [];
@@ -737,6 +750,7 @@ const CitizenLayout = (props) => {
                           user.status === "Malade" ? "bg-yellow-100 text-yellow-800 border border-yellow-300" :
                           user.status === "Banni" ? "bg-stone-800 text-white" :
                           user.status === "Décédé" ? "bg-stone-900 text-stone-400" :
+                          user.status === "Diplomate" ? "bg-indigo-100 text-indigo-800 border border-indigo-300" :
                           "bg-green-100 text-green-800 border border-green-300"
                         }`}>
                           {user.status || "Actif"}
@@ -814,6 +828,14 @@ const CitizenLayout = (props) => {
                         <div className="font-bold text-red-800 flex items-center gap-1.5">
                           <Lock size={14} className="text-red-400" />
                           {owner.name}
+                        </div>
+                      </div>
+                    )}
+                    {user.spouseId && (
+                      <div>
+                        <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Conjoint(e)</span>
+                        <div className="font-bold text-pink-800 flex items-center gap-1.5">
+                          💍 {safeUsers.find((u) => u.id === user.spouseId)?.name || "Inconnu"}
                         </div>
                       </div>
                     )}
@@ -1035,10 +1057,10 @@ const CitizenLayout = (props) => {
                         if (annuaireFilter === "ESCLAVE") return c.status === "Esclave";
                         return true;
                       })
-                      .sort((a, b) => (ROLES[b.role]?.level || 0) - (ROLES[a.role]?.level || 0))
+                      .sort((a, b) => (resolveRole(b).level || 0) - (resolveRole(a).level || 0))
                       .map((c) => {
                         const cTheme = getRoleTheme(c.role);
-                        const cRole = ROLES[c.role] || ROLES.CITOYEN;
+                        const cRole = resolveRole(c);
                         return (
                           <button
                             key={c.id}
@@ -1067,6 +1089,7 @@ const CitizenLayout = (props) => {
                                 </span>
                                 <span className={`text-[8px] font-bold uppercase ${
                                   c.status === "Esclave" ? "text-red-600" :
+                                  c.status === "Diplomate" ? "text-indigo-600" :
                                   c.status === "Actif" ? "text-green-600" :
                                   "text-stone-400"
                                 }`}>

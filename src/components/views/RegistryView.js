@@ -22,17 +22,25 @@ const RegistryView = ({
   session,
   onSave,
   onDelete,
+  onMarry,
+  onDivorce,
   roleInfo,
 }) => {
   const [selectedId, setSelectedId] = useState(null);
+  const [marryTargetId, setMarryTargetId] = useState("");
   const [editForm, setEditForm] = useState(null);
   const [search, setSearch] = useState("");
   const isGlobal = roleInfo.scope === "GLOBAL";
+  const isDiplomate = session.status === "Diplomate";
+  const diplomatLocation = isDiplomate ? (session.locationCountryId || session.countryId) : null;
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
   const filtered = safeCitizens.filter(
     (c) =>
-      (isGlobal || c.countryId === session.countryId) &&
+      (isGlobal ||
+        c.countryId === session.countryId ||
+        (isDiplomate && (c.countryId === diplomatLocation || c.locationCountryId === diplomatLocation))
+      ) &&
       ((c.name || "").toLowerCase().includes(search.toLowerCase()) ||
         (c.id || "").includes(search))
   );
@@ -67,6 +75,20 @@ const RegistryView = ({
   const availableRoles = Object.entries(ROLES).filter(
     ([key, val]) => isGlobal || val.level < roleInfo.level
   );
+
+  // Résout le niveau du rôle du citoyen édité (pour restreindre le statut Diplomate)
+  const editedCitizenRoleLevel = (() => {
+    if (!editForm) return 0;
+    if (ROLES[editForm.role]) return ROLES[editForm.role].level;
+    const country = safeCountries.find((c) => c.id === editForm.countryId);
+    if (country && country.customRoles) {
+      const custom = country.customRoles.find(
+        (r) => (r.id === editForm.role || r.name === editForm.role) && r.type === "ROLE"
+      );
+      if (custom) return custom.level || 0;
+    }
+    return 0;
+  })();
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans">
@@ -453,7 +475,9 @@ const RegistryView = ({
                         }
                       >
                         <optgroup label="Standards">
-                          {BASE_STATUSES.map((s) => (
+                          {BASE_STATUSES
+                            .filter((s) => s !== "Diplomate" || editedCitizenRoleLevel >= 40)
+                            .map((s) => (
                             <option key={s} value={s}>
                               {s}
                             </option>
@@ -643,8 +667,12 @@ const RegistryView = ({
                           className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${
                             selected.status === "Décédé"
                               ? "bg-stone-800 text-white"
+                              : selected.status === "Esclave"
+                              ? "bg-red-900 text-white"
                               : selected.status === "Malade"
                               ? "bg-yellow-100 text-yellow-800"
+                              : selected.status === "Diplomate"
+                              ? "bg-indigo-100 text-indigo-800"
                               : "bg-green-100 text-green-800"
                           }`}
                         >
@@ -676,6 +704,67 @@ const RegistryView = ({
                       ? selected.bio
                       : "Aucune archive biographique disponible pour ce sujet."}
                   </div>
+                </Card>
+
+                {/* BLOC MARIAGE */}
+                <Card title="État Matrimonial" icon={User}>
+                  {selected.spouseId ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 bg-pink-50 border border-pink-200 rounded-xl p-4">
+                        <span className="text-pink-600 text-lg">💍</span>
+                        <div>
+                          <span className="text-[9px] text-stone-400 uppercase font-black tracking-widest block">Conjoint(e)</span>
+                          <span className="font-bold text-stone-800">
+                            {safeCitizens.find((c) => c.id === selected.spouseId)?.name || "Inconnu"}{" "}
+                            <span className="text-stone-400 text-xs font-mono">#{selected.spouseId}</span>
+                          </span>
+                        </div>
+                      </div>
+                      {roleInfo.level >= 40 && (
+                        <button
+                          onClick={() => onDivorce(selected.id)}
+                          className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
+                        >
+                          Prononcer le Divorce
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-stone-400 text-sm italic">Célibataire</div>
+                      {roleInfo.level >= 40 && (
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <label className="text-[9px] text-stone-400 uppercase font-black tracking-widest block mb-1">Marier avec</label>
+                            <select
+                              className="w-full p-2 border-2 border-stone-200 rounded-lg bg-white text-sm font-bold"
+                              value={marryTargetId}
+                              onChange={(e) => setMarryTargetId(e.target.value)}
+                            >
+                              <option value="">— Choisir —</option>
+                              {safeCitizens
+                                .filter((c) => c.id !== selected.id && !c.spouseId && c.status !== "Décédé")
+                                .map((c) => (
+                                  <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                                ))}
+                            </select>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (marryTargetId) {
+                                onMarry(selected.id, marryTargetId);
+                                setMarryTargetId("");
+                              }
+                            }}
+                            disabled={!marryTargetId}
+                            className="bg-pink-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pink-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            💍 Célébrer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Card>
               </div>
             )}

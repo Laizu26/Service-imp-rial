@@ -1689,6 +1689,79 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, debtRegistry: registry });
         notify("Contrat annulé.", "info");
       },
+
+      // --- MARIAGE ---
+      onMarry: (citizenId1, citizenId2) => {
+        if (!session) return;
+        const citizens = [...(state.citizens || [])];
+        const idx1 = citizens.findIndex((c) => c.id === citizenId1);
+        const idx2 = citizens.findIndex((c) => c.id === citizenId2);
+        if (idx1 === -1 || idx2 === -1) {
+          notify("Citoyen introuvable.", "error");
+          return;
+        }
+        if (citizens[idx1].spouseId || citizens[idx2].spouseId) {
+          notify("L'un des deux est déjà marié.", "error");
+          return;
+        }
+        if (citizenId1 === citizenId2) {
+          notify("Un citoyen ne peut pas s'épouser lui-même.", "error");
+          return;
+        }
+        citizens[idx1] = { ...citizens[idx1], spouseId: citizenId2 };
+        citizens[idx2] = { ...citizens[idx2], spouseId: citizenId1 };
+
+        const ledger = {
+          id: Date.now(),
+          fromName: citizens[idx1].name,
+          toName: citizens[idx2].name,
+          amount: 0,
+          timestamp: Date.now(),
+          reason: `Mariage : ${citizens[idx1].name} & ${citizens[idx2].name}`,
+          type: "MARIAGE",
+        };
+
+        saveState({
+          ...state,
+          citizens,
+          globalLedger: [ledger, ...(state.globalLedger || [])],
+        });
+        notify(`${citizens[idx1].name} et ${citizens[idx2].name} sont mariés !`, "success");
+      },
+
+      onDivorce: (citizenId) => {
+        if (!session) return;
+        const citizens = [...(state.citizens || [])];
+        const idx = citizens.findIndex((c) => c.id === citizenId);
+        if (idx === -1) return;
+        const spouseId = citizens[idx].spouseId;
+        if (!spouseId) {
+          notify("Ce citoyen n'est pas marié.", "error");
+          return;
+        }
+        const spouseIdx = citizens.findIndex((c) => c.id === spouseId);
+        citizens[idx] = { ...citizens[idx], spouseId: null };
+        if (spouseIdx !== -1) {
+          citizens[spouseIdx] = { ...citizens[spouseIdx], spouseId: null };
+        }
+
+        const ledger = {
+          id: Date.now(),
+          fromName: citizens[idx].name,
+          toName: spouseIdx !== -1 ? citizens[spouseIdx].name : "Inconnu",
+          amount: 0,
+          timestamp: Date.now(),
+          reason: `Divorce : ${citizens[idx].name}`,
+          type: "DIVORCE",
+        };
+
+        saveState({
+          ...state,
+          citizens,
+          globalLedger: [ledger, ...(state.globalLedger || [])],
+        });
+        notify("Divorce prononcé.", "info");
+      },
     };
   }, [session, state, saveState, notify]);
 };
