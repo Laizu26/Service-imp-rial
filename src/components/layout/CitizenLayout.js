@@ -26,6 +26,8 @@ import {
   Quote,
   Search,
   Eye,
+  Heart,
+  HeartOff,
 } from "lucide-react";
 
 import SettingsPanel from "../ui/SettingsPanel";
@@ -92,6 +94,10 @@ const CitizenLayout = (props) => {
     onHiddenTransfer,
     onDismissSlaveAlert,
     onRestoreHiddenTransfer,
+    onProposeMarriage,
+    onAcceptMarriage,
+    onRejectMarriage,
+    onDivorce,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -125,6 +131,7 @@ const CitizenLayout = (props) => {
 
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
+  const [marryTarget, setMarryTarget] = useState("");
 
   // Mise à jour des formulaires une fois que l'user est chargé
   useEffect(() => {
@@ -690,6 +697,38 @@ const CitizenLayout = (props) => {
 
             {active === "profil" && (
               <div className={`bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 ${theme.border} overflow-hidden`}>
+                {/* === DEMANDES EN MARIAGE REÇUES === */}
+                {(user.marriageProposals || []).length > 0 && (
+                  <div className="border-b border-rose-200 bg-rose-50 p-4 space-y-2">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-2 mb-1">
+                      <Heart size={12} /> Demandes en Mariage
+                    </div>
+                    {(user.marriageProposals || []).map((proposal) => (
+                      <div key={proposal.fromId} className="flex items-center justify-between bg-white rounded-lg border border-rose-200 p-3 shadow-sm">
+                        <div>
+                          <div className="font-bold text-sm text-stone-800">{proposal.fromName}</div>
+                          <div className="text-[10px] text-stone-400">
+                            {proposal.timestamp ? new Date(proposal.timestamp).toLocaleDateString("fr-FR") : ""}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onAcceptMarriage && onAcceptMarriage(proposal.fromId)}
+                            className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase rounded hover:bg-rose-500 flex items-center gap-1"
+                          >
+                            <Heart size={11} /> Accepter
+                          </button>
+                          <button
+                            onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
+                            className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded hover:text-red-500"
+                          >
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {/* === HEADER : Avatar + Identité + Badges === */}
                 <div className="p-6 md:p-8 border-b border-stone-300">
                   <div className="flex flex-col md:flex-row gap-6 items-start">
@@ -756,6 +795,11 @@ const CitizenLayout = (props) => {
                         {mySlaves.length > 0 && (
                           <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-stone-200 text-stone-700 border border-stone-300 flex items-center gap-1">
                             <Gavel size={10} /> {mySlaves.length} esclave{mySlaves.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                        {user.spouseId && (
+                          <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-1">
+                            <Heart size={10} /> Marié(e) à {safeUsers.find((u) => u.id === user.spouseId)?.name || "…"}
                           </span>
                         )}
                       </div>
@@ -976,6 +1020,63 @@ const CitizenLayout = (props) => {
                     </button>
                   </div>
                 </div>
+
+                {/* === VIE CIVILE : MARIAGE === */}
+                {!isSlave && (
+                  <div className="p-6 md:p-8 border-t border-stone-200 bg-rose-50/30">
+                    <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
+                      <Heart size={14} className="text-rose-400" /> Vie Civile
+                    </h3>
+                    {user.spouseId ? (
+                      <div className="flex items-center justify-between bg-white rounded-lg border border-rose-200 p-4 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <Heart size={20} className="text-rose-500" />
+                          <div>
+                            <div className="text-[9px] uppercase font-black text-stone-400 tracking-widest">Conjoint(e)</div>
+                            <div className="font-bold text-stone-800">
+                              {safeUsers.find((u) => u.id === user.spouseId)?.name || user.spouseId}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => onDivorce && onDivorce()}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded hover:text-red-500 hover:border-red-200 transition-colors"
+                        >
+                          <HeartOff size={12} /> Divorcer
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-xs text-stone-500 italic">Vous n'êtes pas marié(e). Vous pouvez soumettre une demande en mariage à un autre citoyen.</p>
+                        <div className="flex gap-2">
+                          <select
+                            className="flex-1 p-2.5 border border-stone-200 rounded text-sm bg-white font-bold text-stone-800 outline-none"
+                            value={marryTarget}
+                            onChange={(e) => setMarryTarget(e.target.value)}
+                          >
+                            <option value="">— Choisir un(e) prétendant(e) —</option>
+                            {safeUsers
+                              .filter((u) => u.id !== user.id && !u.spouseId && u.status !== "Esclave" && u.status !== "Décédé")
+                              .map((u) => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                              ))}
+                          </select>
+                          <button
+                            onClick={() => {
+                              if (!marryTarget) return;
+                              if (onProposeMarriage) onProposeMarriage(marryTarget);
+                              setMarryTarget("");
+                            }}
+                            disabled={!marryTarget}
+                            className="px-4 py-2 bg-rose-600 text-white text-[10px] font-black uppercase rounded hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+                          >
+                            <Heart size={12} /> Demander
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1037,10 +1138,23 @@ const CitizenLayout = (props) => {
                         if (annuaireFilter === "ESCLAVE") return c.status === "Esclave";
                         return true;
                       })
-                      .sort((a, b) => (ROLES[b.role]?.level || 0) - (ROLES[a.role]?.level || 0))
+                      .sort((a, b) => {
+                        const getLevel = (c) => {
+                          if (ROLES[c.role]) return ROLES[c.role].level;
+                          const cc = safeCountries.find(ct => ct.id === c.countryId);
+                          const custom = (cc?.customRoles || []).find(r => r.type === "ROLE" && (r.id === c.role || r.name === c.role));
+                          return custom?.level || 0;
+                        };
+                        return getLevel(b) - getLevel(a);
+                      })
                       .map((c) => {
                         const cTheme = getRoleTheme(c.role);
-                        const cRole = ROLES[c.role] || ROLES.CITOYEN;
+                        const cRole = (() => {
+                          if (ROLES[c.role]) return ROLES[c.role];
+                          const cc = safeCountries.find(ct => ct.id === c.countryId);
+                          const custom = (cc?.customRoles || []).find(r => r.type === "ROLE" && (r.id === c.role || r.name === c.role));
+                          return custom ? { label: custom.name, level: custom.level || 0 } : ROLES.CITOYEN;
+                        })();
                         return (
                           <button
                             key={c.id}
@@ -1070,9 +1184,10 @@ const CitizenLayout = (props) => {
                                 <span className={`text-[8px] font-bold uppercase ${
                                   c.status === "Esclave" ? "text-red-600" :
                                   c.status === "Actif" ? "text-green-600" :
+                                  c.status === "Diplomate" ? "text-blue-600" :
                                   "text-stone-400"
                                 }`}>
-                                  {c.status || "Actif"}
+                                  {c.status === "Diplomate" ? "🎖️ Diplomate" : (c.status || "Actif")}
                                 </span>
                               </div>
                             </div>

@@ -261,6 +261,10 @@ export default function App() {
             onHiddenTransfer={actions.onHiddenTransfer}
             onDismissSlaveAlert={actions.onDismissSlaveAlert}
             onRestoreHiddenTransfer={actions.onRestoreHiddenTransfer}
+            onProposeMarriage={actions.onProposeMarriage}
+            onAcceptMarriage={actions.onAcceptMarriage}
+            onRejectMarriage={actions.onRejectMarriage}
+            onDivorce={actions.onDivorce}
             maisonQueue={state.maisonQueue || []}
             maisonHistory={state.maisonHistory || []}
             maisonReviews={state.maisonReviews || []}

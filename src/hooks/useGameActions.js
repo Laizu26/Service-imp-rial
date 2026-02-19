@@ -1097,6 +1097,72 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
       },
 
+      // --- MARIAGE ---
+      onProposeMarriage: (targetId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const senderIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const targetIdx = newCitizens.findIndex((c) => c.id === targetId);
+        if (senderIdx === -1 || targetIdx === -1) return;
+        const sender = newCitizens[senderIdx];
+        const target = newCitizens[targetIdx];
+        if (sender.spouseId) { notify("Vous êtes déjà marié(e).", "error"); return; }
+        if (target.spouseId) { notify(`${target.name} est déjà marié(e).`, "error"); return; }
+        const existing = (target.marriageProposals || []).some((p) => p.fromId === session.id);
+        if (existing) { notify("Vous avez déjà fait une demande à cette personne.", "error"); return; }
+        newCitizens[targetIdx] = {
+          ...target,
+          marriageProposals: [...(target.marriageProposals || []), { fromId: session.id, fromName: sender.name, timestamp: Date.now() }],
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Demande en mariage envoyée à ${target.name}.`, "success");
+      },
+
+      onAcceptMarriage: (proposerId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const proposerIdx = newCitizens.findIndex((c) => c.id === proposerId);
+        if (userIdx === -1 || proposerIdx === -1) return;
+        const user = newCitizens[userIdx];
+        const proposer = newCitizens[proposerIdx];
+        if (user.spouseId) { notify("Vous êtes déjà marié(e).", "error"); return; }
+        if (proposer.spouseId) { notify(`${proposer.name} est déjà marié(e).`, "error"); return; }
+        newCitizens[userIdx] = { ...user, spouseId: proposerId, marriageProposals: [] };
+        newCitizens[proposerIdx] = { ...proposer, spouseId: session.id };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Vous êtes désormais uni(e) à ${proposer.name}. 💍`, "success");
+      },
+
+      onRejectMarriage: (proposerId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = newCitizens[userIdx];
+        newCitizens[userIdx] = {
+          ...user,
+          marriageProposals: (user.marriageProposals || []).filter((p) => p.fromId !== proposerId),
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Demande en mariage refusée.", "info");
+      },
+
+      onDivorce: () => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = newCitizens[userIdx];
+        if (!user.spouseId) { notify("Vous n'êtes pas marié(e).", "error"); return; }
+        if (!window.confirm("Confirmer le divorce ? Cette action est irréversible.")) return;
+        const spouseIdx = newCitizens.findIndex((c) => c.id === user.spouseId);
+        newCitizens[userIdx] = { ...user, spouseId: null };
+        if (spouseIdx !== -1) newCitizens[spouseIdx] = { ...newCitizens[spouseIdx], spouseId: null };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Divorce prononcé.", "info");
+      },
+
       onSelfManumit: () => {
         if (!session) return;
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);

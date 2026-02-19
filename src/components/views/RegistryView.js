@@ -30,9 +30,21 @@ const RegistryView = ({
   const isGlobal = roleInfo.scope === "GLOBAL";
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
+
+  // Diplomate : accès étendu aux citoyens du pays visité
+  const isDiplomat = session?.status === "Diplomate";
+  const diplomatHostCountryId =
+    isDiplomat &&
+    session?.locationCountryId &&
+    session.locationCountryId !== session.countryId
+      ? session.locationCountryId
+      : null;
+
   const filtered = safeCitizens.filter(
     (c) =>
-      (isGlobal || c.countryId === session.countryId) &&
+      (isGlobal ||
+        c.countryId === session.countryId ||
+        (diplomatHostCountryId && c.countryId === diplomatHostCountryId)) &&
       ((c.name || "").toLowerCase().includes(search.toLowerCase()) ||
         (c.id || "").includes(search))
   );
@@ -68,6 +80,20 @@ const RegistryView = ({
     ([key, val]) => isGlobal || val.level < roleInfo.level
   );
 
+  // Niveau du citoyen en cours d'édition (pour filtrer les statuts réservés)
+  const editedCitizenRoleLevel = (() => {
+    if (!editForm) return 0;
+    if (ROLES[editForm.role]) return ROLES[editForm.role].level;
+    const cc = safeCountries.find((c) => c.id === editForm.countryId);
+    const custom = (cc?.customRoles || []).find(
+      (r) => r.type === "ROLE" && (r.id === editForm.role || r.name === editForm.role)
+    );
+    return custom?.level || 0;
+  })();
+  const availableStatuses = BASE_STATUSES.filter(
+    (s) => s !== "Diplomate" || editedCitizenRoleLevel >= 40
+  );
+
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans min-h-0">
       {/* --- SIDEBAR LIST --- */}
@@ -76,6 +102,12 @@ const RegistryView = ({
           selectedId || editForm ? "hidden md:flex" : "flex"
         }`}
       >
+        {diplomatHostCountryId && (
+          <div className="px-4 py-2 bg-blue-50 border-b border-blue-200 text-[9px] font-black uppercase tracking-widest text-blue-700 flex items-center gap-2">
+            🎖️ Accès diplomatique —{" "}
+            {safeCountries.find((c) => c.id === diplomatHostCountryId)?.name || diplomatHostCountryId}
+          </div>
+        )}
         <div className="p-4 bg-stone-100 border-b flex justify-between items-center font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500 font-sans">
           <span>Registre de Population</span>
           {canCreate && (
@@ -453,7 +485,7 @@ const RegistryView = ({
                         }
                       >
                         <optgroup label="Standards">
-                          {BASE_STATUSES.map((s) => (
+                          {availableStatuses.map((s) => (
                             <option key={s} value={s}>
                               {s}
                             </option>
