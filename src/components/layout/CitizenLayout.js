@@ -894,9 +894,9 @@ const CitizenLayout = (props) => {
                       <input
                         className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
                         value={editMotto}
-                        onChange={(e) => setEditMotto(e.target.value.slice(0, 80))}
+                        onChange={(e) => setEditMotto(e.target.value.slice(0, 200))}
                         placeholder="Ma devise personnelle..."
-                        maxLength={80}
+                        maxLength={200}
                       />
                     </div>
                     <div>
