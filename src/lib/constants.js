@@ -139,4 +139,5 @@ export const DEFAULT_GAME_STATE = {
   dayCycle: 1,
   lastUpdate: 0,
   jobContracts: [],
+  gmHash: "",
 };

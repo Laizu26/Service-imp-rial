@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Shield,
   LogOut,
@@ -88,42 +88,58 @@ export default function App() {
   const [adminAccountMenuOpen, setAdminAccountMenuOpen] = useState(false);
 
   // --- Game Master ---
-  const [gmPasswordModal, setGmPasswordModal] = useState(false);
+  const [gmStep, setGmStep] = useState(null); // null | 'choice' | 'password'
+  const [gmAction, setGmAction] = useState(null); // null | 'gm' | 'boost'
   const [gmMode, setGmMode] = useState(false);
   const [gmInput, setGmInput] = useState("");
   const [gmError, setGmError] = useState("");
-  const [gmIsSetup, setGmIsSetup] = useState(() => !!localStorage.getItem("gm_hash"));
   const [gmConfirm, setGmConfirm] = useState("");
+  const [gmTempBoost, setGmTempBoost] = useState(null); // { citizenId, expiresAt } | null
+  const gmIsSetup = !!state.gmHash;
+
+  // Auto-expiry du boost exceptionnel (5 minutes)
+  useEffect(() => {
+    if (!gmTempBoost) return;
+    const remaining = gmTempBoost.expiresAt - Date.now();
+    if (remaining <= 0) { setGmTempBoost(null); return; }
+    const t = setTimeout(() => setGmTempBoost(null), remaining);
+    return () => clearTimeout(t);
+  }, [gmTempBoost]);
+
+  const triggerGmModal = useCallback(() => {
+    setGmStep("choice");
+    setGmInput("");
+    setGmConfirm("");
+    setGmError("");
+    setGmAction(null);
+  }, []);
 
   const handleGmSubmit = () => {
-    const storedHash = localStorage.getItem("gm_hash");
-    if (!gmIsSetup) {
-      // Première utilisation : création du mot de passe
-      if (gmInput.length < 4) {
-        setGmError("Le mot de passe doit faire au moins 4 caractères.");
-        return;
+    const applyAction = (currentGmAction) => {
+      if (currentGmAction === "gm") {
+        setGmMode(true);
+        notify("Accès Game Master activé.", "success");
+      } else if (currentGmAction === "boost" && session?.id) {
+        setGmTempBoost({ citizenId: session.id, expiresAt: Date.now() + 5 * 60 * 1000 });
+        // Silencieux côté joueur — pas de notify visible
       }
-      if (gmInput !== gmConfirm) {
-        setGmError("Les mots de passe ne correspondent pas.");
-        return;
-      }
-      // Stocker en base64 simple (pas un hash crypto, c'est un jeu)
-      localStorage.setItem("gm_hash", btoa(gmInput));
-      setGmIsSetup(true);
-      setGmMode(true);
-      setGmPasswordModal(false);
+      setGmStep(null);
+      setGmAction(null);
       setGmInput("");
       setGmConfirm("");
       setGmError("");
-      notify("Accès Game Master activé.", "success");
+    };
+
+    if (!gmIsSetup) {
+      if (gmInput.length < 4) { setGmError("Au moins 4 caractères."); return; }
+      if (gmInput !== gmConfirm) { setGmError("Les mots de passe ne correspondent pas."); return; }
+      // Stocker le hash dans la BDD (Firestore via saveState)
+      saveState({ ...state, gmHash: btoa(gmInput) });
+      notify("Mot de passe GM enregistré.", "success");
+      applyAction(gmAction);
     } else {
-      // Vérification
-      if (btoa(gmInput) === storedHash) {
-        setGmMode(true);
-        setGmPasswordModal(false);
-        setGmInput("");
-        setGmError("");
-        notify("Accès Game Master activé.", "success");
+      if (btoa(gmInput) === state.gmHash) {
+        applyAction(gmAction);
       } else {
         setGmError("Mot de passe incorrect.");
       }
@@ -182,6 +198,15 @@ export default function App() {
   }, [currentStatus, currentUser, state.countries]);
 
   const isIncapacitated = isRestricted;
+
+  // Boost exceptionnel GM : toutes permissions déverrouillées pendant 5 min
+  const gmBoostActive = !!(
+    gmTempBoost &&
+    session &&
+    gmTempBoost.citizenId === session.id &&
+    Date.now() < gmTempBoost.expiresAt
+  );
+
   const isActuallyGraded = roleInfo.level >= 20;
   const slaveGradeBlocked = isSlave && currentUser?.permissions?.grade === false;
   const canAccessAdmin = isActuallyGraded && !isIncapacitated && !slaveGradeBlocked;
@@ -256,8 +281,59 @@ export default function App() {
           />
         )}
 
-        {/* --- Game Master Password Modal --- */}
-        {gmPasswordModal && (
+        {/* --- Game Master : Choix d'action --- */}
+        {gmStep === "choice" && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-stone-950 border border-stone-700 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="bg-stone-900 border-b border-stone-800 p-5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-red-900/30 border border-red-800/50 flex items-center justify-center">
+                  <Shield size={18} className="text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-red-400">Accès Game Master</h2>
+                  <div className="text-[9px] text-stone-500 uppercase tracking-widest">Que souhaitez-vous faire ?</div>
+                </div>
+              </div>
+              <div className="p-5 space-y-3">
+                <button
+                  onClick={() => { setGmAction("gm"); setGmStep("password"); }}
+                  className="w-full flex items-start gap-4 p-4 bg-stone-900 border border-stone-700 hover:border-red-800/50 rounded-xl transition-all group text-left"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-red-900/20 border border-red-800/30 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-red-900/40 transition-all">
+                    <Shield size={18} className="text-red-400" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-black uppercase tracking-widest text-stone-200">Interface GM</div>
+                    <div className="text-[10px] text-stone-500 mt-0.5">Ouvrir le panneau Maître du Jeu complet</div>
+                  </div>
+                </button>
+                {session && (
+                  <button
+                    onClick={() => { setGmAction("boost"); setGmStep("password"); }}
+                    className="w-full flex items-start gap-4 p-4 bg-stone-900 border border-stone-700 hover:border-amber-800/50 rounded-xl transition-all group text-left"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-amber-900/20 border border-amber-800/30 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-amber-900/40 transition-all">
+                      <Key size={18} className="text-amber-400" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-widest text-stone-200">Droits Exceptionnels</div>
+                      <div className="text-[10px] text-stone-500 mt-0.5">Accorder un accès maximal temporaire (5 min)</div>
+                    </div>
+                  </button>
+                )}
+                <button
+                  onClick={() => setGmStep(null)}
+                  className="w-full py-2.5 bg-stone-900 text-stone-500 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-800 hover:text-stone-300 transition-all border border-stone-800"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- Game Master : Saisie du mot de passe --- */}
+        {gmStep === "password" && (
           <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="bg-stone-950 border border-stone-700 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
               <div className="bg-stone-900 border-b border-stone-800 p-5 flex items-center gap-3">
@@ -269,15 +345,12 @@ export default function App() {
                     {gmIsSetup ? "Accès Restreint" : "Initialisation"}
                   </h2>
                   <div className="text-[9px] text-stone-500 uppercase tracking-widest">
-                    {gmIsSetup ? "Entrez le mot de passe GM" : "Créez votre mot de passe GM"}
+                    {gmAction === "boost" ? "Confirmer : droits exceptionnels" : gmIsSetup ? "Entrez le mot de passe GM" : "Créez votre mot de passe GM"}
                   </div>
                 </div>
               </div>
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleGmSubmit();
-                }}
+                onSubmit={(e) => { e.preventDefault(); handleGmSubmit(); }}
                 className="p-5 space-y-4"
               >
                 <div>
@@ -295,9 +368,7 @@ export default function App() {
                 </div>
                 {!gmIsSetup && (
                   <div>
-                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">
-                      Confirmer
-                    </label>
+                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Confirmer</label>
                     <input
                       type="password"
                       value={gmConfirm}
@@ -315,16 +386,16 @@ export default function App() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setGmPasswordModal(false)}
+                    onClick={() => setGmStep("choice")}
                     className="flex-1 py-2.5 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 transition-all"
                   >
-                    Annuler
+                    Retour
                   </button>
                   <button
                     type="submit"
                     className="flex-1 py-2.5 bg-red-900/50 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-900/70 transition-all"
                   >
-                    {gmIsSetup ? "Entrer" : "Créer"}
+                    {gmIsSetup ? "Confirmer" : "Créer"}
                   </button>
                 </div>
               </form>
@@ -349,7 +420,9 @@ export default function App() {
           />
         ) : shouldShowCitizenView ? (
           <CitizenLayout
-            user={currentUser}
+            user={gmBoostActive
+              ? { ...currentUser, permissions: { bank: true, post: true, travel: true, grade: true } }
+              : currentUser}
             users={state.citizens || []}
             companies={state.companies || []}
             houseRegistry={state.maisonRegistry || []}
@@ -381,9 +454,10 @@ export default function App() {
             onGiveItem={actions.onGiveItem}
             notify={notify}
             isGraded={canAccessAdmin}
-            isBanned={isBanned}
-            isPrisoner={isPrisoner}
+            isBanned={gmBoostActive ? false : isBanned}
+            isPrisoner={gmBoostActive ? false : isPrisoner}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
+            onGmTrigger={triggerGmModal}
             settings={settings}
             isDark={isDark}
             updateSetting={updateSetting}
@@ -445,12 +519,7 @@ export default function App() {
                   />
                 </div>
                 <button
-                  onClick={() => {
-                    setGmPasswordModal(true);
-                    setGmInput("");
-                    setGmConfirm("");
-                    setGmError("");
-                  }}
+                  onClick={triggerGmModal}
                   className="mx-auto mb-4 mt-2 md:mt-0 flex items-center justify-center cursor-default hover:opacity-80 transition-opacity focus:outline-none"
                   title=""
                   tabIndex={-1}

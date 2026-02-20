@@ -111,6 +111,7 @@ const CitizenLayout = (props) => {
     isDark,
     updateSetting,
     resetSettings,
+    onGmTrigger,
   } = props;
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
@@ -306,12 +307,17 @@ const CitizenLayout = (props) => {
           >
             <Settings size={14} /> Paramètres
           </button>
-          <div className="text-center opacity-30">
+          <button
+            onClick={() => onGmTrigger && onGmTrigger()}
+            className="w-full text-center opacity-20 hover:opacity-50 transition-opacity duration-300 cursor-default focus:outline-none pt-1"
+            tabIndex={-1}
+            title=""
+          >
             <Shield className="mx-auto mb-1 text-stone-600" size={20} />
-            <div className="text-[9px] uppercase tracking-[0.2em] font-black">
+            <div className="text-[9px] uppercase tracking-[0.2em] font-black text-stone-600">
               Service Impérial
             </div>
-          </div>
+          </button>
         </div>
       </aside>
 
