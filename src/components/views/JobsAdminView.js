@@ -171,7 +171,8 @@ const JobsAdminView = ({
     return "—";
   };
 
-  const filteredCandidates = availableCitizens.filter(
+  // Les bénéficiaires peuvent être n'importe quel citoyen (tous pays confondus)
+  const filteredCandidates = citizens.filter(
     (c) =>
       c.status !== "Décédé" &&
       !(form?.recipients || []).some((r) => r.id === c.id) &&
