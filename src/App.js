@@ -332,17 +332,15 @@ export default function App() {
           </div>
         )}
 
-        {/* --- Game Master View --- */}
-        {gmMode && (
+        {/* --- Game Master View (plein écran) --- */}
+        {gmMode ? (
           <GameMasterView
             state={state}
             onUpdateState={saveState}
             notify={notify}
             onClose={() => setGmMode(false)}
           />
-        )}
-
-        {!session ? (
+        ) : !session ? (
           <LoginScreen
             onLogin={loginGame}
             users={state.citizens}
