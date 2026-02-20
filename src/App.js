@@ -34,6 +34,8 @@ import { useSettings } from "./hooks/useSettings";
 import Toast from "./components/ui/Toast";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
 import SettingsPanel from "./components/ui/SettingsPanel";
+import NotificationCenter from "./components/ui/NotificationCenter";
+import { useNotifications } from "./hooks/useNotifications";
 
 // Views
 import LoginScreen from "./components/views/LoginScreen";
@@ -105,6 +107,12 @@ export default function App() {
     }
     return ROLES.CITOYEN;
   }, [currentUser, state.countries]);
+
+  const { grouped: adminGrouped, unreadCount: adminUnreadCount, dismiss: adminDismiss, dismissAll: adminDismissAll } = useNotifications(
+    currentUser,
+    state.citizens || [],
+    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [] }
+  );
 
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
@@ -458,8 +466,24 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest px-3 py-2 md:px-5 md:py-2.5 border-2 border-stone-200 rounded-full bg-white/50 shadow-inner hidden sm:block">
-                  Liaison: {syncStatus === "saving" ? "Archivage..." : "Stable"}
+                <div className="flex items-center gap-3">
+                  <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest px-3 py-2 md:px-5 md:py-2.5 border-2 border-stone-200 rounded-full bg-white/50 shadow-inner hidden sm:block">
+                    Liaison: {syncStatus === "saving" ? "Archivage..." : "Stable"}
+                  </div>
+                  <NotificationCenter
+                    grouped={adminGrouped}
+                    unreadCount={adminUnreadCount}
+                    onNavigate={(route) => {
+                      const adminRoutes = { msg: "post", bank: "bank", gazette: "dashboard" };
+                      if (adminRoutes[route]) {
+                        setActiveTab(adminRoutes[route]);
+                      } else {
+                        setIsViewingAsCitizen(true);
+                      }
+                    }}
+                    onDismiss={adminDismiss}
+                    onDismissAll={adminDismissAll}
+                  />
                 </div>
               </header>
 

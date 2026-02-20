@@ -31,7 +31,9 @@ import {
 } from "lucide-react";
 
 import SettingsPanel from "../ui/SettingsPanel";
+import NotificationCenter from "../ui/NotificationCenter";
 import { ROLES } from "../../lib/constants";
+import { useNotifications } from "../../hooks/useNotifications";
 
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
@@ -145,6 +147,13 @@ const CitizenLayout = (props) => {
       setEditOrigin(user.origin || "");
     }
   }, [user]);
+
+  // --- CENTRE DE NOTIFICATIONS ---
+  const { grouped, unreadCount, dismiss, dismissAll } = useNotifications(
+    user,
+    users,
+    { debtRegistry: debtRegistry || [], gazette: gazette || [] }
+  );
 
   // --- 2. SÉCURITÉ CRITIQUE ---
   // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
@@ -335,6 +344,13 @@ const CitizenLayout = (props) => {
           <div className="hidden md:block"></div>
 
           <div className="flex gap-3 items-center font-sans">
+            <NotificationCenter
+              grouped={grouped}
+              unreadCount={unreadCount}
+              onNavigate={(route) => setActive(route)}
+              onDismiss={dismiss}
+              onDismissAll={dismissAll}
+            />
             <div className="relative">
               <button
                 className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg transition-all border shadow-lg ${
