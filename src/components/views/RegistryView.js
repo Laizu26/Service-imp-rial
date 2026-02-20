@@ -9,7 +9,10 @@ import {
   Lock,
   ImageIcon,
   MapPin,
-  Flag, // Importé pour l'icône pays
+  Flag,
+  Package,
+  Search,
+  Trash2,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -27,6 +30,9 @@ const RegistryView = ({
   const [selectedId, setSelectedId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [search, setSearch] = useState("");
+  const [ownerSearch, setOwnerSearch] = useState("");
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
+  const [itemSearch, setItemSearch] = useState("");
   const isGlobal = roleInfo.scope === "GLOBAL";
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
@@ -132,6 +138,8 @@ const RegistryView = ({
                   title: "",
                   religion: "",
                   origin: "",
+                  sexe: "",
+                  race: "",
                 })
               }
               className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"
@@ -473,6 +481,38 @@ const RegistryView = ({
                         }
                       />
                     </div>
+
+                    {/* Sexe */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Sexe
+                      </label>
+                      <select
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold"
+                        value={editForm.sexe || ""}
+                        onChange={(e) => setEditForm({ ...editForm, sexe: e.target.value })}
+                      >
+                        <option value="">-- Non défini --</option>
+                        <option value="Masculin">Masculin</option>
+                        <option value="Féminin">Féminin</option>
+                        <option value="Non-binaire">Non-binaire</option>
+                        <option value="Autre">Autre</option>
+                      </select>
+                    </div>
+
+                    {/* Race */}
+                    <div className="col-span-1 md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Race / Espèce
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                        value={editForm.race || ""}
+                        onChange={(e) => setEditForm({ ...editForm, race: e.target.value })}
+                        placeholder="Ex : Humain, Elfe, Nain, Orc…"
+                      />
+                    </div>
+
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Statut
@@ -523,31 +563,78 @@ const RegistryView = ({
                       />
                     </div>
 
-                    {/* Bloc Propriétaire (Pour les esclaves) */}
-                    <div className="col-span-1 md:col-span-2 space-y-1 bg-stone-50 p-3 rounded border border-stone-200">
+                    {/* Propriétaire (Pour les esclaves) — champ de recherche */}
+                    <div className="col-span-1 md:col-span-2 space-y-2 bg-stone-50 p-4 rounded-xl border border-stone-200">
                       <label className="text-[10px] font-bold text-stone-500 uppercase block tracking-widest ml-1">
                         Propriétaire (Si Esclave)
                       </label>
-                      <select
-                        className="w-full p-2 border rounded font-bold text-xs"
-                        value={editForm.ownerId || ""}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            ownerId:
-                              e.target.value === "" ? null : e.target.value,
-                          })
-                        }
-                      >
-                        <option value="">-- Aucun (Homme Libre) --</option>
-                        {safeCitizens
-                          .filter((c) => c.id !== editForm.id)
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name} ({c.id})
-                            </option>
-                          ))}
-                      </select>
+                      {editForm.ownerId ? (
+                        <div className="flex items-center gap-3 p-3 bg-white border-2 border-stone-200 rounded-xl">
+                          <User size={14} className="text-stone-400 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-black text-sm text-stone-800">
+                              {safeCitizens.find((c) => c.id === editForm.ownerId)?.name || editForm.ownerId}
+                            </div>
+                            <div className="text-[9px] font-mono text-stone-400">{editForm.ownerId}</div>
+                          </div>
+                          <button
+                            onClick={() => { setEditForm({ ...editForm, ownerId: null }); setOwnerSearch(""); }}
+                            className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3">
+                            <Search size={14} className="text-stone-400 shrink-0" />
+                            <input
+                              className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                              placeholder="Rechercher un citoyen par nom ou ID…"
+                              value={ownerSearch}
+                              onChange={(e) => { setOwnerSearch(e.target.value); setShowOwnerDropdown(true); }}
+                              onFocus={() => setShowOwnerDropdown(true)}
+                            />
+                          </div>
+                          {showOwnerDropdown && (
+                            <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                              <button
+                                onClick={() => { setEditForm({ ...editForm, ownerId: null }); setOwnerSearch(""); setShowOwnerDropdown(false); }}
+                                className="w-full text-left p-2 rounded-lg text-xs text-stone-400 italic hover:bg-stone-50"
+                              >
+                                — Aucun (Homme Libre)
+                              </button>
+                              {safeCitizens
+                                .filter((c) =>
+                                  c.id !== editForm.id &&
+                                  (!ownerSearch ||
+                                    c.name?.toLowerCase().includes(ownerSearch.toLowerCase()) ||
+                                    c.id?.includes(ownerSearch))
+                                )
+                                .slice(0, 10)
+                                .map((c) => (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => {
+                                      setEditForm({ ...editForm, ownerId: c.id });
+                                      setOwnerSearch("");
+                                      setShowOwnerDropdown(false);
+                                    }}
+                                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                                  >
+                                    {c.avatarUrl ? (
+                                      <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" />
+                                    ) : (
+                                      <User size={12} className="text-stone-400 shrink-0" />
+                                    )}
+                                    <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                    <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="col-span-1 md:col-span-2 space-y-1">
@@ -612,6 +699,90 @@ const RegistryView = ({
                           setEditForm({ ...editForm, password: e.target.value })
                         }
                       />
+                    </div>
+                  </div>
+                </Card>
+
+                {/* GESTION INVENTAIRE */}
+                <Card title="Inventaire" icon={Package}>
+                  <div className="space-y-3">
+                    {/* Liste des items actuels */}
+                    {(editForm.inventory || []).length === 0 ? (
+                      <p className="text-xs text-stone-400 italic text-center py-3">Inventaire vide.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(editForm.inventory || []).map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
+                            <Package size={14} className="text-stone-400 shrink-0" />
+                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || item}</span>
+                            <span className="text-[10px] font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+                              ×{item.quantity || 1}
+                            </span>
+                            <button
+                              onClick={() =>
+                                setEditForm({
+                                  ...editForm,
+                                  inventory: editForm.inventory.filter((_, i) => i !== idx),
+                                })
+                              }
+                              className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Ajouter un item depuis le catalogue */}
+                    <div className="border-t border-stone-200 pt-3 space-y-2">
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
+                        Ajouter depuis le catalogue
+                      </label>
+                      <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3">
+                        <Search size={14} className="text-stone-400 shrink-0" />
+                        <input
+                          className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                          placeholder="Rechercher un objet…"
+                          value={itemSearch}
+                          onChange={(e) => setItemSearch(e.target.value)}
+                        />
+                      </div>
+                      {itemSearch && (
+                        <div className="max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow p-2 space-y-1">
+                          {(catalog || [])
+                            .filter((item) => item.name?.toLowerCase().includes(itemSearch.toLowerCase()))
+                            .slice(0, 8)
+                            .map((item) => (
+                              <button
+                                key={item.id}
+                                onClick={() => {
+                                  const existing = (editForm.inventory || []).findIndex((i) => (i.id || i) === item.id);
+                                  let newInv;
+                                  if (existing !== -1) {
+                                    newInv = editForm.inventory.map((i, idx) =>
+                                      idx === existing ? { ...i, quantity: (i.quantity || 1) + 1 } : i
+                                    );
+                                  } else {
+                                    newInv = [...(editForm.inventory || []), { id: item.id, name: item.name, quantity: 1 }];
+                                  }
+                                  setEditForm({ ...editForm, inventory: newInv });
+                                  setItemSearch("");
+                                }}
+                                className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                              >
+                                <Package size={12} className="text-stone-400 shrink-0" />
+                                <span className="font-bold text-sm text-stone-800 truncate">{item.name}</span>
+                                {item.price != null && (
+                                  <span className="text-[9px] text-stone-400 ml-auto shrink-0">{item.price} Écus</span>
+                                )}
+                              </button>
+                            ))}
+                          {(catalog || []).filter((item) => item.name?.toLowerCase().includes(itemSearch.toLowerCase())).length === 0 && (
+                            <div className="text-xs text-stone-400 italic text-center py-2">Aucun objet trouvé.</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -683,6 +854,22 @@ const RegistryView = ({
                           {selected.status || "Actif"}
                         </span>
                       </div>
+                      {(selected.sexe || selected.race) && (
+                        <div className="flex gap-6 pt-1">
+                          {selected.sexe && (
+                            <div>
+                              <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">Sexe</span>
+                              <span className="text-stone-900 font-bold uppercase font-sans">{selected.sexe}</span>
+                            </div>
+                          )}
+                          {selected.race && (
+                            <div>
+                              <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">Race</span>
+                              <span className="text-stone-900 font-bold uppercase font-sans">{selected.race}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </Card>
                   <Card
@@ -709,6 +896,23 @@ const RegistryView = ({
                       : "Aucune archive biographique disponible pour ce sujet."}
                   </div>
                 </Card>
+
+                {/* Inventaire en lecture */}
+                {(selected.inventory || []).length > 0 && (
+                  <Card title="Inventaire" icon={Package}>
+                    <div className="space-y-2">
+                      {selected.inventory.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
+                          <Package size={14} className="text-stone-400 shrink-0" />
+                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || item}</span>
+                          <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
+                            ×{item.quantity || 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
               </div>
             )}
           </div>
