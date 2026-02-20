@@ -90,14 +90,14 @@ export const useNotifications = (user, users, state) => {
       });
     });
 
-    // --- Demandes en mariage ---
+    // --- Propositions d'union ---
     const proposals = user.marriageProposals || [];
     proposals.forEach((p) => {
       notifs.push({
         id: `marry_${p.fromId}`,
         type: "marriage",
-        category: "Vie Civile",
-        title: "Demande en mariage",
+        category: "Liens & Unions",
+        title: "Proposition d'union",
         description: `De ${p.fromName || "Inconnu"}`,
         timestamp: p.timestamp || Date.now(),
         route: "profil",

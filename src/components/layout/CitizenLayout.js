@@ -747,7 +747,7 @@ const CitizenLayout = (props) => {
                 {(user.marriageProposals || []).length > 0 && (
                   <div className="border-b border-rose-200 bg-rose-50 p-4 space-y-3">
                     <div className="text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-2">
-                      <Heart size={12} /> Demandes en Mariage
+                      <Heart size={12} /> Propositions d'Union
                     </div>
                     {(user.marriageProposals || []).map((proposal) => {
                       const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === proposal.contractType);
@@ -762,24 +762,24 @@ const CitizenLayout = (props) => {
                                 {proposal.timestamp ? new Date(proposal.timestamp).toLocaleDateString("fr-FR") : ""}
                               </div>
                               <div className="text-sm font-bold text-rose-600 mt-1">
-                                {ct?.emoji || "💍"} {ct?.label || "Mariage Civil"}
+                                {ct?.emoji || "💍"} {ct?.label || "Mariage Sacré"}
                               </div>
                             </div>
                             <div className="flex gap-2 shrink-0">
                               <button onClick={() => onAcceptMarriage && onAcceptMarriage(proposal.fromId)}
                                 className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-rose-500 flex items-center gap-1">
-                                <Heart size={11} /> Accepter
+                                <Heart size={11} /> Consentir
                               </button>
                               <button onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
                                 className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500">
-                                Refuser
+                                Décliner
                               </button>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-rose-100 text-xs">
                             <div>
                               <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Régime</span>
-                              <span className="font-bold text-stone-700">{reg?.label || "Communauté"}</span>
+                              <span className="font-bold text-stone-700">{reg?.label || "Biens en Commun"}</span>
                             </div>
                             <div>
                               <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Filiation</span>
@@ -1102,7 +1102,7 @@ const CitizenLayout = (props) => {
                   <div className="p-6 md:p-8 border-t border-stone-200 bg-rose-50/30 space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest flex items-center gap-2">
-                        <Heart size={14} className="text-rose-400" /> Vie Matrimoniale
+                        <Heart size={14} className="text-rose-400" /> Liens & Unions
                       </h3>
                       {userCountry && (
                         <span className="text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded-lg">
@@ -1141,16 +1141,16 @@ const CitizenLayout = (props) => {
                                   onClick={() => onDivorce && onDivorce(spouse.id)}
                                   className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors"
                                 >
-                                  <HeartOff size={12} /> Divorcer
+                                  <HeartOff size={12} /> Rompre
                                 </button>
                               </div>
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-rose-100 text-xs">
                                 <div>
-                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Régime</span>
+                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Partage</span>
                                   <span className="font-bold text-stone-700">{reg?.label || "Non défini"}</span>
                                 </div>
                                 <div>
-                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Filiation</span>
+                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Lignée</span>
                                   <span className="font-bold text-stone-700">{fil?.label || "Non défini"}</span>
                                 </div>
                                 {(spouse.dot || 0) > 0 && (
@@ -1161,7 +1161,7 @@ const CitizenLayout = (props) => {
                                 )}
                                 {spouse.clauses && (
                                   <div className="col-span-2 md:col-span-3">
-                                    <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Clauses</span>
+                                    <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Serments</span>
                                     <span className="italic text-stone-600">{spouse.clauses}</span>
                                   </div>
                                 )}
@@ -1179,18 +1179,18 @@ const CitizenLayout = (props) => {
                           onClick={() => { setShowMarryForm(true); setMarryFiliation(marriageDefaultFiliation); }}
                           className="w-full py-3 bg-rose-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-rose-500 flex items-center justify-center gap-2 transition-colors"
                         >
-                          <Heart size={14} /> Faire une demande en mariage
+                          <Heart size={14} /> Proposer une Union
                         </button>
                       ) : (
                         <div className="bg-white rounded-xl border-2 border-rose-200 p-5 space-y-5">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 flex items-center gap-2"><Heart size={12} /> Nouvelle Demande</h4>
+                            <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 flex items-center gap-2"><Heart size={12} /> Nouvelle Proposition</h4>
                             <button onClick={() => setShowMarryForm(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
                           </div>
 
                           {/* Recherche partenaire */}
                           <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Prétendant(e)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">L'Élu(e)</label>
                             {marryTargetId ? (
                               <div className="flex items-center gap-3 p-3 bg-rose-50 border-2 border-rose-300 rounded-xl">
                                 {safeUsers.find((u) => u.id === marryTargetId)?.avatarUrl ? (
@@ -1207,7 +1207,7 @@ const CitizenLayout = (props) => {
                                   <Search size={14} className="text-rose-300 shrink-0" />
                                   <input
                                     className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
-                                    placeholder="Rechercher par nom ou ID…"
+                                    placeholder="Nom ou identifiant du prétendant…"
                                     value={marrySearch}
                                     onChange={(e) => setMarrySearch(e.target.value)}
                                   />
@@ -1231,7 +1231,7 @@ const CitizenLayout = (props) => {
                                         </button>
                                       ))}
                                     {marriageCandidates.filter((u) => u.name?.toLowerCase().includes(marrySearch.toLowerCase()) || u.id?.includes(marrySearch)).length === 0 && (
-                                      <div className="text-xs text-stone-400 italic text-center py-2">Aucun résultat.</div>
+                                      <div className="text-xs text-stone-400 italic text-center py-2">Aucun sujet trouvé.</div>
                                     )}
                                   </div>
                                 )}
@@ -1256,7 +1256,7 @@ const CitizenLayout = (props) => {
 
                           {/* Régime matrimonial */}
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Régime Matrimonial</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Partage des Biens</label>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {MARRIAGE_REGIMES.map((r) => (
                                 <button key={r.id} onClick={() => setMarryRegime(r.id)}
@@ -1270,7 +1270,7 @@ const CitizenLayout = (props) => {
 
                           {/* Filiation */}
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Filiation des Enfants</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Lignée des Héritiers</label>
                             <div className="grid grid-cols-2 gap-2">
                               {FILIATION_TYPES.map((f) => (
                                 <button key={f.id} onClick={() => setMarryFiliation(f.id)}
@@ -1286,22 +1286,22 @@ const CitizenLayout = (props) => {
                           {(marryRegime === "dotal_epouse" || marryRegime === "dotal_epoux") && (
                             <div className="space-y-1">
                               <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">
-                                Montant de la Dot (Écus) — {marryRegime === "dotal_epouse" ? "versée par l'épouse" : "versée par l'époux"}
+                                Dot (en Écus) — {marryRegime === "dotal_epouse" ? "versée par la famille de l'épouse" : "versée par le prétendant"}
                               </label>
                               <input type="number" min={0}
                                 className="w-full p-3 border-2 border-rose-200 rounded-xl bg-white outline-none font-bold focus:border-rose-400"
                                 value={marryDot}
                                 onChange={(e) => setMarryDot(parseInt(e.target.value) || 0)} />
-                              <p className="text-[9px] text-rose-600 italic">La dot sera automatiquement transférée lors de l'acceptation.</p>
+                              <p className="text-[9px] text-rose-600 italic">La dot sera transférée dès que l'union sera consentie.</p>
                             </div>
                           )}
 
                           {/* Clauses personnalisées */}
                           <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Clauses Personnalisées (optionnel)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Serments & Clauses (optionnel)</label>
                             <textarea
                               className="w-full p-3 border-2 border-rose-200 rounded-xl bg-white outline-none text-sm font-bold min-h-[80px] focus:border-rose-400"
-                              placeholder="Conditions particulières, héritages, droits spéciaux, engagements mutuels..."
+                              placeholder="Terres promises, héritages, titres concédés, serments mutuels, protections magiques..."
                               value={marryClauses}
                               onChange={(e) => setMarryClauses(e.target.value)} />
                           </div>
@@ -1327,7 +1327,7 @@ const CitizenLayout = (props) => {
                               }}
                               disabled={!marryTargetId}
                               className="flex-1 py-3 bg-rose-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors">
-                              <Heart size={12} /> Envoyer la Demande
+                              <Heart size={12} /> Sceller la Proposition
                             </button>
                           </div>
                         </div>
@@ -1336,7 +1336,7 @@ const CitizenLayout = (props) => {
 
                     {!canProposeNewMarriage && currentSpouses.length > 0 && (
                       <p className="text-[10px] text-stone-400 italic text-center">
-                        La loi de {userCountry?.name || "votre pays"} ({MARRIAGE_STRUCTURES[marriageStructure]?.label}) ne permet pas de contracter une nouvelle union.
+                        Les coutumes de {userCountry?.name || "votre royaume"} ({MARRIAGE_STRUCTURES[marriageStructure]?.label}) ne permettent pas de contracter un nouveau lien.
                       </p>
                     )}
                   </div>

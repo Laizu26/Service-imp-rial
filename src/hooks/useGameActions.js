@@ -1204,14 +1204,13 @@ export const useGameActions = (session, state, saveState, notify) => {
         const targetSpouses = target.spouses || (target.spouseId ? [{ id: target.spouseId }] : []);
 
         if (structure === "monogamie") {
-          if (senderSpouses.length >= 1) { notify("Vous êtes déjà marié(e). La monogamie est en vigueur.", "error"); return; }
-          if (targetSpouses.length >= 1) { notify(`${target.name} est déjà marié(e) et la monogamie est en vigueur.`, "error"); return; }
+          if (senderSpouses.length >= 1) { notify("Vous êtes déjà lié(e) par les vœux. La coutume du Lien Unique est en vigueur.", "error"); return; }
+          if (targetSpouses.length >= 1) { notify(`${target.name} est déjà lié(e) par les vœux. La coutume du Lien Unique règne ici.`, "error"); return; }
         }
-        // polygamie / polyandrie : pas de vérification strict ici, peut être ajustée par pays
 
-        if (senderSpouses.some((s) => s.id === targetId)) { notify("Vous êtes déjà uni(e) à cette personne.", "error"); return; }
+        if (senderSpouses.some((s) => s.id === targetId)) { notify("Vos destins sont déjà liés.", "error"); return; }
         const existing = (target.marriageProposals || []).some((p) => p.fromId === session.id);
-        if (existing) { notify("Vous avez déjà fait une demande à cette personne.", "error"); return; }
+        if (existing) { notify("Vous avez déjà envoyé une proposition à cette personne.", "error"); return; }
 
         const defaultFiliation = userCountry?.laws?.marriageDefaultFiliation || "patrilineaire";
         newCitizens[targetIdx] = {
@@ -1220,7 +1219,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             fromId: session.id,
             fromName: sender.name,
             timestamp: Date.now(),
-            contractType: contractData.contractType || "civil",
+            contractType: contractData.contractType || "sacre",
             regime: contractData.regime || "communaute",
             filiation: contractData.filiation || defaultFiliation,
             clauses: contractData.clauses || "",
@@ -1228,7 +1227,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           }],
         };
         saveState({ ...state, citizens: newCitizens });
-        notify(`Demande en mariage envoyée à ${target.name}.`, "success");
+        notify(`Votre proposition d'union a été envoyée à ${target.name}.`, "success");
       },
 
       onAcceptMarriage: (proposerId) => {
@@ -1243,7 +1242,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const proposal = (user.marriageProposals || []).find((p) => p.fromId === proposerId);
         if (!proposal) return;
 
-        const contractType = proposal.contractType || "civil";
+        const contractType = proposal.contractType || "sacre";
         const regime = proposal.regime || "communaute";
         const filiation = proposal.filiation || "patrilineaire";
         const dot = proposal.dot || 0;
@@ -1253,11 +1252,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         // Transfert de dot si applicable
         if (dot > 0) {
           if (regime === "dotal_epouse") {
-            if ((user.balance || 0) < dot) { notify("Fonds insuffisants pour régler la dot.", "error"); return; }
+            if ((user.balance || 0) < dot) { notify("Le trésor est insuffisant pour honorer la dot.", "error"); return; }
             newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (user.balance || 0) - dot };
             newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (proposer.balance || 0) + dot };
           } else if (regime === "dotal_epoux") {
-            if ((proposer.balance || 0) < dot) { notify("Fonds insuffisants pour régler la dot.", "error"); return; }
+            if ((proposer.balance || 0) < dot) { notify("Le trésor du prétendant est insuffisant pour honorer la dot.", "error"); return; }
             newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (proposer.balance || 0) - dot };
             newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (user.balance || 0) + dot };
           }
@@ -1279,8 +1278,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           spouses: proposerSpouses,
         };
         saveState({ ...state, citizens: newCitizens });
-        const ctLabel = { civil: "mariage civil", religieux: "mariage religieux", union_libre: "union libre", alliance: "alliance politique", concubinat: "concubinat" }[contractType] || contractType;
-        notify(`Vous êtes désormais uni(e) à ${proposer.name} par ${ctLabel}. 💍`, "success");
+        const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
+        notify(`Par les dieux, vous êtes désormais uni(e) à ${proposer.name} par ${ctLabel}.`, "success");
       },
 
       onRejectMarriage: (proposerId) => {
@@ -1294,7 +1293,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           marriageProposals: (user.marriageProposals || []).filter((p) => p.fromId !== proposerId),
         };
         saveState({ ...state, citizens: newCitizens });
-        notify("Demande en mariage refusée.", "info");
+        notify("La proposition d'union a été déclinée.", "info");
       },
 
       onDivorce: (spouseId) => {
@@ -1304,8 +1303,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (userIdx === -1) return;
         const user = newCitizens[userIdx];
         const targetSpouseId = spouseId || user.spouseId;
-        if (!targetSpouseId) { notify("Vous n'êtes pas marié(e).", "error"); return; }
-        if (!window.confirm("Confirmer le divorce ? Cette action est irréversible.")) return;
+        if (!targetSpouseId) { notify("Vous n'êtes lié(e) à personne.", "error"); return; }
+        if (!window.confirm("Rompre cette union ? Les vœux seront brisés de manière irréversible.")) return;
         const spouseIdx = newCitizens.findIndex((c) => c.id === targetSpouseId);
         const newUserSpouses = (user.spouses || []).filter((s) => s.id !== targetSpouseId);
         newCitizens[userIdx] = { ...user, spouseId: newUserSpouses[0]?.id || null, spouses: newUserSpouses };
@@ -1315,7 +1314,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           newCitizens[spouseIdx] = { ...spouse, spouseId: newSpouseSpouses[0]?.id || null, spouses: newSpouseSpouses };
         }
         saveState({ ...state, citizens: newCitizens });
-        notify("Divorce prononcé.", "info");
+        notify("L'union a été rompue. Les vœux sont brisés.", "info");
       },
 
       onSelfManumit: () => {

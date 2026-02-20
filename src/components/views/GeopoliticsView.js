@@ -615,14 +615,14 @@ const GeopoliticsView = ({
                         {/* ── LOIS MATRIMONIALES ── */}
                         <div className="col-span-1 md:col-span-2 bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-4 mt-2">
                           <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 flex items-center gap-2">
-                            <Heart size={12} /> Lois Matrimoniales
+                            <Heart size={12} /> Coutumes d'Union
                           </h4>
 
                           {/* Structure */}
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="text-xs font-bold text-stone-700 block">Structure Matrimoniale</span>
-                              <span className="text-[9px] text-stone-400">Définit combien de conjoints sont autorisés</span>
+                              <span className="text-xs font-bold text-stone-700 block">Coutume des Liens</span>
+                              <span className="text-[9px] text-stone-400">Combien de liens sacrés un sujet peut-il contracter</span>
                             </div>
                             {canEdit ? (
                               <select
@@ -645,8 +645,8 @@ const GeopoliticsView = ({
                           {/* Filiation par défaut */}
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="text-xs font-bold text-stone-700 block">Filiation par Défaut</span>
-                              <span className="text-[9px] text-stone-400">Règle de transmission du nom aux enfants</span>
+                              <span className="text-xs font-bold text-stone-700 block">Lignée par Défaut</span>
+                              <span className="text-[9px] text-stone-400">Quel sang transmet le nom et l'héritage aux descendants</span>
                             </div>
                             {canEdit ? (
                               <select
@@ -668,8 +668,8 @@ const GeopoliticsView = ({
                           {/* Âge minimum */}
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="text-xs font-bold text-stone-700 block">Âge Minimum de Mariage</span>
-                              <span className="text-[9px] text-stone-400">Âge légal minimal pour contracter une union</span>
+                              <span className="text-xs font-bold text-stone-700 block">Âge des Noces</span>
+                              <span className="text-[9px] text-stone-400">Âge minimal pour prononcer les vœux d'union</span>
                             </div>
                             {canEdit ? (
                               <input
@@ -681,7 +681,7 @@ const GeopoliticsView = ({
                                 onChange={(e) => updateSelected({ laws: { ...selectedCountry.laws, marriageMinAge: parseInt(e.target.value) || 0 } })}
                               />
                             ) : (
-                              <span className="text-xs font-bold text-rose-700">{selectedCountry.laws.marriageMinAge ?? 16} ans</span>
+                              <span className="text-xs font-bold text-rose-700">{selectedCountry.laws.marriageMinAge ?? 16} hivers</span>
                             )}
                           </div>
                         </div>

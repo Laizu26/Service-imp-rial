@@ -150,30 +150,32 @@ export const DEFAULT_GAME_STATE = {
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────
 
 export const MARRIAGE_STRUCTURES = {
-  monogamie:  { label: "Monogamie",  emoji: "💑", description: "Un seul conjoint autorisé" },
-  polygamie:  { label: "Polygamie",  emoji: "💞", description: "Plusieurs épouses (pour les hommes)" },
-  polyandrie: { label: "Polyandrie", emoji: "💏", description: "Plusieurs époux (pour les femmes)" },
-  polyamour:  { label: "Polyamour",  emoji: "💕", description: "Plusieurs partenaires sans restriction" },
+  monogamie:  { label: "Lien Unique",       emoji: "💍", description: "Un seul époux ou épouse, selon la coutume ancienne" },
+  polygamie:  { label: "Polygamie",          emoji: "👑", description: "Un seigneur peut prendre plusieurs épouses" },
+  polyandrie: { label: "Polyandrie",         emoji: "🌙", description: "Une dame peut prendre plusieurs époux" },
+  polyamour:  { label: "Union Libre",        emoji: "🌿", description: "Plusieurs liens autorisés sans restriction de sang" },
 };
 
 export const MARRIAGE_CONTRACT_TYPES = [
-  { id: "civil",       label: "Mariage Civil",       emoji: "📜", description: "Union légale reconnue par l'État" },
-  { id: "religieux",   label: "Mariage Religieux",   emoji: "⛪", description: "Cérémonie bénie par la foi" },
-  { id: "union_libre", label: "Union Libre",          emoji: "🤝", description: "Vie commune sans obligations formelles" },
-  { id: "alliance",    label: "Alliance Politique",   emoji: "⚔️", description: "Union entre maisons ou nations" },
-  { id: "concubinat",  label: "Concubinat Officiel", emoji: "🏠", description: "Vie commune légalement reconnue" },
+  { id: "sacre",       label: "Mariage Sacré",          emoji: "⛪", description: "Union bénie par les dieux devant l'autel" },
+  { id: "feodal",      label: "Mariage Féodal",         emoji: "🏰", description: "Accord entre maisons pour sceller une alliance" },
+  { id: "serment",     label: "Serment de Sang",        emoji: "🩸", description: "Lien magique scellé par le sang des deux époux" },
+  { id: "alliance",    label: "Alliance Politique",     emoji: "⚔️", description: "Union stratégique entre royaumes ou clans" },
+  { id: "promesse",    label: "Promesse sous les Étoiles", emoji: "🌙", description: "Engagement libre sans cérémonie officielle" },
+  { id: "arcane",      label: "Pacte Arcanique",        emoji: "🔮", description: "Union magique liée par un sortilège ancien" },
 ];
 
 export const MARRIAGE_REGIMES = [
-  { id: "communaute",    label: "Communauté de Biens",    description: "Tous les biens sont mis en commun dès l'union" },
-  { id: "separation",    label: "Séparation de Biens",    description: "Chacun conserve ses propres biens" },
-  { id: "dotal_epouse",  label: "Dot de l'Épouse",        description: "L'épouse apporte une dot versée au conjoint" },
-  { id: "dotal_epoux",   label: "Dot de l'Époux",         description: "L'époux apporte une dot versée à la conjointe" },
+  { id: "communaute",    label: "Biens en Commun",          description: "Tous les avoirs sont mis en partage dès les noces" },
+  { id: "separation",    label: "Biens Séparés",            description: "Chaque époux conserve ses terres et possessions" },
+  { id: "dotal_epouse",  label: "Dot de l'Épouse",          description: "La famille de l'épouse verse une dot au seigneur" },
+  { id: "dotal_epoux",   label: "Dot de l'Époux",           description: "Le prétendant verse une dot à la famille de l'épouse" },
+  { id: "fief_conjoint", label: "Fief Conjoint",            description: "Un fief est partagé ou créé pour le couple" },
 ];
 
 export const FILIATION_TYPES = [
-  { id: "patrilineaire", label: "Patrilinéaire", description: "Les enfants portent le nom et l'héritage du père" },
-  { id: "matrilineaire", label: "Matrilinéaire", description: "Les enfants portent le nom et l'héritage de la mère" },
-  { id: "bilineaire",    label: "Bilinéaire",    description: "Double filiation reconnue des deux parents" },
-  { id: "cognatique",    label: "Cognatique",    description: "Filiation librement choisie par accord des époux" },
+  { id: "patrilineaire", label: "Patrilinéaire", description: "Le sang du père transmet le nom, le titre et l'héritage" },
+  { id: "matrilineaire", label: "Matrilinéaire", description: "Le sang de la mère transmet le nom, le titre et l'héritage" },
+  { id: "bilineaire",    label: "Bilinéaire",    description: "Les deux lignées sont reconnues à parts égales" },
+  { id: "cognatique",    label: "Au Choix",      description: "Les époux décident librement de la lignée à transmettre" },
 ];
