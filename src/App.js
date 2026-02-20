@@ -21,6 +21,7 @@ import {
   Briefcase,
   Library, // <--- 1. ICÔNE AJOUTÉE
   Settings,
+  Key,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -52,6 +53,7 @@ import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
 import JobsAdminView from "./components/views/JobsAdminView";
+import GameMasterView from "./components/views/GameMasterView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
 export default function App() {
@@ -84,6 +86,49 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
   const [adminAccountMenuOpen, setAdminAccountMenuOpen] = useState(false);
+
+  // --- Game Master ---
+  const [gmPasswordModal, setGmPasswordModal] = useState(false);
+  const [gmMode, setGmMode] = useState(false);
+  const [gmInput, setGmInput] = useState("");
+  const [gmError, setGmError] = useState("");
+  const [gmIsSetup, setGmIsSetup] = useState(() => !!localStorage.getItem("gm_hash"));
+  const [gmConfirm, setGmConfirm] = useState("");
+
+  const handleGmSubmit = () => {
+    const storedHash = localStorage.getItem("gm_hash");
+    if (!gmIsSetup) {
+      // Première utilisation : création du mot de passe
+      if (gmInput.length < 4) {
+        setGmError("Le mot de passe doit faire au moins 4 caractères.");
+        return;
+      }
+      if (gmInput !== gmConfirm) {
+        setGmError("Les mots de passe ne correspondent pas.");
+        return;
+      }
+      // Stocker en base64 simple (pas un hash crypto, c'est un jeu)
+      localStorage.setItem("gm_hash", btoa(gmInput));
+      setGmIsSetup(true);
+      setGmMode(true);
+      setGmPasswordModal(false);
+      setGmInput("");
+      setGmConfirm("");
+      setGmError("");
+      notify("Accès Game Master activé.", "success");
+    } else {
+      // Vérification
+      if (btoa(gmInput) === storedHash) {
+        setGmMode(true);
+        setGmPasswordModal(false);
+        setGmInput("");
+        setGmError("");
+        notify("Accès Game Master activé.", "success");
+      } else {
+        setGmError("Mot de passe incorrect.");
+      }
+    }
+  };
 
   const currentUser = useMemo(
     () => (state.citizens || []).find((c) => c.id === session?.id) || session,
@@ -211,6 +256,92 @@ export default function App() {
           />
         )}
 
+        {/* --- Game Master Password Modal --- */}
+        {gmPasswordModal && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-stone-950 border border-stone-700 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="bg-stone-900 border-b border-stone-800 p-5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-red-900/30 border border-red-800/50 flex items-center justify-center">
+                  <Key size={18} className="text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-red-400">
+                    {gmIsSetup ? "Accès Restreint" : "Initialisation"}
+                  </h2>
+                  <div className="text-[9px] text-stone-500 uppercase tracking-widest">
+                    {gmIsSetup ? "Entrez le mot de passe GM" : "Créez votre mot de passe GM"}
+                  </div>
+                </div>
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleGmSubmit();
+                }}
+                className="p-5 space-y-4"
+              >
+                <div>
+                  <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">
+                    {gmIsSetup ? "Mot de passe" : "Nouveau mot de passe"}
+                  </label>
+                  <input
+                    type="password"
+                    value={gmInput}
+                    onChange={(e) => { setGmInput(e.target.value); setGmError(""); }}
+                    className="w-full bg-stone-900 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 transition-colors"
+                    placeholder="••••••••"
+                    autoFocus
+                  />
+                </div>
+                {!gmIsSetup && (
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">
+                      Confirmer
+                    </label>
+                    <input
+                      type="password"
+                      value={gmConfirm}
+                      onChange={(e) => { setGmConfirm(e.target.value); setGmError(""); }}
+                      className="w-full bg-stone-900 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 transition-colors"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                )}
+                {gmError && (
+                  <div className="text-red-400 text-[10px] font-bold bg-red-900/20 border border-red-900/30 rounded-lg p-2 text-center">
+                    {gmError}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGmPasswordModal(false)}
+                    className="flex-1 py-2.5 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 transition-all"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-red-900/50 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-900/70 transition-all"
+                  >
+                    {gmIsSetup ? "Entrer" : "Créer"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* --- Game Master View --- */}
+        {gmMode && (
+          <GameMasterView
+            state={state}
+            onUpdateState={saveState}
+            notify={notify}
+            onClose={() => setGmMode(false)}
+          />
+        )}
+
         {!session ? (
           <LoginScreen
             onLogin={loginGame}
@@ -315,10 +446,22 @@ export default function App() {
                     }`}
                   />
                 </div>
-                <Shield
-                  className="mx-auto mb-4 text-yellow-600 shadow-lg mt-2 md:mt-0"
-                  size={48}
-                />
+                <button
+                  onClick={() => {
+                    setGmPasswordModal(true);
+                    setGmInput("");
+                    setGmConfirm("");
+                    setGmError("");
+                  }}
+                  className="mx-auto mb-4 mt-2 md:mt-0 flex items-center justify-center cursor-default hover:opacity-80 transition-opacity focus:outline-none"
+                  title=""
+                  tabIndex={-1}
+                >
+                  <Shield
+                    className="text-yellow-600 drop-shadow-lg"
+                    size={48}
+                  />
+                </button>
                 <h1 className="text-xl md:text-2xl font-black uppercase tracking-[0.2em] text-white font-serif">
                   Service Impérial
                 </h1>
