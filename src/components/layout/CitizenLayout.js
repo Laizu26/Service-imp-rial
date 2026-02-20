@@ -32,7 +32,7 @@ import {
 
 import SettingsPanel from "../ui/SettingsPanel";
 import NotificationCenter from "../ui/NotificationCenter";
-import { ROLES } from "../../lib/constants";
+import { ROLES, MARRIAGE_STRUCTURES, MARRIAGE_CONTRACT_TYPES, MARRIAGE_REGIMES, FILIATION_TYPES } from "../../lib/constants";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import PostView from "../views/PostView";
@@ -135,6 +135,15 @@ const CitizenLayout = (props) => {
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
   const [marryTarget, setMarryTarget] = useState("");
+  const [marrySearch, setMarrySearch] = useState("");
+  const [marryTargetId, setMarryTargetId] = useState("");
+  const [marryTargetName, setMarryTargetName] = useState("");
+  const [marryContractType, setMarryContractType] = useState("civil");
+  const [marryRegime, setMarryRegime] = useState("communaute");
+  const [marryFiliation, setMarryFiliation] = useState("patrilineaire");
+  const [marryDot, setMarryDot] = useState(0);
+  const [marryClauses, setMarryClauses] = useState("");
+  const [showMarryForm, setShowMarryForm] = useState(false);
 
   // Mise à jour des formulaires une fois que l'user est chargé
   useEffect(() => {
@@ -186,6 +195,21 @@ const CitizenLayout = (props) => {
   const mySlaves = safeUsers.filter((u) => u.ownerId === user.id);
 
   const safeCountries = Array.isArray(countries) ? countries : [];
+
+  // Dérivés mariage
+  const userCountry = safeCountries.find((c) => c.id === user?.countryId);
+  const marriageStructure = userCountry?.laws?.marriageStructure || "monogamie";
+  const marriageDefaultFiliation = userCountry?.laws?.marriageDefaultFiliation || "patrilineaire";
+  const currentSpouses = user?.spouses || (user?.spouseId ? [{ id: user.spouseId, name: safeUsers.find(u => u.id === user.spouseId)?.name || "…" }] : []);
+  const currentSpouseIds = new Set(currentSpouses.map((s) => s.id));
+  const canProposeNewMarriage = marriageStructure !== "monogamie" || currentSpouses.length === 0;
+  const marriageCandidates = safeUsers.filter((u) =>
+    u.id !== user?.id &&
+    u.status !== "Esclave" &&
+    u.status !== "Décédé" &&
+    !currentSpouseIds.has(u.id) &&
+    (marriageStructure !== "monogamie" || !(u.spouseId || (u.spouses || []).length > 0))
+  );
 
   // Sécurité sur travelRequests
   const safeRequests = Array.isArray(travelRequests) ? travelRequests : [];
@@ -721,34 +745,62 @@ const CitizenLayout = (props) => {
               <div className={`bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 ${theme.border} overflow-hidden`}>
                 {/* === DEMANDES EN MARIAGE REÇUES === */}
                 {(user.marriageProposals || []).length > 0 && (
-                  <div className="border-b border-rose-200 bg-rose-50 p-4 space-y-2">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-2 mb-1">
+                  <div className="border-b border-rose-200 bg-rose-50 p-4 space-y-3">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-2">
                       <Heart size={12} /> Demandes en Mariage
                     </div>
-                    {(user.marriageProposals || []).map((proposal) => (
-                      <div key={proposal.fromId} className="flex items-center justify-between bg-white rounded-lg border border-rose-200 p-3 shadow-sm">
-                        <div>
-                          <div className="font-bold text-sm text-stone-800">{proposal.fromName}</div>
-                          <div className="text-[10px] text-stone-400">
-                            {proposal.timestamp ? new Date(proposal.timestamp).toLocaleDateString("fr-FR") : ""}
+                    {(user.marriageProposals || []).map((proposal) => {
+                      const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === proposal.contractType);
+                      const reg = MARRIAGE_REGIMES.find((r) => r.id === proposal.regime);
+                      const fil = FILIATION_TYPES.find((f) => f.id === proposal.filiation);
+                      return (
+                        <div key={proposal.fromId} className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="font-black text-stone-800">{proposal.fromName}</div>
+                              <div className="text-[10px] text-stone-400">
+                                {proposal.timestamp ? new Date(proposal.timestamp).toLocaleDateString("fr-FR") : ""}
+                              </div>
+                              <div className="text-sm font-bold text-rose-600 mt-1">
+                                {ct?.emoji || "💍"} {ct?.label || "Mariage Civil"}
+                              </div>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button onClick={() => onAcceptMarriage && onAcceptMarriage(proposal.fromId)}
+                                className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-rose-500 flex items-center gap-1">
+                                <Heart size={11} /> Accepter
+                              </button>
+                              <button onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
+                                className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500">
+                                Refuser
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-rose-100 text-xs">
+                            <div>
+                              <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Régime</span>
+                              <span className="font-bold text-stone-700">{reg?.label || "Communauté"}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Filiation</span>
+                              <span className="font-bold text-stone-700">{fil?.label || "Patrilinéaire"}</span>
+                            </div>
+                            {(proposal.dot || 0) > 0 && (
+                              <div>
+                                <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Dot</span>
+                                <span className="font-bold text-stone-700">{(proposal.dot).toLocaleString()} Écus</span>
+                              </div>
+                            )}
+                            {proposal.clauses && (
+                              <div className="col-span-2 md:col-span-3">
+                                <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Clauses</span>
+                                <span className="italic text-stone-600">{proposal.clauses}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => onAcceptMarriage && onAcceptMarriage(proposal.fromId)}
-                            className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase rounded hover:bg-rose-500 flex items-center gap-1"
-                          >
-                            <Heart size={11} /> Accepter
-                          </button>
-                          <button
-                            onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
-                            className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded hover:text-red-500"
-                          >
-                            Refuser
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {/* === HEADER : Avatar + Identité + Badges === */}
@@ -819,11 +871,13 @@ const CitizenLayout = (props) => {
                             <Gavel size={10} /> {mySlaves.length} esclave{mySlaves.length > 1 ? "s" : ""}
                           </span>
                         )}
-                        {user.spouseId && (
-                          <span className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-1">
-                            <Heart size={10} /> Marié(e) à {safeUsers.find((u) => u.id === user.spouseId)?.name || "…"}
+                        {currentSpouses.map((spouse) => (
+                          <span key={spouse.id} className="px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-rose-100 text-rose-700 border border-rose-300 flex items-center gap-1">
+                            <Heart size={10} />
+                            {MARRIAGE_CONTRACT_TYPES.find((c) => c.id === spouse.contractType)?.emoji || "💍"}{" "}
+                            {safeUsers.find((u) => u.id === spouse.id)?.name || spouse.name || "…"}
                           </span>
-                        )}
+                        ))}
                       </div>
                       {/* Fortune rapide */}
                       <div className="flex items-center gap-4 text-sm">
@@ -1045,57 +1099,245 @@ const CitizenLayout = (props) => {
 
                 {/* === VIE CIVILE : MARIAGE === */}
                 {!isSlave && (
-                  <div className="p-6 md:p-8 border-t border-stone-200 bg-rose-50/30">
-                    <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
-                      <Heart size={14} className="text-rose-400" /> Vie Civile
-                    </h3>
-                    {user.spouseId ? (
-                      <div className="flex items-center justify-between bg-white rounded-lg border border-rose-200 p-4 shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <Heart size={20} className="text-rose-500" />
-                          <div>
-                            <div className="text-[9px] uppercase font-black text-stone-400 tracking-widest">Conjoint(e)</div>
-                            <div className="font-bold text-stone-800">
-                              {safeUsers.find((u) => u.id === user.spouseId)?.name || user.spouseId}
+                  <div className="p-6 md:p-8 border-t border-stone-200 bg-rose-50/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest flex items-center gap-2">
+                        <Heart size={14} className="text-rose-400" /> Vie Matrimoniale
+                      </h3>
+                      {userCountry && (
+                        <span className="text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200 px-2 py-1 rounded-lg">
+                          {MARRIAGE_STRUCTURES[marriageStructure]?.emoji || "💑"} {MARRIAGE_STRUCTURES[marriageStructure]?.label || marriageStructure} — {userCountry.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Époux/épouses actuels */}
+                    {currentSpouses.length > 0 && (
+                      <div className="space-y-3">
+                        {currentSpouses.map((spouse) => {
+                          const spouseUser = safeUsers.find((u) => u.id === spouse.id);
+                          const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === spouse.contractType);
+                          const reg = MARRIAGE_REGIMES.find((r) => r.id === spouse.regime);
+                          const fil = FILIATION_TYPES.find((f) => f.id === spouse.filiation);
+                          return (
+                            <div key={spouse.id} className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  {spouseUser?.avatarUrl ? (
+                                    <img src={spouseUser.avatarUrl} className="w-12 h-12 rounded-full object-cover border-2 border-rose-300" alt="" />
+                                  ) : (
+                                    <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center border-2 border-rose-200">
+                                      <Heart size={20} className="text-rose-400" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="font-black text-stone-800 text-lg">{spouseUser?.name || spouse.name || spouse.id}</div>
+                                    <div className="text-[10px] text-rose-600 font-bold flex items-center gap-1">
+                                      {ct?.emoji || "💍"} {ct?.label || "Mariage"}{spouse.date ? ` · ${new Date(spouse.date).toLocaleDateString("fr-FR")}` : ""}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => onDivorce && onDivorce(spouse.id)}
+                                  className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors"
+                                >
+                                  <HeartOff size={12} /> Divorcer
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-rose-100 text-xs">
+                                <div>
+                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Régime</span>
+                                  <span className="font-bold text-stone-700">{reg?.label || "Non défini"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Filiation</span>
+                                  <span className="font-bold text-stone-700">{fil?.label || "Non défini"}</span>
+                                </div>
+                                {(spouse.dot || 0) > 0 && (
+                                  <div>
+                                    <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Dot versée</span>
+                                    <span className="font-bold text-stone-700">{(spouse.dot).toLocaleString()} Écus</span>
+                                  </div>
+                                )}
+                                {spouse.clauses && (
+                                  <div className="col-span-2 md:col-span-3">
+                                    <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Clauses</span>
+                                    <span className="italic text-stone-600">{spouse.clauses}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Formulaire de demande */}
+                    {canProposeNewMarriage && (
+                      !showMarryForm ? (
+                        <button
+                          onClick={() => { setShowMarryForm(true); setMarryFiliation(marriageDefaultFiliation); }}
+                          className="w-full py-3 bg-rose-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-rose-500 flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <Heart size={14} /> Faire une demande en mariage
+                        </button>
+                      ) : (
+                        <div className="bg-white rounded-xl border-2 border-rose-200 p-5 space-y-5">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 flex items-center gap-2"><Heart size={12} /> Nouvelle Demande</h4>
+                            <button onClick={() => setShowMarryForm(false)} className="text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
+                          </div>
+
+                          {/* Recherche partenaire */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Prétendant(e)</label>
+                            {marryTargetId ? (
+                              <div className="flex items-center gap-3 p-3 bg-rose-50 border-2 border-rose-300 rounded-xl">
+                                {safeUsers.find((u) => u.id === marryTargetId)?.avatarUrl ? (
+                                  <img src={safeUsers.find((u) => u.id === marryTargetId).avatarUrl} className="w-8 h-8 rounded-full object-cover border-2 border-rose-200" alt="" />
+                                ) : (
+                                  <Heart size={16} className="text-rose-400 shrink-0" />
+                                )}
+                                <span className="flex-1 font-black text-stone-800">{marryTargetName}</span>
+                                <button onClick={() => { setMarryTargetId(""); setMarryTargetName(""); setMarrySearch(""); }} className="text-stone-400 hover:text-red-500">✕</button>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <div className="flex items-center gap-2 border-2 border-rose-200 rounded-xl bg-white px-3 focus-within:border-rose-400">
+                                  <Search size={14} className="text-rose-300 shrink-0" />
+                                  <input
+                                    className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                                    placeholder="Rechercher par nom ou ID…"
+                                    value={marrySearch}
+                                    onChange={(e) => setMarrySearch(e.target.value)}
+                                  />
+                                </div>
+                                {marrySearch && (
+                                  <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto border border-rose-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                                    {marriageCandidates
+                                      .filter((u) => u.name?.toLowerCase().includes(marrySearch.toLowerCase()) || u.id?.includes(marrySearch))
+                                      .slice(0, 8)
+                                      .map((u) => (
+                                        <button key={u.id}
+                                          onClick={() => { setMarryTargetId(u.id); setMarryTargetName(u.name); setMarrySearch(""); }}
+                                          className="w-full text-left p-2 rounded-lg hover:bg-rose-50 flex items-center gap-2 transition-colors">
+                                          {u.avatarUrl ? (
+                                            <img src={u.avatarUrl} className="w-7 h-7 rounded-full object-cover border border-rose-200" alt="" />
+                                          ) : (
+                                            <User size={12} className="text-stone-400 shrink-0" />
+                                          )}
+                                          <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
+                                          <span className="text-[9px] text-stone-400 ml-auto font-mono shrink-0">{u.id}</span>
+                                        </button>
+                                      ))}
+                                    {marriageCandidates.filter((u) => u.name?.toLowerCase().includes(marrySearch.toLowerCase()) || u.id?.includes(marrySearch)).length === 0 && (
+                                      <div className="text-xs text-stone-400 italic text-center py-2">Aucun résultat.</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Type de contrat */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Type d'Union</label>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {MARRIAGE_CONTRACT_TYPES.map((ct) => (
+                                <button key={ct.id} onClick={() => setMarryContractType(ct.id)}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all ${marryContractType === ct.id ? "border-rose-500 bg-rose-50" : "border-stone-200 bg-white hover:border-rose-300"}`}>
+                                  <div className="text-xl mb-1">{ct.emoji}</div>
+                                  <div className="text-[10px] font-black uppercase tracking-wide text-stone-700 leading-tight">{ct.label}</div>
+                                  <div className="text-[9px] text-stone-400 mt-0.5 leading-tight">{ct.description}</div>
+                                </button>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                        <button
-                          onClick={() => onDivorce && onDivorce()}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded hover:text-red-500 hover:border-red-200 transition-colors"
-                        >
-                          <HeartOff size={12} /> Divorcer
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-xs text-stone-500 italic">Vous n'êtes pas marié(e). Vous pouvez soumettre une demande en mariage à un autre citoyen.</p>
-                        <div className="flex gap-2">
-                          <select
-                            className="flex-1 p-2.5 border border-stone-200 rounded text-sm bg-white font-bold text-stone-800 outline-none"
-                            value={marryTarget}
-                            onChange={(e) => setMarryTarget(e.target.value)}
-                          >
-                            <option value="">— Choisir un(e) prétendant(e) —</option>
-                            {safeUsers
-                              .filter((u) => u.id !== user.id && !u.spouseId && u.status !== "Esclave" && u.status !== "Décédé")
-                              .map((u) => (
-                                <option key={u.id} value={u.id}>{u.name}</option>
+
+                          {/* Régime matrimonial */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Régime Matrimonial</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {MARRIAGE_REGIMES.map((r) => (
+                                <button key={r.id} onClick={() => setMarryRegime(r.id)}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all ${marryRegime === r.id ? "border-rose-500 bg-rose-50" : "border-stone-200 bg-white hover:border-rose-300"}`}>
+                                  <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{r.label}</div>
+                                  <div className="text-[9px] text-stone-400 mt-0.5">{r.description}</div>
+                                </button>
                               ))}
-                          </select>
-                          <button
-                            onClick={() => {
-                              if (!marryTarget) return;
-                              if (onProposeMarriage) onProposeMarriage(marryTarget);
-                              setMarryTarget("");
-                            }}
-                            disabled={!marryTarget}
-                            className="px-4 py-2 bg-rose-600 text-white text-[10px] font-black uppercase rounded hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
-                          >
-                            <Heart size={12} /> Demander
-                          </button>
+                            </div>
+                          </div>
+
+                          {/* Filiation */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Filiation des Enfants</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {FILIATION_TYPES.map((f) => (
+                                <button key={f.id} onClick={() => setMarryFiliation(f.id)}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all ${marryFiliation === f.id ? "border-rose-500 bg-rose-50" : "border-stone-200 bg-white hover:border-rose-300"}`}>
+                                  <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{f.label}</div>
+                                  <div className="text-[9px] text-stone-400 mt-0.5">{f.description}</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Dot si régime dotal */}
+                          {(marryRegime === "dotal_epouse" || marryRegime === "dotal_epoux") && (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">
+                                Montant de la Dot (Écus) — {marryRegime === "dotal_epouse" ? "versée par l'épouse" : "versée par l'époux"}
+                              </label>
+                              <input type="number" min={0}
+                                className="w-full p-3 border-2 border-rose-200 rounded-xl bg-white outline-none font-bold focus:border-rose-400"
+                                value={marryDot}
+                                onChange={(e) => setMarryDot(parseInt(e.target.value) || 0)} />
+                              <p className="text-[9px] text-rose-600 italic">La dot sera automatiquement transférée lors de l'acceptation.</p>
+                            </div>
+                          )}
+
+                          {/* Clauses personnalisées */}
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Clauses Personnalisées (optionnel)</label>
+                            <textarea
+                              className="w-full p-3 border-2 border-rose-200 rounded-xl bg-white outline-none text-sm font-bold min-h-[80px] focus:border-rose-400"
+                              placeholder="Conditions particulières, héritages, droits spéciaux, engagements mutuels..."
+                              value={marryClauses}
+                              onChange={(e) => setMarryClauses(e.target.value)} />
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-3 pt-2">
+                            <button onClick={() => setShowMarryForm(false)}
+                              className="flex-1 py-3 border-2 border-stone-200 rounded-xl text-stone-500 text-[10px] font-black uppercase hover:bg-stone-50 transition-colors">
+                              Annuler
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!marryTargetId) return;
+                                if (onProposeMarriage) onProposeMarriage(marryTargetId, {
+                                  contractType: marryContractType,
+                                  regime: marryRegime,
+                                  filiation: marryFiliation,
+                                  dot: marryDot,
+                                  clauses: marryClauses,
+                                });
+                                setMarryTargetId(""); setMarryTargetName(""); setMarrySearch("");
+                                setMarryClauses(""); setMarryDot(0); setShowMarryForm(false);
+                              }}
+                              disabled={!marryTargetId}
+                              className="flex-1 py-3 bg-rose-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors">
+                              <Heart size={12} /> Envoyer la Demande
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )
+                    )}
+
+                    {!canProposeNewMarriage && currentSpouses.length > 0 && (
+                      <p className="text-[10px] text-stone-400 italic text-center">
+                        La loi de {userCountry?.name || "votre pays"} ({MARRIAGE_STRUCTURES[marriageStructure]?.label}) ne permet pas de contracter une nouvelle union.
+                      </p>
                     )}
                   </div>
                 )}

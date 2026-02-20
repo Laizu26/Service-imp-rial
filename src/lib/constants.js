@@ -98,6 +98,11 @@ export const DEFAULT_GAME_STATE = {
         // JUSTICE & INVENTAIRE
         allowWeapons: true, // si false, possession d'armes est illégale
         mailCensorship: false, // si true, le courrier peut être censuré/consulté localement
+
+        // MARIAGE
+        marriageStructure: "monogamie", // monogamie | polygamie | polyandrie | polyamour
+        marriageDefaultFiliation: "patrilineaire", // filiation par défaut des enfants
+        marriageMinAge: 16, // âge minimum légal pour se marier
       },
       regions: [{ id: "r1", name: "Capitale", status: "Calme" }],
       customRoles: [],
@@ -141,3 +146,34 @@ export const DEFAULT_GAME_STATE = {
   jobContracts: [],
   gmHash: "",
 };
+
+// ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────
+
+export const MARRIAGE_STRUCTURES = {
+  monogamie:  { label: "Monogamie",  emoji: "💑", description: "Un seul conjoint autorisé" },
+  polygamie:  { label: "Polygamie",  emoji: "💞", description: "Plusieurs épouses (pour les hommes)" },
+  polyandrie: { label: "Polyandrie", emoji: "💏", description: "Plusieurs époux (pour les femmes)" },
+  polyamour:  { label: "Polyamour",  emoji: "💕", description: "Plusieurs partenaires sans restriction" },
+};
+
+export const MARRIAGE_CONTRACT_TYPES = [
+  { id: "civil",       label: "Mariage Civil",       emoji: "📜", description: "Union légale reconnue par l'État" },
+  { id: "religieux",   label: "Mariage Religieux",   emoji: "⛪", description: "Cérémonie bénie par la foi" },
+  { id: "union_libre", label: "Union Libre",          emoji: "🤝", description: "Vie commune sans obligations formelles" },
+  { id: "alliance",    label: "Alliance Politique",   emoji: "⚔️", description: "Union entre maisons ou nations" },
+  { id: "concubinat",  label: "Concubinat Officiel", emoji: "🏠", description: "Vie commune légalement reconnue" },
+];
+
+export const MARRIAGE_REGIMES = [
+  { id: "communaute",    label: "Communauté de Biens",    description: "Tous les biens sont mis en commun dès l'union" },
+  { id: "separation",    label: "Séparation de Biens",    description: "Chacun conserve ses propres biens" },
+  { id: "dotal_epouse",  label: "Dot de l'Épouse",        description: "L'épouse apporte une dot versée au conjoint" },
+  { id: "dotal_epoux",   label: "Dot de l'Époux",         description: "L'époux apporte une dot versée à la conjointe" },
+];
+
+export const FILIATION_TYPES = [
+  { id: "patrilineaire", label: "Patrilinéaire", description: "Les enfants portent le nom et l'héritage du père" },
+  { id: "matrilineaire", label: "Matrilinéaire", description: "Les enfants portent le nom et l'héritage de la mère" },
+  { id: "bilineaire",    label: "Bilinéaire",    description: "Double filiation reconnue des deux parents" },
+  { id: "cognatique",    label: "Cognatique",    description: "Filiation librement choisie par accord des époux" },
+];

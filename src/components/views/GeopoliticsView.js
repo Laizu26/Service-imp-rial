@@ -14,9 +14,11 @@ import {
   Globe,
   Link,
   DownloadCloud,
+  Heart,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { MARRIAGE_STRUCTURES, FILIATION_TYPES } from "../../lib/constants";
 
 const GeopoliticsView = ({
   countries,
@@ -608,6 +610,80 @@ const GeopoliticsView = ({
                               {selectedCountry.laws.entryVisaFee || 0} Écus
                             </span>
                           )}
+                        </div>
+
+                        {/* ── LOIS MATRIMONIALES ── */}
+                        <div className="col-span-1 md:col-span-2 bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-4 mt-2">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 flex items-center gap-2">
+                            <Heart size={12} /> Lois Matrimoniales
+                          </h4>
+
+                          {/* Structure */}
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="text-xs font-bold text-stone-700 block">Structure Matrimoniale</span>
+                              <span className="text-[9px] text-stone-400">Définit combien de conjoints sont autorisés</span>
+                            </div>
+                            {canEdit ? (
+                              <select
+                                className="p-2 border-2 border-rose-200 rounded-lg text-xs font-bold bg-white outline-none focus:border-rose-400"
+                                value={selectedCountry.laws.marriageStructure || "monogamie"}
+                                onChange={(e) => updateSelected({ laws: { ...selectedCountry.laws, marriageStructure: e.target.value } })}
+                              >
+                                {Object.entries(MARRIAGE_STRUCTURES).map(([k, v]) => (
+                                  <option key={k} value={k}>{v.emoji} {v.label}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-xs font-bold text-rose-700">
+                                {MARRIAGE_STRUCTURES[selectedCountry.laws.marriageStructure || "monogamie"]?.emoji}{" "}
+                                {MARRIAGE_STRUCTURES[selectedCountry.laws.marriageStructure || "monogamie"]?.label}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Filiation par défaut */}
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="text-xs font-bold text-stone-700 block">Filiation par Défaut</span>
+                              <span className="text-[9px] text-stone-400">Règle de transmission du nom aux enfants</span>
+                            </div>
+                            {canEdit ? (
+                              <select
+                                className="p-2 border-2 border-rose-200 rounded-lg text-xs font-bold bg-white outline-none focus:border-rose-400"
+                                value={selectedCountry.laws.marriageDefaultFiliation || "patrilineaire"}
+                                onChange={(e) => updateSelected({ laws: { ...selectedCountry.laws, marriageDefaultFiliation: e.target.value } })}
+                              >
+                                {FILIATION_TYPES.map((f) => (
+                                  <option key={f.id} value={f.id}>{f.label}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-xs font-bold text-rose-700">
+                                {FILIATION_TYPES.find((f) => f.id === (selectedCountry.laws.marriageDefaultFiliation || "patrilineaire"))?.label}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Âge minimum */}
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="text-xs font-bold text-stone-700 block">Âge Minimum de Mariage</span>
+                              <span className="text-[9px] text-stone-400">Âge légal minimal pour contracter une union</span>
+                            </div>
+                            {canEdit ? (
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                className="w-20 p-2 border-2 border-rose-200 rounded-lg text-xs font-bold text-center bg-white outline-none focus:border-rose-400"
+                                value={selectedCountry.laws.marriageMinAge ?? 16}
+                                onChange={(e) => updateSelected({ laws: { ...selectedCountry.laws, marriageMinAge: parseInt(e.target.value) || 0 } })}
+                              />
+                            ) : (
+                              <span className="text-xs font-bold text-rose-700">{selectedCountry.laws.marriageMinAge ?? 16} ans</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ) : (
