@@ -57,6 +57,7 @@ const JobsAdminView = ({
   const [selectedJob, setSelectedJob] = useState(null);
   const [form, setForm] = useState(null);
   const [recipientSearch, setRecipientSearch] = useState("");
+  const [recipientType, setRecipientType] = useState("CITIZEN");
 
   const isGlobal = roleInfo?.scope === "GLOBAL";
 
@@ -113,16 +114,15 @@ const JobsAdminView = ({
     setForm((f) => ({ ...f, source: { ...f.source, id }, sourceName }));
   };
 
-  const addRecipient = (citizenId) => {
-    if (!citizenId) return;
-    if (form.recipients.some((r) => r.id === citizenId)) return;
-    const citizen = citizens.find((c) => c.id === citizenId);
-    if (!citizen) return;
+  const addRecipient = (type, entityId, entityName) => {
+    const finalId = type === "GLOBAL" ? "GLOBAL" : entityId;
+    if (!finalId) return;
+    if (form.recipients.some((r) => r.id === finalId)) return;
     const existingTotal = form.recipients.reduce((s, r) => s + (r.percent || 0), 0);
     const remaining = Math.max(0, 100 - existingTotal);
     setForm((f) => ({
       ...f,
-      recipients: [...f.recipients, { id: citizenId, name: citizen.name, percent: remaining }],
+      recipients: [...f.recipients, { id: finalId, name: entityName, type, percent: remaining }],
     }));
     setRecipientSearch("");
   };
@@ -171,13 +171,28 @@ const JobsAdminView = ({
     return "—";
   };
 
-  // Les bénéficiaires peuvent être n'importe quel citoyen (tous pays confondus)
-  const filteredCandidates = citizens.filter(
-    (c) =>
-      c.status !== "Décédé" &&
-      !(form?.recipients || []).some((r) => r.id === c.id) &&
-      (c.name?.toLowerCase().includes(recipientSearch.toLowerCase()) || c.id?.includes(recipientSearch))
-  );
+  // Candidats selon le type sélectionné
+  const filteredCandidates = (() => {
+    const alreadyIn = (id) => (form?.recipients || []).some((r) => r.id === id);
+    const q = recipientSearch.toLowerCase();
+    if (recipientType === "CITIZEN") {
+      return citizens.filter(
+        (c) => c.status !== "Décédé" && !alreadyIn(c.id) &&
+          (!q || c.name?.toLowerCase().includes(q) || c.id?.includes(recipientSearch))
+      );
+    }
+    if (recipientType === "COUNTRY") {
+      return countries.filter(
+        (c) => !alreadyIn(c.id) && (!q || c.name?.toLowerCase().includes(q))
+      );
+    }
+    if (recipientType === "COMPANY") {
+      return companies.filter(
+        (c) => !alreadyIn(c.id) && (!q || c.name?.toLowerCase().includes(q))
+      );
+    }
+    return [];
+  })();
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans min-h-0">
@@ -439,12 +454,18 @@ const JobsAdminView = ({
                   <div className="space-y-2">
                     {form.recipients.map((r) => {
                       const share = Math.floor((form.amount || 0) * r.percent / 100);
+                      const type = r.type || "CITIZEN";
+                      const TypeIcon = type === "COUNTRY" ? Flag : type === "COMPANY" ? Building2 : type === "GLOBAL" ? Globe : User;
+                      const typeLabel = type === "COUNTRY" ? "Pays" : type === "COMPANY" ? "Entreprise" : type === "GLOBAL" ? "Empire" : "Citoyen";
                       return (
                         <div key={r.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
+                          <TypeIcon size={14} className="text-stone-400 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-sm text-stone-800 truncate">{r.name}</div>
-                            <div className="text-[10px] text-stone-400 font-mono">
-                              = {share.toLocaleString()} Écus / versement
+                            <div className="text-[10px] text-stone-400 font-mono flex items-center gap-2">
+                              <span className="uppercase tracking-widest">{typeLabel}</span>
+                              <span>·</span>
+                              <span>= {share.toLocaleString()} Écus / versement</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -471,36 +492,107 @@ const JobsAdminView = ({
                 )}
 
                 {/* Ajouter un bénéficiaire */}
-                <div className="border-t border-stone-200 pt-3 space-y-2">
+                <div className="border-t border-stone-200 pt-3 space-y-3">
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
                     Ajouter un bénéficiaire
                   </label>
-                  <div className="relative">
-                    <input
-                      className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-600 text-sm font-bold"
-                      placeholder="Filtrer par nom ou ID…"
-                      value={recipientSearch}
-                      onChange={(e) => setRecipientSearch(e.target.value)}
-                    />
-                    {recipientSearch && (
-                      <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto space-y-1 border border-stone-200 rounded-xl bg-white p-2 shadow-xl">
-                        {filteredCandidates.length === 0 && (
-                          <div className="text-xs text-stone-400 italic text-center py-2">Aucun résultat.</div>
-                        )}
-                        {filteredCandidates.slice(0, 8).map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => addRecipient(c.id)}
-                            className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
-                          >
-                            <User size={12} className="text-stone-400 shrink-0" />
-                            <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
-                            <span className="text-[9px] text-stone-400 ml-auto shrink-0">{c.id}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+
+                  {/* Sélecteur de type */}
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { value: "CITIZEN", label: "Citoyen", icon: User },
+                      { value: "COUNTRY", label: "Pays", icon: Flag },
+                      { value: "COMPANY", label: "Entreprise", icon: Building2 },
+                      { value: "GLOBAL", label: "Empire", icon: Globe },
+                    ].map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        onClick={() => { setRecipientType(value); setRecipientSearch(""); }}
+                        className={`p-2 rounded-lg border-2 flex flex-col items-center gap-1 transition-all text-center ${
+                          recipientType === value
+                            ? "border-stone-800 bg-stone-800 text-white"
+                            : "border-stone-200 bg-white text-stone-500 hover:border-stone-400"
+                        }`}
+                      >
+                        <Icon size={14} />
+                        <span className="text-[8px] font-black uppercase tracking-wide leading-tight">{label}</span>
+                      </button>
+                    ))}
                   </div>
+
+                  {/* Trésor Impérial : bouton direct */}
+                  {recipientType === "GLOBAL" && (
+                    <button
+                      onClick={() => addRecipient("GLOBAL", "GLOBAL", "Trésor Impérial")}
+                      disabled={(form.recipients || []).some((r) => r.id === "GLOBAL")}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-stone-200 bg-white hover:border-stone-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Globe size={16} className="text-stone-500 shrink-0" />
+                      <div className="text-left">
+                        <div className="font-bold text-sm text-stone-800">Trésor Impérial</div>
+                        <div className="text-[10px] text-stone-400">Les fonds seront versés dans le trésor central</div>
+                      </div>
+                      <Plus size={14} className="text-stone-400 ml-auto" />
+                    </button>
+                  )}
+
+                  {/* Recherche citoyen / pays / entreprise */}
+                  {recipientType !== "GLOBAL" && (
+                    <div className="relative">
+                      <input
+                        className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-600 text-sm font-bold"
+                        placeholder={
+                          recipientType === "CITIZEN" ? "Filtrer par nom ou ID…" :
+                          recipientType === "COUNTRY" ? "Filtrer par nom de pays…" :
+                          "Filtrer par nom d'entreprise…"
+                        }
+                        value={recipientSearch}
+                        onChange={(e) => setRecipientSearch(e.target.value)}
+                      />
+                      {(recipientSearch || recipientType !== "CITIZEN") && filteredCandidates.length > 0 && (
+                        <div className={`${recipientType === "CITIZEN" && !recipientSearch ? "hidden" : ""} absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto space-y-1 border border-stone-200 rounded-xl bg-white p-2 shadow-xl`}>
+                          {filteredCandidates.slice(0, 8).map((c) => {
+                            const Icon = recipientType === "COUNTRY" ? Flag : recipientType === "COMPANY" ? Building2 : User;
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => addRecipient(recipientType, c.id, c.name)}
+                                className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                              >
+                                <Icon size={12} className="text-stone-400 shrink-0" />
+                                <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                <span className="text-[9px] text-stone-400 ml-auto shrink-0">{c.id}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {recipientSearch && filteredCandidates.length === 0 && (
+                        <div className="absolute z-50 left-0 right-0 top-full mt-1 border border-stone-200 rounded-xl bg-white p-3 shadow-xl">
+                          <div className="text-xs text-stone-400 italic text-center">Aucun résultat.</div>
+                        </div>
+                      )}
+                      {/* Affichage direct pour Pays/Entreprise sans recherche */}
+                      {!recipientSearch && recipientType !== "CITIZEN" && filteredCandidates.length > 0 && (
+                        <div className="mt-2 max-h-48 overflow-y-auto space-y-1 border border-stone-200 rounded-xl bg-white p-2">
+                          {filteredCandidates.slice(0, 10).map((c) => {
+                            const Icon = recipientType === "COUNTRY" ? Flag : Building2;
+                            return (
+                              <button
+                                key={c.id}
+                                onClick={() => addRecipient(recipientType, c.id, c.name)}
+                                className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                              >
+                                <Icon size={12} className="text-stone-400 shrink-0" />
+                                <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                <Plus size={12} className="text-stone-400 ml-auto" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Simulation */}

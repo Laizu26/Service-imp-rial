@@ -118,13 +118,22 @@ export const useGameActions = (session, state, saveState, notify) => {
             return;
           }
 
-          // Distribution aux bénéficiaires
+          // Distribution aux bénéficiaires (citoyen, pays, entreprise, trésor impérial)
           (job.recipients || []).forEach((recipient) => {
             const share = Math.floor(totalAmount * (recipient.percent || 0) / 100);
             if (share <= 0) return;
-            const idx = (ns.citizens || []).findIndex((c) => c.id === recipient.id);
-            if (idx !== -1) {
-              ns.citizens[idx] = { ...ns.citizens[idx], balance: (ns.citizens[idx].balance || 0) + share };
+            const type = recipient.type || "CITIZEN";
+            if (type === "CITIZEN") {
+              const idx = (ns.citizens || []).findIndex((c) => c.id === recipient.id);
+              if (idx !== -1) ns.citizens[idx] = { ...ns.citizens[idx], balance: (ns.citizens[idx].balance || 0) + share };
+            } else if (type === "COUNTRY") {
+              const idx = (ns.countries || []).findIndex((c) => c.id === recipient.id);
+              if (idx !== -1) ns.countries[idx] = { ...ns.countries[idx], treasury: (ns.countries[idx].treasury || 0) + share };
+            } else if (type === "COMPANY") {
+              const idx = (ns.companies || []).findIndex((c) => c.id === recipient.id);
+              if (idx !== -1) ns.companies[idx] = { ...ns.companies[idx], balance: (ns.companies[idx].balance || 0) + share };
+            } else if (type === "GLOBAL") {
+              ns.treasury = (ns.treasury || 0) + share;
             }
           });
 
