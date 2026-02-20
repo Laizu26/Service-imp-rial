@@ -32,7 +32,7 @@ import {
 
 import SettingsPanel from "../ui/SettingsPanel";
 import NotificationCenter from "../ui/NotificationCenter";
-import { ROLES, MARRIAGE_STRUCTURES, MARRIAGE_CONTRACT_TYPES, MARRIAGE_REGIMES, FILIATION_TYPES } from "../../lib/constants";
+import { ROLES, MARRIAGE_STRUCTURES, MARRIAGE_CONTRACT_TYPES, MARRIAGE_REGIMES, MARRIAGE_DOT_TYPES, MARRIAGE_DOMINANCE, FILIATION_TYPES } from "../../lib/constants";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import PostView from "../views/PostView";
@@ -100,6 +100,9 @@ const CitizenLayout = (props) => {
     onAcceptMarriage,
     onRejectMarriage,
     onDivorce,
+    sharedAccounts = {},
+    onSharedAccountDeposit,
+    onSharedAccountWithdraw,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -138,10 +141,12 @@ const CitizenLayout = (props) => {
   const [marrySearch, setMarrySearch] = useState("");
   const [marryTargetId, setMarryTargetId] = useState("");
   const [marryTargetName, setMarryTargetName] = useState("");
-  const [marryContractType, setMarryContractType] = useState("civil");
-  const [marryRegime, setMarryRegime] = useState("communaute");
-  const [marryFiliation, setMarryFiliation] = useState("patrilineaire");
+  const [marryContractType, setMarryContractType] = useState("sacre");
+  const [marryRegime, setMarryRegime] = useState("separation");
+  const [marryDotType, setMarryDotType] = useState("aucune");
   const [marryDot, setMarryDot] = useState(0);
+  const [marryDominance, setMarryDominance] = useState("egal");
+  const [marryFiliation, setMarryFiliation] = useState("patrilineaire");
   const [marryClauses, setMarryClauses] = useState("");
   const [showMarryForm, setShowMarryForm] = useState(false);
 
@@ -1118,7 +1123,10 @@ const CitizenLayout = (props) => {
                           const spouseUser = safeUsers.find((u) => u.id === spouse.id);
                           const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === spouse.contractType);
                           const reg = MARRIAGE_REGIMES.find((r) => r.id === spouse.regime);
+                          const dom = MARRIAGE_DOMINANCE.find((d) => d.id === spouse.dominance);
                           const fil = FILIATION_TYPES.find((f) => f.id === spouse.filiation);
+                          const pairKey = spouse.sharedBalanceKey || spouse.fiefBalanceKey;
+                          const sharedAccount = pairKey ? (sharedAccounts || {})[pairKey] : null;
                           return (
                             <div key={spouse.id} className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm space-y-3">
                               <div className="flex items-center justify-between">
@@ -1147,7 +1155,11 @@ const CitizenLayout = (props) => {
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-rose-100 text-xs">
                                 <div>
                                   <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Partage</span>
-                                  <span className="font-bold text-stone-700">{reg?.label || "Non défini"}</span>
+                                  <span className="font-bold text-stone-700">{reg?.emoji} {reg?.label || "Non défini"}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Domination</span>
+                                  <span className="font-bold text-stone-700">{dom?.emoji} {dom?.label || "Union Égale"}</span>
                                 </div>
                                 <div>
                                   <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-0.5">Lignée</span>
@@ -1166,6 +1178,26 @@ const CitizenLayout = (props) => {
                                   </div>
                                 )}
                               </div>
+                              {/* Trésor Commun / Fief Conjoint */}
+                              {sharedAccount && (
+                                <div className={`rounded-xl border-2 p-3 space-y-2 ${sharedAccount.type === "fief" ? "border-amber-300 bg-amber-50" : "border-yellow-300 bg-yellow-50"}`}>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 flex items-center gap-1">
+                                      {sharedAccount.type === "fief" ? "🏰 Fief Conjoint" : "🪙 Trésor Commun"}
+                                    </span>
+                                    <span className="font-black text-stone-800 text-sm">{(sharedAccount.balance || 0).toLocaleString()} Écus</span>
+                                  </div>
+                                  {onSharedAccountDeposit && onSharedAccountWithdraw && (
+                                    <SharedAccountPanel
+                                      pairKey={pairKey}
+                                      account={sharedAccount}
+                                      userId={user.id}
+                                      onDeposit={onSharedAccountDeposit}
+                                      onWithdraw={onSharedAccountWithdraw}
+                                    />
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1239,7 +1271,7 @@ const CitizenLayout = (props) => {
                             )}
                           </div>
 
-                          {/* Type de contrat */}
+                          {/* ── Type de cérémonie ── */}
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Type d'Union</label>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1254,21 +1286,74 @@ const CitizenLayout = (props) => {
                             </div>
                           </div>
 
-                          {/* Régime matrimonial */}
+                          {/* ── Partage des Biens (régime de fond) ── */}
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Partage des Biens</label>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                               {MARRIAGE_REGIMES.map((r) => (
                                 <button key={r.id} onClick={() => setMarryRegime(r.id)}
                                   className={`p-3 rounded-xl border-2 text-left transition-all ${marryRegime === r.id ? "border-rose-500 bg-rose-50" : "border-stone-200 bg-white hover:border-rose-300"}`}>
+                                  <div className="text-xl mb-1">{r.emoji}</div>
                                   <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{r.label}</div>
                                   <div className="text-[9px] text-stone-400 mt-0.5">{r.description}</div>
                                 </button>
                               ))}
                             </div>
+                            {marryRegime === "fief_conjoint" && (
+                              <p className="text-[9px] text-amber-700 italic bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                🏰 Le Fief Conjoint est géré par l'époux dominant. Seul le dominant peut y retirer des Écus.
+                              </p>
+                            )}
                           </div>
 
-                          {/* Filiation */}
+                          {/* ── Dot des Noces (transaction unique) ── */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Dot des Noces</label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                              {MARRIAGE_DOT_TYPES.map((d) => (
+                                <button key={d.id} onClick={() => { setMarryDotType(d.id); if (d.id === "aucune") setMarryDot(0); }}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all ${marryDotType === d.id ? "border-amber-500 bg-amber-50" : "border-stone-200 bg-white hover:border-amber-300"}`}>
+                                  <div className="text-xl mb-1">{d.emoji}</div>
+                                  <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{d.label}</div>
+                                  <div className="text-[9px] text-stone-400 mt-0.5">{d.description}</div>
+                                </button>
+                              ))}
+                            </div>
+                            {marryDotType !== "aucune" && (
+                              <div className="space-y-1 pt-1">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">
+                                  Montant de la Dot (Écus)
+                                </label>
+                                <input type="number" min={0}
+                                  className="w-full p-3 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold focus:border-amber-400"
+                                  value={marryDot}
+                                  onChange={(e) => setMarryDot(parseInt(e.target.value) || 0)} />
+                                <p className="text-[9px] text-amber-700 italic">La dot sera automatiquement transférée lors du consentement.</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ── Domination du Mariage ── */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Domination de l'Union</label>
+                            <div className="grid grid-cols-2 gap-2">
+                              {MARRIAGE_DOMINANCE.map((d) => (
+                                <button key={d.id} onClick={() => setMarryDominance(d.id)}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all ${marryDominance === d.id ? "border-purple-500 bg-purple-50" : "border-stone-200 bg-white hover:border-purple-300"}`}>
+                                  <div className="text-xl mb-1">{d.emoji}</div>
+                                  <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{d.label}</div>
+                                  <div className="text-[9px] text-stone-400 mt-0.5">{d.description}</div>
+                                </button>
+                              ))}
+                            </div>
+                            {marryDominance !== "egal" && (
+                              <p className="text-[9px] text-purple-700 italic bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                                ⚠️ Le dominant imposera sa lignée aux héritiers (sauf si filiation Bilinéaire ou Au Choix).
+                              </p>
+                            )}
+                          </div>
+
+                          {/* ── Lignée des Héritiers ── */}
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Lignée des Héritiers</label>
                             <div className="grid grid-cols-2 gap-2">
@@ -1282,21 +1367,7 @@ const CitizenLayout = (props) => {
                             </div>
                           </div>
 
-                          {/* Dot si régime dotal */}
-                          {(marryRegime === "dotal_epouse" || marryRegime === "dotal_epoux") && (
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">
-                                Dot (en Écus) — {marryRegime === "dotal_epouse" ? "versée par la famille de l'épouse" : "versée par le prétendant"}
-                              </label>
-                              <input type="number" min={0}
-                                className="w-full p-3 border-2 border-rose-200 rounded-xl bg-white outline-none font-bold focus:border-rose-400"
-                                value={marryDot}
-                                onChange={(e) => setMarryDot(parseInt(e.target.value) || 0)} />
-                              <p className="text-[9px] text-rose-600 italic">La dot sera transférée dès que l'union sera consentie.</p>
-                            </div>
-                          )}
-
-                          {/* Clauses personnalisées */}
+                          {/* ── Serments & Clauses ── */}
                           <div className="space-y-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Serments & Clauses (optionnel)</label>
                             <textarea
@@ -1318,12 +1389,15 @@ const CitizenLayout = (props) => {
                                 if (onProposeMarriage) onProposeMarriage(marryTargetId, {
                                   contractType: marryContractType,
                                   regime: marryRegime,
-                                  filiation: marryFiliation,
+                                  dotType: marryDotType,
                                   dot: marryDot,
+                                  dominance: marryDominance,
+                                  filiation: marryFiliation,
                                   clauses: marryClauses,
                                 });
                                 setMarryTargetId(""); setMarryTargetName(""); setMarrySearch("");
-                                setMarryClauses(""); setMarryDot(0); setShowMarryForm(false);
+                                setMarryClauses(""); setMarryDot(0); setMarryDotType("aucune");
+                                setMarryDominance("egal"); setShowMarryForm(false);
                               }}
                               disabled={!marryTargetId}
                               className="flex-1 py-3 bg-rose-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors">
@@ -1492,5 +1566,45 @@ const CitizenLayout = (props) => {
     </div>
   );
 };
+
+// ── Panneau dépôt/retrait trésor commun / fief ──────────────────────────────
+function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw }) {
+  const [amount, setAmount] = React.useState(0);
+  const isFief = account?.type === "fief";
+  const canWithdraw =
+    !isFief ||
+    account?.dominance === "egal" ||
+    account?.fiefDominantId === userId;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <input
+        type="number"
+        min={0}
+        value={amount}
+        onChange={(e) => setAmount(parseInt(e.target.value) || 0)}
+        className="w-28 p-1.5 border border-stone-200 rounded-lg text-xs font-bold bg-white outline-none"
+        placeholder="Écus"
+      />
+      <button
+        onClick={() => { if (amount > 0) { onDeposit(pairKey, amount); setAmount(0); } }}
+        className="px-3 py-1.5 bg-yellow-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-yellow-500"
+      >
+        Déposer
+      </button>
+      {canWithdraw && (
+        <button
+          onClick={() => { if (amount > 0) { onWithdraw(pairKey, amount); setAmount(0); } }}
+          className="px-3 py-1.5 bg-stone-700 text-white text-[9px] font-black uppercase rounded-lg hover:bg-stone-600"
+        >
+          Retirer
+        </button>
+      )}
+      {isFief && !canWithdraw && (
+        <span className="text-[9px] text-amber-700 italic">Seul le dominant peut retirer.</span>
+      )}
+    </div>
+  );
+}
 
 export default CitizenLayout;

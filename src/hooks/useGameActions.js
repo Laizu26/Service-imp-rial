@@ -1220,10 +1220,12 @@ export const useGameActions = (session, state, saveState, notify) => {
             fromName: sender.name,
             timestamp: Date.now(),
             contractType: contractData.contractType || "sacre",
-            regime: contractData.regime || "communaute",
+            regime: contractData.regime || "separation",
+            dotType: contractData.dotType || "aucune",
+            dot: contractData.dot || 0,
+            dominance: contractData.dominance || "egal",
             filiation: contractData.filiation || defaultFiliation,
             clauses: contractData.clauses || "",
-            dot: contractData.dot || 0,
           }],
         };
         saveState({ ...state, citizens: newCitizens });
@@ -1243,28 +1245,112 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!proposal) return;
 
         const contractType = proposal.contractType || "sacre";
-        const regime = proposal.regime || "communaute";
-        const filiation = proposal.filiation || "patrilineaire";
+        const regime = proposal.regime || "separation";
+        const dotType = proposal.dotType || "aucune";
         const dot = proposal.dot || 0;
+        const dominance = proposal.dominance || "egal";
         const clauses = proposal.clauses || "";
         const date = Date.now();
 
-        // Transfert de dot si applicable
-        if (dot > 0) {
-          if (regime === "dotal_epouse") {
-            if ((user.balance || 0) < dot) { notify("Le trésor est insuffisant pour honorer la dot.", "error"); return; }
-            newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (user.balance || 0) - dot };
-            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (proposer.balance || 0) + dot };
-          } else if (regime === "dotal_epoux") {
-            if ((proposer.balance || 0) < dot) { notify("Le trésor du prétendant est insuffisant pour honorer la dot.", "error"); return; }
-            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (proposer.balance || 0) - dot };
-            newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (user.balance || 0) + dot };
+        // ── Résoudre la filiation selon la domination ──
+        // Si dominance, le dominant impose sa lignée (sauf bilineaire/cognatique)
+        let filiation = proposal.filiation || "patrilineaire";
+        if (dominance === "epoux_dominant" && filiation !== "bilineaire" && filiation !== "cognatique") {
+          filiation = "patrilineaire";
+        } else if (dominance === "epouse_dominante" && filiation !== "bilineaire" && filiation !== "cognatique") {
+          filiation = "matrilineaire";
+        }
+        // "proposant_dominant" → la filiation de la proposition s'applique telle quelle
+
+        // ── Résoudre qui est le dominant dans chaque entrée ──
+        // proposerIdx = celui qui a proposé (session.id au moment de la proposition)
+        // userIdx = celui qui accepte (session.id maintenant)
+        let dominantIdForUser; // id du dominant vu depuis userIdx
+        let dominantIdForProposer; // id du dominant vu depuis proposerIdx
+        if (dominance === "egal") {
+          dominantIdForUser = null;
+          dominantIdForProposer = null;
+        } else if (dominance === "epoux_dominant") {
+          // On ne connaît pas le genre ici, on se fie aux IDs
+          // Par convention : on laisse null, l'UI l'affichera selon le genre du citoyen
+          dominantIdForUser = null;
+          dominantIdForProposer = null;
+        } else if (dominance === "epouse_dominante") {
+          dominantIdForUser = null;
+          dominantIdForProposer = null;
+        } else if (dominance === "proposant_dominant") {
+          // Le proposant (proposerIdx) est le dominant
+          dominantIdForUser = proposerId;      // vu de userIdx : le dominant est proposerId
+          dominantIdForProposer = proposerId;  // vu de proposerIdx : lui-même est dominant
+        }
+
+        // ── Transfert de dot (transaction unique aux noces) ──
+        if (dot > 0 && dotType !== "aucune") {
+          if (dotType === "dotal_epouse") {
+            // L'épouse (userIdx = celui qui accepte) verse au proposant
+            if ((newCitizens[userIdx].balance || 0) < dot) { notify("Le trésor est insuffisant pour honorer la dot.", "error"); return; }
+            newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) - dot };
+            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (newCitizens[proposerIdx].balance || 0) + dot };
+          } else if (dotType === "dotal_epoux") {
+            // Le proposant verse à l'épouse (userIdx)
+            if ((newCitizens[proposerIdx].balance || 0) < dot) { notify("Le trésor du prétendant est insuffisant pour honorer la dot.", "error"); return; }
+            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (newCitizens[proposerIdx].balance || 0) - dot };
+            newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + dot };
           }
         }
 
-        // Créer entrées spouses (tableau) — rétrocompatible avec spouseId
-        const userSpouses = [...(newCitizens[userIdx].spouses || []), { id: proposerId, name: proposer.name, contractType, regime, filiation, clauses, dot, date }];
-        const proposerSpouses = [...(newCitizens[proposerIdx].spouses || []), { id: session.id, name: user.name, contractType, regime, filiation, clauses, dot, date }];
+        // ── Trésor commun (régime communauté) ──
+        // sharedBalance est un objet indexé par paire d'IDs triés, stocké sur chaque époux
+        const pairKey = [session.id, proposerId].sort().join("_");
+        const sharedBalance = regime === "communaute" ? 0 : undefined;
+
+        const spouseEntryForUser = {
+          id: proposerId,
+          name: proposer.name,
+          contractType,
+          regime,
+          dotType,
+          dot,
+          dominance,
+          dominantId: dominantIdForUser,
+          filiation,
+          clauses,
+          date,
+          ...(regime === "communaute" ? { sharedBalanceKey: pairKey } : {}),
+          ...(regime === "fief_conjoint" ? { fiefBalanceKey: pairKey } : {}),
+        };
+        const spouseEntryForProposer = {
+          id: session.id,
+          name: user.name,
+          contractType,
+          regime,
+          dotType,
+          dot,
+          dominance,
+          dominantId: dominantIdForProposer,
+          filiation,
+          clauses,
+          date,
+          ...(regime === "communaute" ? { sharedBalanceKey: pairKey } : {}),
+          ...(regime === "fief_conjoint" ? { fiefBalanceKey: pairKey } : {}),
+        };
+
+        const userSpouses = [...(newCitizens[userIdx].spouses || []), spouseEntryForUser];
+        const proposerSpouses = [...(newCitizens[proposerIdx].spouses || []), spouseEntryForProposer];
+
+        // Initialiser sharedBalance ou fiefBalance dans l'état global si nécessaire
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (regime === "communaute" && !(pairKey in sharedAccounts)) {
+          sharedAccounts[pairKey] = { type: "commun", balance: 0, members: [session.id, proposerId] };
+        }
+        if (regime === "fief_conjoint" && !(pairKey in sharedAccounts)) {
+          // Déterminer qui est le dominant du fief
+          let fiefDominantId = null;
+          if (dominance === "proposant_dominant") fiefDominantId = proposerId;
+          else if (dominance === "epoux_dominant") fiefDominantId = null; // résolu à l'affichage selon genre
+          else if (dominance === "epouse_dominante") fiefDominantId = null;
+          sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [session.id, proposerId], dominance, fiefDominantId };
+        }
 
         newCitizens[userIdx] = {
           ...newCitizens[userIdx],
@@ -1277,7 +1363,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           spouseId: proposerSpouses[0]?.id || session.id,
           spouses: proposerSpouses,
         };
-        saveState({ ...state, citizens: newCitizens });
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
         const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
         notify(`Par les dieux, vous êtes désormais uni(e) à ${proposer.name} par ${ctLabel}.`, "success");
       },
@@ -1306,6 +1392,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!targetSpouseId) { notify("Vous n'êtes lié(e) à personne.", "error"); return; }
         if (!window.confirm("Rompre cette union ? Les vœux seront brisés de manière irréversible.")) return;
         const spouseIdx = newCitizens.findIndex((c) => c.id === targetSpouseId);
+
+        // Récupérer la clé du compte commun avant de supprimer le lien
+        const spouseEntry = (user.spouses || []).find((s) => s.id === targetSpouseId);
+        const pairKey = spouseEntry?.sharedBalanceKey || spouseEntry?.fiefBalanceKey;
+
         const newUserSpouses = (user.spouses || []).filter((s) => s.id !== targetSpouseId);
         newCitizens[userIdx] = { ...user, spouseId: newUserSpouses[0]?.id || null, spouses: newUserSpouses };
         if (spouseIdx !== -1) {
@@ -1313,8 +1404,75 @@ export const useGameActions = (session, state, saveState, notify) => {
           const newSpouseSpouses = (spouse.spouses || []).filter((s) => s.id !== session.id);
           newCitizens[spouseIdx] = { ...spouse, spouseId: newSpouseSpouses[0]?.id || null, spouses: newSpouseSpouses };
         }
-        saveState({ ...state, citizens: newCitizens });
+
+        // Dissoudre le compte commun / fief si personne d'autre ne partage cette clé
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (pairKey && sharedAccounts[pairKey]) {
+          const remaining = sharedAccounts[pairKey].balance || 0;
+          if (remaining > 0) {
+            // Redistribuer équitablement le solde restant aux deux ex-époux
+            const half = Math.floor(remaining / 2);
+            newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + half };
+            if (spouseIdx !== -1) {
+              newCitizens[spouseIdx] = { ...newCitizens[spouseIdx], balance: (newCitizens[spouseIdx].balance || 0) + (remaining - half) };
+            }
+          }
+          delete sharedAccounts[pairKey];
+        }
+
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
         notify("L'union a été rompue. Les vœux sont brisés.", "info");
+      },
+
+      // Dépôt dans le trésor commun / fief
+      onSharedAccountDeposit: (pairKey, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (!sharedAccounts[pairKey]) { notify("Compte introuvable.", "error"); return; }
+        if ((newCitizens[userIdx].balance || 0) < amt) { notify("Votre trésor personnel est insuffisant.", "error"); return; }
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) - amt };
+        sharedAccounts[pairKey] = { ...sharedAccounts[pairKey], balance: (sharedAccounts[pairKey].balance || 0) + amt };
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
+        notify(`${amt.toLocaleString()} Écus versés dans le trésor commun.`, "success");
+      },
+
+      // Retrait du trésor commun / fief (avec vérification de domination pour le fief)
+      onSharedAccountWithdraw: (pairKey, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        const account = sharedAccounts[pairKey];
+        if (!account) { notify("Compte introuvable.", "error"); return; }
+
+        // Vérification droits pour le fief
+        if (account.type === "fief") {
+          const userSpouseEntry = (newCitizens[userIdx].spouses || []).find((s) => s.fiefBalanceKey === pairKey);
+          const dominance = userSpouseEntry?.dominance || "egal";
+          const iAmDominant =
+            dominance === "egal" ||
+            (dominance === "proposant_dominant" && account.fiefDominantId === session.id) ||
+            // Pour epoux_dominant / epouse_dominante on résout selon un champ genre si existant
+            (dominance === "proposant_dominant" && account.fiefDominantId === session.id);
+          if (!iAmDominant && dominance !== "egal") {
+            notify("Seul l'époux dominant peut retirer du Fief Conjoint.", "error");
+            return;
+          }
+        }
+
+        if ((account.balance || 0) < amt) { notify("Le trésor commun ne contient pas assez d'Écus.", "error"); return; }
+        sharedAccounts[pairKey] = { ...account, balance: account.balance - amt };
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
+        notify(`${amt.toLocaleString()} Écus retirés du trésor commun.`, "success");
       },
 
       onSelfManumit: () => {

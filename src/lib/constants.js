@@ -157,20 +157,34 @@ export const MARRIAGE_STRUCTURES = {
 };
 
 export const MARRIAGE_CONTRACT_TYPES = [
-  { id: "sacre",       label: "Mariage Sacré",          emoji: "⛪", description: "Union bénie par les dieux devant l'autel" },
-  { id: "feodal",      label: "Mariage Féodal",         emoji: "🏰", description: "Accord entre maisons pour sceller une alliance" },
-  { id: "serment",     label: "Serment de Sang",        emoji: "🩸", description: "Lien magique scellé par le sang des deux époux" },
-  { id: "alliance",    label: "Alliance Politique",     emoji: "⚔️", description: "Union stratégique entre royaumes ou clans" },
+  { id: "sacre",       label: "Mariage Sacré",             emoji: "⛪", description: "Union bénie par les dieux devant l'autel" },
+  { id: "feodal",      label: "Mariage Féodal",            emoji: "🏰", description: "Accord entre maisons pour sceller une alliance" },
+  { id: "serment",     label: "Serment de Sang",           emoji: "🩸", description: "Lien magique scellé par le sang des deux époux" },
+  { id: "alliance",    label: "Alliance Politique",        emoji: "⚔️", description: "Union stratégique entre royaumes ou clans" },
   { id: "promesse",    label: "Promesse sous les Étoiles", emoji: "🌙", description: "Engagement libre sans cérémonie officielle" },
-  { id: "arcane",      label: "Pacte Arcanique",        emoji: "🔮", description: "Union magique liée par un sortilège ancien" },
+  { id: "arcane",      label: "Pacte Arcanique",           emoji: "🔮", description: "Union magique liée par un sortilège ancien" },
 ];
 
+// Régime de fond : comment les richesses sont gérées au quotidien
 export const MARRIAGE_REGIMES = [
-  { id: "communaute",    label: "Biens en Commun",          description: "Tous les avoirs sont mis en partage dès les noces" },
-  { id: "separation",    label: "Biens Séparés",            description: "Chaque époux conserve ses terres et possessions" },
-  { id: "dotal_epouse",  label: "Dot de l'Épouse",          description: "La famille de l'épouse verse une dot au seigneur" },
-  { id: "dotal_epoux",   label: "Dot de l'Époux",           description: "Le prétendant verse une dot à la famille de l'épouse" },
-  { id: "fief_conjoint", label: "Fief Conjoint",            description: "Un fief est partagé ou créé pour le couple" },
+  { id: "separation",    label: "Biens Séparés",    emoji: "🔒", description: "Chaque époux conserve ses terres et possessions en propre" },
+  { id: "communaute",    label: "Trésor Commun",    emoji: "🪙", description: "Un trésor partagé s'ajoute aux bourses personnelles — chacun peut y déposer et retirer" },
+  { id: "fief_conjoint", label: "Fief Conjoint",    emoji: "🏰", description: "Un fief commun est accordé au couple — l'époux dominant en a la gestion exclusive" },
+];
+
+// Dot des noces : transaction unique lors de l'union
+export const MARRIAGE_DOT_TYPES = [
+  { id: "aucune",       label: "Aucune Dot",         emoji: "🤝", description: "Pas de transfert de richesse lors des noces" },
+  { id: "dotal_epouse", label: "Dot de l'Épouse",    emoji: "💎", description: "La famille de l'épouse verse une dot au prétendant lors des noces" },
+  { id: "dotal_epoux",  label: "Dot du Prétendant",  emoji: "💰", description: "Le prétendant verse une dot à la famille de l'épouse lors des noces" },
+];
+
+// Domination : qui dirige l'union et ses droits sur les biens
+export const MARRIAGE_DOMINANCE = [
+  { id: "egal",              label: "Union Égale",          emoji: "⚖️", description: "Les deux époux ont les mêmes droits sur les biens et la lignée" },
+  { id: "epoux_dominant",    label: "Époux Dominant",       emoji: "🛡️", description: "L'époux masculin dirige l'union, gère le fief et impose sa lignée" },
+  { id: "epouse_dominante",  label: "Épouse Dominante",     emoji: "👑", description: "L'épouse dirige l'union, gère le fief et impose sa lignée" },
+  { id: "proposant_dominant",label: "Proposant Dominant",   emoji: "📜", description: "Celui qui a fait la proposition dirige l'union et gère les biens" },
 ];
 
 export const FILIATION_TYPES = [
