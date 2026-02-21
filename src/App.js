@@ -485,6 +485,8 @@ export default function App() {
             onAcceptMarriage={actions.onAcceptMarriage}
             onRejectMarriage={actions.onRejectMarriage}
             onDivorce={actions.onDivorce}
+            onDeclareChild={actions.onDeclareChild}
+            onRemoveChild={actions.onRemoveChild}
             sharedAccounts={state.sharedAccounts || {}}
             onSharedAccountDeposit={actions.onSharedAccountDeposit}
             onSharedAccountWithdraw={actions.onSharedAccountWithdraw}

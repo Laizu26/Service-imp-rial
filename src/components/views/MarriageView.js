@@ -6,6 +6,9 @@ import {
   Search,
   Coins,
   Shield,
+  Baby,
+  Trash2,
+  UserPlus,
 } from "lucide-react";
 import {
   MARRIAGE_STRUCTURES,
@@ -15,6 +18,7 @@ import {
   MARRIAGE_DOMINANCE,
   FILIATION_TYPES,
 } from "../../lib/constants";
+import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
 
 // ── Panneau dépôt / retrait trésor commun ou fief ───────────────────────────
 function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw }) {
@@ -66,10 +70,15 @@ const MarriageView = ({
   onAcceptMarriage,
   onRejectMarriage,
   onDivorce,
+  onDeclareChild,
+  onRemoveChild,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
+  gameDate,
   notify,
 }) => {
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
+
   // État formulaire de proposition
   const [marrySearch, setMarrySearch] = useState("");
   const [marryTargetId, setMarryTargetId] = useState("");
@@ -82,6 +91,59 @@ const MarriageView = ({
   const [marryFiliation, setMarryFiliation] = useState("patrilineaire");
   const [marryClauses, setMarryClauses] = useState("");
   const [showMarryForm, setShowMarryForm] = useState(false);
+
+  // État formulaire enfant
+  const [showChildForm, setShowChildForm] = useState(false);
+  const [childMode, setChildMode] = useState("citizen"); // "citizen" | "npc"
+  const [childSearch, setChildSearch] = useState("");
+  const [childCitizenId, setChildCitizenId] = useState("");
+  const [childCitizenName, setChildCitizenName] = useState("");
+  const [childNpcName, setChildNpcName] = useState("");
+  const [childBirthDay, setChildBirthDay] = useState("");
+  const [childBirthMonth, setChildBirthMonth] = useState("");
+  const [childBirthYear, setChildBirthYear] = useState("");
+  const [childFiliation, setChildFiliation] = useState("patrilineaire");
+  const [childOtherParentSearch, setChildOtherParentSearch] = useState("");
+  const [childOtherParentId, setChildOtherParentId] = useState("");
+  const [childOtherParentName, setChildOtherParentName] = useState("");
+  const [childNotes, setChildNotes] = useState("");
+
+  const resetChildForm = () => {
+    setShowChildForm(false);
+    setChildMode("citizen");
+    setChildSearch("");
+    setChildCitizenId("");
+    setChildCitizenName("");
+    setChildNpcName("");
+    setChildBirthDay("");
+    setChildBirthMonth("");
+    setChildBirthYear("");
+    setChildFiliation("patrilineaire");
+    setChildOtherParentSearch("");
+    setChildOtherParentId("");
+    setChildOtherParentName("");
+    setChildNotes("");
+  };
+
+  const submitChild = () => {
+    const name = childMode === "citizen" ? childCitizenName : childNpcName;
+    if (!name.trim() && !childCitizenId) { notify("Indiquez le nom ou sélectionnez un citoyen.", "error"); return; }
+    const birthDate =
+      childBirthDay && childBirthMonth && childBirthYear
+        ? { day: parseInt(childBirthDay), month: parseInt(childBirthMonth), year: parseInt(childBirthYear) }
+        : null;
+    if (onDeclareChild) {
+      onDeclareChild({
+        name: name.trim() || childCitizenName,
+        citizenId: childMode === "citizen" ? childCitizenId : null,
+        birthDate,
+        filiation: childFiliation,
+        otherParentId: childOtherParentId || null,
+        notes: childNotes.trim(),
+      });
+    }
+    resetChildForm();
+  };
 
   // Dérivés mariage
   const userCountry = safeCountries.find((c) => c.id === user?.countryId);
@@ -539,6 +601,277 @@ const MarriageView = ({
           <p className="text-[10px] text-stone-400 italic text-center">
             Les coutumes de {userCountry?.name || "votre royaume"} ({MARRIAGE_STRUCTURES[marriageStructure]?.label}) ne permettent pas de contracter un nouveau lien.
           </p>
+        )}
+      </div>
+
+      {/* ── ENFANTS & DESCENDANCE ── */}
+      <div className="border-t-4 border-amber-200 bg-amber-50/40 p-5 space-y-4">
+        <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 flex items-center gap-2">
+          <Baby size={13} /> Enfants & Descendance
+        </div>
+
+        {/* Liste des enfants */}
+        {(user.children || []).length > 0 ? (
+          <div className="space-y-3">
+            {(user.children || []).map((child) => {
+              const linkedCitizen = child.citizenId ? safeUsers.find((u) => u.id === child.citizenId) : null;
+              const otherParent = child.otherParentId ? safeUsers.find((u) => u.id === child.otherParentId) : null;
+              const fil = FILIATION_TYPES.find((f) => f.id === child.filiation);
+              const displayName = linkedCitizen?.name || child.name || "Enfant sans nom";
+              const age = child.birthDate ? getCitizenAge({ birthDate: child.birthDate }, gd) : null;
+              return (
+                <div key={child.id} className="bg-white rounded-xl border border-amber-200 shadow-sm p-4 flex items-start gap-3">
+                  {linkedCitizen?.avatarUrl ? (
+                    <img src={linkedCitizen.avatarUrl} className="w-12 h-12 rounded-full object-cover border-2 border-amber-200 shrink-0" alt="" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center border-2 border-amber-200 shrink-0">
+                      <Baby size={20} className="text-amber-500" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-black text-stone-800 text-base leading-tight">{displayName}</div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                      {age !== null && (
+                        <span className="text-[10px] text-stone-500 font-bold">{age} ans</span>
+                      )}
+                      {child.birthDate && (
+                        <span className="text-[10px] text-stone-400 italic">né(e) le {formatRPDate(child.birthDate)}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {fil && (
+                        <span className="text-[9px] bg-amber-100 text-amber-700 font-black px-2 py-0.5 rounded-full border border-amber-200">
+                          {fil.label}
+                        </span>
+                      )}
+                      {linkedCitizen && (
+                        <span className="text-[9px] bg-stone-100 text-stone-600 font-bold px-2 py-0.5 rounded-full border border-stone-200">
+                          Citoyen lié
+                        </span>
+                      )}
+                    </div>
+                    {otherParent && (
+                      <div className="text-[9px] text-stone-400 mt-1 flex items-center gap-1">
+                        <User size={9} /> Autre parent : <span className="font-bold text-stone-600">{otherParent.name}</span>
+                      </div>
+                    )}
+                    {child.notes && (
+                      <div className="text-[9px] text-stone-400 italic mt-1 border-t border-stone-100 pt-1">{child.notes}</div>
+                    )}
+                  </div>
+                  {onRemoveChild && (
+                    <button
+                      onClick={() => onRemoveChild(child.id)}
+                      className="shrink-0 p-1.5 text-stone-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Supprimer ce lien de filiation"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-stone-400 italic text-xs">
+            <Baby size={28} className="mx-auto mb-2 opacity-20" />
+            Aucun enfant déclaré.
+          </div>
+        )}
+
+        {/* Bouton / formulaire déclaration enfant */}
+        {!showChildForm ? (
+          <button
+            onClick={() => setShowChildForm(true)}
+            className="w-full py-2.5 border-2 border-dashed border-amber-300 text-amber-700 text-[10px] font-black uppercase rounded-xl hover:bg-amber-50 flex items-center justify-center gap-2 transition-colors"
+          >
+            <UserPlus size={13} /> Déclarer un enfant
+          </button>
+        ) : (
+          <div className="bg-white rounded-xl border-2 border-amber-300 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-widest text-amber-700 flex items-center gap-2">
+                <Baby size={12} /> Déclaration de Filiation
+              </h4>
+              <button onClick={resetChildForm} className="text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
+            </div>
+
+            {/* Mode : citoyen existant ou NPC */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setChildMode("citizen")}
+                className={`flex-1 py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${childMode === "citizen" ? "border-amber-500 bg-amber-50 text-amber-700" : "border-stone-200 text-stone-500 hover:border-amber-300"}`}
+              >
+                Citoyen existant
+              </button>
+              <button
+                onClick={() => setChildMode("npc")}
+                className={`flex-1 py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${childMode === "npc" ? "border-amber-500 bg-amber-50 text-amber-700" : "border-stone-200 text-stone-500 hover:border-amber-300"}`}
+              >
+                Personnage (NPC)
+              </button>
+            </div>
+
+            {/* Sélection enfant citoyen */}
+            {childMode === "citizen" && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Choisir le citoyen enfant</label>
+                {childCitizenId ? (
+                  <div className="flex items-center gap-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-xl">
+                    {safeUsers.find((u) => u.id === childCitizenId)?.avatarUrl ? (
+                      <img src={safeUsers.find((u) => u.id === childCitizenId).avatarUrl} className="w-8 h-8 rounded-full object-cover border-2 border-amber-200" alt="" />
+                    ) : (
+                      <Baby size={16} className="text-amber-500 shrink-0" />
+                    )}
+                    <span className="flex-1 font-black text-stone-800">{childCitizenName}</span>
+                    <button onClick={() => { setChildCitizenId(""); setChildCitizenName(""); setChildSearch(""); }} className="text-stone-400 hover:text-red-500">✕</button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="flex items-center gap-2 border-2 border-amber-200 rounded-xl bg-white px-3 focus-within:border-amber-400">
+                      <Search size={14} className="text-amber-300 shrink-0" />
+                      <input
+                        className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                        placeholder="Nom du citoyen enfant…"
+                        value={childSearch}
+                        onChange={(e) => setChildSearch(e.target.value)}
+                      />
+                    </div>
+                    {childSearch && (
+                      <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto border border-amber-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                        {safeUsers
+                          .filter((u) => u.id !== user?.id && (u.name?.toLowerCase().includes(childSearch.toLowerCase()) || u.id?.includes(childSearch)))
+                          .slice(0, 8)
+                          .map((u) => (
+                            <button key={u.id} onClick={() => { setChildCitizenId(u.id); setChildCitizenName(u.name); setChildSearch(""); }}
+                              className="w-full text-left p-2 rounded-lg hover:bg-amber-50 flex items-center gap-2 transition-colors">
+                              {u.avatarUrl ? <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" /> : <User size={12} className="text-stone-400 shrink-0" />}
+                              <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
+                              <span className="text-[9px] text-stone-400 ml-auto font-mono shrink-0">{u.id}</span>
+                            </button>
+                          ))}
+                        {safeUsers.filter((u) => u.id !== user?.id && (u.name?.toLowerCase().includes(childSearch.toLowerCase()) || u.id?.includes(childSearch))).length === 0 && (
+                          <div className="text-xs text-stone-400 italic text-center py-2">Aucun citoyen trouvé.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Nom NPC */}
+            {childMode === "npc" && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Nom de l'enfant</label>
+                <input
+                  className="w-full p-3 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold focus:border-amber-400 text-sm"
+                  placeholder="Prénom Nom de l'enfant…"
+                  value={childNpcName}
+                  onChange={(e) => setChildNpcName(e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Date de naissance */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widests text-stone-400 block">Date de naissance (optionnel)</label>
+              <div className="flex gap-2">
+                <input type="number" min={1} max={30} placeholder="Jour"
+                  className="w-1/4 p-2.5 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold text-sm text-center focus:border-amber-400"
+                  value={childBirthDay} onChange={(e) => setChildBirthDay(e.target.value)} />
+                <input type="number" min={1} max={12} placeholder="Mois"
+                  className="w-1/4 p-2.5 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold text-sm text-center focus:border-amber-400"
+                  value={childBirthMonth} onChange={(e) => setChildBirthMonth(e.target.value)} />
+                <input type="number" min={800} max={1500} placeholder="Année"
+                  className="flex-1 p-2.5 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold text-sm text-center focus:border-amber-400"
+                  value={childBirthYear} onChange={(e) => setChildBirthYear(e.target.value)} />
+              </div>
+              {childBirthDay && childBirthMonth && childBirthYear && (
+                <p className="text-[9px] text-amber-700 italic">
+                  Âge actuel : {Math.max(0, gd.year - parseInt(childBirthYear))} ans environ
+                </p>
+              )}
+            </div>
+
+            {/* Filiation */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widests text-stone-400 block">Lignée</label>
+              <div className="grid grid-cols-2 gap-2">
+                {FILIATION_TYPES.map((f) => (
+                  <button key={f.id} onClick={() => setChildFiliation(f.id)}
+                    className={`p-2.5 rounded-xl border-2 text-left transition-all ${childFiliation === f.id ? "border-amber-500 bg-amber-50" : "border-stone-200 bg-white hover:border-amber-300"}`}>
+                    <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{f.label}</div>
+                    <div className="text-[9px] text-stone-400 mt-0.5 leading-tight">{f.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Autre parent */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widests text-stone-400 block">Autre parent (optionnel)</label>
+              {childOtherParentId ? (
+                <div className="flex items-center gap-3 p-3 bg-stone-50 border-2 border-stone-200 rounded-xl">
+                  <User size={14} className="text-stone-400 shrink-0" />
+                  <span className="flex-1 font-bold text-stone-700 text-sm">{childOtherParentName}</span>
+                  <button onClick={() => { setChildOtherParentId(""); setChildOtherParentName(""); setChildOtherParentSearch(""); }} className="text-stone-400 hover:text-red-500">✕</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-400">
+                    <Search size={14} className="text-stone-300 shrink-0" />
+                    <input
+                      className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                      placeholder="Nom du second parent…"
+                      value={childOtherParentSearch}
+                      onChange={(e) => setChildOtherParentSearch(e.target.value)}
+                    />
+                  </div>
+                  {childOtherParentSearch && (
+                    <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                      {safeUsers
+                        .filter((u) => u.id !== user?.id && (u.name?.toLowerCase().includes(childOtherParentSearch.toLowerCase()) || u.id?.includes(childOtherParentSearch)))
+                        .slice(0, 6)
+                        .map((u) => (
+                          <button key={u.id} onClick={() => { setChildOtherParentId(u.id); setChildOtherParentName(u.name); setChildOtherParentSearch(""); }}
+                            className="w-full text-left p-2 rounded-lg hover:bg-stone-50 flex items-center gap-2 transition-colors">
+                            {u.avatarUrl ? <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" /> : <User size={12} className="text-stone-400 shrink-0" />}
+                            <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widests text-stone-400 block">Notes (optionnel)</label>
+              <textarea
+                className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none text-sm font-bold min-h-[60px] focus:border-stone-300"
+                placeholder="Légitimité, conditions de naissance, adoption, reconnu ou non…"
+                value={childNotes}
+                onChange={(e) => setChildNotes(e.target.value)}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button onClick={resetChildForm}
+                className="flex-1 py-2.5 border-2 border-stone-200 rounded-xl text-stone-500 text-[10px] font-black uppercase hover:bg-stone-50 transition-colors">
+                Annuler
+              </button>
+              <button
+                onClick={submitChild}
+                disabled={childMode === "citizen" ? !childCitizenId : !childNpcName.trim()}
+                className="flex-1 py-2.5 bg-amber-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+              >
+                <Baby size={12} /> Reconnaître l'enfant
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

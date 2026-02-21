@@ -2104,6 +2104,82 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, debtRegistry: registry });
         notify("Contrat annulé.", "info");
       },
+
+      // ── ENFANTS & DESCENDANCE ────────────────────────────────────────────────
+
+      onDeclareChild: (childData) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+
+        const child = {
+          id: Date.now().toString(),
+          name: childData.name || "Enfant",
+          citizenId: childData.citizenId || null,
+          birthDate: childData.birthDate || null,
+          filiation: childData.filiation || "patrilineaire",
+          otherParentId: childData.otherParentId || null,
+          notes: childData.notes || "",
+          declaredAt: Date.now(),
+        };
+
+        const user = newCitizens[userIdx];
+        newCitizens[userIdx] = {
+          ...user,
+          children: [...(user.children || []), child],
+        };
+
+        // Ajouter aussi chez l'autre parent s'il est un citoyen connu
+        if (childData.otherParentId) {
+          const otherIdx = newCitizens.findIndex((c) => c.id === childData.otherParentId);
+          if (otherIdx !== -1) {
+            const other = newCitizens[otherIdx];
+            // Ne pas dupliquer si déjà présent
+            const alreadyThere = (other.children || []).some((ch) => ch.id === child.id);
+            if (!alreadyThere) {
+              newCitizens[otherIdx] = {
+                ...other,
+                children: [...(other.children || []), { ...child, otherParentId: session.id }],
+              };
+            }
+          }
+        }
+
+        saveState({ ...state, citizens: newCitizens });
+        notify(`${child.name} a été déclaré(e) comme enfant.`, "success");
+      },
+
+      onRemoveChild: (childId) => {
+        if (!session) return;
+        if (!window.confirm("Supprimer ce lien de filiation ? Cette action est irréversible.")) return;
+
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+
+        const user = newCitizens[userIdx];
+        const child = (user.children || []).find((ch) => ch.id === childId);
+        newCitizens[userIdx] = {
+          ...user,
+          children: (user.children || []).filter((ch) => ch.id !== childId),
+        };
+
+        // Retirer aussi chez l'autre parent
+        if (child?.otherParentId) {
+          const otherIdx = newCitizens.findIndex((c) => c.id === child.otherParentId);
+          if (otherIdx !== -1) {
+            const other = newCitizens[otherIdx];
+            newCitizens[otherIdx] = {
+              ...other,
+              children: (other.children || []).filter((ch) => ch.id !== childId),
+            };
+          }
+        }
+
+        saveState({ ...state, citizens: newCitizens });
+        notify("Lien de filiation supprimé.", "info");
+      },
     };
   }, [session, state, saveState, notify]);
 };
