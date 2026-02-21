@@ -27,6 +27,7 @@ import {
   Search,
   Eye,
   Heart,
+  Zap,
 } from "lucide-react";
 
 import SettingsPanel from "../ui/SettingsPanel";
@@ -45,6 +46,31 @@ import SlavePersonalView from "../views/SlavePersonalView";
 import LibraryView from "../views/LibraryView";
 import CitizenProfileCard from "../views/CitizenProfileCard";
 import MarriageView from "../views/MarriageView";
+
+const BoostCountdown = ({ expiresAt }) => {
+  const [remaining, setRemaining] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setRemaining(left);
+      if (left <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
+  return (
+    <div className="mt-2 px-3 py-1.5 bg-amber-900/30 border border-amber-800/50 rounded-lg flex items-center gap-2">
+      <Zap size={12} className="text-amber-400" />
+      <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">
+        Boost {minutes}:{String(seconds).padStart(2, "0")}
+      </span>
+    </div>
+  );
+};
 
 const CitizenLayout = (props) => {
   const {
@@ -115,6 +141,8 @@ const CitizenLayout = (props) => {
     updateSetting,
     resetSettings,
     onGmTrigger,
+    gmBoostActive = false,
+    gmTempBoost = null,
   } = props;
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
@@ -256,7 +284,17 @@ const CitizenLayout = (props) => {
     >
       <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative">
         <div className="p-8 pb-4 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
-          <div className="w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 border-yellow-600/30 mb-4 shadow-[0_0_15px_rgba(202,138,4,0.1)] overflow-hidden">
+          {/* Avatar = bouton GM caché */}
+          <button
+            onClick={() => onGmTrigger && onGmTrigger()}
+            className={`relative w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 mb-4 overflow-hidden cursor-default focus:outline-none group transition-all duration-300 ${
+              gmBoostActive
+                ? "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse"
+                : "border-yellow-600/30 shadow-[0_0_15px_rgba(202,138,4,0.1)] hover:border-yellow-600/60 hover:shadow-[0_0_20px_rgba(202,138,4,0.2)]"
+            }`}
+            title=""
+            tabIndex={-1}
+          >
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -266,7 +304,17 @@ const CitizenLayout = (props) => {
             ) : (
               <User className="text-yellow-600" size={32} />
             )}
-          </div>
+            {/* Overlay GM discret au hover */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center">
+              <Shield size={20} className="text-white opacity-0 group-hover:opacity-60 transition-all duration-300" />
+            </div>
+            {/* Indicateur boost actif */}
+            {gmBoostActive && (
+              <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-stone-900 shadow-lg">
+                <Zap size={10} className="text-stone-900" />
+              </div>
+            )}
+          </button>
           <h2 className="text-lg font-black uppercase tracking-widest text-stone-100 text-center leading-tight">
             {user.name}
           </h2>
@@ -277,6 +325,10 @@ const CitizenLayout = (props) => {
             <span className="mt-2 bg-red-900/50 text-red-200 text-[9px] px-2 py-0.5 rounded border border-red-900 uppercase tracking-widest">
               Esclave
             </span>
+          )}
+          {/* Bandeau boost actif avec countdown */}
+          {gmBoostActive && gmTempBoost && (
+            <BoostCountdown expiresAt={gmTempBoost.expiresAt} />
           )}
         </div>
 
@@ -313,24 +365,22 @@ const CitizenLayout = (props) => {
           >
             <Settings size={14} /> Paramètres
           </button>
-          <button
-            onClick={() => onGmTrigger && onGmTrigger()}
-            className="w-full text-center opacity-20 hover:opacity-50 transition-opacity duration-300 cursor-default focus:outline-none pt-1"
-            tabIndex={-1}
-            title=""
-          >
-            <Shield className="mx-auto mb-1 text-stone-600" size={20} />
-            <div className="text-[9px] uppercase tracking-[0.2em] font-black text-stone-600">
-              Service Impérial
-            </div>
-          </button>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 bg-[#e6e2d6]/5 relative">
         <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-3 md:invisible">
-            <div className="w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden relative shrink-0">
+            <button
+              onClick={() => onGmTrigger && onGmTrigger()}
+              className={`w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border overflow-hidden relative shrink-0 cursor-default focus:outline-none transition-all ${
+                gmBoostActive
+                  ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
+                  : "border-stone-700"
+              }`}
+              tabIndex={-1}
+              title=""
+            >
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
@@ -340,12 +390,17 @@ const CitizenLayout = (props) => {
               ) : (
                 <User className="text-yellow-600" size={18} />
               )}
-              {isSlave && (
+              {isSlave && !gmBoostActive && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <Lock size={12} className="text-white" />
                 </div>
               )}
-            </div>
+              {gmBoostActive && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center border-2 border-stone-900">
+                  <Zap size={8} className="text-stone-900" />
+                </div>
+              )}
+            </button>
             <div className="font-sans">
               <div className="font-bold text-sm text-stone-200">
                 {user.name}

@@ -458,6 +458,8 @@ export default function App() {
             isPrisoner={gmBoostActive ? false : isPrisoner}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
             onGmTrigger={triggerGmModal}
+            gmBoostActive={gmBoostActive}
+            gmTempBoost={gmTempBoost}
             settings={settings}
             isDark={isDark}
             updateSetting={updateSetting}
