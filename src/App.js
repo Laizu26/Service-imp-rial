@@ -463,6 +463,7 @@ export default function App() {
             onGmTrigger={triggerGmModal}
             gmBoostActive={gmBoostActive}
             gmTempBoost={gmTempBoost}
+            gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
             settings={settings}
             isDark={isDark}
             updateSetting={updateSetting}
@@ -756,6 +757,7 @@ export default function App() {
                       catalog={state.inventoryCatalog}
                       session={session}
                       roleInfo={roleInfo}
+                      gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
                       onSave={actions.onUpdateCitizen}
                       onDelete={(c) => {
                         saveState({

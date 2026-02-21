@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import ReactDOM from "react-dom";
+import { getCitizenAge } from "../../lib/gameUtils";
 import {
   Box,
   ShoppingCart,
@@ -38,7 +39,9 @@ const CitizenInventoryView = ({
   onBuyItem,
   onGiveItem,
   onBuySlave,
+  gameDate,
 }) => {
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const [activeTab, setActiveTab] = useState("bag");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -87,7 +90,7 @@ const CitizenInventoryView = ({
         id: u.id,
         name: u.name,
         price: u.salePrice,
-        description: `Esclave - ${u.age || "?"} ans - ${u.occupation || "Sans métier"}`,
+        description: `Esclave - ${getCitizenAge(u, gd) || "?"} ans - ${u.occupation || "Sans métier"}`,
         imageUrl: u.avatarUrl,
         marketType: "SLAVE",
         ownerId: u.ownerId,

@@ -38,6 +38,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
+import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
 
 /* ================================================
    HELPERS
@@ -313,8 +314,10 @@ const GMDashboard = ({ state }) => {
    ================================================ */
 const GMAccounts = ({ state, onUpdateState, notify }) => {
   const [view, setView] = useState("list");
+  const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+  const defaultBirth = { day: 1, month: 1, year: gd.year - 20 };
   const [form, setForm] = useState({
-    name: "", age: 20, role: "CITOYEN",
+    name: "", birthDay: 1, birthMonth: 1, birthYear: gd.year - 20, role: "CITOYEN",
     countryId: state.countries?.[0]?.id || "C1",
     password: "", balance: 100, occupation: "", status: "Actif",
   });
@@ -348,9 +351,10 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
     if (safeCitizens.find((c) => c.name.toLowerCase() === form.name.trim().toLowerCase())) {
       notify("Ce nom existe deja.", "error"); return;
     }
+    const birthDate = { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) };
     const newId = generateId();
     const newCitizen = {
-      id: newId, name: form.name.trim(), age: parseInt(form.age) || 20,
+      id: newId, name: form.name.trim(), birthDate,
       role: form.role, countryId: form.countryId, locationCountryId: form.countryId,
       password: form.password, balance: parseInt(form.balance) || 0,
       occupation: form.occupation || "Citoyen", status: form.status,
@@ -360,21 +364,23 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
     onUpdateState({ ...state, citizens: [...safeCitizens, newCitizen] });
     setCreatedAccount({ id: newId, name: form.name.trim(), password: form.password });
     notify(`Compte "${form.name.trim()}" cree.`, "success");
-    setForm({ name: "", age: 20, role: "CITOYEN", countryId: state.countries?.[0]?.id || "C1", password: "", balance: 100, occupation: "", status: "Actif" });
+    setForm({ name: "", birthDay: 1, birthMonth: 1, birthYear: gd.year - 20, role: "CITOYEN", countryId: state.countries?.[0]?.id || "C1", password: "", balance: 100, occupation: "", status: "Actif" });
   };
 
   const startEdit = (c) => {
     setEditingId(c.id);
-    setEditForm({ name: c.name, age: c.age || 20, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif" });
+    const bd = c.birthDate || ageToBirthDate(c.age, gd);
+    setEditForm({ name: c.name, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif" });
   };
 
   const saveEdit = () => {
     if (!editForm.name?.trim()) { notify("Le nom est requis.", "error"); return; }
     const dup = safeCitizens.find((c) => c.id !== editingId && c.name.toLowerCase() === editForm.name.trim().toLowerCase());
     if (dup) { notify("Ce nom existe deja.", "error"); return; }
+    const birthDate = { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) };
     const updated = safeCitizens.map((c) =>
       c.id === editingId
-        ? { ...c, name: editForm.name.trim(), age: parseInt(editForm.age) || c.age, role: editForm.role, countryId: editForm.countryId, password: editForm.password || c.password, balance: parseInt(editForm.balance), occupation: editForm.occupation, status: editForm.status }
+        ? { ...c, name: editForm.name.trim(), birthDate, role: editForm.role, countryId: editForm.countryId, password: editForm.password || c.password, balance: parseInt(editForm.balance), occupation: editForm.occupation, status: editForm.status }
         : c
     );
     onUpdateState({ ...state, citizens: updated });
@@ -472,10 +478,18 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
                 <BtnSecondary onClick={() => setForm({ ...form, password: generatePassword() })}>Generer</BtnSecondary>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Age</Label><Input type="number" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} min="1" max="120" /></div>
-              <div><Label>Solde (Ecus)</Label><Input type="number" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} min="0" /></div>
+            <div>
+              <Label>Date de naissance (RP)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Input type="number" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
+                <Select value={form.birthMonth} onChange={(e) => setForm({ ...form, birthMonth: e.target.value })}>
+                  {["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                </Select>
+                <Input type="number" value={form.birthYear} onChange={(e) => setForm({ ...form, birthYear: e.target.value })} placeholder="Annee" />
+              </div>
+              <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) } }, gd)} ans</div>
             </div>
+            <div><Label>Solde (Ecus)</Label><Input type="number" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} min="0" /></div>
             <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{Object.entries(ROLES).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}</Select></div>
             <div><Label>Pays</Label><Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>{safeCountries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
             <div><Label>Occupation</Label><Input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Metier..." /></div>
@@ -537,6 +551,8 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
                         <span className="font-mono">{c.id}</span>
                         <span className="text-stone-700">|</span>
                         <span>{roleLabel}</span>
+                        <span className="text-stone-700">|</span>
+                        <span>{getCitizenAge(c, gd)} ans</span>
                         {country && <><span className="text-stone-700">|</span><span>{country.name}</span></>}
                       </div>
                     </div>
@@ -561,7 +577,17 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
                         <div><Label>Statut</Label><Select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>{(BASE_STATUSES || ["Actif", "Esclave", "Prisonnier", "Malade", "Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
                         <div><Label>Solde</Label><Input type="number" value={editForm.balance} onChange={(e) => setEditForm({ ...editForm, balance: e.target.value })} /></div>
                         <div><Label>Occupation</Label><Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} /></div>
-                        <div><Label>Age</Label><Input type="number" value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value })} /></div>
+                        <div className="md:col-span-2">
+                          <Label>Date de naissance (RP)</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Input type="number" value={editForm.birthDay} onChange={(e) => setEditForm({ ...editForm, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
+                            <Select value={editForm.birthMonth} onChange={(e) => setEditForm({ ...editForm, birthMonth: e.target.value })}>
+                              {["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </Select>
+                            <Input type="number" value={editForm.birthYear} onChange={(e) => setEditForm({ ...editForm, birthYear: e.target.value })} placeholder="Annee" />
+                          </div>
+                          <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) } }, gd)} ans</div>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 pt-1">
                         <BtnPrimary onClick={saveEdit} className="flex-1"><Save size={14} /> Sauvegarder</BtnPrimary>

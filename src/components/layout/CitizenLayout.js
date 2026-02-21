@@ -33,6 +33,7 @@ import {
 import SettingsPanel from "../ui/SettingsPanel";
 import NotificationCenter from "../ui/NotificationCenter";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
+import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import PostView from "../views/PostView";
@@ -143,7 +144,10 @@ const CitizenLayout = (props) => {
     onGmTrigger,
     gmBoostActive = false,
     gmTempBoost = null,
+    gameDate,
   } = props;
+
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
   const [active, setActive] = useState("gazette");
@@ -609,6 +613,7 @@ const CitizenLayout = (props) => {
                 onBuyItem={onBuyItem}
                 onGiveItem={onGiveItem}
                 onBuySlave={onBuySlave}
+                gameDate={gd}
               />
             )}
 
@@ -896,7 +901,10 @@ const CitizenLayout = (props) => {
                     </div>
                     <div>
                       <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Âge</span>
-                      <div className="font-bold text-stone-800">{user.age || "?"} ans</div>
+                      <div className="font-bold text-stone-800">{getCitizenAge(user, gd) || "?"} ans</div>
+                      {user.birthDate && (
+                        <div className="text-[9px] text-stone-400 mt-0.5">Né(e) le {formatRPDate(user.birthDate)}</div>
+                      )}
                     </div>
                     {employedCompany && (
                       <div>
@@ -1221,6 +1229,7 @@ const CitizenLayout = (props) => {
                     countries={safeCountries}
                     companies={safeCompanies}
                     users={safeUsers}
+                    gameDate={gd}
                     onClose={() => setSelectedCitizen(null)}
                   />
                 )}

@@ -17,6 +17,7 @@ import {
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
+import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
 
 const RegistryView = ({
   citizens,
@@ -26,7 +27,9 @@ const RegistryView = ({
   onSave,
   onDelete,
   roleInfo,
+  gameDate,
 }) => {
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const [selectedId, setSelectedId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [search, setSearch] = useState("");
@@ -122,7 +125,7 @@ const RegistryView = ({
                 setEditForm({
                   id: "EMP-" + Date.now().toString().slice(-4),
                   name: "Nouveau Sujet",
-                  age: 20,
+                  birthDate: { day: 1, month: 1, year: gd.year - 20 },
                   balance: 0,
                   role: "CITOYEN",
                   countryId: session.countryId || "C1",
@@ -274,7 +277,19 @@ const RegistryView = ({
                 {editForm ? (
                   <button
                     onClick={() => {
-                      onSave(editForm);
+                      const toSave = { ...editForm };
+                      // Convertir les champs birthDay/Month/Year en birthDate
+                      if (toSave.birthDay != null || toSave.birthMonth != null || toSave.birthYear != null) {
+                        toSave.birthDate = {
+                          day: parseInt(toSave.birthDay) || toSave.birthDate?.day || 1,
+                          month: parseInt(toSave.birthMonth) || toSave.birthDate?.month || 1,
+                          year: parseInt(toSave.birthYear) || toSave.birthDate?.year || (gd.year - 20),
+                        };
+                        delete toSave.birthDay;
+                        delete toSave.birthMonth;
+                        delete toSave.birthYear;
+                      }
+                      onSave(toSave);
                       setEditForm(null);
                     }}
                     className="bg-stone-900 text-yellow-500 px-10 py-3 rounded-xl text-[11px] font-black uppercase shadow-2xl hover:bg-stone-800 transition-all active:scale-95 tracking-widest font-sans"
@@ -285,7 +300,13 @@ const RegistryView = ({
                   roleInfo.level >= 30 &&
                   !(session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId)) && (
                     <button
-                      onClick={() => setEditForm({ ...selected })}
+                      onClick={() => {
+                        const ef = { ...selected };
+                        if (!ef.birthDate && ef.age) {
+                          ef.birthDate = ageToBirthDate(ef.age, gd);
+                        }
+                        setEditForm(ef);
+                      }}
                       className="bg-white border-2 border-stone-300 px-8 py-3 rounded-xl text-[11px] font-black uppercase flex items-center gap-3 shadow-md hover:bg-stone-50 transition-all active:scale-95 tracking-widest font-sans"
                     >
                       Modifier
@@ -464,22 +485,37 @@ const RegistryView = ({
                       </p>
                     </div>
 
-                    {/* Autres champs standards */}
+                    {/* Date de naissance */}
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
-                        Âge
+                        Date de naissance (RP)
                       </label>
-                      <input
-                        type="number"
-                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
-                        value={editForm.age}
-                        onChange={(e) =>
-                          setEditForm({
-                            ...editForm,
-                            age: parseInt(e.target.value) || 0,
-                          })
-                        }
-                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="number"
+                          className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                          value={editForm.birthDay ?? (editForm.birthDate?.day || 1)}
+                          onChange={(e) => setEditForm({ ...editForm, birthDay: parseInt(e.target.value) || 1 })}
+                          min="1" max="30" placeholder="Jour"
+                        />
+                        <select
+                          className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                          value={editForm.birthMonth ?? (editForm.birthDate?.month || 1)}
+                          onChange={(e) => setEditForm({ ...editForm, birthMonth: parseInt(e.target.value) || 1 })}
+                        >
+                          {["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                        </select>
+                        <input
+                          type="number"
+                          className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                          value={editForm.birthYear ?? (editForm.birthDate?.year || gd.year - 20)}
+                          onChange={(e) => setEditForm({ ...editForm, birthYear: parseInt(e.target.value) || (gd.year - 20) })}
+                          placeholder="Année"
+                        />
+                      </div>
+                      <div className="text-[9px] text-stone-400 mt-1">
+                        Âge : {getCitizenAge({ birthDate: { day: editForm.birthDay ?? (editForm.birthDate?.day || 1), month: editForm.birthMonth ?? (editForm.birthDate?.month || 1), year: editForm.birthYear ?? (editForm.birthDate?.year || gd.year - 20) } }, gd)} ans
+                      </div>
                     </div>
 
                     {/* Sexe */}
@@ -807,8 +843,13 @@ const RegistryView = ({
                             Âge
                           </span>
                           <span className="text-stone-900 font-bold text-lg uppercase font-sans">
-                            {selected.age || "Inconnu"} ans
+                            {getCitizenAge(selected, gd) || "Inconnu"} ans
                           </span>
+                          {selected.birthDate && (
+                            <span className="text-stone-400 text-[9px] font-normal block mt-0.5">
+                              Né(e) le {formatRPDate(selected.birthDate)}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div>

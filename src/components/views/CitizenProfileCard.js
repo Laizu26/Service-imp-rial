@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
+import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
 
 const getRoleTheme = (role) => {
   switch (role) {
@@ -32,7 +33,8 @@ const getRoleTheme = (role) => {
   }
 };
 
-const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], onClose }) => {
+const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], onClose, gameDate }) => {
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
   if (!citizen) return null;
 
   const theme = getRoleTheme(citizen.role);
@@ -130,7 +132,10 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
         </div>
         <div>
           <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Âge</span>
-          <div className="font-bold text-stone-800">{citizen.age || "?"} ans</div>
+          <div className="font-bold text-stone-800">{getCitizenAge(citizen, gd) || "?"} ans</div>
+          {citizen.birthDate && (
+            <div className="text-[9px] text-stone-400 mt-0.5">Né(e) le {formatRPDate(citizen.birthDate)}</div>
+          )}
         </div>
         {citizen.occupation && citizen.occupation !== "Citoyen" && (
           <div>
