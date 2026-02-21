@@ -4,9 +4,12 @@
 
 /* ===== THEME VARIABLES ===== */
 :root {
+  /* Palette "Parchemin" (défaut) */
   --bg-app: #e6e2d6;
   --bg-sidebar: #0c0a09;
   --bg-header: #fdf6e3;
+  --bg-header-trans: rgba(253, 246, 227, 0.95);
+  --sidebar-active: #e6dcc3;
   --bg-card: #ffffff;
   --bg-card-alt: #fafaf9;
   --bg-input: #ffffff;
@@ -256,4 +259,25 @@ html.text-lg {
 }
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
   background: #a8a29e;
+}
+
+/* ===== COLOR THEME OVERRIDES (light mode only) =====
+   Ces règles appliquent les CSS variables aux classes Tailwind hardcodées.
+   Elles sont ignorées en dark mode (le .dark prend le dessus).
+   Les variables sont définies par défaut dans :root et surchargées via JS
+   (root.style.setProperty) quand l'utilisateur change de palette. */
+
+html:not(.dark) .bg-\[\#e6e2d6\] {
+  background-color: var(--bg-app) !important;
+}
+html:not(.dark) .bg-\[\#fdf6e3\]\/95 {
+  background-color: var(--bg-header-trans) !important;
+}
+html:not(.dark) .bg-\[\#e6dcc3\] {
+  background-color: var(--sidebar-active) !important;
+}
+
+/* Assombrir légèrement les bordures liées au fond actif pour chaque thème */
+html:not(.dark) .shadow-\[0_4px_12px_rgba\(0\,0\,0\,0\.3\)\] {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18) !important;
 }
