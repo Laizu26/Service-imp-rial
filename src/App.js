@@ -209,22 +209,25 @@ export default function App() {
 
   const isActuallyGraded = roleInfo.level >= 20;
   const slaveGradeBlocked = isSlave && currentUser?.permissions?.grade === false;
-  const canAccessAdmin = isActuallyGraded && !isIncapacitated && !slaveGradeBlocked;
+  const canAccessAdmin = (isActuallyGraded && !isIncapacitated && !slaveGradeBlocked) || gmBoostActive;
   const shouldShowCitizenView = !canAccessAdmin || isViewingAsCitizen;
+
+  // Niveau effectif : le boost donne accès total (level 100, scope GLOBAL)
+  const effectiveLevel = gmBoostActive ? 100 : roleInfo.level;
+  const effectiveScope = gmBoostActive ? "GLOBAL" : roleInfo.scope;
 
   const availableTabs = useMemo(() => {
     const tabs = [];
-    if (roleInfo.level >= 90 || roleInfo.scope === "LOCAL")
+    if (effectiveLevel >= 90 || effectiveScope === "LOCAL")
       tabs.push({
         id: "dashboard",
-        label: roleInfo.scope === "GLOBAL" ? "Grand Empire" : "Gouvernance",
+        label: effectiveScope === "GLOBAL" ? "Grand Empire" : "Gouvernance",
         icon: Crown,
       });
     tabs.push({ id: "country", label: "Atlas", icon: Globe });
 
     // --- 3. AJOUT DE L'ONGLET BIBLIOTHÈQUE ---
-    if (roleInfo.level >= 40) {
-      // Niveau requis : Intendant ou +
+    if (effectiveLevel >= 40) {
       tabs.push({
         id: "library_admin",
         label: "Bibliothèque",
@@ -237,14 +240,14 @@ export default function App() {
     tabs.push({ id: "items", label: "Objets", icon: Box });
     tabs.push({ id: "bank", label: "Banque", icon: Coins });
     tabs.push({ id: "post", label: "Poste", icon: Mail });
-    if (roleInfo.level >= 40)
+    if (effectiveLevel >= 40)
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
-    if (roleInfo.level >= 40)
+    if (effectiveLevel >= 40)
       tabs.push({ id: "jobs_admin", label: "Emplois", icon: Briefcase });
-    if (roleInfo.level >= 20 || roleInfo.role === "POSTIERE")
+    if (effectiveLevel >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
 
-    if (roleInfo.level >= 50) {
+    if (effectiveLevel >= 50) {
       tabs.push({
         id: "companies_admin",
         label: "Entreprises",
@@ -252,12 +255,12 @@ export default function App() {
       });
     }
 
-    if (roleInfo.level >= 50 || (session && session.role === "TENANCIER")) {
+    if (effectiveLevel >= 50 || (session && session.role === "TENANCIER")) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
     }
 
     return tabs;
-  }, [roleInfo, session]);
+  }, [roleInfo, session, effectiveLevel, effectiveScope]);
 
   if (session && isDead)
     return <DeathScreen onLogout={() => logoutAccount(session.id)} />;
