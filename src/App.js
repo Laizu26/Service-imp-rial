@@ -420,6 +420,9 @@ export default function App() {
             users={state.citizens}
             loading={authLoading}
             notify={notify}
+            connectedAccounts={connectedAccounts}
+            onSwitchAccount={switchAccount}
+            onLogoutAccount={logoutAccount}
           />
         ) : shouldShowCitizenView ? (
           <CitizenLayout

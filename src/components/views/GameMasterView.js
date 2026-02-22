@@ -36,6 +36,9 @@ import {
   Plane,
   ShieldAlert,
   ShoppingBag,
+  Baby,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
@@ -805,6 +808,7 @@ const LAW_CATEGORIES = [
       { key: "allowSelfManumission", label: "Auto-affranchissement", desc: "Permet a un esclave de s'acheter sa liberte" },
       { key: "militaryServitude", label: "Servitude militaire", desc: "Transforme la main d'oeuvre en servitude militaire" },
       { key: "banPublicSlaveMarket", label: "Interdire marche d'esclaves", desc: "Interdit la mise en vente publique des esclaves" },
+      { key: "requireChildApproval", label: "Validation des filiations", desc: "Les declarations d'enfants necessitent une approbation admin avant d'etre enregistrees" },
     ],
   },
   {
@@ -816,6 +820,99 @@ const LAW_CATEGORIES = [
     ],
   },
 ];
+
+/* ================================================
+   PENDING CHILDREN — Admin validation panel
+   ================================================ */
+const GMPendingChildren = ({ state, onUpdateState, notify }) => {
+  const pending = state.pendingChildren || [];
+  const citizens = state.citizens || [];
+
+  const approvePending = (req) => {
+    const newCitizens = [...citizens];
+    const parentIdx = newCitizens.findIndex((c) => c.id === req.requestedBy);
+    if (parentIdx === -1) { notify("Parent introuvable.", "error"); return; }
+
+    const child = req.childData;
+    const parent = newCitizens[parentIdx];
+    const alreadyThere = (parent.children || []).some((ch) => ch.id === child.id);
+    if (!alreadyThere) {
+      newCitizens[parentIdx] = { ...parent, children: [...(parent.children || []), child] };
+    }
+
+    // Ajouter aussi chez l'autre parent si connu
+    if (child.otherParentId) {
+      const otherIdx = newCitizens.findIndex((c) => c.id === child.otherParentId);
+      if (otherIdx !== -1) {
+        const other = newCitizens[otherIdx];
+        if (!(other.children || []).some((ch) => ch.id === child.id)) {
+          newCitizens[otherIdx] = { ...other, children: [...(other.children || []), { ...child, otherParentId: req.requestedBy }] };
+        }
+      }
+    }
+
+    const pendingChildren = pending.filter((p) => p.id !== req.id);
+    onUpdateState({ ...state, citizens: newCitizens, pendingChildren });
+    notify(`Filiation de ${child.name} validée.`, "success");
+  };
+
+  const rejectPending = (req) => {
+    const pendingChildren = pending.filter((p) => p.id !== req.id);
+    onUpdateState({ ...state, pendingChildren });
+    notify(`Déclaration de ${req.childData.name} rejetée.`, "info");
+  };
+
+  if (pending.length === 0) return null;
+
+  return (
+    <div className="mb-4 bg-amber-950/30 border border-amber-800/50 rounded-xl p-4 space-y-3">
+      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-400">
+        <Baby size={13} /> Filiations en attente de validation ({pending.length})
+      </div>
+      {pending.map((req) => {
+        const child = req.childData;
+        const linkedCitizen = child.citizenId ? citizens.find((c) => c.id === child.citizenId) : null;
+        const otherParent = child.otherParentId ? citizens.find((c) => c.id === child.otherParentId) : null;
+        return (
+          <div key={req.id} className="bg-stone-900 rounded-xl border border-stone-800 p-3 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-900/40 flex items-center justify-center border border-amber-800/50 shrink-0">
+              <Baby size={16} className="text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-0.5">
+              <div className="font-black text-stone-200 text-sm">{linkedCitizen?.name || child.name}</div>
+              <div className="text-[9px] text-stone-500">
+                Déclaré par <span className="text-stone-300 font-bold">{req.requestedByName}</span>
+                {otherParent && <> · Autre parent : <span className="text-stone-300 font-bold">{otherParent.name}</span></>}
+              </div>
+              {child.birthDate && (
+                <div className="text-[9px] text-stone-500 italic">
+                  Né(e) le {formatRPDate(child.birthDate)}
+                </div>
+              )}
+              {child.notes && (
+                <div className="text-[9px] text-amber-300/70 italic">{child.notes}</div>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => approvePending(req)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-900/40 text-green-400 text-[9px] font-black uppercase rounded-lg border border-green-800/50 hover:bg-green-900/60 transition-colors"
+              >
+                <CheckCircle2 size={11} /> Valider
+              </button>
+              <button
+                onClick={() => rejectPending(req)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-900/40 text-red-400 text-[9px] font-black uppercase rounded-lg border border-red-800/50 hover:bg-red-900/60 transition-colors"
+              >
+                <XCircle size={11} /> Rejeter
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 const GMLois = ({ state, onUpdateState, notify }) => {
   const countries = state.countries || [];
@@ -1064,10 +1161,11 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
    ================================================ */
 const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
   const [activeSection, setActiveSection] = useState("dashboard");
+  const pendingChildCount = (state.pendingChildren || []).length;
 
   const menuItems = [
     { id: "dashboard", label: "Vue d'Ensemble", icon: LayoutDashboard },
-    { id: "accounts", label: "Comptes", icon: Users },
+    { id: "accounts", label: "Comptes", icon: Users, badge: pendingChildCount || null },
     { id: "lore", label: "Lore & Univers", icon: BookOpen },
     { id: "lois", label: "Lois & Nations", icon: Gavel },
     { id: "calendrier", label: "Calendrier", icon: Calendar },
@@ -1097,7 +1195,12 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
               }`}
             >
               <item.icon size={18} className={activeSection === item.id ? "text-red-400" : "text-stone-500 group-hover:text-stone-300"} />
-              <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+              <span className="text-[10px] font-black uppercase tracking-widest flex-1">{item.label}</span>
+              {item.badge && (
+                <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-amber-500 text-stone-900 text-[9px] font-black px-1">
+                  {item.badge}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -1125,11 +1228,16 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
               <button
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
-                className={`p-2 rounded-lg transition-all shrink-0 ${
+                className={`p-2 rounded-lg transition-all shrink-0 relative ${
                   activeSection === item.id ? "bg-red-900/30 text-red-400" : "text-stone-500 hover:text-stone-300"
                 }`}
               >
                 <item.icon size={18} />
+                {item.badge && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-amber-500 text-stone-900 text-[8px] font-black px-0.5">
+                    {item.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1141,7 +1249,12 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
           <div className="max-w-5xl mx-auto pb-10">
             {activeSection === "dashboard" && <GMDashboard state={state} />}
-            {activeSection === "accounts" && <GMAccounts state={state} onUpdateState={onUpdateState} notify={notify} />}
+            {activeSection === "accounts" && (
+              <>
+                <GMPendingChildren state={state} onUpdateState={onUpdateState} notify={notify} />
+                <GMAccounts state={state} onUpdateState={onUpdateState} notify={notify} />
+              </>
+            )}
             {activeSection === "lore" && <GMLore state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lois" && <GMLois state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "calendrier" && <GMCalendrier state={state} onUpdateState={onUpdateState} notify={notify} />}

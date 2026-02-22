@@ -2113,6 +2113,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
 
+        const user = newCitizens[userIdx];
+        const userCountry = (state.countries || []).find((c) => c.id === user.countryId);
+        const requireApproval = !!userCountry?.laws?.requireChildApproval;
+
         const child = {
           id: Date.now().toString(),
           name: childData.name || "Enfant",
@@ -2124,7 +2128,23 @@ export const useGameActions = (session, state, saveState, notify) => {
           declaredAt: Date.now(),
         };
 
-        const user = newCitizens[userIdx];
+        if (requireApproval) {
+          // Ajouter en file d'attente pour validation admin
+          const pending = {
+            id: child.id,
+            requestedBy: session.id,
+            requestedByName: user.name,
+            countryId: user.countryId,
+            childData: child,
+            requestedAt: Date.now(),
+          };
+          const pendingChildren = [...(state.pendingChildren || []), pending];
+          saveState({ ...state, pendingChildren });
+          notify(`Déclaration de ${child.name} soumise — en attente de validation.`, "info");
+          return;
+        }
+
+        // Ajout direct (pas d'approbation requise)
         newCitizens[userIdx] = {
           ...user,
           children: [...(user.children || []), child],
@@ -2135,7 +2155,6 @@ export const useGameActions = (session, state, saveState, notify) => {
           const otherIdx = newCitizens.findIndex((c) => c.id === childData.otherParentId);
           if (otherIdx !== -1) {
             const other = newCitizens[otherIdx];
-            // Ne pas dupliquer si déjà présent
             const alreadyThere = (other.children || []).some((ch) => ch.id === child.id);
             if (!alreadyThere) {
               newCitizens[otherIdx] = {

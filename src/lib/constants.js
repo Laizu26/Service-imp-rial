@@ -103,6 +103,7 @@ export const DEFAULT_GAME_STATE = {
         marriageStructure: "monogamie", // monogamie | polygamie | polyandrie | polyamour
         marriageDefaultFiliation: "patrilineaire", // filiation par défaut des enfants
         marriageMinAge: 16, // âge minimum légal pour se marier
+        requireChildApproval: false, // si true, les déclarations d'enfants nécessitent validation admin
       },
       regions: [{ id: "r1", name: "Capitale", status: "Calme" }],
       customRoles: [],
