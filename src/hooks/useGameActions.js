@@ -150,45 +150,6 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.globalLedger = [ledgerEntry, ...(ns.globalLedger || [])];
         });
 
-        // --- Salaires passifs Maison d'Asia ---
-        (ns.maisonStaff || []).forEach((worker) => {
-          if (!worker.passiveSalary || worker.passiveSalary <= 0) return;
-          const freq = worker.passiveSalaryFreq || "daily";
-          const shouldPay =
-            freq === "daily" ||
-            (freq === "weekly" && ns.dayCycle % 7 === 0) ||
-            (freq === "monthly" && ns.gameDate.day === 1);
-          if (!shouldPay) return;
-
-          const amount = worker.passiveSalary;
-          const workerIdx = (ns.citizens || []).findIndex((c) => c.id === worker.id);
-          if (workerIdx === -1) return;
-
-          // Source : entreprise liée de la Maison ou Trésor Impérial
-          const maisonCompId = ns.maisonCompanyId;
-          const maisonCompIdx = maisonCompId ? (ns.companies || []).findIndex((c) => c.id === maisonCompId) : -1;
-          let paid = false;
-          if (maisonCompIdx !== -1 && (ns.companies[maisonCompIdx].balance || 0) >= amount) {
-            ns.companies[maisonCompIdx] = { ...ns.companies[maisonCompIdx], balance: ns.companies[maisonCompIdx].balance - amount };
-            paid = true;
-          } else if ((ns.treasury || 0) >= amount) {
-            ns.treasury -= amount;
-            paid = true;
-          }
-          if (paid) {
-            ns.citizens[workerIdx] = { ...ns.citizens[workerIdx], balance: (ns.citizens[workerIdx].balance || 0) + amount };
-            ns.globalLedger = [{
-              id: Date.now() + Math.random(),
-              fromName: maisonCompIdx !== -1 ? ns.companies[maisonCompIdx].name : "Trésor Impérial",
-              toName: worker.name,
-              amount,
-              timestamp: Date.now(),
-              reason: `Salaire passif — Maison d'Asia`,
-              type: "MAISON_SALARY",
-            }, ...(ns.globalLedger || [])];
-          }
-        });
-
         saveState(ns);
         notify(
           `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
@@ -1737,42 +1698,6 @@ export const useGameActions = (session, state, saveState, notify) => {
           let newLedger = [...(state.globalLedger || [])];
           let newTreasury = state.treasury || 0;
 
-          // --- Paiement à la tâche au pensionnaire ---
-          if (worker && (worker.taskPayment || 0) > 0) {
-            const pricePaid = myBooking.pricePaid || worker.price || 0;
-            const taskPay = worker.taskPaymentType === "percent"
-              ? Math.floor(pricePaid * (worker.taskPayment / 100))
-              : worker.taskPayment;
-            if (taskPay > 0) {
-              const workerCitizenIdx = newCitizens.findIndex((c) => c.id === worker.id);
-              if (workerCitizenIdx !== -1) {
-                // Payer depuis la Maison (entreprise liée) ou le trésor
-                const maisonCompId = state.maisonCompanyId;
-                const maisonCompIdx = maisonCompId ? newCompanies.findIndex((c) => c.id === maisonCompId) : -1;
-                let paid = false;
-                if (maisonCompIdx !== -1 && (newCompanies[maisonCompIdx].balance || 0) >= taskPay) {
-                  newCompanies[maisonCompIdx] = { ...newCompanies[maisonCompIdx], balance: newCompanies[maisonCompIdx].balance - taskPay };
-                  paid = true;
-                } else if (newTreasury >= taskPay) {
-                  newTreasury -= taskPay;
-                  paid = true;
-                }
-                if (paid) {
-                  newCitizens[workerCitizenIdx] = { ...newCitizens[workerCitizenIdx], balance: (newCitizens[workerCitizenIdx].balance || 0) + taskPay };
-                  newLedger = [{
-                    id: Date.now() + 0.5,
-                    fromName: maisonCompIdx !== -1 ? newCompanies[maisonCompIdx].name : "Trésor Impérial",
-                    toName: worker.name,
-                    amount: taskPay,
-                    timestamp: Date.now(),
-                    reason: `Paiement à la tâche — Maison d'Asia`,
-                    type: "MAISON_TASK",
-                  }, ...newLedger];
-                }
-              }
-            }
-          }
-
           // Auto-réserver le prochain dans la queue
           if (worker) {
             const staffQueue = newQueue
@@ -1957,41 +1882,6 @@ export const useGameActions = (session, state, saveState, notify) => {
         let newCompanies = [...(state.companies || [])];
         let newLedger = [...(state.globalLedger || [])];
         let newTreasury = state.treasury || 0;
-
-        // --- Paiement à la tâche au pensionnaire (eviction) ---
-        if (worker && (worker.taskPayment || 0) > 0) {
-          const pricePaid = booking.pricePaid || worker.price || 0;
-          const taskPay = worker.taskPaymentType === "percent"
-            ? Math.floor(pricePaid * (worker.taskPayment / 100))
-            : worker.taskPayment;
-          if (taskPay > 0) {
-            const workerIdx = newCitizens.findIndex((c) => c.id === worker.id);
-            if (workerIdx !== -1) {
-              const maisonCompId = state.maisonCompanyId;
-              const maisonCompIdx = maisonCompId ? newCompanies.findIndex((c) => c.id === maisonCompId) : -1;
-              let paid = false;
-              if (maisonCompIdx !== -1 && (newCompanies[maisonCompIdx].balance || 0) >= taskPay) {
-                newCompanies[maisonCompIdx] = { ...newCompanies[maisonCompIdx], balance: newCompanies[maisonCompIdx].balance - taskPay };
-                paid = true;
-              } else if (newTreasury >= taskPay) {
-                newTreasury -= taskPay;
-                paid = true;
-              }
-              if (paid) {
-                newCitizens[workerIdx] = { ...newCitizens[workerIdx], balance: (newCitizens[workerIdx].balance || 0) + taskPay };
-                newLedger = [{
-                  id: Date.now() + 0.5,
-                  fromName: maisonCompIdx !== -1 ? newCompanies[maisonCompIdx].name : "Trésor Impérial",
-                  toName: worker.name,
-                  amount: taskPay,
-                  timestamp: Date.now(),
-                  reason: `Paiement à la tâche — Maison d'Asia`,
-                  type: "MAISON_TASK",
-                }, ...newLedger];
-              }
-            }
-          }
-        }
 
         if (worker) {
           const staffQueue = newQueue

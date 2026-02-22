@@ -22,10 +22,9 @@ import {
   AlertTriangle,
   ImagePlus,
   Images,
-  Briefcase,
-  Repeat,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import JobsAdminView from "./JobsAdminView";
 
 /* ───────────── Petit composant étoiles (lecture seule) ───────────── */
 const Stars = ({ rating, size = 12 }) => (
@@ -117,6 +116,7 @@ const GalleryPanel = ({ member, onAdd, onRemove, onClose }) => {
 const MaisonDeAsiaAdmin = ({
   citizens = [],
   companies = [],
+  countries = [],
   houseRegistry = [],
   staff = [],
   maisonCompanyId,
@@ -124,6 +124,9 @@ const MaisonDeAsiaAdmin = ({
   maisonHistory = [],
   maisonReviews = [],
   maisonDefaultDuration = 60,
+  jobs = [],
+  session,
+  roleInfo,
   onUpdateRegistry,
   onUpdateStaff,
   onRemoveStaff,
@@ -132,6 +135,9 @@ const MaisonDeAsiaAdmin = ({
   onDeleteReview,
   onSetDefaultDuration,
   onEvictMaison,
+  onSaveJobContract,
+  onDeleteJobContract,
+  onToggleJobContract,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -141,12 +147,6 @@ const MaisonDeAsiaAdmin = ({
   const [newStaffPrice, setNewStaffPrice] = useState(50);
   const [newStaffDuration, setNewStaffDuration] = useState("");
   const [newStaffDescription, setNewStaffDescription] = useState("");
-  // Contrat de travail
-  const [newTaskPayment, setNewTaskPayment] = useState(0);
-  const [newTaskPaymentType, setNewTaskPaymentType] = useState("fixed");
-  const [newPassiveSalary, setNewPassiveSalary] = useState(0);
-  const [newPassiveSalaryFreq, setNewPassiveSalaryFreq] = useState("daily");
-
   // Galerie images (ajout)
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newStaffGallery, setNewStaffGallery] = useState([]);
@@ -158,10 +158,6 @@ const MaisonDeAsiaAdmin = ({
   const [editDuration, setEditDuration] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editGallery, setEditGallery] = useState([]);
-  const [editTaskPayment, setEditTaskPayment] = useState(0);
-  const [editTaskPaymentType, setEditTaskPaymentType] = useState("fixed");
-  const [editPassiveSalary, setEditPassiveSalary] = useState(0);
-  const [editPassiveSalaryFreq, setEditPassiveSalaryFreq] = useState("daily");
 
   // Gestion galerie séparée (en dehors du mode edit)
   const [galleryMemberId, setGalleryMemberId] = useState(null);
@@ -257,10 +253,6 @@ const MaisonDeAsiaAdmin = ({
       specialtyDescription: newStaffDescription || "",
       gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
       isBusy: false,
-      taskPayment: parseInt(newTaskPayment) || 0,
-      taskPaymentType: newTaskPaymentType,
-      passiveSalary: parseInt(newPassiveSalary) || 0,
-      passiveSalaryFreq: newPassiveSalaryFreq,
     };
 
     onUpdateStaff([...staff, newWorker]);
@@ -271,10 +263,6 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffDescription("");
     setNewStaffGallery([]);
     setNewImageUrl("");
-    setNewTaskPayment(0);
-    setNewTaskPaymentType("fixed");
-    setNewPassiveSalary(0);
-    setNewPassiveSalaryFreq("daily");
   };
 
   const handleRemoveStaff = (id) => {
@@ -292,10 +280,6 @@ const MaisonDeAsiaAdmin = ({
     setEditDuration(String(member.sessionDuration || ""));
     setEditDescription(member.specialtyDescription || "");
     setEditGallery([...(member.gallery || [])]);
-    setEditTaskPayment(member.taskPayment || 0);
-    setEditTaskPaymentType(member.taskPaymentType || "fixed");
-    setEditPassiveSalary(member.passiveSalary || 0);
-    setEditPassiveSalaryFreq(member.passiveSalaryFreq || "daily");
   };
 
   const cancelEdit = () => {
@@ -305,10 +289,6 @@ const MaisonDeAsiaAdmin = ({
     setEditDuration("");
     setEditDescription("");
     setEditGallery([]);
-    setEditTaskPayment(0);
-    setEditTaskPaymentType("fixed");
-    setEditPassiveSalary(0);
-    setEditPassiveSalaryFreq("daily");
   };
 
   const saveEdit = (id) => {
@@ -321,10 +301,6 @@ const MaisonDeAsiaAdmin = ({
             sessionDuration: editDuration ? parseInt(editDuration) : undefined,
             specialtyDescription: editDescription,
             gallery: editGallery,
-            taskPayment: parseInt(editTaskPayment) || 0,
-            taskPaymentType: editTaskPaymentType,
-            passiveSalary: parseInt(editPassiveSalary) || 0,
-            passiveSalaryFreq: editPassiveSalaryFreq,
           }
         : s
     );
@@ -403,6 +379,7 @@ const MaisonDeAsiaAdmin = ({
       count: maisonReviews.length,
     },
     { id: "finances", label: "Finances", icon: Wallet },
+    { id: "contrats", label: "Contrats", icon: Building2, count: jobs.length },
   ];
 
   return (
@@ -568,69 +545,6 @@ const MaisonDeAsiaAdmin = ({
                 maxLength={500}
               />
 
-              {/* Contrat de travail */}
-              <div className="mt-3 bg-fuchsia-50 p-4 rounded-lg border border-fuchsia-200">
-                <div className="text-[10px] font-black uppercase text-fuchsia-700 tracking-widest mb-3 flex items-center gap-1">
-                  <Briefcase size={12} /> Contrat de travail
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Paiement à la tâche */}
-                  <div className="bg-white rounded-lg border border-fuchsia-100 p-3 space-y-2">
-                    <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest">Paiement à la tâche</div>
-                    <div className="flex gap-2">
-                      <select
-                        className="p-2 border rounded-lg text-xs bg-stone-50 outline-none focus:border-fuchsia-500"
-                        value={newTaskPaymentType}
-                        onChange={(e) => setNewTaskPaymentType(e.target.value)}
-                      >
-                        <option value="fixed">Montant fixe (Écus)</option>
-                        <option value="percent">% du prix session</option>
-                      </select>
-                      <div className="relative flex-1">
-                        <input
-                          type="number"
-                          min="0"
-                          className="w-full p-2 pl-7 border rounded-lg text-xs bg-stone-50 font-mono outline-none focus:border-fuchsia-500"
-                          placeholder="0"
-                          value={newTaskPayment}
-                          onChange={(e) => setNewTaskPayment(e.target.value)}
-                        />
-                        <span className="absolute left-2 top-2 text-xs text-stone-400">
-                          {newTaskPaymentType === "percent" ? "%" : "E"}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-[9px] text-stone-400 italic">Versé au pensionnaire à chaque session terminée</p>
-                  </div>
-                  {/* Salaire passif */}
-                  <div className="bg-white rounded-lg border border-fuchsia-100 p-3 space-y-2">
-                    <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest flex items-center gap-1">
-                      <Repeat size={10} /> Salaire passif
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        className="flex-1 p-2 border rounded-lg text-xs bg-stone-50 font-mono outline-none focus:border-fuchsia-500"
-                        placeholder="0 Écus"
-                        value={newPassiveSalary}
-                        onChange={(e) => setNewPassiveSalary(e.target.value)}
-                      />
-                      <select
-                        className="p-2 border rounded-lg text-xs bg-stone-50 outline-none focus:border-fuchsia-500"
-                        value={newPassiveSalaryFreq}
-                        onChange={(e) => setNewPassiveSalaryFreq(e.target.value)}
-                      >
-                        <option value="daily">/ jour RP</option>
-                        <option value="weekly">/ semaine RP</option>
-                        <option value="monthly">/ mois RP</option>
-                      </select>
-                    </div>
-                    <p className="text-[9px] text-stone-400 italic">Versé automatiquement même sans sessions</p>
-                  </div>
-                </div>
-              </div>
-
               {/* Galerie images */}
               <div className="mt-3 bg-stone-50 p-3 rounded-lg border border-stone-200">
                 <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2 flex items-center gap-1">
@@ -780,49 +694,6 @@ const MaisonDeAsiaAdmin = ({
                             placeholder="Description détaillée..."
                             maxLength={500}
                           />
-                          {/* Contrat de travail */}
-                          <div className="bg-fuchsia-50 rounded-lg p-2 space-y-2 border border-fuchsia-100">
-                            <div className="text-[8px] font-black uppercase text-fuchsia-600 tracking-widest flex items-center gap-1">
-                              <Briefcase size={10} /> Contrat
-                            </div>
-                            <div className="flex gap-1.5 items-center">
-                              <select
-                                className="p-1 border rounded text-[10px] bg-white outline-none focus:border-fuchsia-500"
-                                value={editTaskPaymentType}
-                                onChange={(e) => setEditTaskPaymentType(e.target.value)}
-                              >
-                                <option value="fixed">Fixe</option>
-                                <option value="percent">%</option>
-                              </select>
-                              <input
-                                type="number" min="0"
-                                className="w-16 p-1 border rounded text-[10px] bg-white font-mono outline-none focus:border-fuchsia-500 text-center"
-                                value={editTaskPayment}
-                                onChange={(e) => setEditTaskPayment(e.target.value)}
-                                placeholder="0"
-                              />
-                              <span className="text-[9px] text-stone-400">/ tâche</span>
-                            </div>
-                            <div className="flex gap-1.5 items-center">
-                              <input
-                                type="number" min="0"
-                                className="w-16 p-1 border rounded text-[10px] bg-white font-mono outline-none focus:border-fuchsia-500 text-center"
-                                value={editPassiveSalary}
-                                onChange={(e) => setEditPassiveSalary(e.target.value)}
-                                placeholder="0"
-                              />
-                              <select
-                                className="p-1 border rounded text-[10px] bg-white outline-none focus:border-fuchsia-500"
-                                value={editPassiveSalaryFreq}
-                                onChange={(e) => setEditPassiveSalaryFreq(e.target.value)}
-                              >
-                                <option value="daily">/jour</option>
-                                <option value="weekly">/sem</option>
-                                <option value="monthly">/mois</option>
-                              </select>
-                              <span className="text-[9px] text-stone-400">passif</span>
-                            </div>
-                          </div>
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => saveEdit(member.id)}
@@ -868,25 +739,6 @@ const MaisonDeAsiaAdmin = ({
                               </span>
                             )}
                           </div>
-                          {/* Contrat de travail résumé */}
-                          {(member.taskPayment > 0 || member.passiveSalary > 0) && (
-                            <div className="flex flex-wrap gap-1.5 mt-1.5">
-                              {member.taskPayment > 0 && (
-                                <span className="text-[9px] bg-fuchsia-50 text-fuchsia-700 px-1.5 py-0.5 rounded font-bold flex items-center gap-1 border border-fuchsia-200">
-                                  <Briefcase size={9} />
-                                  {member.taskPaymentType === "percent"
-                                    ? `${member.taskPayment}% / tâche`
-                                    : `${member.taskPayment} E / tâche`}
-                                </span>
-                              )}
-                              {member.passiveSalary > 0 && (
-                                <span className="text-[9px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-bold flex items-center gap-1 border border-green-200">
-                                  <Repeat size={9} />
-                                  {member.passiveSalary} E / {member.passiveSalaryFreq === "daily" ? "jour" : member.passiveSalaryFreq === "weekly" ? "sem" : "mois"}
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </>
                       )}
                     </div>
@@ -1491,6 +1343,23 @@ const MaisonDeAsiaAdmin = ({
               </div>
             );
           })()}
+
+        {/* ════════════════ ONGLET 5 : CONTRATS ════════════════ */}
+        {activeTab === "contrats" && (
+          <div className="h-full">
+            <JobsAdminView
+              jobs={jobs}
+              citizens={citizens}
+              countries={countries}
+              companies={companies}
+              session={session}
+              roleInfo={roleInfo}
+              onSaveJobContract={onSaveJobContract}
+              onDeleteJobContract={onDeleteJobContract}
+              onToggleJobContract={onToggleJobContract}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

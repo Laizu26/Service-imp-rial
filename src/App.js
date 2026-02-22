@@ -887,6 +887,9 @@ export default function App() {
                       maisonHistory={state.maisonHistory || []}
                       maisonReviews={state.maisonReviews || []}
                       maisonDefaultDuration={state.maisonDefaultDuration || 60}
+                      jobs={state.jobContracts || []}
+                      session={session}
+                      roleInfo={roleInfo}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
                       onUpdateStaff={actions.onUpdateMaisonStaff}
                       onRemoveStaff={actions.onRemoveMaisonStaff}
@@ -895,6 +898,9 @@ export default function App() {
                       onDeleteReview={actions.onDeleteMaisonReview}
                       onSetDefaultDuration={actions.onSetMaisonDefaultDuration}
                       onEvictMaison={actions.onEvictMaison}
+                      onSaveJobContract={actions.onSaveJobContract}
+                      onDeleteJobContract={actions.onDeleteJobContract}
+                      onToggleJobContract={actions.onToggleJobContract}
                     />
                   )}
                 </div>
