@@ -54,6 +54,7 @@ import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
 import JobsAdminView from "./components/views/JobsAdminView";
 import GameMasterView from "./components/views/GameMasterView";
+import UserManagementView from "./components/views/UserManagementView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
 export default function App() {
@@ -258,6 +259,8 @@ export default function App() {
     if (effectiveLevel >= 50 || (session && session.role === "TENANCIER")) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
     }
+
+    tabs.push({ id: "user_management", label: "Corps Utilisateur", icon: Users });
 
     return tabs;
   }, [roleInfo, session, effectiveLevel, effectiveScope]);
@@ -873,6 +876,10 @@ export default function App() {
                       onDeleteJobContract={actions.onDeleteJobContract}
                       onToggleJobContract={actions.onToggleJobContract}
                     />
+                  )}
+
+                  {activeTab === "user_management" && (
+                    <UserManagementView />
                   )}
 
                   {activeTab === "asia_admin" && (

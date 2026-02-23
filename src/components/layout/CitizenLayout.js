@@ -47,6 +47,7 @@ import SlavePersonalView from "../views/SlavePersonalView";
 import LibraryView from "../views/LibraryView";
 import CitizenProfileCard from "../views/CitizenProfileCard";
 import MarriageView from "../views/MarriageView";
+import UserManagementView from "../views/UserManagementView";
 
 const BoostCountdown = ({ expiresAt }) => {
   const [remaining, setRemaining] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
@@ -278,6 +279,7 @@ const CitizenLayout = (props) => {
     isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
+    { id: "user_management", label: "Corps Utilisateur", icon: Users },
     { id: "annuaire", label: "Annuaire", icon: Eye },
   ].filter(Boolean);
 
@@ -1106,6 +1108,9 @@ const CitizenLayout = (props) => {
                 notify={notify}
               />
             )}
+
+            {/* === GESTION CORPS UTILISATEUR === */}
+            {active === "user_management" && <UserManagementView />}
 
             {/* === ANNUAIRE DES CITOYENS === */}
             {active === "annuaire" && (
