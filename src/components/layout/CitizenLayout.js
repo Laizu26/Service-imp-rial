@@ -47,6 +47,7 @@ import SlavePersonalView from "../views/SlavePersonalView";
 import LibraryView from "../views/LibraryView";
 import CitizenProfileCard from "../views/CitizenProfileCard";
 import MarriageView from "../views/MarriageView";
+import CitizenPhysicsMagicView from "../views/CitizenPhysicsMagicView";
 
 const BoostCountdown = ({ expiresAt }) => {
   const [remaining, setRemaining] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
@@ -279,6 +280,7 @@ const CitizenLayout = (props) => {
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
     { id: "annuaire", label: "Annuaire", icon: Eye },
+    { id: "physique_magie", label: "Physique & Magie", icon: Zap },
   ].filter(Boolean);
 
   // --- 4. RENDU ---
@@ -1240,6 +1242,15 @@ const CitizenLayout = (props) => {
                 )}
               </div>
             )}
+
+            {/* --- BLOC PHYSIQUE & MAGIE --- */}
+            {active === "physique_magie" && (
+              <CitizenPhysicsMagicView
+                user={user}
+                onUpdateUser={onUpdateUser}
+              />
+            )}
+            {/* ----------------------------- */}
           </div>
         </main>
       </div>
