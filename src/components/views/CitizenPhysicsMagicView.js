@@ -10,115 +10,175 @@ import {
   Moon,
   Leaf,
   Sparkles,
-  Activity,
-  Heart,
-  Eye,
-  Swords,
   Star,
   Lock,
   ChevronRight,
+  HeartPulse,
+  Info,
 } from "lucide-react";
 
-// --- Définition des attributs physiques ---
-const PHYSICAL_ATTRS = [
-  { key: "force",       label: "Force",        icon: Swords,   color: "red",    desc: "Puissance physique brute, détermine les dommages au corps à corps." },
-  { key: "agilite",     label: "Agilité",      icon: Wind,     color: "sky",    desc: "Vitesse et précision des mouvements, esquive et discrétion." },
-  { key: "endurance",   label: "Endurance",    icon: Activity, color: "green",  desc: "Résistance à l'effort prolongé et aux blessures mineures." },
-  { key: "constitution",label: "Constitution", icon: Heart,    color: "rose",   desc: "Solidité du corps, résistance aux maladies et aux poisons." },
-  { key: "perception",  label: "Perception",   icon: Eye,      color: "amber",  desc: "Acuité des sens, détection des dangers et lecture de l'environnement." },
+// ===== ZONES DU CORPS =====
+const BODY_ZONES = [
+  { id: "tete",         label: "Tête",              desc: "Crâne, mâchoire, cerveau, yeux" },
+  { id: "cou",          label: "Cou",               desc: "Vertèbres cervicales, gorge, artères" },
+  { id: "torse",        label: "Torse",             desc: "Côtes, sternum, poumons, cœur" },
+  { id: "abdomen",      label: "Abdomen",           desc: "Estomac, foie, organes abdominaux" },
+  { id: "bassin",       label: "Bassin",            desc: "Os iliaque, hanches, lombaires" },
+  { id: "bras_g",       label: "Bras gauche",       desc: "Épaule, biceps, humérus" },
+  { id: "bras_d",       label: "Bras droit",        desc: "Épaule, biceps, humérus" },
+  { id: "avant_bras_g", label: "Avant-bras G.",     desc: "Radius, cubitus, poignet" },
+  { id: "avant_bras_d", label: "Avant-bras D.",     desc: "Radius, cubitus, poignet" },
+  { id: "main_g",       label: "Main gauche",       desc: "Métacarpe, phalanges, cheville" },
+  { id: "main_d",       label: "Main droite",       desc: "Métacarpe, phalanges, cheville" },
+  { id: "cuisse_g",     label: "Cuisse gauche",     desc: "Fémur, quadriceps, ischio-jambiers" },
+  { id: "cuisse_d",     label: "Cuisse droite",     desc: "Fémur, quadriceps, ischio-jambiers" },
+  { id: "jambe_g",      label: "Jambe gauche",      desc: "Tibia, péroné, genou, mollet" },
+  { id: "jambe_d",      label: "Jambe droite",      desc: "Tibia, péroné, genou, mollet" },
+  { id: "pied_g",       label: "Pied gauche",       desc: "Cheville, métatarse, orteils" },
+  { id: "pied_d",       label: "Pied droit",        desc: "Cheville, métatarse, orteils" },
 ];
 
-// --- Définition des affinités magiques ---
-const MAGIC_AFFINITIES = [
-  { id: "feu",       label: "Feu",       emoji: "🔥", icon: Flame,     color: "orange", desc: "Maîtrise des flammes et de la chaleur. Puissante en attaque, ravageuse en combat." },
-  { id: "eau",       label: "Eau",       emoji: "💧", icon: Droplets,  color: "blue",   desc: "Contrôle de l'eau et des liquides. Soins, fluidité et protection." },
-  { id: "vent",      label: "Vent",      emoji: "💨", icon: Wind,      color: "cyan",   desc: "Domination des courants d'air. Rapidité, invisibilité et tranchant invisible." },
-  { id: "foudre",    label: "Foudre",    emoji: "⚡", icon: Zap,       color: "yellow", desc: "Canalisation de l'électricité. Paralysie, vitesse extrême et précision foudroyante." },
-  { id: "glace",     label: "Glace",     emoji: "❄️", icon: Snowflake, color: "sky",    desc: "Emprise du froid et du gel. Ralentissement, piège et barrières cristallines." },
-  { id: "ombre",     label: "Ombre",     emoji: "🌑", icon: Moon,      color: "violet", desc: "Manipulation des ténèbres. Illusions, dissimulation et magie noire." },
-  { id: "lumiere",   label: "Lumière",   emoji: "✨", icon: Sun,       color: "amber",  desc: "Rayonnement de la lumière divine. Purification, révélation et guérison sacrée." },
-  { id: "nature",    label: "Nature",    emoji: "🌿", icon: Leaf,      color: "emerald",desc: "Communion avec le monde vivant. Soins profonds, croissance et métamorphose." },
-  { id: "arcane",    label: "Arcane",    emoji: "🔮", icon: Sparkles,  color: "purple", desc: "Magie pure et universelle. Polyvalente mais difficile à maîtriser." },
-  { id: "none",      label: "Aucune",    emoji: "🚫", icon: Shield,    color: "stone",  desc: "Pas d'affinité magique. Résistance naturelle aux sorts ennemis." },
+// ===== ÉTATS DE BLESSURE =====
+const INJURY_STATES = [
+  { id: "sain",            label: "Sain",           fill: "#d1fae5", stroke: "#059669", textColor: "#065f46", dot: "bg-emerald-500",  badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  { id: "contusion",       label: "Contusion",      fill: "#fef9c3", stroke: "#b45309", textColor: "#78350f", dot: "bg-amber-400",    badge: "bg-amber-100 text-amber-800 border-amber-300"     },
+  { id: "blessure_legere", label: "Blessé léger",   fill: "#fed7aa", stroke: "#c2410c", textColor: "#9a3412", dot: "bg-orange-500",   badge: "bg-orange-100 text-orange-700 border-orange-300"  },
+  { id: "blessure_grave",  label: "Blessé grave",   fill: "#fecaca", stroke: "#b91c1c", textColor: "#991b1b", dot: "bg-red-500",      badge: "bg-red-100 text-red-700 border-red-300"           },
+  { id: "fracture",        label: "Fracture",       fill: "#ede9fe", stroke: "#6d28d9", textColor: "#5b21b6", dot: "bg-violet-500",   badge: "bg-violet-100 text-violet-700 border-violet-300"  },
+  { id: "critique",        label: "État critique",  fill: "#1e293b", stroke: "#94a3b8", textColor: "#f1f5f9", dot: "bg-slate-700",    badge: "bg-slate-800 text-slate-200 border-slate-600"     },
 ];
 
-// --- Couleurs Tailwind par clé ---
-const COLOR_CLASSES = {
-  red:     { bar: "bg-red-500",     text: "text-red-600",     border: "border-red-300",     bg: "bg-red-50",     badge: "bg-red-100 text-red-800 border-red-300" },
-  sky:     { bar: "bg-sky-500",     text: "text-sky-600",     border: "border-sky-300",     bg: "bg-sky-50",     badge: "bg-sky-100 text-sky-800 border-sky-300" },
-  green:   { bar: "bg-green-500",   text: "text-green-600",   border: "border-green-300",   bg: "bg-green-50",   badge: "bg-green-100 text-green-800 border-green-300" },
-  rose:    { bar: "bg-rose-500",    text: "text-rose-600",    border: "border-rose-300",    bg: "bg-rose-50",    badge: "bg-rose-100 text-rose-800 border-rose-300" },
-  amber:   { bar: "bg-amber-500",   text: "text-amber-600",   border: "border-amber-300",   bg: "bg-amber-50",   badge: "bg-amber-100 text-amber-800 border-amber-300" },
-  orange:  { bar: "bg-orange-500",  text: "text-orange-600",  border: "border-orange-300",  bg: "bg-orange-50",  badge: "bg-orange-100 text-orange-800 border-orange-300" },
-  blue:    { bar: "bg-blue-500",    text: "text-blue-600",    border: "border-blue-300",    bg: "bg-blue-50",    badge: "bg-blue-100 text-blue-800 border-blue-300" },
-  cyan:    { bar: "bg-cyan-500",    text: "text-cyan-600",    border: "border-cyan-300",    bg: "bg-cyan-50",    badge: "bg-cyan-100 text-cyan-800 border-cyan-300" },
-  yellow:  { bar: "bg-yellow-400",  text: "text-yellow-600",  border: "border-yellow-300",  bg: "bg-yellow-50",  badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-  violet:  { bar: "bg-violet-500",  text: "text-violet-600",  border: "border-violet-300",  bg: "bg-violet-50",  badge: "bg-violet-100 text-violet-800 border-violet-300" },
-  emerald: { bar: "bg-emerald-500", text: "text-emerald-600", border: "border-emerald-300", bg: "bg-emerald-50", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-  purple:  { bar: "bg-purple-500",  text: "text-purple-600",  border: "border-purple-300",  bg: "bg-purple-50",  badge: "bg-purple-100 text-purple-800 border-purple-300" },
-  stone:   { bar: "bg-stone-400",   text: "text-stone-600",   border: "border-stone-300",   bg: "bg-stone-50",   badge: "bg-stone-100 text-stone-700 border-stone-300" },
+const getInjuryState = (id) => INJURY_STATES.find((s) => s.id === id) || INJURY_STATES[0];
+
+const getOverallHealth = (injuries) => {
+  const vals = Object.values(injuries || {}).filter(Boolean);
+  if (vals.includes("critique"))        return { label: "État critique",         color: "text-slate-700",   bg: "bg-slate-100 border-slate-400"       };
+  if (vals.includes("fracture"))        return { label: "Gravement blessé",      color: "text-violet-700",  bg: "bg-violet-50 border-violet-300"      };
+  if (vals.includes("blessure_grave"))  return { label: "Sérieusement blessé",   color: "text-red-700",     bg: "bg-red-50 border-red-300"            };
+  if (vals.includes("blessure_legere")) return { label: "Légèrement blessé",     color: "text-orange-700",  bg: "bg-orange-50 border-orange-300"      };
+  if (vals.includes("contusion"))       return { label: "Quelques contusions",   color: "text-amber-700",   bg: "bg-amber-50 border-amber-300"        };
+  return                                       { label: "En pleine forme",        color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-300"    };
 };
 
-// --- Qualificatifs selon valeur (1-10) ---
-const getStatLabel = (val) => {
-  if (val <= 2) return "Médiocre";
-  if (val <= 4) return "Faible";
-  if (val <= 6) return "Ordinaire";
-  if (val <= 8) return "Notable";
-  if (val <= 9) return "Remarquable";
-  return "Légendaire";
-};
-
-// --- Barre de stat ---
-const StatBar = ({ label, value, max = 10, icon: Icon, color, desc }) => {
-  const pct = Math.min(100, Math.round((value / max) * 100));
-  const cls = COLOR_CLASSES[color] || COLOR_CLASSES.stone;
+// ===== SCHÉMA CORPOREL SVG =====
+const BodySVG = ({ injuries, selectedZone, hoveredZone, onSelect, onHover }) => {
+  const getP = (id) => {
+    const st = getInjuryState(injuries[id] || "sain");
+    const sel = selectedZone === id;
+    const hov = hoveredZone === id;
+    return {
+      fill:        st.fill,
+      stroke:      sel ? "#0f172a" : st.stroke,
+      strokeWidth: sel ? "2.5" : hov ? "2" : "1.3",
+      opacity:     sel || hov ? "1" : "0.9",
+      style:       { cursor: "pointer", transition: "all 0.15s" },
+      onClick:     () => onSelect(selectedZone === id ? null : id),
+      onMouseEnter:() => onHover(id),
+      onMouseLeave:() => onHover(null),
+    };
+  };
 
   return (
-    <div className="group">
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <Icon size={14} className={cls.text} />
-          <span className="text-sm font-black uppercase tracking-widest text-stone-700">{label}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border ${cls.badge}`}>
-            {getStatLabel(value)}
-          </span>
-          <span className={`text-sm font-black ${cls.text}`}>{value}<span className="text-stone-400 text-xs font-normal">/{max}</span></span>
-        </div>
-      </div>
-      <div className="w-full h-2.5 bg-stone-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full ${cls.bar} rounded-full transition-all duration-700`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <p className="text-[10px] text-stone-400 italic mt-1 hidden group-hover:block transition-all">
-        {desc}
-      </p>
-    </div>
+    <svg viewBox="0 0 200 490" className="w-full h-full">
+
+      {/* ── TÊTE ── */}
+      <ellipse cx="100" cy="40" rx="24" ry="28" {...getP("tete")} />
+
+      {/* ── COU ── */}
+      <rect x="91" y="66" width="18" height="17" rx="4" {...getP("cou")} />
+
+      {/* ── TORSE ── */}
+      <path d="M 74 83 L 126 83 L 131 180 L 69 180 Z" {...getP("torse")} />
+
+      {/* ── ABDOMEN ── */}
+      <path d="M 69 180 L 67 248 L 133 248 L 131 180 Z" {...getP("abdomen")} />
+
+      {/* ── BASSIN ── */}
+      <path d="M 67 248 Q 59 266 67 276 L 85 286 L 115 286 L 133 276 Q 141 266 133 248 Z" {...getP("bassin")} />
+
+      {/* ── BRAS GAUCHE ── */}
+      <path d="M 74 85 Q 54 85 44 100 Q 36 118 43 137 Q 49 150 62 148 Q 73 146 74 131 Z" {...getP("bras_g")} />
+
+      {/* ── BRAS DROIT ── */}
+      <path d="M 126 85 Q 146 85 156 100 Q 164 118 157 137 Q 151 150 138 148 Q 127 146 126 131 Z" {...getP("bras_d")} />
+
+      {/* ── AVANT-BRAS GAUCHE ── */}
+      <path d="M 43 137 Q 34 157 34 180 Q 34 196 44 200 Q 57 204 67 198 Q 75 192 74 171 L 74 131 Q 62 148 43 137 Z" {...getP("avant_bras_g")} />
+
+      {/* ── AVANT-BRAS DROIT ── */}
+      <path d="M 157 137 Q 166 157 166 180 Q 166 196 156 200 Q 143 204 133 198 Q 125 192 126 171 L 126 131 Q 138 148 157 137 Z" {...getP("avant_bras_d")} />
+
+      {/* ── MAIN GAUCHE ── */}
+      <ellipse cx="50" cy="212" rx="10" ry="13" {...getP("main_g")} />
+
+      {/* ── MAIN DROITE ── */}
+      <ellipse cx="150" cy="212" rx="10" ry="13" {...getP("main_d")} />
+
+      {/* ── CUISSE GAUCHE ── */}
+      <path d="M 85 286 L 79 380 L 100 382 L 106 286 Z" {...getP("cuisse_g")} />
+
+      {/* ── CUISSE DROITE ── */}
+      <path d="M 115 286 L 94 286 L 100 382 L 121 380 Z" {...getP("cuisse_d")} />
+
+      {/* ── JAMBE GAUCHE ── */}
+      <path d="M 79 380 L 77 462 L 96 464 L 100 382 Z" {...getP("jambe_g")} />
+
+      {/* ── JAMBE DROITE ── */}
+      <path d="M 100 382 L 104 464 L 123 462 L 121 380 Z" {...getP("jambe_d")} />
+
+      {/* ── PIED GAUCHE ── */}
+      <ellipse cx="85" cy="469" rx="18" ry="9" {...getP("pied_g")} />
+
+      {/* ── PIED DROIT ── */}
+      <ellipse cx="115" cy="469" rx="18" ry="9" {...getP("pied_d")} />
+    </svg>
   );
 };
 
-// === COMPOSANT PRINCIPAL ===
+// ===== AFFINITÉS MAGIQUES =====
+const MAGIC_AFFINITIES = [
+  { id: "feu",     label: "Feu",      emoji: "🔥", icon: Flame,     color: "orange", desc: "Maîtrise des flammes. Puissante en attaque, ravageuse en combat." },
+  { id: "eau",     label: "Eau",      emoji: "💧", icon: Droplets,  color: "blue",   desc: "Contrôle de l'eau. Soins, fluidité et protection." },
+  { id: "vent",    label: "Vent",     emoji: "💨", icon: Wind,      color: "cyan",   desc: "Domination des courants d'air. Rapidité et tranchant invisible." },
+  { id: "foudre",  label: "Foudre",   emoji: "⚡", icon: Zap,       color: "yellow", desc: "Canalisation de l'électricité. Paralysie et précision foudroyante." },
+  { id: "glace",   label: "Glace",    emoji: "❄️", icon: Snowflake, color: "sky",    desc: "Emprise du froid. Ralentissement, piège et barrières cristallines." },
+  { id: "ombre",   label: "Ombre",    emoji: "🌑", icon: Moon,      color: "violet", desc: "Manipulation des ténèbres. Illusions et dissimulation." },
+  { id: "lumiere", label: "Lumière",  emoji: "✨", icon: Sun,       color: "amber",  desc: "Rayonnement divin. Purification, révélation et guérison sacrée." },
+  { id: "nature",  label: "Nature",   emoji: "🌿", icon: Leaf,      color: "emerald",desc: "Communion avec le vivant. Soins profonds et métamorphose." },
+  { id: "arcane",  label: "Arcane",   emoji: "🔮", icon: Sparkles,  color: "purple", desc: "Magie pure universelle. Polyvalente mais difficile à maîtriser." },
+  { id: "none",    label: "Aucune",   emoji: "🚫", icon: Shield,    color: "stone",  desc: "Aucune affinité magique. Résistance naturelle aux sorts ennemis." },
+];
+
+const COLOR_CLASSES = {
+  orange:  { text: "text-orange-600",  border: "border-orange-300",  bg: "bg-orange-50",  badge: "bg-orange-100 text-orange-800 border-orange-300"  },
+  blue:    { text: "text-blue-600",    border: "border-blue-300",    bg: "bg-blue-50",    badge: "bg-blue-100 text-blue-800 border-blue-300"        },
+  cyan:    { text: "text-cyan-600",    border: "border-cyan-300",    bg: "bg-cyan-50",    badge: "bg-cyan-100 text-cyan-800 border-cyan-300"        },
+  yellow:  { text: "text-yellow-600",  border: "border-yellow-300",  bg: "bg-yellow-50",  badge: "bg-yellow-100 text-yellow-800 border-yellow-300"  },
+  sky:     { text: "text-sky-600",     border: "border-sky-300",     bg: "bg-sky-50",     badge: "bg-sky-100 text-sky-800 border-sky-300"           },
+  violet:  { text: "text-violet-600",  border: "border-violet-300",  bg: "bg-violet-50",  badge: "bg-violet-100 text-violet-800 border-violet-300"  },
+  amber:   { text: "text-amber-600",   border: "border-amber-300",   bg: "bg-amber-50",   badge: "bg-amber-100 text-amber-800 border-amber-300"     },
+  emerald: { text: "text-emerald-600", border: "border-emerald-300", bg: "bg-emerald-50", badge: "bg-emerald-100 text-emerald-800 border-emerald-300"},
+  purple:  { text: "text-purple-600",  border: "border-purple-300",  bg: "bg-purple-50",  badge: "bg-purple-100 text-purple-800 border-purple-300"  },
+  stone:   { text: "text-stone-500",   border: "border-stone-300",   bg: "bg-stone-50",   badge: "bg-stone-100 text-stone-700 border-stone-300"     },
+};
+
+// ===== COMPOSANT PRINCIPAL =====
 const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
-  const physStats = user?.physicalStats || {};
-  const magStats  = user?.magicStats  || {};
+  const magStats = user?.magicStats || {};
 
-  const [chosenAffinity, setChosenAffinity] = useState(null);
-  const [confirmOpen, setConfirmOpen]       = useState(false);
-  const [activeSection, setActiveSection]   = useState("physique");
+  const [activeSection, setActiveSection] = useState("physique");
+  const [selectedZone,  setSelectedZone]  = useState(null);
+  const [hoveredZone,   setHoveredZone]   = useState(null);
+  const [chosenAffinity,setChosenAffinity]= useState(null);
+  const [confirmOpen,   setConfirmOpen]   = useState(false);
 
-  // Valeurs par défaut
-  const stats = {
-    force:        physStats.force        ?? 5,
-    agilite:      physStats.agilite      ?? 5,
-    endurance:    physStats.endurance    ?? 5,
-    constitution: physStats.constitution ?? 5,
-    perception:   physStats.perception   ?? 5,
-  };
+  // ── Données corporelles ──
+  const injuries = user?.physicalStats?.injuries || {};
+  const overallHealth = getOverallHealth(injuries);
+  const selectedMeta  = BODY_ZONES.find((z) => z.id === selectedZone);
+  const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
 
+  // ── Données magiques ──
   const magic = {
     mana:      magStats.mana      ?? 50,
     manaMax:   magStats.manaMax   ?? 100,
@@ -126,37 +186,28 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
     affinite:  magStats.affinite  ?? null,
     sortConnu: magStats.sortConnu ?? null,
   };
+  const affinityLocked   = !!magic.affinite;
+  const currentAffinity  = MAGIC_AFFINITIES.find((a) => a.id === magic.affinite);
+  const manaPct          = Math.min(100, Math.round((magic.mana / Math.max(magic.manaMax, 1)) * 100));
+  const chosen           = MAGIC_AFFINITIES.find((a) => a.id === chosenAffinity);
 
-  const affinityLocked = !!magic.affinite;
-  const currentAffinity = MAGIC_AFFINITIES.find((a) => a.id === magic.affinite);
-  const manaPct = Math.min(100, Math.round((magic.mana / Math.max(magic.manaMax, 1)) * 100));
-
-  const handleChooseAffinity = (affId) => {
-    if (affinityLocked) return;
-    setChosenAffinity(affId);
-    setConfirmOpen(true);
-  };
+  const injuredCount = BODY_ZONES.filter(
+    (z) => injuries[z.id] && injuries[z.id] !== "sain"
+  ).length;
 
   const handleConfirm = () => {
     if (!chosenAffinity || !onUpdateUser) return;
-    onUpdateUser({
-      ...user,
-      magicStats: {
-        ...(user.magicStats || {}),
-        affinite: chosenAffinity,
-      },
-    });
+    onUpdateUser({ ...user, magicStats: { ...(user.magicStats || {}), affinite: chosenAffinity } });
     setConfirmOpen(false);
     setChosenAffinity(null);
   };
 
-  const chosen = MAGIC_AFFINITIES.find((a) => a.id === chosenAffinity);
-
   return (
     <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-stone-500 overflow-hidden">
-      {/* En-tête */}
-      <div className="px-6 md:px-8 py-6 border-b border-stone-200 flex items-center gap-4">
-        <div className="w-12 h-12 bg-stone-800 rounded-xl flex items-center justify-center shadow-lg">
+
+      {/* ── EN-TÊTE ── */}
+      <div className="px-6 md:px-8 py-5 border-b border-stone-200 flex items-center gap-4">
+        <div className="w-12 h-12 bg-stone-800 rounded-xl flex items-center justify-center shadow-lg shrink-0">
           <Star size={22} className="text-amber-400" />
         </div>
         <div>
@@ -169,11 +220,11 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
         </div>
       </div>
 
-      {/* Onglets internes */}
+      {/* ── ONGLETS INTERNES ── */}
       <div className="flex border-b border-stone-200 bg-stone-50">
         {[
-          { id: "physique", label: "Attributs Physiques", icon: Shield },
-          { id: "magie",    label: "Système Magique",     icon: Sparkles },
+          { id: "physique", label: "Corps & Blessures", icon: HeartPulse },
+          { id: "magie",    label: "Système Magique",   icon: Sparkles    },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -190,68 +241,157 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
         ))}
       </div>
 
-      <div className="p-6 md:p-8 space-y-6">
+      <div className="p-5 md:p-7 space-y-5">
 
-        {/* ===== SECTION PHYSIQUE ===== */}
+        {/* ══════════════════════════════════
+            SECTION PHYSIQUE — SCHÉMA CORPOREL
+            ══════════════════════════════════ */}
         {activeSection === "physique" && (
           <>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800 flex items-start gap-2">
-              <Lock size={12} className="mt-0.5 shrink-0 text-amber-600" />
-              <span>
-                Les attributs physiques sont déterminés par votre naissance, vos entraînements et les décisions impériales.
-                Ils ne peuvent être modifiés que par un administrateur.
-              </span>
-            </div>
-
-            <div className="space-y-5">
-              {PHYSICAL_ATTRS.map((attr) => (
-                <StatBar
-                  key={attr.key}
-                  label={attr.label}
-                  value={stats[attr.key]}
-                  icon={attr.icon}
-                  color={attr.color}
-                  desc={attr.desc}
-                />
-              ))}
-            </div>
-
-            {/* Score global */}
-            <div className="mt-6 pt-6 border-t border-stone-200">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-widest text-stone-500">
-                  Score physique global
+            {/* Bandeau état de santé global */}
+            <div className={`rounded-xl border-2 px-5 py-3 flex items-center gap-3 ${overallHealth.bg}`}>
+              <HeartPulse size={18} className={overallHealth.color} />
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 block">
+                  Condition générale
                 </span>
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const total = Object.values(stats).reduce((a, b) => a + b, 0);
-                    const max   = PHYSICAL_ATTRS.length * 10;
-                    const pct   = Math.round((total / max) * 100);
-                    return (
-                      <>
-                        <div className="w-32 h-3 bg-stone-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-stone-700 rounded-full transition-all duration-700"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-black text-stone-700">
-                          {total}<span className="text-stone-400 text-xs font-normal">/{max}</span>
-                        </span>
-                      </>
-                    );
-                  })()}
+                <span className={`text-sm font-black ${overallHealth.color}`}>
+                  {overallHealth.label}
+                </span>
+              </div>
+              {injuredCount > 0 && (
+                <span className="ml-auto text-xs font-bold text-stone-500">
+                  {injuredCount} zone{injuredCount > 1 ? "s" : ""} touchée{injuredCount > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Corps + Panneau détail */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+
+              {/* ── Schéma SVG ── */}
+              <div className="flex flex-col items-center">
+                <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold mb-3 flex items-center gap-1">
+                  <Info size={10} /> Cliquez sur une zone
+                </p>
+                <div className="w-full max-w-[220px]">
+                  <BodySVG
+                    injuries={injuries}
+                    selectedZone={selectedZone}
+                    hoveredZone={hoveredZone}
+                    onSelect={setSelectedZone}
+                    onHover={setHoveredZone}
+                  />
                 </div>
               </div>
+
+              {/* ── Panneau de détail ── */}
+              <div className="space-y-4">
+
+                {/* Zone sélectionnée */}
+                {selectedMeta && selectedState ? (
+                  <div className={`rounded-xl border-2 p-5 transition-all`}
+                    style={{ borderColor: selectedState.stroke, backgroundColor: selectedState.fill + "cc" }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: selectedState.stroke }}
+                      />
+                      <div>
+                        <div className="text-base font-black text-stone-800 uppercase tracking-widest">
+                          {selectedMeta.label}
+                        </div>
+                        <div
+                          className="text-xs font-black uppercase tracking-widest mt-0.5"
+                          style={{ color: selectedState.textColor }}
+                        >
+                          {selectedState.label}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-stone-500 italic border-t border-stone-200 pt-3 mt-1">
+                      {selectedMeta.desc}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border-2 border-dashed border-stone-300 p-5 text-center text-stone-400 text-sm italic">
+                    Sélectionnez une zone du corps pour voir son état.
+                  </div>
+                )}
+
+                {/* Liste de toutes les zones touchées */}
+                {injuredCount > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2">
+                      Zones blessées
+                    </h4>
+                    <div className="space-y-1.5">
+                      {BODY_ZONES.filter(
+                        (z) => injuries[z.id] && injuries[z.id] !== "sain"
+                      ).map((z) => {
+                        const st = getInjuryState(injuries[z.id]);
+                        return (
+                          <button
+                            key={z.id}
+                            onClick={() => setSelectedZone(z.id)}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all hover:scale-[1.01] ${
+                              selectedZone === z.id
+                                ? "ring-2 ring-stone-700"
+                                : "hover:shadow-sm"
+                            }`}
+                            style={{ borderColor: st.stroke, backgroundColor: st.fill }}
+                          >
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: st.stroke }} />
+                            <span className="text-xs font-bold text-stone-800">{z.label}</span>
+                            <span className="ml-auto text-[10px] font-black uppercase tracking-widest" style={{ color: st.textColor }}>
+                              {st.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {injuredCount === 0 && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                    <div className="text-2xl mb-1">💪</div>
+                    <p className="text-xs font-bold text-emerald-700 uppercase tracking-widest">
+                      Aucune blessure déclarée
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Légende */}
+            <div className="pt-3 border-t border-stone-200">
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Légende</p>
+              <div className="flex flex-wrap gap-2">
+                {INJURY_STATES.map((st) => (
+                  <div key={st.id} className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: st.fill, borderColor: st.stroke }} />
+                    <span className="text-[10px] text-stone-500 font-bold">{st.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-stone-50 border border-stone-200 rounded-lg px-4 py-2.5 text-[10px] text-stone-400 flex items-center gap-2">
+              <Lock size={10} className="shrink-0" />
+              Les blessures sont enregistrées par les administrateurs. Contactez un responsable pour toute mise à jour.
             </div>
           </>
         )}
 
-        {/* ===== SECTION MAGIE ===== */}
+        {/* ══════════════════════
+            SECTION MAGIE
+            ══════════════════════ */}
         {activeSection === "magie" && (
           <>
             {/* Mana + Niveau */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
               {/* Mana */}
               <div className="bg-violet-50 border border-violet-200 rounded-xl p-5">
                 <div className="flex items-center gap-2 mb-3">
@@ -263,14 +403,9 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
                   <span className="text-stone-400 text-sm mb-1">/ {magic.manaMax}</span>
                 </div>
                 <div className="w-full h-3 bg-violet-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-violet-500 rounded-full transition-all duration-700"
-                    style={{ width: `${manaPct}%` }}
-                  />
+                  <div className="h-full bg-violet-500 rounded-full transition-all duration-700" style={{ width: `${manaPct}%` }} />
                 </div>
-                <p className="text-[10px] text-violet-400 italic mt-2">
-                  Énergie magique disponible pour lancer des sorts.
-                </p>
+                <p className="text-[10px] text-violet-400 italic mt-2">Énergie magique disponible pour lancer des sorts.</p>
               </div>
 
               {/* Niveau magique */}
@@ -283,11 +418,11 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
                   <span className="text-3xl font-black text-amber-700">{magic.niveau}</span>
                   <div className="flex gap-1">
                     {Array.from({ length: Math.min(magic.niveau, 5) }).map((_, i) => (
-                      <Star key={i} size={14} className="text-amber-400 fill-amber-400" />
+                      <Star key={i} size={13} className="text-amber-400 fill-amber-400" />
                     ))}
                   </div>
                 </div>
-                <p className="text-[10px] text-amber-400 italic">
+                <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">
                   {magic.niveau <= 1 ? "Apprenti" : magic.niveau <= 3 ? "Initié" : magic.niveau <= 5 ? "Mage" : magic.niveau <= 8 ? "Archimage" : "Légendaire"}
                 </p>
                 {magic.sortConnu && (
@@ -299,14 +434,13 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
               </div>
             </div>
 
-            {/* Affinité actuelle ou choix */}
+            {/* Affinité */}
             <div>
               <h3 className="text-xs font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
                 <Sparkles size={13} /> Affinité Élémentaire
               </h3>
 
               {affinityLocked && currentAffinity ? (
-                /* Affinité déjà choisie : affichage */
                 <div className={`rounded-xl border-2 p-5 ${COLOR_CLASSES[currentAffinity.color]?.border} ${COLOR_CLASSES[currentAffinity.color]?.bg}`}>
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-3xl">{currentAffinity.emoji}</span>
@@ -315,38 +449,32 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
                         {currentAffinity.label}
                       </div>
                       <div className="flex items-center gap-1 text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
-                        <Lock size={10} /> Affinité scellée
+                        <Lock size={9} /> Affinité scellée
                       </div>
                     </div>
                   </div>
                   <p className="text-sm text-stone-600 italic">{currentAffinity.desc}</p>
                 </div>
               ) : (
-                /* Choix de l'affinité */
                 <>
                   <div className="bg-stone-50 border border-stone-200 rounded-lg px-4 py-3 text-xs text-stone-600 mb-4 flex items-start gap-2">
                     <Sparkles size={12} className="mt-0.5 shrink-0 text-stone-400" />
-                    <span>
-                      Vous n'avez pas encore éveillé votre affinité magique. Ce choix est <strong>définitif</strong> — réfléchissez bien avant de vous engager.
-                    </span>
+                    Vous n'avez pas encore éveillé votre affinité magique. Ce choix est <strong className="ml-1">définitif</strong> — réfléchissez bien.
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {MAGIC_AFFINITIES.map((aff) => {
                       const cls = COLOR_CLASSES[aff.color] || COLOR_CLASSES.stone;
                       const Icon = aff.icon;
                       return (
                         <button
                           key={aff.id}
-                          onClick={() => handleChooseAffinity(aff.id)}
+                          onClick={() => { setChosenAffinity(aff.id); setConfirmOpen(true); }}
                           className={`group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-center ${cls.border} ${cls.bg} hover:shadow-lg hover:scale-105`}
                         >
                           <span className="text-2xl">{aff.emoji}</span>
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${cls.text}`}>
-                            {aff.label}
-                          </span>
-                          <ChevronRight size={10} className={`${cls.text} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                          {/* Tooltip */}
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-stone-900 text-stone-200 text-[10px] rounded-lg p-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-xl text-left leading-relaxed">
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${cls.text}`}>{aff.label}</span>
+                          <ChevronRight size={9} className={`${cls.text} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-stone-900 text-stone-200 text-[10px] rounded-lg p-2 opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-xl text-left leading-relaxed">
                             {aff.desc}
                           </div>
                         </button>
@@ -360,7 +488,7 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
         )}
       </div>
 
-      {/* Modal de confirmation d'affinité */}
+      {/* ── MODAL DE CONFIRMATION D'AFFINITÉ ── */}
       {confirmOpen && chosen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#fdf6e3] rounded-2xl shadow-2xl border-t-8 border-stone-500 max-w-md w-full p-8 text-center">
@@ -370,7 +498,7 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
             </h3>
             <p className="text-sm text-stone-600 italic mb-6">{chosen.desc}</p>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700 mb-6 font-bold uppercase tracking-widest">
-              Attention : ce choix est définitif et ne pourra être annulé que par un administrateur.
+              Ce choix est définitif et ne pourra être annulé que par un administrateur.
             </div>
             <div className="flex gap-3">
               <button
