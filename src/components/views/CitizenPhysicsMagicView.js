@@ -1,9 +1,5 @@
 import React, { useState } from "react";
-import {
-  Zap, Shield, Wind, Flame, Snowflake, Droplets,
-  Sun, Moon, Leaf, Sparkles, Star, Lock, ChevronRight,
-  HeartPulse, Info,
-} from "lucide-react";
+import { Sparkles, Star, HeartPulse, Info } from "lucide-react";
 
 // ===== ZONES DU CORPS =====
 const BODY_ZONES = [
@@ -244,42 +240,34 @@ const BodySVG = ({ injuries, selectedZone, hoveredZone, onSelect, onHover }) => 
   );
 };
 
-// ===== AFFINITÉS MAGIQUES =====
-const MAGIC_AFFINITIES = [
-  { id: "feu",     label: "Feu",     emoji: "🔥", icon: Flame,     color: "orange", desc: "Maîtrise des flammes. Puissante en attaque, ravageuse en combat." },
-  { id: "eau",     label: "Eau",     emoji: "💧", icon: Droplets,  color: "blue",   desc: "Contrôle de l'eau. Soins, fluidité et protection." },
-  { id: "vent",    label: "Vent",    emoji: "💨", icon: Wind,      color: "cyan",   desc: "Domination des courants d'air. Rapidité et tranchant invisible." },
-  { id: "foudre",  label: "Foudre",  emoji: "⚡", icon: Zap,       color: "yellow", desc: "Canalisation de l'électricité. Paralysie et précision foudroyante." },
-  { id: "glace",   label: "Glace",   emoji: "❄️", icon: Snowflake, color: "sky",    desc: "Emprise du froid. Ralentissement, piège et barrières cristallines." },
-  { id: "ombre",   label: "Ombre",   emoji: "🌑", icon: Moon,      color: "violet", desc: "Manipulation des ténèbres. Illusions et dissimulation." },
-  { id: "lumiere", label: "Lumière", emoji: "✨", icon: Sun,       color: "amber",  desc: "Rayonnement divin. Purification, révélation et guérison sacrée." },
-  { id: "nature",  label: "Nature",  emoji: "🌿", icon: Leaf,      color: "emerald",desc: "Communion avec le vivant. Soins profonds et métamorphose." },
-  { id: "arcane",  label: "Arcane",  emoji: "🔮", icon: Sparkles,  color: "purple", desc: "Magie pure universelle. Polyvalente mais difficile à maîtriser." },
-  { id: "none",    label: "Aucune",  emoji: "🚫", icon: Shield,    color: "stone",  desc: "Aucune affinité magique. Résistance naturelle aux sorts ennemis." },
-];
+// ===== COULEUR D'AURA — déterministe par utilisateur =====
+const hashCode = (str) => {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  }
+  return Math.abs(h);
+};
 
-const COLOR_CLASSES = {
-  orange:  { text: "text-orange-600",  border: "border-orange-300",  bg: "bg-orange-50",  badge: "bg-orange-100 text-orange-800"  },
-  blue:    { text: "text-blue-600",    border: "border-blue-300",    bg: "bg-blue-50",    badge: "bg-blue-100 text-blue-800"      },
-  cyan:    { text: "text-cyan-600",    border: "border-cyan-300",    bg: "bg-cyan-50",    badge: "bg-cyan-100 text-cyan-800"      },
-  yellow:  { text: "text-yellow-600",  border: "border-yellow-300",  bg: "bg-yellow-50",  badge: "bg-yellow-100 text-yellow-800"  },
-  sky:     { text: "text-sky-600",     border: "border-sky-300",     bg: "bg-sky-50",     badge: "bg-sky-100 text-sky-800"        },
-  violet:  { text: "text-violet-600",  border: "border-violet-300",  bg: "bg-violet-50",  badge: "bg-violet-100 text-violet-800"  },
-  amber:   { text: "text-amber-600",   border: "border-amber-300",   bg: "bg-amber-50",   badge: "bg-amber-100 text-amber-800"    },
-  emerald: { text: "text-emerald-600", border: "border-emerald-300", bg: "bg-emerald-50", badge: "bg-emerald-100 text-emerald-800"},
-  purple:  { text: "text-purple-600",  border: "border-purple-300",  bg: "bg-purple-50",  badge: "bg-purple-100 text-purple-800"  },
-  stone:   { text: "text-stone-500",   border: "border-stone-300",   bg: "bg-stone-50",   badge: "bg-stone-100 text-stone-700"    },
+const getUserAura = (user) => {
+  const seed  = String(user?.id ?? user?.name ?? "default");
+  const hash  = hashCode(seed);
+  const hue   = hash % 360;
+  const sat   = 60 + (hash % 25);          // 60–85 %
+  const light = 44 + ((hash >> 4) % 14);   // 44–58 %
+  return {
+    color:      `hsl(${hue}, ${sat}%, ${light}%)`,
+    colorLight: `hsl(${hue}, ${sat}%, ${light + 28}%)`,
+    colorDark:  `hsl(${hue}, ${sat}%, ${light - 12}%)`,
+    colorGlow:  `hsl(${hue}, ${sat}%, ${light + 20}%)`,
+  };
 };
 
 // ===== COMPOSANT PRINCIPAL =====
-const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
-  const magStats = user?.magicStats || {};
-
-  const [activeSection,  setActiveSection]  = useState("physique");
-  const [selectedZone,   setSelectedZone]   = useState(null);
-  const [hoveredZone,    setHoveredZone]    = useState(null);
-  const [chosenAffinity, setChosenAffinity] = useState(null);
-  const [confirmOpen,    setConfirmOpen]    = useState(false);
+const CitizenPhysicsMagicView = ({ user }) => {
+  const [activeSection, setActiveSection] = useState("physique");
+  const [selectedZone,  setSelectedZone]  = useState(null);
+  const [hoveredZone,   setHoveredZone]   = useState(null);
 
   const injuries      = user?.physicalStats?.injuries || {};
   const overallHealth = getOverallHealth(injuries);
@@ -287,24 +275,7 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
   const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
   const injuredCount  = BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").length;
 
-  const magic = {
-    mana:      magStats.mana      ?? 50,
-    manaMax:   magStats.manaMax   ?? 100,
-    niveau:    magStats.niveau    ?? 1,
-    affinite:  magStats.affinite  ?? null,
-    sortConnu: magStats.sortConnu ?? null,
-  };
-  const affinityLocked  = !!magic.affinite;
-  const currentAffinity = MAGIC_AFFINITIES.find((a) => a.id === magic.affinite);
-  const manaPct         = Math.min(100, Math.round((magic.mana / Math.max(magic.manaMax, 1)) * 100));
-  const chosen          = MAGIC_AFFINITIES.find((a) => a.id === chosenAffinity);
-
-  const handleConfirm = () => {
-    if (!chosenAffinity || !onUpdateUser) return;
-    onUpdateUser({ ...user, magicStats: { ...(user.magicStats || {}), affinite: chosenAffinity } });
-    setConfirmOpen(false);
-    setChosenAffinity(null);
-  };
+  const aura = getUserAura(user);
 
   return (
     <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-stone-500 overflow-hidden">
@@ -486,134 +457,50 @@ const CitizenPhysicsMagicView = ({ user, onUpdateUser }) => {
             SECTION MAGIE
             ══════════════════════ */}
         {activeSection === "magie" && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-              {/* Mana */}
-              <div className="bg-violet-50 border border-violet-200 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Zap size={16} className="text-violet-600" />
-                  <span className="text-xs font-black uppercase tracking-widest text-violet-700">Réserve de Mana</span>
-                </div>
-                <div className="flex items-end gap-1 mb-2">
-                  <span className="text-3xl font-black text-violet-700">{magic.mana}</span>
-                  <span className="text-stone-400 text-sm mb-1">/ {magic.manaMax}</span>
-                </div>
-                <div className="w-full h-3 bg-violet-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-violet-500 rounded-full transition-all duration-700" style={{ width: `${manaPct}%` }} />
-                </div>
-                <p className="text-[10px] text-violet-400 italic mt-2">Énergie magique disponible pour lancer des sorts.</p>
-              </div>
-
-              {/* Niveau magique */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Star size={16} className="text-amber-600" />
-                  <span className="text-xs font-black uppercase tracking-widest text-amber-700">Niveau Magique</span>
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-3xl font-black text-amber-700">{magic.niveau}</span>
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: Math.min(magic.niveau, 5) }).map((_, i) => (
-                      <Star key={i} size={13} className="text-amber-400 fill-amber-400" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">
-                  {magic.niveau <= 1 ? "Apprenti" : magic.niveau <= 3 ? "Initié" : magic.niveau <= 5 ? "Mage" : magic.niveau <= 8 ? "Archimage" : "Légendaire"}
-                </p>
-                {magic.sortConnu && (
-                  <div className="mt-3 pt-3 border-t border-amber-200">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 block mb-1">Sort maîtrisé</span>
-                    <span className="text-sm font-bold text-amber-800">{magic.sortConnu}</span>
-                  </div>
-                )}
-              </div>
+          <div className="flex flex-col items-center justify-center py-16 gap-8">
+            {/* Orbe lumineux */}
+            <div className="relative flex items-center justify-center">
+              {/* Halo extérieur flou */}
+              <div
+                className="absolute rounded-full blur-2xl"
+                style={{
+                  width: 200, height: 200,
+                  background: aura.colorGlow,
+                  opacity: 0.35,
+                }}
+              />
+              {/* Anneau intermédiaire */}
+              <div
+                className="absolute rounded-full"
+                style={{
+                  width: 164, height: 164,
+                  background: `radial-gradient(circle, ${aura.colorLight}22 0%, ${aura.color}18 60%, transparent 100%)`,
+                  border: `1.5px solid ${aura.color}40`,
+                }}
+              />
+              {/* Cercle principal */}
+              <div
+                className="relative rounded-full shadow-2xl"
+                style={{
+                  width: 128, height: 128,
+                  background: `radial-gradient(circle at 38% 35%, ${aura.colorLight}, ${aura.color} 55%, ${aura.colorDark})`,
+                  boxShadow: `0 0 32px 6px ${aura.color}70, 0 4px 24px 0 ${aura.colorDark}60`,
+                }}
+              />
             </div>
 
-            {/* Affinité */}
-            <div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
-                <Sparkles size={13} /> Affinité Élémentaire
-              </h3>
-
-              {affinityLocked && currentAffinity ? (
-                <div className={`rounded-xl border-2 p-5 ${COLOR_CLASSES[currentAffinity.color]?.border} ${COLOR_CLASSES[currentAffinity.color]?.bg}`}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-3xl">{currentAffinity.emoji}</span>
-                    <div>
-                      <div className={`text-lg font-black uppercase tracking-widest ${COLOR_CLASSES[currentAffinity.color]?.text}`}>
-                        {currentAffinity.label}
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
-                        <Lock size={9} /> Affinité scellée
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-stone-600 italic">{currentAffinity.desc}</p>
-                </div>
-              ) : (
-                <>
-                  <div className="bg-stone-50 border border-stone-200 rounded-lg px-4 py-3 text-xs text-stone-600 mb-4 flex items-start gap-2">
-                    <Sparkles size={12} className="mt-0.5 shrink-0 text-stone-400" />
-                    Vous n'avez pas encore éveillé votre affinité magique. Ce choix est <strong className="ml-1">définitif</strong> — réfléchissez bien.
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    {MAGIC_AFFINITIES.map((aff) => {
-                      const cls = COLOR_CLASSES[aff.color] || COLOR_CLASSES.stone;
-                      const Icon = aff.icon;
-                      return (
-                        <button
-                          key={aff.id}
-                          onClick={() => { setChosenAffinity(aff.id); setConfirmOpen(true); }}
-                          className={`group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-center ${cls.border} ${cls.bg} hover:shadow-lg hover:scale-105`}
-                        >
-                          <span className="text-2xl">{aff.emoji}</span>
-                          <span className={`text-[10px] font-black uppercase tracking-widest ${cls.text}`}>{aff.label}</span>
-                          <ChevronRight size={9} className={`${cls.text} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-stone-900 text-stone-200 text-[10px] rounded-lg p-2 opacity-0 group-hover:opacity-100 pointer-events-none z-10 shadow-xl text-left leading-relaxed">
-                            {aff.desc}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── MODAL CONFIRMATION AFFINITÉ ── */}
-      {confirmOpen && chosen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#fdf6e3] rounded-2xl shadow-2xl border-t-8 border-stone-500 max-w-md w-full p-8 text-center">
-            <div className="text-5xl mb-4">{chosen.emoji}</div>
-            <h3 className="text-lg font-black uppercase tracking-widest text-stone-800 mb-2">
-              Choisir : {chosen.label} ?
-            </h3>
-            <p className="text-sm text-stone-600 italic mb-6">{chosen.desc}</p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700 mb-6 font-bold uppercase tracking-widest">
-              Ce choix est définitif et ne pourra être annulé que par un administrateur.
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setConfirmOpen(false); setChosenAffinity(null); }}
-                className="flex-1 py-3 rounded-xl border-2 border-stone-300 text-stone-600 font-black uppercase tracking-widest text-xs hover:bg-stone-100 transition-all"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleConfirm}
-                className="flex-1 py-3 rounded-xl bg-stone-800 text-stone-100 font-black uppercase tracking-widest text-xs hover:bg-stone-700 transition-all shadow-lg"
-              >
-                Confirmer
-              </button>
+            {/* Légende */}
+            <div className="text-center space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">
+                Aura Magique
+              </p>
+              <p className="text-[10px] text-stone-400 italic">
+                Signature unique et permanente de {user?.name || "ce citoyen"}
+              </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
