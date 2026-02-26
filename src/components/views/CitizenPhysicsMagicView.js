@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, Star, HeartPulse, Info } from "lucide-react";
+import { Sparkles, Star, HeartPulse, Info, Lock } from "lucide-react";
 
 // ===== ZONES DU CORPS =====
 const BODY_ZONES = [
