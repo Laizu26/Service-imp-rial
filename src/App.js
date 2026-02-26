@@ -56,6 +56,11 @@ import JobsAdminView from "./components/views/JobsAdminView";
 import GameMasterView from "./components/views/GameMasterView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
+const sha256 = async (str) => {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+};
+
 export default function App() {
   const [toast, setToast] = useState({ msg: null, type: "info" });
   const notify = useCallback((msg, type = "info") => {
@@ -114,7 +119,7 @@ export default function App() {
     setGmAction(null);
   }, []);
 
-  const handleGmSubmit = () => {
+  const handleGmSubmit = async () => {
     const applyAction = (currentGmAction) => {
       if (currentGmAction === "gm") {
         setGmMode(true);
@@ -133,12 +138,17 @@ export default function App() {
     if (!gmIsSetup) {
       if (gmInput.length < 4) { setGmError("Au moins 4 caractères."); return; }
       if (gmInput !== gmConfirm) { setGmError("Les mots de passe ne correspondent pas."); return; }
-      // Stocker le hash dans la BDD (Firestore via saveState)
-      saveState({ ...state, gmHash: btoa(gmInput) });
+      saveState({ ...state, gmHash: await sha256(gmInput) });
       notify("Mot de passe GM enregistré.", "success");
       applyAction(gmAction);
     } else {
-      if (btoa(gmInput) === state.gmHash) {
+      // Accepte SHA-256 (nouveau) ou btoa (migration anciens GM)
+      const inputHash = await sha256(gmInput);
+      if (inputHash === state.gmHash || btoa(gmInput) === state.gmHash) {
+        // Si c'est encore en btoa, on migre vers SHA-256 silencieusement
+        if (btoa(gmInput) === state.gmHash) {
+          saveState({ ...state, gmHash: inputHash });
+        }
         applyAction(gmAction);
       } else {
         setGmError("Mot de passe incorrect.");

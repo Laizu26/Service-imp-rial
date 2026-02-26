@@ -49,9 +49,6 @@ export const useGameEngine = (firebaseUser, notify) => {
           setDbError(null);
         } else {
           // Document inexistant : On reste sur DEFAULT_GAME_STATE (avec Admin)
-          console.log(
-            "Document introuvable, utilisation de l'état par défaut."
-          );
           setDbError(null);
         }
       },

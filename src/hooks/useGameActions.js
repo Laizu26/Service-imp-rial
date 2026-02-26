@@ -1,10 +1,26 @@
 import { useMemo } from "react";
 
+// Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
+const wrapActions = (actionsObj, notify) =>
+  Object.fromEntries(
+    Object.entries(actionsObj).map(([key, fn]) => [
+      key,
+      (...args) => {
+        try {
+          return fn(...args);
+        } catch (e) {
+          console.error(`[useGameActions] Erreur dans ${key}:`, e);
+          notify("Une erreur inattendue s'est produite.", "error");
+        }
+      },
+    ])
+  );
+
 export const useGameActions = (session, state, saveState, notify) => {
   return useMemo(() => {
-    return {
+    return wrapActions({
       onPassDay: () => {
-        let ns = JSON.parse(JSON.stringify(state));
+        let ns = structuredClone(state);
         if (!ns.gameDate) ns.gameDate = { day: 1, month: 1, year: 1200 };
 
         ns.gameDate.day++;
@@ -607,7 +623,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Erreur virement.", "error");
           return;
         }
-        let s = JSON.parse(JSON.stringify(state));
+        let s = structuredClone(state);
         const process = (raw, isCredit) => {
           const v = isCredit ? parseInt(amount) : -parseInt(amount);
           if (raw === "GLOBAL") {
@@ -2199,6 +2215,6 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: newCitizens });
         notify("Lien de filiation supprimé.", "info");
       },
-    };
+    }, notify);
   }, [session, state, saveState, notify]);
 };

@@ -5,6 +5,11 @@ import {
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
+const sha256 = async (str) => {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+};
+
 export const useAuth = (notify) => {
   const [user, setUser] = useState(null);
 
@@ -51,21 +56,25 @@ export const useAuth = (notify) => {
     return () => unsubscribe();
   }, []);
 
-  const loginGame = (credentials, usersList) => {
+  const loginGame = async (credentials, usersList) => {
     const safeUsers = Array.isArray(usersList) ? usersList : [];
+    const inputHash = await sha256(credentials.p);
     const found = safeUsers.find(
       (x) =>
         (x.id === credentials.u.trim() ||
           x.name?.toLowerCase() === credentials.u.trim().toLowerCase()) &&
-        x.password === credentials.p
+        // Accepte hash SHA-256 (nouveau) ou plaintext (migration anciens comptes)
+        (x.password === inputHash || x.password === credentials.p)
     );
 
     if (found) {
-      setSession(found);
+      // Ne jamais stocker le mot de passe en clair dans localStorage
+      const { password: _stripped, ...safeUser } = found;
+      setSession(safeUser);
       setConnectedAccounts((prev) => {
-        const exists = prev.find((u) => u.id === found.id);
-        if (exists) return prev.map((u) => (u.id === found.id ? found : u));
-        return [...prev, found];
+        const exists = prev.find((u) => u.id === safeUser.id);
+        if (exists) return prev.map((u) => (u.id === safeUser.id ? safeUser : u));
+        return [...prev, safeUser];
       });
       return true;
     } else {

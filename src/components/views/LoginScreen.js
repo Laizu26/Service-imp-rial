@@ -5,13 +5,13 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
       notify("Veuillez remplir tous les champs.", "error");
       return;
     }
-    onLogin({ u: username, p: password }, users);
+    await onLogin({ u: username, p: password }, users);
   };
 
   const hasConnected = connectedAccounts.length > 0;
