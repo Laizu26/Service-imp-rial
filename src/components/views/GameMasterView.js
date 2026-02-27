@@ -1162,12 +1162,18 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
    ================================================ */
 const QUEST_STATUSES = ["Brouillon", "Active", "Terminée", "Échouée"];
 const QUEST_DIFFICULTIES = ["Facile", "Intermédiaire", "Difficile", "Épique"];
+const NPC_DISPOSITIONS = ["Allié", "Ennemi", "Neutre", "Mystérieux"];
+const NPC_STATUSES_LIST = ["Vivant", "Mort", "Disparu", "Inconnu"];
+const NPC_EMOJIS = ["👤","⚔️","🧙","👑","🗡️","🛡️","🔮","📜","💀","🌹","🐉","🦅","🏴","🎭","👁️","🗝️"];
 
 const questStatusColor = (s) =>
   s === "Active" ? "green" : s === "Terminée" ? "blue" : s === "Échouée" ? "red" : "stone";
-
 const questDifficultyColor = (d) =>
   d === "Facile" ? "green" : d === "Intermédiaire" ? "blue" : d === "Difficile" ? "orange" : "purple";
+const npcDispositionColor = (d) =>
+  d === "Allié" ? "green" : d === "Ennemi" ? "red" : d === "Mystérieux" ? "purple" : "stone";
+const npcStatusColor = (s) =>
+  s === "Vivant" ? "green" : s === "Mort" ? "red" : s === "Disparu" ? "orange" : "stone";
 
 const EMPTY_QUEST_FORM = {
   title: "",
@@ -1179,7 +1185,96 @@ const EMPTY_QUEST_FORM = {
   assignedCitizens: [],
   countryId: "",
   isPublic: false,
+  npcs: [],
+  rebondissements: [],
+  gmNotes: "",
 };
+
+const EMPTY_NPC = { name: "", role: "", disposition: "Neutre", status: "Vivant", description: "", secret: "", emoji: "👤" };
+const EMPTY_REB = { title: "", description: "", condition: "", consequence: "", isTriggered: false, triggeredAt: null };
+
+/* — NPC sub-form — */
+const NPCFormRow = ({ npc, onChange, onRemove }) => {
+  const [showSecret, setShowSecret] = useState(false);
+  return (
+    <div className="border border-stone-700 rounded-xl p-4 space-y-3 bg-stone-800/30">
+      <div className="flex items-center gap-2">
+        <select
+          value={npc.emoji}
+          onChange={(e) => onChange({ ...npc, emoji: e.target.value })}
+          className="w-12 h-10 bg-stone-800 border border-stone-700 rounded-lg text-center text-base outline-none shrink-0"
+        >
+          {NPC_EMOJIS.map((em) => <option key={em} value={em}>{em}</option>)}
+        </select>
+        <Input value={npc.name} onChange={(e) => onChange({ ...npc, name: e.target.value })} placeholder="Nom du personnage..." className="flex-1" />
+        <button onClick={onRemove} className="text-stone-600 hover:text-red-400 transition-all shrink-0"><X size={16} /></button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div><Label>Rôle</Label><Input value={npc.role} onChange={(e) => onChange({ ...npc, role: e.target.value })} placeholder="Marchand, Garde…" /></div>
+        <div>
+          <Label>Disposition</Label>
+          <Select value={npc.disposition} onChange={(e) => onChange({ ...npc, disposition: e.target.value })}>
+            {NPC_DISPOSITIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+          </Select>
+        </div>
+        <div>
+          <Label>Statut</Label>
+          <Select value={npc.status} onChange={(e) => onChange({ ...npc, status: e.target.value })}>
+            {NPC_STATUSES_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
+          </Select>
+        </div>
+      </div>
+      <div>
+        <Label>Description (visible par les joueurs)</Label>
+        <textarea value={npc.description} onChange={(e) => onChange({ ...npc, description: e.target.value })}
+          className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[60px]"
+          placeholder="Ce que les joueurs savent de ce personnage…" />
+      </div>
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Label>Secrets GM</Label>
+          <button onClick={() => setShowSecret(!showSecret)} className="text-stone-500 hover:text-stone-300 transition-all mb-1">
+            {showSecret ? <EyeOff size={11} /> : <Eye size={11} />}
+          </button>
+        </div>
+        <textarea value={npc.secret} onChange={(e) => onChange({ ...npc, secret: e.target.value })}
+          className={`w-full bg-stone-900 border border-red-900/50 rounded-lg p-2.5 text-sm outline-none focus:border-red-500/50 min-h-[50px] transition-colors ${showSecret ? "text-red-300" : "text-stone-900 select-none"}`}
+          placeholder="Informations confidentielles GM…" />
+      </div>
+    </div>
+  );
+};
+
+/* — Rebondissement sub-form — */
+const RebForm = ({ item, onChange, onRemove }) => (
+  <div className="border border-amber-900/40 rounded-xl p-4 space-y-3 bg-amber-900/5">
+    <div className="flex items-center gap-2">
+      <span className="text-xl shrink-0">⚡</span>
+      <Input value={item.title} onChange={(e) => onChange({ ...item, title: e.target.value })} placeholder="Titre du rebondissement…" className="flex-1" />
+      <button onClick={onRemove} className="text-stone-600 hover:text-red-400 transition-all shrink-0"><X size={16} /></button>
+    </div>
+    <div>
+      <Label>Description de l'événement</Label>
+      <textarea value={item.description} onChange={(e) => onChange({ ...item, description: e.target.value })}
+        className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50 min-h-[80px]"
+        placeholder="Que se passe-t-il lors de ce rebondissement ?" />
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <Label>Condition de déclenchement</Label>
+        <textarea value={item.condition} onChange={(e) => onChange({ ...item, condition: e.target.value })}
+          className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50 min-h-[60px]"
+          placeholder="Quand déclencher cet événement ?" />
+      </div>
+      <div>
+        <Label>Conséquences</Label>
+        <textarea value={item.consequence} onChange={(e) => onChange({ ...item, consequence: e.target.value })}
+          className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50 min-h-[60px]"
+          placeholder="Impact sur la quête ou l'histoire…" />
+      </div>
+    </div>
+  </div>
+);
 
 const GMQuests = ({ state, onUpdateState, notify }) => {
   const [view, setView] = useState("list");
@@ -1187,7 +1282,9 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [expandedId, setExpandedId] = useState(null);
+  const [expandedTab, setExpandedTab] = useState("resume");
   const [form, setForm] = useState(EMPTY_QUEST_FORM);
+  const [formTab, setFormTab] = useState("principal");
   const [newObjective, setNewObjective] = useState("");
 
   const quests = state.quests || [];
@@ -1207,19 +1304,13 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
     if (!form.title.trim()) { notify("Le titre est requis.", "error"); return; }
     const now = Date.now();
     if (editingId) {
-      const updated = quests.map((q) =>
-        q.id === editingId ? { ...q, ...form, updatedAt: now } : q
-      );
-      onUpdateState({ ...state, quests: updated });
+      onUpdateState({ ...state, quests: quests.map((q) => q.id === editingId ? { ...q, ...form, updatedAt: now } : q) });
       notify("Quête mise à jour.", "success");
     } else {
-      const newQuest = { id: `q${now}`, ...form, createdAt: now, updatedAt: now };
-      onUpdateState({ ...state, quests: [...quests, newQuest] });
+      onUpdateState({ ...state, quests: [...quests, { id: `q${now}`, ...form, createdAt: now, updatedAt: now }] });
       notify("Quête créée.", "success");
     }
-    setForm(EMPTY_QUEST_FORM);
-    setEditingId(null);
-    setView("list");
+    setForm(EMPTY_QUEST_FORM); setEditingId(null); setView("list"); setFormTab("principal");
   };
 
   const handleDelete = (id) => {
@@ -1229,22 +1320,42 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
   };
 
   const handleStatusChange = (id, newStatus) => {
-    const updated = quests.map((q) =>
-      q.id === id ? { ...q, status: newStatus, updatedAt: Date.now() } : q
-    );
-    onUpdateState({ ...state, quests: updated });
+    onUpdateState({ ...state, quests: quests.map((q) => q.id === id ? { ...q, status: newStatus, updatedAt: Date.now() } : q) });
   };
 
   const toggleObjective = (questId, objId) => {
-    const updated = quests.map((q) => {
-      if (q.id !== questId) return q;
-      return {
+    onUpdateState({
+      ...state,
+      quests: quests.map((q) => q.id !== questId ? q : {
         ...q,
-        objectives: q.objectives.map((o) => (o.id === objId ? { ...o, completed: !o.completed } : o)),
+        objectives: q.objectives.map((o) => o.id === objId ? { ...o, completed: !o.completed } : o),
         updatedAt: Date.now(),
-      };
+      }),
     });
-    onUpdateState({ ...state, quests: updated });
+  };
+
+  const triggerRebondissement = (questId, rebId) => {
+    onUpdateState({
+      ...state,
+      quests: quests.map((q) => q.id !== questId ? q : {
+        ...q,
+        rebondissements: (q.rebondissements || []).map((r) =>
+          r.id === rebId ? { ...r, isTriggered: !r.isTriggered, triggeredAt: !r.isTriggered ? Date.now() : null } : r
+        ),
+        updatedAt: Date.now(),
+      }),
+    });
+  };
+
+  const updateNpcStatusInline = (questId, npcId, newSt) => {
+    onUpdateState({
+      ...state,
+      quests: quests.map((q) => q.id !== questId ? q : {
+        ...q,
+        npcs: (q.npcs || []).map((n) => n.id === npcId ? { ...n, status: newSt } : n),
+        updatedAt: Date.now(),
+      }),
+    });
   };
 
   const startEdit = (quest) => {
@@ -1258,26 +1369,38 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
       assignedCitizens: quest.assignedCitizens || [],
       countryId: quest.countryId || "",
       isPublic: quest.isPublic || false,
+      npcs: quest.npcs || [],
+      rebondissements: quest.rebondissements || [],
+      gmNotes: quest.gmNotes || "",
     });
-    setEditingId(quest.id);
-    setView("form");
+    setEditingId(quest.id); setFormTab("principal"); setView("form");
   };
 
   const addObjective = () => {
     if (!newObjective.trim()) return;
-    setForm({
-      ...form,
-      objectives: [...form.objectives, { id: `o${Date.now()}`, text: newObjective.trim(), completed: false }],
-    });
+    setForm({ ...form, objectives: [...form.objectives, { id: `o${Date.now()}`, text: newObjective.trim(), completed: false }] });
     setNewObjective("");
   };
+  const removeObjective = (idx) => setForm({ ...form, objectives: form.objectives.filter((_, i) => i !== idx) });
 
-  const removeObjective = (idx) => {
-    setForm({ ...form, objectives: form.objectives.filter((_, i) => i !== idx) });
-  };
+  const addNpc = () => setForm({ ...form, npcs: [...form.npcs, { ...EMPTY_NPC, id: `npc${Date.now()}` }] });
+  const updateNpc = (idx, upd) => { const a = [...form.npcs]; a[idx] = upd; setForm({ ...form, npcs: a }); };
+  const removeNpc = (idx) => setForm({ ...form, npcs: form.npcs.filter((_, i) => i !== idx) });
 
-  const openForm = () => { setForm(EMPTY_QUEST_FORM); setEditingId(null); setView("form"); };
+  const addReb = () => setForm({ ...form, rebondissements: [...form.rebondissements, { ...EMPTY_REB, id: `r${Date.now()}` }] });
+  const updateReb = (idx, upd) => { const a = [...form.rebondissements]; a[idx] = upd; setForm({ ...form, rebondissements: a }); };
+  const removeReb = (idx) => setForm({ ...form, rebondissements: form.rebondissements.filter((_, i) => i !== idx) });
+
+  const openForm = () => { setForm(EMPTY_QUEST_FORM); setEditingId(null); setFormTab("principal"); setView("form"); };
   const closeForm = () => { setView("list"); setForm(EMPTY_QUEST_FORM); setEditingId(null); };
+
+  const FORM_TABS = [
+    { id: "principal", label: "Principal" },
+    { id: "objectifs", label: `Objectifs (${form.objectives.length})` },
+    { id: "npcs", label: `PNJs (${form.npcs.length})` },
+    { id: "rebondissements", label: `Rebond. (${form.rebondissements.length})` },
+    { id: "notes", label: "Notes GM" },
+  ];
 
   return (
     <div className="space-y-5">
@@ -1287,175 +1410,186 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
         <button
           onClick={view !== "list" ? closeForm : openForm}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-            view !== "list"
-              ? "bg-stone-800 text-stone-300 hover:bg-stone-700"
-              : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
+            view !== "list" ? "bg-stone-800 text-stone-300 hover:bg-stone-700" : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
           }`}
         >
           {view !== "list" ? <><ArrowLeft size={14} /> Liste</> : <><Plus size={14} /> Nouvelle quête</>}
         </button>
       </div>
 
-      {/* FORM VIEW */}
+      {/* ── FORM VIEW ── */}
       {view === "form" && (
-        <Card className="p-6 space-y-5">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-500">
-            {editingId ? "Modifier la quête" : "Créer une quête"}
-          </h3>
-
-          <div className="space-y-4">
-            {/* Title */}
-            <div>
-              <Label>Titre</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Nom de la quête..."
-              />
-            </div>
-
-            {/* Status + Difficulty */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Statut</Label>
-                <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                  {QUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </Select>
-              </div>
-              <div>
-                <Label>Difficulté</Label>
-                <Select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}>
-                  {QUEST_DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}
-                </Select>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <Label>Description narrative</Label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[120px] font-serif"
-                placeholder="Décrivez la quête, son contexte et ses enjeux..."
-              />
-            </div>
-
-            {/* Objectives */}
-            <div>
-              <Label>Objectifs</Label>
-              <div className="space-y-2 mb-2">
-                {form.objectives.map((obj, idx) => (
-                  <div key={obj.id} className="flex items-center gap-2 bg-stone-800/50 rounded-lg px-3 py-2 border border-stone-700">
-                    <div className="w-3 h-3 rounded-full border border-stone-600 shrink-0" />
-                    <span className="flex-1 text-sm text-stone-300">{obj.text}</span>
-                    <button onClick={() => removeObjective(idx)} className="text-stone-600 hover:text-red-400 transition-all">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={newObjective}
-                  onChange={(e) => setNewObjective(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addObjective()}
-                  placeholder="Ajouter un objectif (Entrée pour valider)..."
-                  className="flex-1"
-                />
-                <BtnSecondary onClick={addObjective}>Ajouter</BtnSecondary>
-              </div>
-            </div>
-
-            {/* Reward */}
-            <div>
-              <Label>Récompense</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Input
-                    type="number"
-                    value={form.reward.money}
-                    onChange={(e) => setForm({ ...form, reward: { ...form.reward, money: parseInt(e.target.value) || 0 } })}
-                    placeholder="Écus..."
-                    min="0"
-                  />
-                  <div className="text-[9px] text-stone-500 mt-1">Montant en Écus</div>
-                </div>
-                <div>
-                  <Input
-                    value={form.reward.description}
-                    onChange={(e) => setForm({ ...form, reward: { ...form.reward, description: e.target.value } })}
-                    placeholder="Autre récompense..."
-                  />
-                  <div className="text-[9px] text-stone-500 mt-1">Objet, titre, etc.</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Country */}
-            <div>
-              <Label>Pays associé (optionnel)</Label>
-              <Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>
-                <option value="">— Tous les pays —</option>
-                {countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </div>
-
-            {/* Assigned Citizens */}
-            <div>
-              <Label>Citoyens assignés</Label>
-              <select
-                multiple
-                value={form.assignedCitizens}
-                onChange={(e) =>
-                  setForm({ ...form, assignedCitizens: Array.from(e.target.selectedOptions, (o) => o.value) })
-                }
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[100px]"
+        <Card className="overflow-hidden">
+          {/* Form tab bar */}
+          <div className="flex border-b border-stone-800 overflow-x-auto">
+            {FORM_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFormTab(tab.id)}
+                className={`shrink-0 px-4 py-3 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${
+                  formTab === tab.id ? "text-red-300 border-red-600 bg-stone-800/30" : "text-stone-500 hover:text-stone-300 border-transparent"
+                }`}
               >
-                {citizens.filter((c) => c.status !== "Décédé").map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              <div className="text-[9px] text-stone-500 mt-1">Ctrl+clic pour sélectionner plusieurs citoyens</div>
-            </div>
-
-            {/* Is Public */}
-            <Toggle
-              checked={form.isPublic}
-              onChange={(v) => setForm({ ...form, isPublic: v })}
-              label="Quête publique"
-              description="Visible par tous les citoyens, pas seulement les assignés"
-            />
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          <div className="flex gap-2">
-            <BtnSecondary onClick={closeForm}>Annuler</BtnSecondary>
-            <BtnPrimary onClick={handleSave} className="flex-1">
-              {editingId ? <><Save size={14} /> Sauvegarder</> : <><Plus size={14} /> Créer la quête</>}
-            </BtnPrimary>
+          <div className="p-6 space-y-4">
+            {/* ─ Tab: Principal ─ */}
+            {formTab === "principal" && (<>
+              <div><Label>Titre</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Nom de la quête…" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Statut</Label>
+                  <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                    {QUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </Select>
+                </div>
+                <div><Label>Difficulté</Label>
+                  <Select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}>
+                    {QUEST_DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </Select>
+                </div>
+              </div>
+              <div><Label>Description narrative</Label>
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full bg-stone-800 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[120px] font-serif"
+                  placeholder="Décrivez la quête, son contexte et ses enjeux…" />
+              </div>
+              <div><Label>Récompense</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Input type="number" value={form.reward.money} min="0"
+                      onChange={(e) => setForm({ ...form, reward: { ...form.reward, money: parseInt(e.target.value) || 0 } })}
+                      placeholder="Écus…" />
+                    <div className="text-[9px] text-stone-500 mt-1">Montant en Écus</div>
+                  </div>
+                  <div>
+                    <Input value={form.reward.description}
+                      onChange={(e) => setForm({ ...form, reward: { ...form.reward, description: e.target.value } })}
+                      placeholder="Objet, titre, faveur…" />
+                    <div className="text-[9px] text-stone-500 mt-1">Autre récompense</div>
+                  </div>
+                </div>
+              </div>
+              <div><Label>Pays associé (optionnel)</Label>
+                <Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>
+                  <option value="">— Tous les pays —</option>
+                  {countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label>Citoyens assignés</Label>
+                <select multiple value={form.assignedCitizens}
+                  onChange={(e) => setForm({ ...form, assignedCitizens: Array.from(e.target.selectedOptions, (o) => o.value) })}
+                  className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[90px]">
+                  {citizens.filter((c) => c.status !== "Décédé").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <div className="text-[9px] text-stone-500 mt-1">Ctrl+clic pour sélectionner plusieurs</div>
+              </div>
+              <Toggle checked={form.isPublic} onChange={(v) => setForm({ ...form, isPublic: v })}
+                label="Quête publique" description="Visible par tous les citoyens, pas seulement les assignés" />
+            </>)}
+
+            {/* ─ Tab: Objectifs ─ */}
+            {formTab === "objectifs" && (
+              <div className="space-y-3">
+                {form.objectives.length === 0 && (
+                  <div className="text-center py-6 text-stone-600">
+                    <div className="text-3xl mb-2">🎯</div>
+                    <div className="text-sm font-bold">Aucun objectif</div>
+                    <div className="text-[10px] mt-1">Ajoutez les étapes que les joueurs doivent accomplir.</div>
+                  </div>
+                )}
+                {form.objectives.map((obj, idx) => (
+                  <div key={obj.id} className="flex items-center gap-2 bg-stone-800/50 rounded-lg px-3 py-2.5 border border-stone-700">
+                    <div className="w-3 h-3 rounded-full border border-stone-600 shrink-0" />
+                    <span className="flex-1 text-sm text-stone-300">{obj.text}</span>
+                    <button onClick={() => removeObjective(idx)} className="text-stone-600 hover:text-red-400 transition-all"><X size={14} /></button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input value={newObjective} onChange={(e) => setNewObjective(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addObjective()}
+                    placeholder="Nouvel objectif (Entrée pour valider)…" className="flex-1" />
+                  <BtnSecondary onClick={addObjective}>Ajouter</BtnSecondary>
+                </div>
+              </div>
+            )}
+
+            {/* ─ Tab: PNJs ─ */}
+            {formTab === "npcs" && (
+              <div className="space-y-4">
+                {form.npcs.length === 0 && (
+                  <div className="text-center py-8 text-stone-600">
+                    <div className="text-3xl mb-2">🎭</div>
+                    <div className="text-sm font-bold">Aucun personnage exclusif</div>
+                    <div className="text-[10px] mt-1">Créez les PNJs propres à cette quête.</div>
+                  </div>
+                )}
+                {form.npcs.map((npc, idx) => (
+                  <NPCFormRow key={npc.id} npc={npc} onChange={(u) => updateNpc(idx, u)} onRemove={() => removeNpc(idx)} />
+                ))}
+                <BtnPrimary onClick={addNpc} className="w-full"><Plus size={14} /> Ajouter un personnage</BtnPrimary>
+              </div>
+            )}
+
+            {/* ─ Tab: Rebondissements ─ */}
+            {formTab === "rebondissements" && (
+              <div className="space-y-4">
+                {form.rebondissements.length === 0 && (
+                  <div className="text-center py-8 text-stone-600">
+                    <div className="text-3xl mb-2">⚡</div>
+                    <div className="text-sm font-bold">Aucun rebondissement</div>
+                    <div className="text-[10px] mt-1">Planifiez des coups de théâtre et événements inattendus.</div>
+                  </div>
+                )}
+                {form.rebondissements.map((item, idx) => (
+                  <RebForm key={item.id} item={item} onChange={(u) => updateReb(idx, u)} onRemove={() => removeReb(idx)} />
+                ))}
+                <BtnPrimary onClick={addReb} className="w-full"><Plus size={14} /> Ajouter un rebondissement</BtnPrimary>
+              </div>
+            )}
+
+            {/* ─ Tab: Notes GM ─ */}
+            {formTab === "notes" && (
+              <div>
+                <div className="flex items-center gap-2 mb-3 p-3 bg-red-900/10 border border-red-900/30 rounded-lg">
+                  <Shield size={14} className="text-red-400 shrink-0" />
+                  <div className="text-[10px] text-red-400 font-bold">Notes confidentielles — Visibles uniquement par le GM</div>
+                </div>
+                <textarea value={form.gmNotes} onChange={(e) => setForm({ ...form, gmNotes: e.target.value })}
+                  className="w-full bg-stone-900 border border-red-900/40 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[260px]"
+                  placeholder="Notes secrètes, indices cachés, développements alternatifs, intentions narratives…" />
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2 border-t border-stone-800">
+              <BtnSecondary onClick={closeForm}>Annuler</BtnSecondary>
+              <BtnPrimary onClick={handleSave} className="flex-1">
+                {editingId ? <><Save size={14} /> Sauvegarder</> : <><Plus size={14} /> Créer la quête</>}
+              </BtnPrimary>
+            </div>
           </div>
         </Card>
       )}
 
-      {/* LIST VIEW */}
+      {/* ── LIST VIEW ── */}
       {view === "list" && (
         <>
-          {/* Stats bar */}
+          {/* Stats */}
           <div className="grid grid-cols-4 gap-2">
             {QUEST_STATUSES.map((s) => {
               const count = quests.filter((q) => q.status === s).length;
               return (
-                <button
-                  key={s}
-                  onClick={() => setFilterStatus(filterStatus === s ? "ALL" : s)}
+                <button key={s} onClick={() => setFilterStatus(filterStatus === s ? "ALL" : s)}
                   className={`p-3 rounded-xl border text-center transition-all ${
-                    filterStatus === s
-                      ? "bg-red-900/30 border-red-800/50 text-red-300"
-                      : "bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-700 hover:text-stone-300"
-                  }`}
-                >
+                    filterStatus === s ? "bg-red-900/30 border-red-800/50" : "bg-stone-900 border-stone-800 hover:border-stone-700"
+                  }`}>
                   <div className="text-lg font-black text-stone-200">{count}</div>
-                  <div className="text-[8px] font-black uppercase tracking-widest mt-0.5">{s}</div>
+                  <div className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-500">{s}</div>
                 </button>
               );
             })}
@@ -1464,69 +1598,69 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
           {/* Search */}
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+            <input value={search} onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-stone-600"
-              placeholder="Rechercher une quête..."
-            />
+              placeholder="Rechercher une quête…" />
           </div>
 
           {/* Filter chips */}
           <div className="flex gap-1.5 flex-wrap">
-            <button
-              onClick={() => setFilterStatus("ALL")}
-              className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
-                filterStatus === "ALL" ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
-              }`}
-            >
-              Toutes ({quests.length})
-            </button>
-            {QUEST_STATUSES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(filterStatus === s ? "ALL" : s)}
+            {["ALL", ...QUEST_STATUSES].map((s) => (
+              <button key={s} onClick={() => setFilterStatus(s === filterStatus ? "ALL" : s)}
                 className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
                   filterStatus === s ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
-                }`}
-              >
-                {s} ({quests.filter((q) => q.status === s).length})
+                }`}>
+                {s === "ALL" ? `Toutes (${quests.length})` : `${s} (${quests.filter((q) => q.status === s).length})`}
               </button>
             ))}
           </div>
 
-          {/* Quest Cards */}
+          {/* Quest cards */}
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-stone-600">
               <ScrollText size={32} className="mx-auto mb-3 opacity-50" />
               <div className="text-sm font-bold">Aucune quête</div>
               <div className="text-[10px] mt-1">
-                {search || filterStatus !== "ALL" ? "Aucune quête ne correspond aux filtres." : "Créez votre première quête pour lancer l'aventure."}
+                {search || filterStatus !== "ALL" ? "Aucun résultat pour ces filtres." : "Créez votre première quête pour lancer l'aventure."}
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               {filtered.map((quest) => {
                 const isExpanded = expandedId === quest.id;
-                const completedCount = quest.objectives?.filter((o) => o.completed).length || 0;
-                const totalCount = quest.objectives?.length || 0;
+                const completedCount = (quest.objectives || []).filter((o) => o.completed).length;
+                const totalCount = (quest.objectives || []).length;
                 const country = countries.find((c) => c.id === quest.countryId);
-                const assignedNames = (quest.assignedCitizens || [])
-                  .map((id) => citizens.find((c) => c.id === id)?.name)
-                  .filter(Boolean);
+                const assignedNames = (quest.assignedCitizens || []).map((id) => citizens.find((c) => c.id === id)?.name).filter(Boolean);
+                const npcCount = (quest.npcs || []).length;
+                const totalRebs = (quest.rebondissements || []).length;
+                const triggeredRebs = (quest.rebondissements || []).filter((r) => r.isTriggered).length;
+                const hasNotes = !!quest.gmNotes;
+
+                const cardTabs = [
+                  { id: "resume", label: "Résumé" },
+                  totalCount > 0 && { id: "objectifs", label: `Objectifs ${completedCount}/${totalCount}` },
+                  npcCount > 0 && { id: "npcs", label: `PNJs (${npcCount})` },
+                  totalRebs > 0 && { id: "rebondissements", label: `Rebond. ${triggeredRebs}/${totalRebs}` },
+                  hasNotes && { id: "notes", label: "Notes GM" },
+                ].filter(Boolean);
+
+                const curTab = expandedId === quest.id ? expandedTab : "resume";
 
                 return (
                   <Card key={quest.id} className={`overflow-hidden transition-all ${isExpanded ? "border-red-800/60" : "hover:border-stone-700"}`}>
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : quest.id)}
-                      className="w-full text-left p-4 flex items-start gap-3"
-                    >
+                    {/* Card header row */}
+                    <button onClick={() => { setExpandedId(isExpanded ? null : quest.id); setExpandedTab("resume"); }}
+                      className="w-full text-left p-4 flex items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                           <Badge color={questStatusColor(quest.status)}>{quest.status}</Badge>
                           <Badge color={questDifficultyColor(quest.difficulty)}>{quest.difficulty}</Badge>
                           {quest.isPublic && <Badge color="blue">Public</Badge>}
                           {country && <Badge color="stone">{country.name}</Badge>}
+                          {npcCount > 0 && <Badge color="purple">🎭 {npcCount} PNJ{npcCount > 1 ? "s" : ""}</Badge>}
+                          {totalRebs > 0 && <Badge color={triggeredRebs > 0 ? "orange" : "stone"}>⚡ {triggeredRebs}/{totalRebs}</Badge>}
+                          {hasNotes && <Badge color="red">📝 GM</Badge>}
                         </div>
                         <h4 className="text-sm font-bold text-stone-200 font-serif">{quest.title}</h4>
                         {!isExpanded && quest.description && (
@@ -1535,113 +1669,193 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                         {totalCount > 0 && (
                           <div className="mt-2 flex items-center gap-2">
                             <div className="flex-1 bg-stone-800 rounded-full h-1">
-                              <div
-                                className="bg-red-600 h-1 rounded-full transition-all"
-                                style={{ width: `${(completedCount / totalCount) * 100}%` }}
-                              />
+                              <div className="bg-red-600 h-1 rounded-full transition-all" style={{ width: `${(completedCount / totalCount) * 100}%` }} />
                             </div>
-                            <span className="text-[9px] text-stone-500 font-mono">{completedCount}/{totalCount} objectifs</span>
+                            <span className="text-[9px] text-stone-500 font-mono">{completedCount}/{totalCount}</span>
                           </div>
                         )}
                       </div>
                       {isExpanded ? <ChevronUp size={16} className="text-stone-500 shrink-0 mt-1" /> : <ChevronDown size={16} className="text-stone-500 shrink-0 mt-1" />}
                     </button>
 
+                    {/* Expanded panel */}
                     {isExpanded && (
-                      <div className="px-4 pb-4 border-t border-stone-800 pt-4 space-y-4">
-                        {/* Description */}
-                        {quest.description && (
-                          <p className="text-sm text-stone-300 font-serif leading-relaxed">{quest.description}</p>
-                        )}
-
-                        {/* Objectives */}
-                        {quest.objectives?.length > 0 && (
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-2">
-                              Objectifs <span className="text-stone-600">({completedCount}/{totalCount})</span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {quest.objectives.map((obj) => (
-                                <button
-                                  key={obj.id}
-                                  onClick={() => toggleObjective(quest.id, obj.id)}
-                                  className="w-full flex items-center gap-2.5 text-left p-2 rounded-lg hover:bg-stone-800/50 transition-all group"
-                                >
-                                  {obj.completed ? (
-                                    <CheckCircle2 size={14} className="text-green-500 shrink-0" />
-                                  ) : (
-                                    <div className="w-3.5 h-3.5 rounded-full border border-stone-600 shrink-0 group-hover:border-stone-400 transition-all" />
-                                  )}
-                                  <span className={`text-sm ${obj.completed ? "line-through text-stone-600" : "text-stone-300"}`}>
-                                    {obj.text}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Reward */}
-                        {(quest.reward?.money > 0 || quest.reward?.description) && (
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Récompense</div>
-                            <div className="flex items-center gap-3 p-2.5 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
-                              {quest.reward?.money > 0 && (
-                                <span className="text-sm font-bold text-yellow-400 flex items-center gap-1">
-                                  <Coins size={12} /> {quest.reward.money.toLocaleString()} Écus
-                                </span>
-                              )}
-                              {quest.reward?.description && (
-                                <span className="text-sm text-stone-300">{quest.reward.description}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Assigned Citizens */}
-                        {assignedNames.length > 0 && (
-                          <div>
-                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Participants</div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {assignedNames.map((name) => (
-                                <span key={name} className="px-2.5 py-1 bg-stone-800 text-stone-300 text-[10px] font-bold rounded-lg border border-stone-700">
-                                  {name}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Status change + Actions */}
-                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-stone-800">
-                          <div className="flex gap-1.5 flex-wrap">
-                            {QUEST_STATUSES.filter((s) => s !== quest.status).map((s) => (
-                              <button
-                                key={s}
-                                onClick={() => handleStatusChange(quest.id, s)}
-                                className="px-2.5 py-1 bg-stone-800 text-stone-400 text-[9px] font-black uppercase tracking-widest rounded hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700"
-                              >
-                                → {s}
+                      <div className="border-t border-stone-800">
+                        {/* Inner tab bar */}
+                        {cardTabs.length > 1 && (
+                          <div className="flex border-b border-stone-800/60 bg-stone-900/50 overflow-x-auto">
+                            {cardTabs.map((tab) => (
+                              <button key={tab.id} onClick={() => setExpandedTab(tab.id)}
+                                className={`shrink-0 px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${
+                                  curTab === tab.id ? "text-red-300 border-red-600" : "text-stone-500 hover:text-stone-300 border-transparent"
+                                }`}>
+                                {tab.label}
                               </button>
                             ))}
                           </div>
-                          <div className="flex gap-2">
-                            <BtnSecondary onClick={() => startEdit(quest)}>
-                              <Edit3 size={12} />
-                            </BtnSecondary>
-                            <button
-                              onClick={() => handleDelete(quest.id)}
-                              className="px-3 py-1.5 bg-stone-800 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-900/30 transition-all border border-stone-700"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
+                        )}
 
-                        {/* Timestamps */}
-                        <div className="text-[9px] text-stone-600 font-mono">
-                          Créée le {new Date(quest.createdAt).toLocaleDateString("fr-FR")}
-                          {quest.updatedAt !== quest.createdAt && ` · Modifiée le ${new Date(quest.updatedAt).toLocaleDateString("fr-FR")}`}
+                        <div className="p-4 space-y-4">
+                          {/* ─ Résumé ─ */}
+                          {curTab === "resume" && (<>
+                            {quest.description && <p className="text-sm text-stone-300 font-serif leading-relaxed">{quest.description}</p>}
+                            {(quest.reward?.money > 0 || quest.reward?.description) && (
+                              <div className="flex items-center gap-3 p-2.5 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
+                                {quest.reward?.money > 0 && (
+                                  <span className="text-sm font-bold text-yellow-400 flex items-center gap-1"><Coins size={12} /> {quest.reward.money.toLocaleString()} Écus</span>
+                                )}
+                                {quest.reward?.description && <span className="text-sm text-stone-300">{quest.reward.description}</span>}
+                              </div>
+                            )}
+                            {assignedNames.length > 0 && (
+                              <div>
+                                <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Participants</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {assignedNames.map((name) => (
+                                    <span key={name} className="px-2.5 py-1 bg-stone-800 text-stone-300 text-[10px] font-bold rounded-lg border border-stone-700">{name}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>)}
+
+                          {/* ─ Objectifs ─ */}
+                          {curTab === "objectifs" && (
+                            <div className="space-y-1.5">
+                              {quest.objectives.map((obj) => (
+                                <button key={obj.id} onClick={() => toggleObjective(quest.id, obj.id)}
+                                  className="w-full flex items-center gap-2.5 text-left p-2 rounded-lg hover:bg-stone-800/50 transition-all group">
+                                  {obj.completed
+                                    ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                                    : <div className="w-3.5 h-3.5 rounded-full border border-stone-600 shrink-0 group-hover:border-stone-400 transition-all" />}
+                                  <span className={`text-sm ${obj.completed ? "line-through text-stone-600" : "text-stone-300"}`}>{obj.text}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* ─ PNJs ─ */}
+                          {curTab === "npcs" && (
+                            <div className="space-y-3">
+                              {(quest.npcs || []).map((npc) => (
+                                <div key={npc.id} className="p-3 bg-stone-800/40 rounded-xl border border-stone-700/50 space-y-2">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-2xl shrink-0">{npc.emoji || "👤"}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-sm font-bold text-stone-200">{npc.name}</span>
+                                        {npc.role && <span className="text-[9px] text-stone-500 italic">{npc.role}</span>}
+                                      </div>
+                                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                        <Badge color={npcDispositionColor(npc.disposition)}>{npc.disposition}</Badge>
+                                        <Badge color={npcStatusColor(npc.status)}>{npc.status}</Badge>
+                                      </div>
+                                    </div>
+                                    <Select value={npc.status}
+                                      onChange={(e) => updateNpcStatusInline(quest.id, npc.id, e.target.value)}
+                                      className="!w-28 !py-1 !text-[10px] shrink-0">
+                                      {NPC_STATUSES_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
+                                    </Select>
+                                  </div>
+                                  {npc.description && <p className="text-[11px] text-stone-400 leading-relaxed">{npc.description}</p>}
+                                  {npc.secret && (
+                                    <div className="p-2 bg-red-900/10 border border-red-900/30 rounded-lg">
+                                      <div className="text-[8px] font-black uppercase tracking-widest text-red-500 mb-1 flex items-center gap-1"><Shield size={9} /> Secret GM</div>
+                                      <p className="text-[11px] text-red-300/80 leading-relaxed">{npc.secret}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* ─ Rebondissements ─ */}
+                          {curTab === "rebondissements" && (
+                            <div className="space-y-3">
+                              {(quest.rebondissements || []).map((reb) => (
+                                <div key={reb.id} className={`p-3 rounded-xl border transition-all ${
+                                  reb.isTriggered ? "bg-amber-900/20 border-amber-800/50" : "bg-stone-800/30 border-stone-700/50"
+                                }`}>
+                                  <div className="flex items-start gap-3">
+                                    <span className={`text-xl shrink-0 mt-0.5 ${reb.isTriggered ? "" : "opacity-30"}`}>⚡</span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                        <span className={`text-sm font-bold ${reb.isTriggered ? "text-amber-300" : "text-stone-300"}`}>
+                                          {reb.title || "Sans titre"}
+                                        </span>
+                                        {reb.isTriggered && <Badge color="orange">Déclenché</Badge>}
+                                      </div>
+                                      {reb.description && <p className="text-[11px] text-stone-400 leading-relaxed mb-2">{reb.description}</p>}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {reb.condition && (
+                                          <div className="p-2 bg-stone-900/50 rounded-lg border border-stone-700/30">
+                                            <div className="text-[8px] font-black uppercase tracking-widest text-stone-500 mb-1">Condition</div>
+                                            <p className="text-[11px] text-stone-400">{reb.condition}</p>
+                                          </div>
+                                        )}
+                                        {reb.consequence && (
+                                          <div className="p-2 bg-stone-900/50 rounded-lg border border-stone-700/30">
+                                            <div className="text-[8px] font-black uppercase tracking-widest text-stone-500 mb-1">Conséquences</div>
+                                            <p className="text-[11px] text-stone-400">{reb.consequence}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {reb.isTriggered && reb.triggeredAt && (
+                                        <div className="text-[9px] text-amber-600 font-mono mt-1">
+                                          Déclenché le {new Date(reb.triggeredAt).toLocaleDateString("fr-FR")}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => triggerRebondissement(quest.id, reb.id)}
+                                      className={`shrink-0 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                                        reb.isTriggered
+                                          ? "bg-amber-900/30 border-amber-800/50 text-amber-400 hover:bg-amber-900/50"
+                                          : "bg-stone-800 border-stone-700 text-stone-400 hover:text-stone-200 hover:bg-stone-700"
+                                      }`}>
+                                      {reb.isTriggered ? "Annuler" : "Déclencher"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* ─ Notes GM ─ */}
+                          {curTab === "notes" && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <Shield size={12} className="text-red-400" />
+                                <div className="text-[9px] font-black uppercase tracking-widest text-red-400">Notes confidentielles GM</div>
+                              </div>
+                              <div className="p-3 bg-red-900/5 border border-red-900/30 rounded-lg">
+                                <p className="text-sm text-stone-300 whitespace-pre-wrap leading-relaxed">{quest.gmNotes}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Footer actions */}
+                          <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-stone-800">
+                            <div className="flex gap-1.5 flex-wrap">
+                              {QUEST_STATUSES.filter((s) => s !== quest.status).map((s) => (
+                                <button key={s} onClick={() => handleStatusChange(quest.id, s)}
+                                  className="px-2.5 py-1 bg-stone-800 text-stone-400 text-[9px] font-black uppercase tracking-widest rounded hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700">
+                                  → {s}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <BtnSecondary onClick={() => startEdit(quest)}><Edit3 size={12} /></BtnSecondary>
+                              <button onClick={() => handleDelete(quest.id)}
+                                className="px-3 py-1.5 bg-stone-800 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-900/30 transition-all border border-stone-700">
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-[9px] text-stone-600 font-mono">
+                            Créée le {new Date(quest.createdAt).toLocaleDateString("fr-FR")}
+                            {quest.updatedAt !== quest.createdAt && ` · Modifiée le ${new Date(quest.updatedAt).toLocaleDateString("fr-FR")}`}
+                          </div>
                         </div>
                       </div>
                     )}
