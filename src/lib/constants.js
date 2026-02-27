@@ -118,6 +118,7 @@ export const DEFAULT_GAME_STATE = {
     },
   ],
   globalLedger: [],
+  quests: [],
   treasury: 50000,
   dayCycle: 1,
   lastUpdate: 0,

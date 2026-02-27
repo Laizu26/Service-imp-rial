@@ -20,6 +20,7 @@ import {
   Trash2,
   Briefcase,
   Library, // <--- 1. ICÔNE AJOUTÉE
+  Swords,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -46,6 +47,7 @@ import PostOfficeView from "./components/views/PostOfficeView";
 import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
+import QuestsView from "./components/views/QuestsView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
 export default function App() {
@@ -165,6 +167,10 @@ export default function App() {
 
     if (roleInfo.level >= 50 || (session && session.role === "TENANCIER")) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
+    }
+
+    if (roleInfo.level >= 40) {
+      tabs.push({ id: "quests", label: "Quêtes", icon: Swords });
     }
 
     return tabs;
@@ -558,6 +564,15 @@ export default function App() {
                       countries={state.countries || []}
                       houseRegistry={state.maisonRegistry || []}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
+                    />
+                  )}
+
+                  {activeTab === "quests" && (
+                    <QuestsView
+                      quests={state.quests || []}
+                      citizens={state.citizens || []}
+                      countries={state.countries || []}
+                      onUpdate={(q) => saveState({ ...state, quests: q })}
                     />
                   )}
                 </div>
