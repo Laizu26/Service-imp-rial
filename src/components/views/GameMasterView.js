@@ -1875,6 +1875,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
    ================================================ */
 const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [showReset, setShowReset] = useState(false);
   const pendingChildCount = (state.pendingChildren || []).length;
 
   const questCount = (state.quests || []).filter((q) => q.status === "Active").length;
@@ -1926,11 +1927,86 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
           <button onClick={onClose} className="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-stone-800 text-stone-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-stone-700 hover:border-stone-600">
             <ArrowLeft size={16} /> Retour au Jeu
           </button>
-          <div className="text-center opacity-30 pt-2">
-            <Shield className="mx-auto mb-1 text-red-600" size={18} />
+          <button
+            onClick={() => setShowReset(true)}
+            className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all text-red-600 border-red-900/50 hover:bg-red-900/20 hover:text-red-400 hover:border-red-800/60"
+          >
+            <RefreshCw size={12} /> Réinitialiser
+          </button>
+          <div className="text-center opacity-30 pt-1">
+            <Shield className="mx-auto mb-1 text-red-600" size={16} />
             <div className="text-[8px] uppercase tracking-[0.2em] font-black text-stone-600">Interface HRP</div>
           </div>
         </div>
+
+        {/* ── Modal Réinitialiser ── */}
+        {showReset && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-stone-950 border border-red-900/60 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="bg-red-900/20 border-b border-red-900/40 p-5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-red-900/40 border border-red-800/60 flex items-center justify-center shrink-0">
+                  <Trash2 size={18} className="text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-xs font-black uppercase tracking-widest text-red-400">Réinitialiser les données</h2>
+                  <div className="text-[9px] text-stone-500 uppercase tracking-widest mt-0.5">Action irréversible</div>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="p-3 bg-red-900/10 border border-red-900/30 rounded-xl">
+                  <p className="text-[11px] text-red-300/80 leading-relaxed">
+                    Cette action va <span className="font-black text-red-400">effacer définitivement</span> toutes les données du jeu :
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {["Citoyens & comptes", "Quêtes & objectifs", "Lore & entrées", "Gazette & publications", "Lois & nations", "Calendrier & événements", "Dettes & registres", "Candidatures en attente"].map((item) => (
+                      <li key={item} className="text-[10px] text-red-400/70 flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-red-700 shrink-0" /> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <p className="text-[10px] text-stone-500 text-center">
+                  Les pays et la date de jeu seront conservés.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowReset(false)}
+                    className="flex-1 py-2.5 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => {
+                      onUpdateState({
+                        countries: state.countries || [],
+                        gameDate: state.gameDate || { day: 1, month: 1, year: 1200 },
+                        citizens: [],
+                        gazette: [],
+                        quests: [],
+                        lore: [],
+                        laws: [],
+                        events: [],
+                        pendingChildren: [],
+                        debtRegistry: [],
+                        companies: [],
+                        jobs: [],
+                        maisonRegistry: [],
+                        library: [],
+                        jobOffers: [],
+                        hiddenTransfers: [],
+                      });
+                      setShowReset(false);
+                      notify("Données réinitialisées.", "success");
+                    }}
+                    className="flex-1 py-2.5 bg-red-900/50 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-900/70 transition-all"
+                  >
+                    Confirmer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}

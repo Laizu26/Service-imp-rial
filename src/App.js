@@ -309,7 +309,7 @@ export default function App() {
               </div>
               <div className="p-5 space-y-3">
                 <button
-                  onClick={() => { setGmAction("gm"); setGmStep("password"); }}
+                  onClick={() => { setGmMode(true); setGmStep(null); notify("Accès Game Master activé.", "success"); }}
                   className="w-full flex items-start gap-4 p-4 bg-stone-900 border border-stone-700 hover:border-red-800/50 rounded-xl transition-all group text-left"
                 >
                   <div className="w-9 h-9 rounded-lg bg-red-900/20 border border-red-800/30 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-red-900/40 transition-all">
