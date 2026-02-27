@@ -334,34 +334,49 @@ const ToggleOption = ({
   isDark,
 }) => (
   <div
-    className="flex items-center justify-between p-3 rounded-xl border"
+    className="flex items-center justify-between p-3 rounded-xl border transition-colors"
     style={{
-      borderColor: isDark ? "#44403c" : "#e7e5e4",
-      backgroundColor: isDark ? "#1c1917" : "#fafaf9",
+      borderColor: checked ? "#eab308" : isDark ? "#44403c" : "#e7e5e4",
+      backgroundColor: checked
+        ? isDark ? "#eab30810" : "#fefce8"
+        : isDark ? "#1c1917" : "#fafaf9",
     }}
   >
-    <div className="flex items-center gap-3">
-      <Icon size={16} className="opacity-50" />
-      <div>
-        <div className="text-xs font-bold">{label}</div>
-        <div className="text-[10px] opacity-50">{description}</div>
+    <div className="flex items-center gap-3 flex-1 min-w-0">
+      <Icon
+        size={16}
+        style={{ color: checked ? "#eab308" : undefined, opacity: checked ? 1 : 0.4 }}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold">{label}</span>
+          <span
+            className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: checked ? "#eab308" : isDark ? "#44403c" : "#e7e5e4",
+              color: checked ? "#1c1917" : isDark ? "#78716c" : "#a8a29e",
+            }}
+          >
+            {checked ? "Actif" : "Inactif"}
+          </span>
+        </div>
+        <div className="text-[10px] opacity-50 mt-0.5">{description}</div>
       </div>
     </div>
     <button
       onClick={() => onChange(!checked)}
-      className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+      aria-pressed={checked}
+      className="relative w-11 h-6 rounded-full flex-shrink-0 ml-3"
       style={{
-        backgroundColor: checked
-          ? "#eab308"
-          : isDark
-          ? "#44403c"
-          : "#d6d3d1",
+        backgroundColor: checked ? "#eab308" : isDark ? "#44403c" : "#d6d3d1",
+        transition: "background-color 150ms",
       }}
     >
       <span
-        className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform"
+        className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
         style={{
           transform: checked ? "translateX(22px)" : "translateX(2px)",
+          transition: "transform 150ms",
         }}
       />
     </button>
