@@ -39,6 +39,7 @@ import {
   Baby,
   CheckCircle2,
   XCircle,
+  ScrollText,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
@@ -1157,15 +1158,517 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
 };
 
 /* ================================================
+   6. QUÊTES
+   ================================================ */
+const QUEST_STATUSES = ["Brouillon", "Active", "Terminée", "Échouée"];
+const QUEST_DIFFICULTIES = ["Facile", "Intermédiaire", "Difficile", "Épique"];
+
+const questStatusColor = (s) =>
+  s === "Active" ? "green" : s === "Terminée" ? "blue" : s === "Échouée" ? "red" : "stone";
+
+const questDifficultyColor = (d) =>
+  d === "Facile" ? "green" : d === "Intermédiaire" ? "blue" : d === "Difficile" ? "orange" : "purple";
+
+const EMPTY_QUEST_FORM = {
+  title: "",
+  description: "",
+  objectives: [],
+  status: "Brouillon",
+  difficulty: "Intermédiaire",
+  reward: { money: 0, description: "" },
+  assignedCitizens: [],
+  countryId: "",
+  isPublic: false,
+};
+
+const GMQuests = ({ state, onUpdateState, notify }) => {
+  const [view, setView] = useState("list");
+  const [editingId, setEditingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [expandedId, setExpandedId] = useState(null);
+  const [form, setForm] = useState(EMPTY_QUEST_FORM);
+  const [newObjective, setNewObjective] = useState("");
+
+  const quests = state.quests || [];
+  const citizens = state.citizens || [];
+  const countries = state.countries || [];
+
+  const filtered = useMemo(() => {
+    return quests.filter((q) => {
+      if (filterStatus !== "ALL" && q.status !== filterStatus) return false;
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return q.title?.toLowerCase().includes(s) || q.description?.toLowerCase().includes(s);
+    });
+  }, [quests, search, filterStatus]);
+
+  const handleSave = () => {
+    if (!form.title.trim()) { notify("Le titre est requis.", "error"); return; }
+    const now = Date.now();
+    if (editingId) {
+      const updated = quests.map((q) =>
+        q.id === editingId ? { ...q, ...form, updatedAt: now } : q
+      );
+      onUpdateState({ ...state, quests: updated });
+      notify("Quête mise à jour.", "success");
+    } else {
+      const newQuest = { id: `q${now}`, ...form, createdAt: now, updatedAt: now };
+      onUpdateState({ ...state, quests: [...quests, newQuest] });
+      notify("Quête créée.", "success");
+    }
+    setForm(EMPTY_QUEST_FORM);
+    setEditingId(null);
+    setView("list");
+  };
+
+  const handleDelete = (id) => {
+    onUpdateState({ ...state, quests: quests.filter((q) => q.id !== id) });
+    if (expandedId === id) setExpandedId(null);
+    notify("Quête supprimée.", "success");
+  };
+
+  const handleStatusChange = (id, newStatus) => {
+    const updated = quests.map((q) =>
+      q.id === id ? { ...q, status: newStatus, updatedAt: Date.now() } : q
+    );
+    onUpdateState({ ...state, quests: updated });
+  };
+
+  const toggleObjective = (questId, objId) => {
+    const updated = quests.map((q) => {
+      if (q.id !== questId) return q;
+      return {
+        ...q,
+        objectives: q.objectives.map((o) => (o.id === objId ? { ...o, completed: !o.completed } : o)),
+        updatedAt: Date.now(),
+      };
+    });
+    onUpdateState({ ...state, quests: updated });
+  };
+
+  const startEdit = (quest) => {
+    setForm({
+      title: quest.title || "",
+      description: quest.description || "",
+      objectives: quest.objectives || [],
+      status: quest.status || "Brouillon",
+      difficulty: quest.difficulty || "Intermédiaire",
+      reward: quest.reward || { money: 0, description: "" },
+      assignedCitizens: quest.assignedCitizens || [],
+      countryId: quest.countryId || "",
+      isPublic: quest.isPublic || false,
+    });
+    setEditingId(quest.id);
+    setView("form");
+  };
+
+  const addObjective = () => {
+    if (!newObjective.trim()) return;
+    setForm({
+      ...form,
+      objectives: [...form.objectives, { id: `o${Date.now()}`, text: newObjective.trim(), completed: false }],
+    });
+    setNewObjective("");
+  };
+
+  const removeObjective = (idx) => {
+    setForm({ ...form, objectives: form.objectives.filter((_, i) => i !== idx) });
+  };
+
+  const openForm = () => { setForm(EMPTY_QUEST_FORM); setEditingId(null); setView("form"); };
+  const closeForm = () => { setView("list"); setForm(EMPTY_QUEST_FORM); setEditingId(null); };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <SectionTitle icon={ScrollText}>Gestion des Quêtes</SectionTitle>
+        <button
+          onClick={view !== "list" ? closeForm : openForm}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+            view !== "list"
+              ? "bg-stone-800 text-stone-300 hover:bg-stone-700"
+              : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
+          }`}
+        >
+          {view !== "list" ? <><ArrowLeft size={14} /> Liste</> : <><Plus size={14} /> Nouvelle quête</>}
+        </button>
+      </div>
+
+      {/* FORM VIEW */}
+      {view === "form" && (
+        <Card className="p-6 space-y-5">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-500">
+            {editingId ? "Modifier la quête" : "Créer une quête"}
+          </h3>
+
+          <div className="space-y-4">
+            {/* Title */}
+            <div>
+              <Label>Titre</Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Nom de la quête..."
+              />
+            </div>
+
+            {/* Status + Difficulty */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Statut</Label>
+                <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                  {QUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </Select>
+              </div>
+              <div>
+                <Label>Difficulté</Label>
+                <Select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}>
+                  {QUEST_DIFFICULTIES.map((d) => <option key={d} value={d}>{d}</option>)}
+                </Select>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <Label>Description narrative</Label>
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[120px] font-serif"
+                placeholder="Décrivez la quête, son contexte et ses enjeux..."
+              />
+            </div>
+
+            {/* Objectives */}
+            <div>
+              <Label>Objectifs</Label>
+              <div className="space-y-2 mb-2">
+                {form.objectives.map((obj, idx) => (
+                  <div key={obj.id} className="flex items-center gap-2 bg-stone-800/50 rounded-lg px-3 py-2 border border-stone-700">
+                    <div className="w-3 h-3 rounded-full border border-stone-600 shrink-0" />
+                    <span className="flex-1 text-sm text-stone-300">{obj.text}</span>
+                    <button onClick={() => removeObjective(idx)} className="text-stone-600 hover:text-red-400 transition-all">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newObjective}
+                  onChange={(e) => setNewObjective(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addObjective()}
+                  placeholder="Ajouter un objectif (Entrée pour valider)..."
+                  className="flex-1"
+                />
+                <BtnSecondary onClick={addObjective}>Ajouter</BtnSecondary>
+              </div>
+            </div>
+
+            {/* Reward */}
+            <div>
+              <Label>Récompense</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Input
+                    type="number"
+                    value={form.reward.money}
+                    onChange={(e) => setForm({ ...form, reward: { ...form.reward, money: parseInt(e.target.value) || 0 } })}
+                    placeholder="Écus..."
+                    min="0"
+                  />
+                  <div className="text-[9px] text-stone-500 mt-1">Montant en Écus</div>
+                </div>
+                <div>
+                  <Input
+                    value={form.reward.description}
+                    onChange={(e) => setForm({ ...form, reward: { ...form.reward, description: e.target.value } })}
+                    placeholder="Autre récompense..."
+                  />
+                  <div className="text-[9px] text-stone-500 mt-1">Objet, titre, etc.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Country */}
+            <div>
+              <Label>Pays associé (optionnel)</Label>
+              <Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>
+                <option value="">— Tous les pays —</option>
+                {countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </div>
+
+            {/* Assigned Citizens */}
+            <div>
+              <Label>Citoyens assignés</Label>
+              <select
+                multiple
+                value={form.assignedCitizens}
+                onChange={(e) =>
+                  setForm({ ...form, assignedCitizens: Array.from(e.target.selectedOptions, (o) => o.value) })
+                }
+                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[100px]"
+              >
+                {citizens.filter((c) => c.status !== "Décédé").map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <div className="text-[9px] text-stone-500 mt-1">Ctrl+clic pour sélectionner plusieurs citoyens</div>
+            </div>
+
+            {/* Is Public */}
+            <Toggle
+              checked={form.isPublic}
+              onChange={(v) => setForm({ ...form, isPublic: v })}
+              label="Quête publique"
+              description="Visible par tous les citoyens, pas seulement les assignés"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <BtnSecondary onClick={closeForm}>Annuler</BtnSecondary>
+            <BtnPrimary onClick={handleSave} className="flex-1">
+              {editingId ? <><Save size={14} /> Sauvegarder</> : <><Plus size={14} /> Créer la quête</>}
+            </BtnPrimary>
+          </div>
+        </Card>
+      )}
+
+      {/* LIST VIEW */}
+      {view === "list" && (
+        <>
+          {/* Stats bar */}
+          <div className="grid grid-cols-4 gap-2">
+            {QUEST_STATUSES.map((s) => {
+              const count = quests.filter((q) => q.status === s).length;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setFilterStatus(filterStatus === s ? "ALL" : s)}
+                  className={`p-3 rounded-xl border text-center transition-all ${
+                    filterStatus === s
+                      ? "bg-red-900/30 border-red-800/50 text-red-300"
+                      : "bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-700 hover:text-stone-300"
+                  }`}
+                >
+                  <div className="text-lg font-black text-stone-200">{count}</div>
+                  <div className="text-[8px] font-black uppercase tracking-widest mt-0.5">{s}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-stone-600"
+              placeholder="Rechercher une quête..."
+            />
+          </div>
+
+          {/* Filter chips */}
+          <div className="flex gap-1.5 flex-wrap">
+            <button
+              onClick={() => setFilterStatus("ALL")}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
+                filterStatus === "ALL" ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
+              }`}
+            >
+              Toutes ({quests.length})
+            </button>
+            {QUEST_STATUSES.map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(filterStatus === s ? "ALL" : s)}
+                className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
+                  filterStatus === s ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
+                }`}
+              >
+                {s} ({quests.filter((q) => q.status === s).length})
+              </button>
+            ))}
+          </div>
+
+          {/* Quest Cards */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-stone-600">
+              <ScrollText size={32} className="mx-auto mb-3 opacity-50" />
+              <div className="text-sm font-bold">Aucune quête</div>
+              <div className="text-[10px] mt-1">
+                {search || filterStatus !== "ALL" ? "Aucune quête ne correspond aux filtres." : "Créez votre première quête pour lancer l'aventure."}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((quest) => {
+                const isExpanded = expandedId === quest.id;
+                const completedCount = quest.objectives?.filter((o) => o.completed).length || 0;
+                const totalCount = quest.objectives?.length || 0;
+                const country = countries.find((c) => c.id === quest.countryId);
+                const assignedNames = (quest.assignedCitizens || [])
+                  .map((id) => citizens.find((c) => c.id === id)?.name)
+                  .filter(Boolean);
+
+                return (
+                  <Card key={quest.id} className={`overflow-hidden transition-all ${isExpanded ? "border-red-800/60" : "hover:border-stone-700"}`}>
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : quest.id)}
+                      className="w-full text-left p-4 flex items-start gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <Badge color={questStatusColor(quest.status)}>{quest.status}</Badge>
+                          <Badge color={questDifficultyColor(quest.difficulty)}>{quest.difficulty}</Badge>
+                          {quest.isPublic && <Badge color="blue">Public</Badge>}
+                          {country && <Badge color="stone">{country.name}</Badge>}
+                        </div>
+                        <h4 className="text-sm font-bold text-stone-200 font-serif">{quest.title}</h4>
+                        {!isExpanded && quest.description && (
+                          <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">{quest.description}</p>
+                        )}
+                        {totalCount > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 bg-stone-800 rounded-full h-1">
+                              <div
+                                className="bg-red-600 h-1 rounded-full transition-all"
+                                style={{ width: `${(completedCount / totalCount) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-stone-500 font-mono">{completedCount}/{totalCount} objectifs</span>
+                          </div>
+                        )}
+                      </div>
+                      {isExpanded ? <ChevronUp size={16} className="text-stone-500 shrink-0 mt-1" /> : <ChevronDown size={16} className="text-stone-500 shrink-0 mt-1" />}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-4 border-t border-stone-800 pt-4 space-y-4">
+                        {/* Description */}
+                        {quest.description && (
+                          <p className="text-sm text-stone-300 font-serif leading-relaxed">{quest.description}</p>
+                        )}
+
+                        {/* Objectives */}
+                        {quest.objectives?.length > 0 && (
+                          <div>
+                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-2">
+                              Objectifs <span className="text-stone-600">({completedCount}/{totalCount})</span>
+                            </div>
+                            <div className="space-y-1.5">
+                              {quest.objectives.map((obj) => (
+                                <button
+                                  key={obj.id}
+                                  onClick={() => toggleObjective(quest.id, obj.id)}
+                                  className="w-full flex items-center gap-2.5 text-left p-2 rounded-lg hover:bg-stone-800/50 transition-all group"
+                                >
+                                  {obj.completed ? (
+                                    <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                                  ) : (
+                                    <div className="w-3.5 h-3.5 rounded-full border border-stone-600 shrink-0 group-hover:border-stone-400 transition-all" />
+                                  )}
+                                  <span className={`text-sm ${obj.completed ? "line-through text-stone-600" : "text-stone-300"}`}>
+                                    {obj.text}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Reward */}
+                        {(quest.reward?.money > 0 || quest.reward?.description) && (
+                          <div>
+                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Récompense</div>
+                            <div className="flex items-center gap-3 p-2.5 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
+                              {quest.reward?.money > 0 && (
+                                <span className="text-sm font-bold text-yellow-400 flex items-center gap-1">
+                                  <Coins size={12} /> {quest.reward.money.toLocaleString()} Écus
+                                </span>
+                              )}
+                              {quest.reward?.description && (
+                                <span className="text-sm text-stone-300">{quest.reward.description}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Assigned Citizens */}
+                        {assignedNames.length > 0 && (
+                          <div>
+                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Participants</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {assignedNames.map((name) => (
+                                <span key={name} className="px-2.5 py-1 bg-stone-800 text-stone-300 text-[10px] font-bold rounded-lg border border-stone-700">
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Status change + Actions */}
+                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-stone-800">
+                          <div className="flex gap-1.5 flex-wrap">
+                            {QUEST_STATUSES.filter((s) => s !== quest.status).map((s) => (
+                              <button
+                                key={s}
+                                onClick={() => handleStatusChange(quest.id, s)}
+                                className="px-2.5 py-1 bg-stone-800 text-stone-400 text-[9px] font-black uppercase tracking-widest rounded hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700"
+                              >
+                                → {s}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <BtnSecondary onClick={() => startEdit(quest)}>
+                              <Edit3 size={12} />
+                            </BtnSecondary>
+                            <button
+                              onClick={() => handleDelete(quest.id)}
+                              className="px-3 py-1.5 bg-stone-800 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-900/30 transition-all border border-stone-700"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Timestamps */}
+                        <div className="text-[9px] text-stone-600 font-mono">
+                          Créée le {new Date(quest.createdAt).toLocaleDateString("fr-FR")}
+                          {quest.updatedAt !== quest.createdAt && ` · Modifiée le ${new Date(quest.updatedAt).toLocaleDateString("fr-FR")}`}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+/* ================================================
    MAIN LAYOUT
    ================================================ */
 const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
   const [activeSection, setActiveSection] = useState("dashboard");
   const pendingChildCount = (state.pendingChildren || []).length;
 
+  const questCount = (state.quests || []).filter((q) => q.status === "Active").length;
+
   const menuItems = [
     { id: "dashboard", label: "Vue d'Ensemble", icon: LayoutDashboard },
     { id: "accounts", label: "Comptes", icon: Users, badge: pendingChildCount || null },
+    { id: "quests", label: "Quêtes", icon: ScrollText, badge: questCount || null },
     { id: "lore", label: "Lore & Univers", icon: BookOpen },
     { id: "lois", label: "Lois & Nations", icon: Gavel },
     { id: "calendrier", label: "Calendrier", icon: Calendar },
@@ -1255,6 +1758,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
                 <GMAccounts state={state} onUpdateState={onUpdateState} notify={notify} />
               </>
             )}
+            {activeSection === "quests" && <GMQuests state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lore" && <GMLore state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lois" && <GMLois state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "calendrier" && <GMCalendrier state={state} onUpdateState={onUpdateState} notify={notify} />}
