@@ -57,8 +57,14 @@ describe("travelUtils", () => {
 });
 
 describe("PostOfficeView integration", () => {
-  test("validates exit then entry and moves citizen", () => {
-    const citizen = { id: "u1", name: "Alice", countryId: "A" };
+  test("validates exit then entry and moves citizen (updates locationCountryId, not countryId)", () => {
+    // Citizen has allegiance to A, physically located in A
+    const citizen = {
+      id: "u1",
+      name: "Alice",
+      countryId: "A",
+      locationCountryId: "A",
+    };
     const from = { id: "A", name: "Pays A", laws: {} };
     const to = { id: "B", name: "Pays B", laws: {} };
 
@@ -74,7 +80,7 @@ describe("PostOfficeView integration", () => {
     };
 
     const onUpdateRequests = jest.fn();
-    const onUpdateCitizen = jest.fn();
+    const onVisaGranted = jest.fn();
 
     render(
       <PostOfficeView
@@ -83,7 +89,7 @@ describe("PostOfficeView integration", () => {
         citizens={[citizen]}
         session={{ role: "EMPEREUR", countryId: "A" }}
         onUpdateRequests={onUpdateRequests}
-        onUpdateCitizen={onUpdateCitizen}
+        onVisaGranted={onVisaGranted}
       />
     );
 
@@ -107,18 +113,25 @@ describe("PostOfficeView integration", () => {
         citizens={[citizen]}
         session={{ role: "EMPEREUR", countryId: "B" }}
         onUpdateRequests={onUpdateRequests}
-        onUpdateCitizen={onUpdateCitizen}
+        onVisaGranted={onVisaGranted}
       />
     );
 
     const btn2 = screen.getByText(/Valider ENTRÉE/i);
     fireEvent.click(btn2);
 
-    expect(onUpdateCitizen).toHaveBeenCalledWith("u1", "B");
+    // onVisaGranted should be called with (citizenId, toCountry, toRegion, remainingRequests)
+    // This updates locationCountryId (not countryId/allegiance)
+    expect(onVisaGranted).toHaveBeenCalledWith(
+      "u1",
+      "B",
+      "Frontière",
+      expect.any(Array)
+    );
 
-    // After final approval, the request should be removed from active requests
-    const calls = onUpdateRequests.mock.calls;
-    const lastArg = calls[calls.length - 1][0];
-    expect(lastArg.find((r) => r.id === "r1")).toBeUndefined();
+    // After final approval, the request should be removed from remaining requests
+    const grantedCalls = onVisaGranted.mock.calls;
+    const remainingReqs = grantedCalls[grantedCalls.length - 1][3];
+    expect(remainingReqs.find((r) => r.id === "r1")).toBeUndefined();
   });
 });

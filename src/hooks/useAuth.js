@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   signInAnonymously,
   onAuthStateChanged,
-  signInWithCustomToken,
 } from "firebase/auth";
 import { auth } from "../lib/firebase";
 

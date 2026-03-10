@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Coins, ArrowUpRight, ArrowDownLeft, RefreshCw } from "lucide-react";
+import { Coins, ArrowUpRight, ArrowDownLeft, RefreshCw, EyeOff } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 
 const BankView = ({
   users,
   countries,
+  companies = [],
   treasury,
   ledger,
   onTransfer,
@@ -29,6 +30,7 @@ const BankView = ({
   ].includes(session?.role);
   const safeUsers = Array.isArray(users) ? users : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
+  const safeCompanies = Array.isArray(companies) ? companies : [];
   const safeLedger = Array.isArray(ledger) ? ledger : [];
   const allowedCountries = isGlobalAdmin
     ? safeCountries
@@ -39,6 +41,7 @@ const BankView = ({
     if (type === "GLOBAL") return "GLOBAL";
     if (type === "COUNTRY") return `C-${id}`;
     if (type === "CITIZEN") return `U-${id}`;
+    if (type === "COMPANY") return `E-${id}`;
     return "";
   };
 
@@ -49,6 +52,8 @@ const BankView = ({
       return safeCountries.find((c) => c.id === id)?.treasury || 0;
     if (type === "CITIZEN")
       return safeUsers.find((u) => u.id === id)?.balance || 0;
+    if (type === "COMPANY")
+      return safeCompanies.find((c) => c.id === id)?.balance || 0;
     return 0;
   };
 
@@ -162,6 +167,21 @@ const BankView = ({
               >
                 Citoyen
               </button>
+              {safeCompanies.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSrcType("COMPANY");
+                    setSrcId(safeCompanies[0]?.id || "");
+                  }}
+                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                    srcType === "COMPANY"
+                      ? "bg-stone-800 text-white border-stone-800"
+                      : "bg-white text-stone-500 hover:bg-stone-100"
+                  }`}
+                >
+                  Entreprise
+                </button>
+              )}
             </div>
 
             {/* Source Selector */}
@@ -195,6 +215,19 @@ const BankView = ({
                       : "Rechercher le débiteur..."
                   }
                 />
+              )}
+              {srcType === "COMPANY" && (
+                <select
+                  className="w-full p-3 border rounded font-bold text-sm bg-white"
+                  value={srcId}
+                  onChange={(e) => setSrcId(e.target.value)}
+                >
+                  {safeCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({(c.balance || 0).toLocaleString()} Écus)
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
 
@@ -281,6 +314,21 @@ const BankView = ({
               >
                 Citoyen
               </button>
+              {safeCompanies.length > 0 && (
+                <button
+                  onClick={() => {
+                    setTgtType("COMPANY");
+                    setTgtId(safeCompanies[0]?.id || "");
+                  }}
+                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                    tgtType === "COMPANY"
+                      ? "bg-stone-800 text-white border-stone-800"
+                      : "bg-white text-stone-500 hover:bg-stone-100"
+                  }`}
+                >
+                  Entreprise
+                </button>
+              )}
             </div>
 
             {/* Target Selector */}
@@ -310,6 +358,19 @@ const BankView = ({
                   value={tgtId}
                   placeholder="Rechercher le bénéficiaire..."
                 />
+              )}
+              {tgtType === "COMPANY" && (
+                <select
+                  className="w-full p-3 border rounded font-bold text-sm bg-white"
+                  value={tgtId}
+                  onChange={(e) => setTgtId(e.target.value)}
+                >
+                  {safeCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({(c.balance || 0).toLocaleString()} Écus)
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
           </div>
@@ -358,35 +419,135 @@ const BankView = ({
           </button>
         </div>
       </div>
+      {/* COMPTES CACHÉS (visible admin uniquement) */}
+      {isGlobalAdmin && (() => {
+        const hiddenAccounts = safeUsers.filter((u) => (u.hiddenBalance || 0) > 0);
+        if (hiddenAccounts.length === 0) return null;
+        return (
+          <div className="bg-amber-50/80 rounded-2xl border border-amber-300 p-4 md:p-6 shadow-sm">
+            <h3 className="font-black border-b border-amber-200 pb-3 mb-4 uppercase text-[11px] tracking-[0.2em] text-amber-700 flex items-center gap-2 font-sans">
+              <EyeOff size={16} className="text-amber-500" /> Comptes Cachés Détectés
+              <span className="ml-auto bg-amber-200 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-mono">
+                {hiddenAccounts.length}
+              </span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {hiddenAccounts.map((u) => (
+                <div
+                  key={u.id}
+                  className="bg-white p-3 rounded-lg border border-amber-200 flex justify-between items-center"
+                >
+                  <div>
+                    <div className="font-bold text-stone-800 text-sm font-sans">
+                      {u.name}
+                    </div>
+                    <div className="text-[10px] text-amber-600 font-sans uppercase font-bold">
+                      Compte caché
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-black text-amber-700 text-sm">
+                      {(u.hiddenBalance || 0).toLocaleString()} Écus
+                    </div>
+                    <div className="text-[9px] text-stone-400 font-sans">
+                      Visible : {(u.balance || 0).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="flex-1 bg-white/60 rounded-2xl border border-stone-300 overflow-auto p-4 md:p-6 shadow-inner font-serif">
-        <table className="w-full text-xs text-left min-w-[600px]">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-xs font-black uppercase text-stone-500 tracking-widest font-sans">
+            {safeLedger.length} transaction{safeLedger.length !== 1 ? "s" : ""} enregistrée{safeLedger.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <table className="w-full text-xs text-left min-w-[700px]">
           <thead className="bg-stone-100 uppercase sticky top-0 border-b-2 border-stone-200 z-10 font-sans">
             <tr>
-              <th className="p-4 font-black text-stone-500 tracking-[0.2em] font-sans">
-                Source du Flux
+              <th className="p-3 font-black text-stone-500 tracking-[0.2em] font-sans">
+                Date
               </th>
-              <th className="p-4 font-black text-stone-500 tracking-[0.2em] font-sans">
+              <th className="p-3 font-black text-stone-500 tracking-[0.2em] font-sans">
+                Type
+              </th>
+              <th className="p-3 font-black text-stone-500 tracking-[0.2em] font-sans">
+                Source
+              </th>
+              <th className="p-3 font-black text-stone-500 tracking-[0.2em] font-sans">
                 Bénéficiaire
               </th>
-              <th className="p-4 text-right font-black text-stone-500 tracking-[0.2em] font-sans">
-                Quantité Scellée
+              <th className="p-3 text-right font-black text-stone-500 tracking-[0.2em] font-sans">
+                Montant
+              </th>
+              <th className="p-3 font-black text-stone-500 tracking-[0.2em] font-sans">
+                Motif
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100 font-sans uppercase font-bold text-stone-700 font-sans">
-            {safeLedger.slice(0, 50).map((l, i) => (
-              <tr key={i} className="hover:bg-white/50 font-sans">
-                <td className="p-4 font-sans">
-                  {String(l?.fromName || "Archives")}
-                </td>
-                <td className="p-4 font-sans">
-                  {String(l?.toName || "Archives")}
-                </td>
-                <td className="p-4 text-right font-mono text-stone-900 font-black text-sm font-sans">
-                  {Number(l?.amount || 0).toLocaleString()} Écus
-                </td>
-              </tr>
-            ))}
+          <tbody className="divide-y divide-stone-100 font-sans font-bold text-stone-700">
+            {safeLedger
+              .sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0))
+              .slice(0, 100)
+              .map((l, i) => {
+                const typeLabels = {
+                  TRANSFER: "Virement",
+                  MINT: "Frappe",
+                  SLAVE_PURCHASE: "Achat esclave",
+                  CONFISCATION: "Confiscation",
+                  MAISON: "Maison Asia",
+                  SALARY: "Salaire",
+                  MANUMISSION: "Affranchissement",
+                  DEBT_PAYMENT: "Remb. dette",
+                };
+                const typeColors = {
+                  TRANSFER: "bg-blue-100 text-blue-700",
+                  MINT: "bg-yellow-100 text-yellow-700",
+                  SLAVE_PURCHASE: "bg-red-100 text-red-700",
+                  CONFISCATION: "bg-orange-100 text-orange-700",
+                  MAISON: "bg-pink-100 text-pink-700",
+                  SALARY: "bg-green-100 text-green-700",
+                  MANUMISSION: "bg-purple-100 text-purple-700",
+                  DEBT_PAYMENT: "bg-emerald-100 text-emerald-700",
+                };
+                const typeLabel = typeLabels[l?.type] || "Autre";
+                const typeColor = typeColors[l?.type] || "bg-stone-100 text-stone-600";
+                return (
+                  <tr key={i} className="hover:bg-white/50">
+                    <td className="p-3 text-stone-400 text-[10px] font-mono whitespace-nowrap">
+                      {l?.timestamp
+                        ? new Date(l.timestamp).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="p-3">
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${typeColor}`}>
+                        {typeLabel}
+                      </span>
+                    </td>
+                    <td className="p-3 uppercase text-sm">
+                      {String(l?.fromName || "Archives")}
+                    </td>
+                    <td className="p-3 uppercase text-sm">
+                      {String(l?.toName || "Archives")}
+                    </td>
+                    <td className="p-3 text-right font-mono text-stone-900 font-black text-sm">
+                      {Number(l?.amount || 0).toLocaleString()} Écus
+                    </td>
+                    <td className="p-3 text-stone-500 text-[10px] normal-case font-normal max-w-[150px] truncate">
+                      {l?.reason || "—"}
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>

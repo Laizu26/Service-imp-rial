@@ -8,7 +8,6 @@ import {
   ArrowDownLeft,
   Handshake,
   ShieldAlert,
-  History,
   Wallet,
   Stamp,
   PenTool,
@@ -21,6 +20,7 @@ import UserSearchSelect from "../ui/UserSearchSelect";
 const CitizenBankView = ({
   user,
   users,
+  companies = [],
   globalLedger,
   debtRegistry,
   onTransfer,
@@ -35,8 +35,10 @@ const CitizenBankView = ({
 
   // --- ÉTATS FORMULAIRES ---
   // Virement
+  const [transferTargetType, setTransferTargetType] = useState("CITIZEN");
   const [transferTarget, setTransferTarget] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+  const safeCompanies = Array.isArray(companies) ? companies : [];
 
   // Proposition de Prêt (Nouveau)
   const [loanTarget, setLoanTarget] = useState(""); // Le futur débiteur
@@ -77,7 +79,11 @@ const CitizenBankView = ({
   const handleTransfer = () => {
     if (!transferTarget || !transferAmount || parseInt(transferAmount) <= 0)
       return;
-    onTransfer(`U-${user.id}`, `U-${transferTarget}`, parseInt(transferAmount));
+    const tgtRaw =
+      transferTargetType === "COMPANY"
+        ? `E-${transferTarget}`
+        : `U-${transferTarget}`;
+    onTransfer(`U-${user.id}`, tgtRaw, parseInt(transferAmount));
     setTransferAmount("");
     setTransferTarget("");
   };
@@ -176,15 +182,63 @@ const CitizenBankView = ({
               <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
+                    Type de bénéficiaire
+                  </label>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => {
+                        setTransferTargetType("CITIZEN");
+                        setTransferTarget("");
+                      }}
+                      className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                        transferTargetType === "CITIZEN"
+                          ? "bg-stone-800 text-white border-stone-800"
+                          : "bg-white text-stone-500 hover:bg-stone-100"
+                      }`}
+                    >
+                      Citoyen
+                    </button>
+                    {safeCompanies.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setTransferTargetType("COMPANY");
+                          setTransferTarget(safeCompanies[0]?.id || "");
+                        }}
+                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border transition-all ${
+                          transferTargetType === "COMPANY"
+                            ? "bg-stone-800 text-white border-stone-800"
+                            : "bg-white text-stone-500 hover:bg-stone-100"
+                        }`}
+                      >
+                        Entreprise
+                      </button>
+                    )}
+                  </div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
                     Bénéficiaire
                   </label>
-                  <UserSearchSelect
-                    users={users}
-                    onSelect={setTransferTarget}
-                    placeholder="Rechercher un citoyen..."
-                    excludeIds={[user.id]}
-                    value={transferTarget}
-                  />
+                  {transferTargetType === "CITIZEN" ? (
+                    <UserSearchSelect
+                      users={users}
+                      onSelect={setTransferTarget}
+                      placeholder="Rechercher un citoyen..."
+                      excludeIds={[user.id]}
+                      value={transferTarget}
+                    />
+                  ) : (
+                    <select
+                      className="w-full p-3 border rounded font-bold text-sm bg-white"
+                      value={transferTarget}
+                      onChange={(e) => setTransferTarget(e.target.value)}
+                    >
+                      <option value="">-- Choisir une entreprise --</option>
+                      {safeCompanies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
@@ -223,48 +277,78 @@ const CitizenBankView = ({
                     Aucun mouvement de fonds enregistré.
                   </div>
                 )}
-                {myTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex justify-between items-center p-3 bg-white border border-stone-100 rounded-lg shadow-sm hover:shadow-md transition-all"
-                  >
-                    <div className="flex items-center gap-3">
+                {myTransactions.map((tx) => {
+                  const isIncoming = tx.toName === user.name;
+                  const typeLabels = {
+                    TRANSFER: "Virement",
+                    MINT: "Frappe",
+                    SLAVE_PURCHASE: "Achat esclave",
+                    CONFISCATION: "Confiscation",
+                    MAISON: "Maison Asia",
+                    SALARY: "Salaire",
+                    MANUMISSION: "Affranchissement",
+                    DEBT_PAYMENT: "Remb. dette",
+                  };
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex justify-between items-center p-3 bg-white border border-stone-100 rounded-lg shadow-sm hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-full ${
+                            isIncoming
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {isIncoming ? (
+                            <ArrowDownLeft size={16} />
+                          ) : (
+                            <ArrowUpRight size={16} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-stone-800 text-sm">
+                            {isIncoming
+                              ? `Reçu de ${tx.fromName}`
+                              : `Envoyé à ${tx.toName}`}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {tx.type && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
+                                {typeLabels[tx.type] || tx.type}
+                              </span>
+                            )}
+                            {tx.reason && (
+                              <span className="text-[10px] text-stone-400 italic truncate max-w-[200px]">
+                                {tx.reason}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-stone-400 font-mono mt-0.5">
+                            {tx.timestamp
+                              ? new Date(tx.timestamp).toLocaleDateString("fr-FR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : `Ref: ${tx.id}`}
+                          </div>
+                        </div>
+                      </div>
                       <div
-                        className={`p-2 rounded-full ${
-                          tx.toName === user.name
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                        className={`font-black font-mono text-lg ${
+                          isIncoming ? "text-green-600" : "text-red-600"
                         }`}
                       >
-                        {tx.toName === user.name ? (
-                          <ArrowDownLeft size={16} />
-                        ) : (
-                          <ArrowUpRight size={16} />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-bold text-stone-800 text-sm">
-                          {tx.toName === user.name
-                            ? `Reçu de ${tx.fromName}`
-                            : `Envoyé à ${tx.toName}`}
-                        </div>
-                        <div className="text-[10px] text-stone-400 font-mono">
-                          Ref: {tx.id}
-                        </div>
+                        {isIncoming ? "+" : "-"}
+                        {tx.amount.toLocaleString()}
                       </div>
                     </div>
-                    <div
-                      className={`font-black font-mono ${
-                        tx.toName === user.name
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {tx.toName === user.name ? "+" : "-"}
-                      {tx.amount.toLocaleString()}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           </div>

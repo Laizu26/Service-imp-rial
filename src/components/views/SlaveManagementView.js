@@ -9,13 +9,17 @@ import {
   Globe,
   Shield,
   Eye,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import Card from "../ui/Card";
 
 const SlaveManagementView = ({
   slaves,
   onUpdateCitizen,
+  onConfiscateSlaveMoney,
   onSelfManumit,
+  onDismissSlaveAlert,
   notify,
   catalog,
   session,
@@ -37,8 +41,10 @@ const SlaveManagementView = ({
   };
 
   const getCountryLaws = (slave) => {
-    if (!slave || !slave.countryId) return defaultLaws;
-    const c = (countries || []).find((x) => x.id === slave.countryId);
+    // Les lois s'appliquent selon le pays de localisation physique, pas l'allégeance
+    const locId = slave?.locationCountryId || slave?.countryId;
+    if (!slave || !locId) return defaultLaws;
+    const c = (countries || []).find((x) => x.id === locId);
     return c?.laws || defaultLaws;
   };
 
@@ -58,12 +64,13 @@ const SlaveManagementView = ({
     if (session?.id === slave.ownerId) return true;
     // Global admins can manage any slave
     if (isGlobalAdmin) return true;
-    // Local admins can manage only slaves within their country
+    // Local admins can manage slaves physically located in their country
+    const slaveLocation = slave.locationCountryId || slave.countryId;
     if (
       isLocalAdmin &&
-      slave.countryId &&
+      slaveLocation &&
       session?.countryId &&
-      slave.countryId === session.countryId
+      slaveLocation === session.countryId
     )
       return true;
     return false;
@@ -120,9 +127,12 @@ const SlaveManagementView = ({
       return;
     }
     if (!slave.balance || slave.balance <= 0) return;
-    const amount = slave.balance;
-    onUpdateCitizen({ ...slave, balance: 0 });
-    notify(`Vous avez confisqué ${amount} Écus à ${slave.name}.`, "info");
+    if (typeof onConfiscateSlaveMoney === "function") {
+      onConfiscateSlaveMoney(slave.id);
+    } else {
+      onUpdateCitizen({ ...slave, balance: 0 });
+      notify(`Vous avez confisqué ${slave.balance} Écus à ${slave.name}.`, "info");
+    }
     if (selectedSlave) setSelectedSlave({ ...selectedSlave, balance: 0 });
   };
 
@@ -137,8 +147,43 @@ const SlaveManagementView = ({
       .filter((i) => i.name);
   };
 
+  const slaveAlerts = session?.slaveAlerts || [];
+
   return (
-    <div className="h-full flex gap-6 font-sans">
+    <div className="h-full flex flex-col gap-4 font-sans">
+      {/* ALERTES DE DISSIMULATION */}
+      {slaveAlerts.length > 0 && (
+        <div className="space-y-2 shrink-0">
+          {slaveAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3 animate-fadeIn"
+            >
+              <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
+              <div className="flex-1 text-xs text-red-800">
+                <strong>{alert.slaveName}</strong> a tenté de dissimuler{" "}
+                <strong>{alert.amount} Écus</strong> !
+                <span className="text-[10px] text-red-400 ml-2">
+                  {alert.timestamp
+                    ? new Date(alert.timestamp).toLocaleString()
+                    : ""}
+                </span>
+              </div>
+              {onDismissSlaveAlert && (
+                <button
+                  onClick={() => onDismissSlaveAlert(alert.id)}
+                  className="p-1 text-red-400 hover:text-red-700 rounded hover:bg-red-100"
+                  title="Ignorer"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1 flex gap-6 min-h-0">
       {/* LISTE DES ESCLAVES (COLONNE GAUCHE) */}
       <div className="w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md">
         <div className="p-4 bg-stone-100 border-b font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500 flex items-center gap-2">
@@ -640,6 +685,7 @@ const SlaveManagementView = ({
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

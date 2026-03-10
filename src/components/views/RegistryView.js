@@ -22,17 +22,25 @@ const RegistryView = ({
   session,
   onSave,
   onDelete,
+  onMarry,
+  onDivorce,
   roleInfo,
 }) => {
   const [selectedId, setSelectedId] = useState(null);
+  const [marryTargetId, setMarryTargetId] = useState("");
   const [editForm, setEditForm] = useState(null);
   const [search, setSearch] = useState("");
   const isGlobal = roleInfo.scope === "GLOBAL";
+  const isDiplomate = session.status === "Diplomate";
+  const diplomatLocation = isDiplomate ? (session.locationCountryId || session.countryId) : null;
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
   const filtered = safeCitizens.filter(
     (c) =>
-      (isGlobal || c.countryId === session.countryId) &&
+      (isGlobal ||
+        c.countryId === session.countryId ||
+        (isDiplomate && (c.countryId === diplomatLocation || c.locationCountryId === diplomatLocation))
+      ) &&
       ((c.name || "").toLowerCase().includes(search.toLowerCase()) ||
         (c.id || "").includes(search))
   );
@@ -41,17 +49,25 @@ const RegistryView = ({
   const canDelete = isGlobal || roleInfo.level >= 50;
 
   // --- LOGIQUE POUR LISTES DÉROULANTES ---
-  const targetCountry = editForm
+  // Allégeance = countryId (nationalité politique)
+  const allegianceCountry = editForm
     ? safeCountries.find((c) => c.id === editForm.countryId)
     : null;
-  const customRoles = targetCountry
-    ? (targetCountry.customRoles || []).filter((r) => r.type === "ROLE")
+  const customRoles = allegianceCountry
+    ? (allegianceCountry.customRoles || []).filter((r) => r.type === "ROLE")
     : [];
-  const customStatuses = targetCountry
-    ? (targetCountry.customRoles || []).filter((r) => r.type === "STATUS")
+  const customStatuses = allegianceCountry
+    ? (allegianceCountry.customRoles || []).filter((r) => r.type === "STATUS")
     : [];
-  // Récupération des régions du pays sélectionné
-  const availableRegions = targetCountry ? targetCountry.regions || [] : [];
+  // Localisation = locationCountryId (pays physique, indépendant de l'allégeance)
+  const locationCountry = editForm
+    ? safeCountries.find(
+        (c) => c.id === (editForm.locationCountryId || editForm.countryId)
+      )
+    : null;
+  const availableRegions = locationCountry
+    ? locationCountry.regions || []
+    : [];
 
   const canManageRoles =
     isGlobal ||
@@ -59,6 +75,20 @@ const RegistryView = ({
   const availableRoles = Object.entries(ROLES).filter(
     ([key, val]) => isGlobal || val.level < roleInfo.level
   );
+
+  // Résout le niveau du rôle du citoyen édité (pour restreindre le statut Diplomate)
+  const editedCitizenRoleLevel = (() => {
+    if (!editForm) return 0;
+    if (ROLES[editForm.role]) return ROLES[editForm.role].level;
+    const country = safeCountries.find((c) => c.id === editForm.countryId);
+    if (country && country.customRoles) {
+      const custom = country.customRoles.find(
+        (r) => (r.id === editForm.role || r.name === editForm.role) && r.type === "ROLE"
+      );
+      if (custom) return custom.level || 0;
+    }
+    return 0;
+  })();
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans">
@@ -80,6 +110,7 @@ const RegistryView = ({
                   balance: 0,
                   role: "CITOYEN",
                   countryId: session.countryId || "C1",
+                  locationCountryId: session.countryId || "C1",
                   password: "123",
                   occupation: "Citoyen",
                   bio: "",
@@ -87,6 +118,10 @@ const RegistryView = ({
                   avatarUrl: "",
                   inventory: [],
                   currentPosition: "",
+                  motto: "",
+                  title: "",
+                  religion: "",
+                  origin: "",
                 })
               }
               className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"
@@ -133,7 +168,14 @@ const RegistryView = ({
                   {c.id} — {ROLES[c.role]?.label || c.role}
                 </div>
                 <div className="text-[11px] mt-1 text-stone-500 truncate">
-                  {c.currentPosition || "Aucune"}
+                  {safeCountries.find(
+                    (ct) =>
+                      ct.id ===
+                      (c.locationCountryId || c.countryId)
+                  )?.name || ""}{" "}
+                  {c.currentPosition
+                    ? `— ${c.currentPosition}`
+                    : ""}
                 </div>
               </div>
             </div>
@@ -182,13 +224,21 @@ const RegistryView = ({
                   <div className="text-sm text-stone-600 mt-2 flex items-center gap-2">
                     <MapPin size={14} />
                     <div>
-                      {(editForm || selected).currentPosition || "Aucune"}
+                      {safeCountries.find(
+                        (ct) =>
+                          ct.id ===
+                          ((editForm || selected).locationCountryId ||
+                            (editForm || selected).countryId)
+                      )?.name || ""}{" "}
+                      {(editForm || selected).currentPosition
+                        ? `— ${(editForm || selected).currentPosition}`
+                        : ""}
                     </div>
                   </div>
                 </div>
               </div>
               <div className="flex gap-3 font-sans">
-                {canDelete && (
+                {canDelete && !(session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId)) && (
                   <SecureDeleteButton
                     onClick={() => {
                       onDelete(editForm || selected);
@@ -197,6 +247,11 @@ const RegistryView = ({
                     }}
                     className="font-sans"
                   />
+                )}
+                {session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId) && (
+                  <div className="flex items-center gap-2 text-red-600 text-[10px] font-black uppercase tracking-widest bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
+                    <Lock size={14} /> {selected.id === session.id ? "Votre dossier" : "Dossier de votre maître"} — Modification interdite
+                  </div>
                 )}
                 {editForm ? (
                   <button
@@ -209,7 +264,8 @@ const RegistryView = ({
                     Archiver
                   </button>
                 ) : (
-                  roleInfo.level >= 30 && (
+                  roleInfo.level >= 30 &&
+                  !(session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId)) && (
                     <button
                       onClick={() => setEditForm({ ...selected })}
                       className="bg-white border-2 border-stone-300 px-8 py-3 rounded-xl text-[11px] font-black uppercase flex items-center gap-3 shadow-md hover:bg-stone-50 transition-all active:scale-95 tracking-widest font-sans"
@@ -272,30 +328,68 @@ const RegistryView = ({
                       />
                     </div>
 
-                    {/* --- BLOC LOCALISATION (Style du 1er essai) --- */}
+                    {/* --- BLOC ALLÉGEANCE (Nationalité politique) --- */}
                     <div className="col-span-1 md:col-span-2 bg-stone-50 p-5 rounded-xl border border-stone-200">
                       <h4 className="text-xs font-black uppercase text-stone-400 mb-4 flex items-center gap-2 tracking-widest">
-                        <MapPin size={12} /> Localisation & Allégeance
+                        <Flag size={12} /> Allégeance
+                      </h4>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1">
+                          Nation d'Allégeance
+                        </label>
+                        <div className="relative">
+                          <Flag
+                            size={14}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                          />
+                          <select
+                            className="w-full p-3 pl-9 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
+                            value={editForm.countryId}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                countryId: e.target.value,
+                              })
+                            }
+                            disabled={!isGlobal}
+                          >
+                            {safeCountries.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* --- BLOC LOCALISATION (Position physique, lié au voyage) --- */}
+                    <div className="col-span-1 md:col-span-2 bg-amber-50 p-5 rounded-xl border border-amber-200">
+                      <h4 className="text-xs font-black uppercase text-amber-600 mb-4 flex items-center gap-2 tracking-widest">
+                        <MapPin size={12} /> Localisation Physique
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* PAYS */}
+                        {/* PAYS DE LOCALISATION */}
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1">
-                            Nation d'Allégeance
+                            Pays actuel
                           </label>
                           <div className="relative">
-                            <Flag
+                            <MapPin
                               size={14}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500"
                             />
                             <select
-                              className="w-full p-3 pl-9 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
-                              value={editForm.countryId}
+                              className="w-full p-3 pl-9 border-2 border-amber-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
+                              value={
+                                editForm.locationCountryId ||
+                                editForm.countryId
+                              }
                               onChange={(e) =>
                                 setEditForm({
                                   ...editForm,
-                                  countryId: e.target.value,
-                                  currentPosition: "", // Reset position
+                                  locationCountryId: e.target.value,
+                                  currentPosition: "",
                                 })
                               }
                               disabled={!isGlobal}
@@ -309,13 +403,13 @@ const RegistryView = ({
                           </div>
                         </div>
 
-                        {/* POSITION */}
+                        {/* RÉGION / POSITION */}
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1">
-                            Position actuelle
+                            Région
                           </label>
                           <select
-                            className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
+                            className="w-full p-3 border-2 border-amber-200 rounded-xl bg-white outline-none shadow-sm font-bold disabled:opacity-50"
                             value={editForm.currentPosition || ""}
                             onChange={(e) =>
                               setEditForm({
@@ -323,7 +417,10 @@ const RegistryView = ({
                                 currentPosition: e.target.value,
                               })
                             }
-                            disabled={!editForm.countryId}
+                            disabled={
+                              !editForm.locationCountryId &&
+                              !editForm.countryId
+                            }
                           >
                             <option value="">-- Non définie --</option>
                             <option value="Frontière">Frontière</option>
@@ -332,7 +429,6 @@ const RegistryView = ({
                                 {r.name}
                               </option>
                             ))}
-                            {/* Fallback pour valeur personnalisée existante */}
                             {!availableRegions.find(
                               (r) => r.name === editForm.currentPosition
                             ) &&
@@ -345,6 +441,9 @@ const RegistryView = ({
                           </select>
                         </div>
                       </div>
+                      <p className="text-[9px] text-amber-600 mt-3 italic">
+                        La localisation change via le système de voyage. Modification manuelle réservée aux administrateurs globaux.
+                      </p>
                     </div>
 
                     {/* Autres champs standards */}
@@ -376,7 +475,9 @@ const RegistryView = ({
                         }
                       >
                         <optgroup label="Standards">
-                          {BASE_STATUSES.map((s) => (
+                          {BASE_STATUSES
+                            .filter((s) => s !== "Diplomate" || editedCitizenRoleLevel >= 40)
+                            .map((s) => (
                             <option key={s} value={s}>
                               {s}
                             </option>
@@ -385,7 +486,7 @@ const RegistryView = ({
                         {customStatuses.length > 0 && (
                           <optgroup
                             label={`Spéciaux (${
-                              targetCountry?.name || "Local"
+                              allegianceCountry?.name || "Local"
                             })`}
                           >
                             {customStatuses.map((s) => (
@@ -476,7 +577,7 @@ const RegistryView = ({
                         {customRoles.length > 0 && (
                           <optgroup
                             label={`Titres Locaux (${
-                              targetCountry?.name || "Local"
+                              allegianceCountry?.name || "Local"
                             })`}
                           >
                             {customRoles.map((r) => (
@@ -533,12 +634,29 @@ const RegistryView = ({
                       </div>
                       <div>
                         <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">
-                          Nation d'Allégeance
+                          Allégeance
                         </span>
                         <span className="text-stone-900 font-bold text-lg uppercase font-sans">
                           {safeCountries.find(
                             (c) => c.id === selected.countryId
                           )?.name || "Empire"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">
+                          Localisation
+                        </span>
+                        <span className="text-stone-900 font-bold text-lg uppercase font-sans">
+                          {safeCountries.find(
+                            (c) =>
+                              c.id ===
+                              (selected.locationCountryId ||
+                                selected.countryId)
+                          )?.name || "Empire"}{" "}
+                          —{" "}
+                          <span className="text-stone-500 text-sm">
+                            {selected.currentPosition || "Inconnue"}
+                          </span>
                         </span>
                       </div>
                       <div>
@@ -549,8 +667,12 @@ const RegistryView = ({
                           className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${
                             selected.status === "Décédé"
                               ? "bg-stone-800 text-white"
+                              : selected.status === "Esclave"
+                              ? "bg-red-900 text-white"
                               : selected.status === "Malade"
                               ? "bg-yellow-100 text-yellow-800"
+                              : selected.status === "Diplomate"
+                              ? "bg-indigo-100 text-indigo-800"
                               : "bg-green-100 text-green-800"
                           }`}
                         >
@@ -582,6 +704,67 @@ const RegistryView = ({
                       ? selected.bio
                       : "Aucune archive biographique disponible pour ce sujet."}
                   </div>
+                </Card>
+
+                {/* BLOC MARIAGE */}
+                <Card title="État Matrimonial" icon={User}>
+                  {selected.spouseId ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 bg-pink-50 border border-pink-200 rounded-xl p-4">
+                        <span className="text-pink-600 text-lg">💍</span>
+                        <div>
+                          <span className="text-[9px] text-stone-400 uppercase font-black tracking-widest block">Conjoint(e)</span>
+                          <span className="font-bold text-stone-800">
+                            {safeCitizens.find((c) => c.id === selected.spouseId)?.name || "Inconnu"}{" "}
+                            <span className="text-stone-400 text-xs font-mono">#{selected.spouseId}</span>
+                          </span>
+                        </div>
+                      </div>
+                      {roleInfo.level >= 40 && (
+                        <button
+                          onClick={() => onDivorce(selected.id)}
+                          className="bg-red-50 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all"
+                        >
+                          Prononcer le Divorce
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-stone-400 text-sm italic">Célibataire</div>
+                      {roleInfo.level >= 40 && (
+                        <div className="flex gap-2 items-end">
+                          <div className="flex-1">
+                            <label className="text-[9px] text-stone-400 uppercase font-black tracking-widest block mb-1">Marier avec</label>
+                            <select
+                              className="w-full p-2 border-2 border-stone-200 rounded-lg bg-white text-sm font-bold"
+                              value={marryTargetId}
+                              onChange={(e) => setMarryTargetId(e.target.value)}
+                            >
+                              <option value="">— Choisir —</option>
+                              {safeCitizens
+                                .filter((c) => c.id !== selected.id && !c.spouseId && c.status !== "Décédé")
+                                .map((c) => (
+                                  <option key={c.id} value={c.id}>{c.name} ({c.id})</option>
+                                ))}
+                            </select>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (marryTargetId) {
+                                onMarry(selected.id, marryTargetId);
+                                setMarryTargetId("");
+                              }
+                            }}
+                            disabled={!marryTargetId}
+                            className="bg-pink-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-pink-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            💍 Célébrer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Card>
               </div>
             )}

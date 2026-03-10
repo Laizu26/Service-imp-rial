@@ -20,6 +20,7 @@ import {
   Trash2,
   Briefcase,
   Library, // <--- 1. ICÔNE AJOUTÉE
+  Settings,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -27,10 +28,12 @@ import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
+import { useSettings } from "./hooks/useSettings";
 
 // UI Components
 import Toast from "./components/ui/Toast";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import SettingsPanel from "./components/ui/SettingsPanel";
 
 // Views
 import LoginScreen from "./components/views/LoginScreen";
@@ -58,7 +61,6 @@ export default function App() {
   const {
     firebaseUser,
     session,
-    setSession,
     authLoading,
     loginGame,
     connectedAccounts,
@@ -71,6 +73,9 @@ export default function App() {
     useGameEngine(firebaseUser, notify);
 
   const actions = useGameActions(session, state, saveState, notify);
+
+  const { settings, isDark, updateSetting, resetSettings } = useSettings();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -103,6 +108,8 @@ export default function App() {
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
   const isSlave = currentStatus === "Esclave";
+  const isBanned = currentStatus === "Banni";
+  const isPrisoner = currentStatus === "Prisonnier";
 
   const isRestricted = useMemo(() => {
     if (["Malade", "Prisonnier", "Banni", "Décédé"].includes(currentStatus))
@@ -122,7 +129,7 @@ export default function App() {
 
   const isIncapacitated = isRestricted;
   const isActuallyGraded = roleInfo.level >= 20;
-  const canAccessAdmin = isActuallyGraded && !isIncapacitated && !isSlave;
+  const canAccessAdmin = isActuallyGraded && !isIncapacitated;
   const shouldShowCitizenView = !canAccessAdmin || isViewingAsCitizen;
 
   const availableTabs = useMemo(() => {
@@ -182,6 +189,16 @@ export default function App() {
           onClose={() => setToast({ ...toast, msg: null })}
         />
 
+        {settingsOpen && (
+          <SettingsPanel
+            settings={settings}
+            isDark={isDark}
+            updateSetting={updateSetting}
+            resetSettings={resetSettings}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+
         {!session ? (
           <LoginScreen
             onLogin={loginGame}
@@ -195,6 +212,7 @@ export default function App() {
             users={state.citizens || []}
             companies={state.companies || []}
             houseRegistry={state.maisonRegistry || []}
+            maisonStaff={state.maisonStaff || []}
             onBookMaison={actions.onBookMaison}
             countries={state.countries || []}
             travelRequests={state.travelRequests || []}
@@ -210,6 +228,7 @@ export default function App() {
             onLogout={() => logoutAccount(null)}
             onUpdateUser={actions.onUpdateCitizen}
             onBuySlave={actions.onBuySlave}
+            onConfiscateSlaveMoney={actions.onConfiscateSlaveMoney}
             onSelfManumit={actions.onSelfManumit}
             onSend={actions.onSendPost}
             onTransfer={actions.onTransfer}
@@ -221,12 +240,32 @@ export default function App() {
             onGiveItem={actions.onGiveItem}
             notify={notify}
             isGraded={canAccessAdmin}
+            isBanned={isBanned}
+            isPrisoner={isPrisoner}
             onSwitchBack={() => setIsViewingAsCitizen(false)}
+            settings={settings}
+            isDark={isDark}
+            updateSetting={updateSetting}
+            resetSettings={resetSettings}
             onCompanyTreasury={actions.onCompanyTreasury}
             onSendJobOffer={actions.onSendJobOffer}
             onRespondJobOffer={actions.onRespondJobOffer}
             onPaySalaries={actions.onPaySalaries}
             onCompanyFire={actions.onCompanyFire}
+            onCustomizeCompany={actions.onCustomizeCompany}
+            onDeleteCompany={actions.onDeleteCompany}
+            onQuitCompany={actions.onQuitCompany}
+            onHideMoney={actions.onHideMoney}
+            onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
+            onHiddenTransfer={actions.onHiddenTransfer}
+            onDismissSlaveAlert={actions.onDismissSlaveAlert}
+            maisonQueue={state.maisonQueue || []}
+            maisonHistory={state.maisonHistory || []}
+            maisonReviews={state.maisonReviews || []}
+            maisonDefaultDuration={state.maisonDefaultDuration || 60}
+            onJoinMaisonQueue={actions.onJoinMaisonQueue}
+            onLeaveMaisonQueue={actions.onLeaveMaisonQueue}
+            onSubmitMaisonReview={actions.onSubmitMaisonReview}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -376,6 +415,12 @@ export default function App() {
                   </button>
                 )}
                 <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="w-full p-3 text-xs font-black uppercase text-stone-500 hover:text-yellow-400 flex items-center gap-3 justify-center transition-all hover:bg-stone-800 rounded-xl tracking-widest"
+                >
+                  <Settings size={16} /> Paramètres
+                </button>
+                <button
                   onClick={() => logoutAccount(null)}
                   className="w-full p-3 text-xs font-black uppercase text-stone-500 hover:text-red-400 flex items-center gap-3 justify-center transition-all hover:bg-red-900/10 rounded-xl tracking-widest"
                 >
@@ -461,6 +506,8 @@ export default function App() {
                       session={session}
                       roleInfo={roleInfo}
                       onSave={actions.onUpdateCitizen}
+                      onMarry={actions.onMarry}
+                      onDivorce={actions.onDivorce}
                       onDelete={(c) => {
                         saveState({
                           ...state,
@@ -473,6 +520,7 @@ export default function App() {
                     <BankView
                       users={state.citizens}
                       countries={state.countries}
+                      companies={state.companies}
                       treasury={state.treasury}
                       ledger={state.globalLedger}
                       session={session}
@@ -509,15 +557,17 @@ export default function App() {
                       }
                       onVisaGranted={(
                         citizenId,
-                        countryId,
+                        toCountryId,
                         region,
                         updatedRequests
                       ) => {
+                        // Le voyage change la LOCALISATION (locationCountryId + currentPosition),
+                        // PAS l'allégeance (countryId)
                         const newCitizens = state.citizens.map((c) =>
                           c.id === citizenId
                             ? {
                                 ...c,
-                                countryId: countryId,
+                                locationCountryId: toCountryId,
                                 currentPosition: region || c.currentPosition,
                               }
                             : c
@@ -529,11 +579,12 @@ export default function App() {
                         });
                       }}
                       onUpdateCitizen={(id, newCountryId, newRegion) => {
+                        // Ancien callback — change aussi la localisation, pas l'allégeance
                         const newCitizens = state.citizens.map((c) =>
                           c.id === id
                             ? {
                                 ...c,
-                                countryId: newCountryId,
+                                locationCountryId: newCountryId,
                                 currentPosition: newRegion || c.currentPosition,
                               }
                             : c
@@ -549,15 +600,31 @@ export default function App() {
                       citizens={state.citizens}
                       countries={state.countries}
                       onCreateCompany={actions.onCreateCompany}
+                      onDeleteCompany={actions.onDeleteCompany}
+                      onEditCompany={actions.onEditCompany}
                     />
                   )}
 
                   {activeTab === "asia_admin" && (
                     <MaisonDeAsiaAdmin
                       citizens={state.citizens || []}
+                      companies={state.companies || []}
                       countries={state.countries || []}
                       houseRegistry={state.maisonRegistry || []}
+                      staff={state.maisonStaff || []}
+                      maisonCompanyId={state.maisonCompanyId}
+                      maisonQueue={state.maisonQueue || []}
+                      maisonHistory={state.maisonHistory || []}
+                      maisonReviews={state.maisonReviews || []}
+                      maisonDefaultDuration={state.maisonDefaultDuration || 60}
                       onUpdateRegistry={actions.onUpdateHouseRegistry}
+                      onUpdateStaff={actions.onUpdateMaisonStaff}
+                      onRemoveStaff={actions.onRemoveMaisonStaff}
+                      onPurgeMaison={actions.onPurgeMaison}
+                      onSetMaisonCompany={actions.onSetMaisonCompany}
+                      onDeleteReview={actions.onDeleteMaisonReview}
+                      onSetDefaultDuration={actions.onSetMaisonDefaultDuration}
+                      onEvictMaison={actions.onEvictMaison}
                     />
                   )}
                 </div>

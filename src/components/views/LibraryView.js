@@ -2,26 +2,22 @@ import React, { useState, useEffect } from "react";
 import { Book, Gavel, Scroll, Bookmark, Globe, Library } from "lucide-react";
 
 const LibraryView = ({ countries, session }) => {
-  const [activeTab, setActiveTab] = useState("codes"); // codes, decrees, books
+  const [activeTab, setActiveTab] = useState("codes");
+  const [viewingCountryId, setViewingCountryId] = useState(
+    session?.countryId
+  );
 
-  // "Trier par pays" : On initialise avec le pays du citoyen, mais on peut changer
-  const [viewingCountryId, setViewingCountryId] = useState(session?.countryId);
-
-  // SÉCURITÉ : on s'assure qu'on a bien une liste de pays
   const safeCountries = Array.isArray(countries) ? countries : [];
 
-  // Le pays actuellement consulté
   const currentCountry =
     safeCountries.find((c) => c.id === viewingCountryId) || safeCountries[0];
 
-  // Si l'utilisateur change de pays, on reset l'affichage
   useEffect(() => {
     if (!viewingCountryId && session?.countryId) {
       setViewingCountryId(session.countryId);
     }
   }, [session, viewingCountryId]);
 
-  // Si aucun pays n'est chargé, on affiche un message d'attente
   if (!currentCountry)
     return (
       <div className="p-8 text-center italic text-stone-500">
@@ -29,17 +25,14 @@ const LibraryView = ({ countries, session }) => {
       </div>
     );
 
-  // --- GÉNÉRATEUR DE TEXTE JURIDIQUE COMPLET ---
+  // --- GÉNÉRATEUR DE TEXTE JURIDIQUE ---
   const generateLegalCode = () => {
     const laws = currentCountry.laws || {};
     const articles = [];
     let count = 1;
-
-    // Helper pour ajouter un article
     const addArt = (text) =>
       articles.push(`ARTICLE ${toRoman(count++)} : ${text}`);
 
-    // 1. Frontières & Mouvement
     if (laws.closeBorders)
       addArt(
         "Fermeture totale des frontières. Aucun visa d'entrée ne sera délivré jusqu'à nouvel ordre."
@@ -59,7 +52,6 @@ const LibraryView = ({ countries, session }) => {
         `Tout étranger souhaitant pénétrer sur le territoire devra s'acquitter d'une taxe douanière de ${laws.entryVisaFee} Écus.`
       );
 
-    // 2. Armement & Sécurité
     if (laws.allowWeapons === false)
       addArt(
         "La possession d'armes est strictement prohibée (Classe A). Tout contrevenant s'expose à une confiscation immédiate."
@@ -69,7 +61,6 @@ const LibraryView = ({ countries, session }) => {
         "Le port d'arme est autorisé pour les citoyens libres disposant de leurs droits civiques."
       );
 
-    // 3. Économie & Finances
     if (laws.closedCurrency)
       addArt(
         "Protectionnisme Monétaire : La monnaie nationale est fermée. Les transferts entrants depuis l'étranger sont bloqués."
@@ -95,7 +86,6 @@ const LibraryView = ({ countries, session }) => {
         "Droit de Réquisition : L'Administration locale se réserve le droit de confisquer les biens et fonds pour l'intérêt supérieur de la Nation."
       );
 
-    // 4. Commerce & Société
     if (laws.allowLocalSales === false)
       addArt(
         "Le commerce entre particuliers est suspendu. Seules les transactions d'État sont autorisées."
@@ -106,7 +96,6 @@ const LibraryView = ({ countries, session }) => {
         "Contrôle des Marchés : Toute mise en vente de biens ou de contrats nécessite l'approbation du sceau royal."
       );
 
-    // 5. Servitude & Droits Humains
     if (laws.militaryServitude)
       addArt(
         "Mobilisation Servile : La population servile (esclaves) est réquisitionnée pour l'effort de guerre et la sécurité."
@@ -126,7 +115,6 @@ const LibraryView = ({ countries, session }) => {
         "Perpétuité : L'affranchissement par rachat personnel est interdit. Seul le maître peut octroyer la liberté."
       );
 
-    // 6. Communication
     if (laws.mailCensorship)
       addArt(
         "Loi de Vigilance : La Poste Impériale est mandatée pour inspecter et censurer toute correspondance jugée subversive."
@@ -135,7 +123,6 @@ const LibraryView = ({ countries, session }) => {
     return articles;
   };
 
-  // Petit helper pour les chiffres romains
   const toRoman = (num) => {
     const lookup = {
       M: 1000,
@@ -164,22 +151,11 @@ const LibraryView = ({ countries, session }) => {
   };
 
   const legalCode = generateLegalCode();
-
-  // --- CORRECTION MAJEURE : FUSION DES SOURCES DE DÉCRETS ---
-  // 1. Récupérer les anciens décrets (stockés dans 'laws' si c'est un tableau)
-  const legacyDecrees = Array.isArray(currentCountry.laws)
-    ? currentCountry.laws
-    : [];
-  // 2. Récupérer les nouveaux décrets (stockés dans 'decrees')
-  const newDecrees = currentCountry.decrees || [];
-
-  // 3. Fusionner les deux listes pour l'affichage
-  const decrees = [...newDecrees, ...legacyDecrees];
-  // ----------------------------------------------------------
+  const decrees = currentCountry.decrees || [];
 
   return (
     <div className="h-full flex flex-col font-serif bg-[#fdf6e3] rounded-2xl shadow-xl overflow-hidden border border-stone-300 animate-in fade-in duration-500">
-      {/* HEADER DE LA BIBLIOTHÈQUE */}
+      {/* HEADER */}
       <div className="bg-stone-900 text-stone-200 p-4 md:p-6 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0 border-b-4 border-yellow-600 shadow-lg z-20">
         <div className="flex items-center gap-4 w-full md:w-auto">
           <div className="p-3 bg-stone-800 rounded-full border border-stone-600 shadow-lg">
@@ -210,7 +186,7 @@ const LibraryView = ({ countries, session }) => {
           </div>
         </div>
 
-        {/* Navigation Interne */}
+        {/* TABS */}
         <div className="flex bg-stone-800 rounded-lg p-1 gap-1 border border-stone-700 w-full md:w-auto overflow-x-auto">
           <button
             onClick={() => setActiveTab("codes")}
@@ -246,7 +222,7 @@ const LibraryView = ({ countries, session }) => {
         </div>
       </div>
 
-      {/* CONTENU PRINCIPAL */}
+      {/* CONTENU */}
       <div className="flex-1 overflow-hidden flex relative bg-[#fdf6e3]">
         {/* Texture papier */}
         <div
@@ -261,7 +237,7 @@ const LibraryView = ({ countries, session }) => {
             {/* Reliure décorative */}
             <div className="absolute left-6 top-0 bottom-0 w-px bg-stone-300 border-l border-dashed border-stone-400"></div>
 
-            {/* --- ONGLET 1 : CODE CIVIL (LOIS AUTOMATIQUES) --- */}
+            {/* --- ONGLET 1 : CODE CIVIL --- */}
             {activeTab === "codes" && (
               <div className="pl-8 animate-fadeIn">
                 <div className="text-center border-b-2 border-stone-900 pb-6 mb-8">
@@ -297,7 +273,7 @@ const LibraryView = ({ countries, session }) => {
               </div>
             )}
 
-            {/* --- ONGLET 2 : DÉCRETS (TEXTES ADMINS) --- */}
+            {/* --- ONGLET 2 : DÉCRETS --- */}
             {activeTab === "decrees" && (
               <div className="pl-8 animate-fadeIn">
                 <div className="text-center border-b-2 border-stone-900 pb-6 mb-8">
@@ -327,25 +303,18 @@ const LibraryView = ({ countries, session }) => {
                           fill="#ca8a04"
                         />
 
-                        {/* TITRE DU DÉCRET (OU NOM SIMPLE) */}
                         <h3 className="font-bold text-sm text-stone-400 mb-3 font-sans uppercase tracking-[0.3em]">
-                          {d.content ? d.name : `Proclamation N°${i + 1}`}
+                          {d.name || `Proclamation N°${i + 1}`}
                         </h3>
 
-                        {/* CONTENU (RICHE OU SIMPLE) */}
-                        {d.content ? (
-                          <div className="text-lg text-stone-900 leading-loose font-serif whitespace-pre-line text-justify">
-                            {d.content}
-                          </div>
-                        ) : (
-                          <p className="text-xl text-stone-900 leading-relaxed font-serif italic">
-                            "{d.name}"
-                          </p>
-                        )}
+                        <div className="text-lg text-stone-900 leading-loose font-serif whitespace-pre-line text-justify">
+                          {d.content}
+                        </div>
 
                         {d.date && (
                           <div className="mt-2 text-[9px] text-stone-300 font-mono">
-                            Signé le {new Date(d.date).toLocaleDateString()}
+                            Signé le{" "}
+                            {new Date(d.date).toLocaleDateString()}
                           </div>
                         )}
                       </div>
@@ -355,7 +324,7 @@ const LibraryView = ({ countries, session }) => {
               </div>
             )}
 
-            {/* --- ONGLET 3 : OUVRAGES (LORE & HISTOIRE) --- */}
+            {/* --- ONGLET 3 : OUVRAGES --- */}
             {activeTab === "books" && (
               <div className="pl-8 animate-fadeIn">
                 <div className="text-center border-b-2 border-stone-900 pb-6 mb-8">
@@ -368,7 +337,7 @@ const LibraryView = ({ countries, session }) => {
                 </div>
 
                 <div className="space-y-12">
-                  {/* Livre 1 : Description du Pays */}
+                  {/* Livre statique : Description du Pays */}
                   <div className="bg-[#fcfbf7] p-6 border border-stone-200 shadow-sm rounded-sm">
                     <h3 className="font-serif font-bold text-2xl text-stone-900 mb-4 flex items-center gap-3">
                       <Book className="text-stone-400" size={20} />
@@ -388,7 +357,7 @@ const LibraryView = ({ countries, session }) => {
                     )}
                   </div>
 
-                  {/* Livre 2 : Gouvernance */}
+                  {/* Livre statique : Gouvernance */}
                   <div className="bg-[#fcfbf7] p-6 border border-stone-200 shadow-sm rounded-sm">
                     <h3 className="font-serif font-bold text-2xl text-stone-900 mb-4 flex items-center gap-3">
                       <Book className="text-stone-400" size={20} />
@@ -431,7 +400,7 @@ const LibraryView = ({ countries, session }) => {
                     </div>
                   </div>
 
-                  {/* LIVRES AJOUTÉS PAR L'ADMIN (Dynamique) */}
+                  {/* Livres ajoutés par l'admin */}
                   {(currentCountry.books || []).map((book) => (
                     <div
                       key={book.id}
@@ -440,16 +409,25 @@ const LibraryView = ({ countries, session }) => {
                       {/* Marque-page déco */}
                       <div className="absolute top-0 right-8 w-8 h-12 bg-red-900 shadow-md"></div>
 
-                      <h3 className="font-serif font-bold text-3xl text-stone-900 mb-6 border-b border-stone-300 pb-2">
+                      <h3 className="font-serif font-bold text-3xl text-stone-900 mb-2 border-b border-stone-300 pb-2">
                         {book.title}
                       </h3>
+
+                      {book.author && (
+                        <p className="text-sm italic text-stone-500 mb-6">
+                          par {book.author}
+                        </p>
+                      )}
 
                       <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify columns-1 md:columns-2 gap-8">
                         {book.content}
                       </div>
 
                       <div className="mt-8 pt-4 border-t border-stone-200 text-right text-xs uppercase font-bold text-stone-400">
-                        Archivé le {new Date(book.date).toLocaleDateString()}
+                        Archivé le{" "}
+                        {new Date(
+                          book.date || Date.now()
+                        ).toLocaleDateString()}
                       </div>
                     </div>
                   ))}

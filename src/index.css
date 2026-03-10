@@ -1,3 +1,202 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ===== THEME VARIABLES ===== */
+:root {
+  --bg-app: #e6e2d6;
+  --bg-sidebar: #0c0a09;
+  --bg-header: #fdf6e3;
+  --bg-card: #ffffff;
+  --bg-card-alt: #fafaf9;
+  --bg-input: #ffffff;
+  --bg-hover: #f5f5f4;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #a8a29e;
+  --text-sidebar: #e7e5e4;
+  --border-main: #d6d3d1;
+  --border-light: #e7e5e4;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  --bg-app: #1c1917;
+  --bg-sidebar: #0c0a09;
+  --bg-header: #292524;
+  --bg-card: #292524;
+  --bg-card-alt: #1c1917;
+  --bg-input: #1c1917;
+  --bg-hover: #44403c;
+  --text-primary: #e7e5e4;
+  --text-secondary: #a8a29e;
+  --text-muted: #78716c;
+  --text-sidebar: #e7e5e4;
+  --border-main: #44403c;
+  --border-light: #44403c;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+}
+
+/* ===== DARK MODE GLOBAL OVERRIDES ===== */
+/* Main backgrounds */
+.dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+.dark .bg-stone-50 {
+  background-color: var(--bg-card-alt) !important;
+}
+.dark .bg-\[\#e6e2d6\] {
+  background-color: var(--bg-app) !important;
+}
+.dark .bg-\[\#fdf6e3\]\/95 {
+  background-color: var(--bg-header) !important;
+}
+.dark .bg-\[\#e6dcc3\] {
+  background-color: #44403c !important;
+}
+
+/* Text colors */
+.dark .text-stone-900 {
+  color: var(--text-primary) !important;
+}
+.dark .text-stone-800 {
+  color: #d6d3d1 !important;
+}
+.dark .text-stone-700 {
+  color: #a8a29e !important;
+}
+.dark .text-stone-600 {
+  color: #a8a29e !important;
+}
+
+/* Borders */
+.dark .border-stone-200 {
+  border-color: var(--border-light) !important;
+}
+.dark .border-stone-300 {
+  border-color: var(--border-main) !important;
+}
+.dark .border-stone-100 {
+  border-color: #44403c !important;
+}
+.dark .divide-stone-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #44403c !important;
+}
+
+/* Inputs */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-main) !important;
+}
+
+/* Cards & containers */
+.dark .bg-stone-100 {
+  background-color: #292524 !important;
+}
+.dark .bg-stone-200 {
+  background-color: #44403c !important;
+}
+
+/* Accent backgrounds keep their meaning but get darker */
+.dark .bg-green-50 {
+  background-color: #14532d40 !important;
+}
+.dark .bg-yellow-50 {
+  background-color: #71350640 !important;
+}
+.dark .bg-red-50 {
+  background-color: #7f1d1d40 !important;
+}
+.dark .bg-blue-50 {
+  background-color: #1e3a5f40 !important;
+}
+.dark .bg-green-100 {
+  background-color: #14532d60 !important;
+}
+.dark .bg-yellow-100 {
+  background-color: #71350660 !important;
+}
+.dark .bg-red-100 {
+  background-color: #7f1d1d60 !important;
+}
+.dark .bg-blue-100 {
+  background-color: #1e3a5f60 !important;
+}
+
+/* Tables */
+.dark tr:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+/* Scrollbar */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: var(--bg-card-alt);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #57534e;
+  border-radius: 4px;
+}
+
+/* ===== COMPACT MODE ===== */
+.compact-mode .p-3 {
+  padding: 0.5rem !important;
+}
+.compact-mode .p-4 {
+  padding: 0.75rem !important;
+}
+.compact-mode .p-5 {
+  padding: 0.875rem !important;
+}
+.compact-mode .p-6 {
+  padding: 1rem !important;
+}
+.compact-mode .gap-6 {
+  gap: 1rem !important;
+}
+.compact-mode .gap-4 {
+  gap: 0.75rem !important;
+}
+.compact-mode .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem !important;
+}
+.compact-mode .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.75rem !important;
+}
+.compact-mode .py-3 {
+  padding-top: 0.375rem !important;
+  padding-bottom: 0.375rem !important;
+}
+
+/* ===== NO ANIMATIONS ===== */
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+/* ===== FONT SIZE OVERRIDES ===== */
+html.text-sm {
+  font-size: 13px;
+}
+html.text-base {
+  font-size: 16px;
+}
+html.text-lg {
+  font-size: 18px;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
