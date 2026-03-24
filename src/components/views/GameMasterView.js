@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   UserPlus,
   Shield,
@@ -978,6 +978,8 @@ const GMLois = ({ state, onUpdateState, notify }) => {
   const countries = state.countries || [];
   const [selectedId, setSelectedId] = useState(countries[0]?.id || null);
   const country = countries.find((c) => c.id === selectedId);
+  const [treasuryInput, setTreasuryInput] = useState(String(country?.treasury || 0));
+  useEffect(() => { setTreasuryInput(String(country?.treasury || 0)); }, [selectedId]);
 
   const toggleLaw = (key) => {
     if (!country) return;
@@ -994,15 +996,6 @@ const GMLois = ({ state, onUpdateState, notify }) => {
       c.id === selectedId ? { ...c, laws: { ...c.laws, [key]: value } } : c
     );
     onUpdateState({ ...state, countries: newCountries });
-  };
-
-  const updateCountryField = (field, value) => {
-    if (!country) return;
-    const newCountries = countries.map((c) =>
-      c.id === selectedId ? { ...c, [field]: value } : c
-    );
-    onUpdateState({ ...state, countries: newCountries });
-    notify("Pays mis a jour.", "success");
   };
 
   const laws = country?.laws || {};
@@ -1042,8 +1035,23 @@ const GMLois = ({ state, onUpdateState, notify }) => {
               </div>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest">Tresor</div>
-                  <div className="text-lg font-black text-yellow-400">{(country.treasury || 0).toLocaleString()} E</div>
+                  <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Trésor (E)</div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={treasuryInput}
+                      onChange={(e) => setTreasuryInput(e.target.value)}
+                      onBlur={() => {
+                        const val = Math.max(0, parseInt(treasuryInput) || 0);
+                        const updated = countries.map((c) => c.id === selectedId ? { ...c, treasury: val } : c);
+                        onUpdateState({ ...state, countries: updated });
+                        setTreasuryInput(String(val));
+                      }}
+                      className="w-28 bg-stone-800 border border-stone-700 rounded-lg p-1.5 text-sm font-black text-yellow-400 text-right outline-none focus:border-yellow-600/50 font-mono"
+                      min="0"
+                    />
+                    <span className="text-stone-400 text-sm font-bold">E</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1111,8 +1119,18 @@ const GMLois = ({ state, onUpdateState, notify }) => {
 const GMCalendrier = ({ state, onUpdateState, notify }) => {
   const [mintAmount, setMintAmount] = useState("");
   const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+  const [manualDate, setManualDate] = useState({ day: gd.day, month: gd.month, year: gd.year });
+  useEffect(() => { setManualDate({ day: gd.day, month: gd.month, year: gd.year }); }, [gd.day, gd.month, gd.year]);
 
   const monthNames = ["Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin", "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre"];
+
+  const handleSetDate = () => {
+    const day = Math.max(1, Math.min(30, parseInt(manualDate.day) || 1));
+    const month = Math.max(1, Math.min(12, parseInt(manualDate.month) || 1));
+    const year = parseInt(manualDate.year) || gd.year;
+    onUpdateState({ ...state, gameDate: { day, month, year } });
+    notify(`Date définie : ${day} ${monthNames[(month - 1) % 12]} ${year}.`, "success");
+  };
 
   const advanceDate = (days) => {
     let { day, month, year } = { ...gd };
@@ -1171,6 +1189,30 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
           </BtnPrimary>
           <BtnSecondary onClick={() => advanceDate(7)}>+7 Jours</BtnSecondary>
           <BtnSecondary onClick={() => advanceDate(30)}>+30 Jours</BtnSecondary>
+        </div>
+        <div className="mt-5 pt-5 border-t border-stone-800">
+          <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
+            <Edit3 size={10} /> Définir manuellement
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div>
+              <Label>Jour</Label>
+              <Input type="number" value={manualDate.day} onChange={(e) => setManualDate({ ...manualDate, day: e.target.value })} min="1" max="30" />
+            </div>
+            <div>
+              <Label>Mois</Label>
+              <Select value={manualDate.month} onChange={(e) => setManualDate({ ...manualDate, month: parseInt(e.target.value) })}>
+                {monthNames.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+              </Select>
+            </div>
+            <div>
+              <Label>Année</Label>
+              <Input type="number" value={manualDate.year} onChange={(e) => setManualDate({ ...manualDate, year: e.target.value })} />
+            </div>
+          </div>
+          <BtnPrimary onClick={handleSetDate} className="w-full">
+            <Calendar size={14} /> Définir cette date
+          </BtnPrimary>
         </div>
       </Card>
 
@@ -1998,75 +2040,76 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
           </div>
         </div>
 
-        {/* ── Modal Réinitialiser ── */}
-        {showReset && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-stone-950 border border-red-900/60 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-              <div className="bg-red-900/20 border-b border-red-900/40 p-5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-red-900/40 border border-red-800/60 flex items-center justify-center shrink-0">
-                  <Trash2 size={18} className="text-red-400" />
-                </div>
-                <div>
-                  <h2 className="text-xs font-black uppercase tracking-widest text-red-400">Réinitialiser les données</h2>
-                  <div className="text-[9px] text-stone-500 uppercase tracking-widest mt-0.5">Action irréversible</div>
-                </div>
+      </aside>
+
+      {/* ── Modal Réinitialiser ── */}
+      {showReset && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-stone-950 border border-red-900/60 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-red-900/20 border-b border-red-900/40 p-5 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-red-900/40 border border-red-800/60 flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-red-400" />
               </div>
-              <div className="p-5 space-y-4">
-                <div className="p-3 bg-red-900/10 border border-red-900/30 rounded-xl">
-                  <p className="text-[11px] text-red-300/80 leading-relaxed">
-                    Cette action va <span className="font-black text-red-400">effacer définitivement</span> toutes les données du jeu :
-                  </p>
-                  <ul className="mt-2 space-y-1">
-                    {["Citoyens & comptes", "Quêtes & objectifs", "Lore & entrées", "Gazette & publications", "Lois & nations", "Calendrier & événements", "Dettes & registres", "Candidatures en attente"].map((item) => (
-                      <li key={item} className="text-[10px] text-red-400/70 flex items-center gap-1.5">
-                        <span className="w-1 h-1 rounded-full bg-red-700 shrink-0" /> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <p className="text-[10px] text-stone-500 text-center">
-                  Les pays et la date de jeu seront conservés.
+              <div>
+                <h2 className="text-xs font-black uppercase tracking-widest text-red-400">Réinitialiser les données</h2>
+                <div className="text-[9px] text-stone-500 uppercase tracking-widest mt-0.5">Action irréversible</div>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="p-3 bg-red-900/10 border border-red-900/30 rounded-xl">
+                <p className="text-[11px] text-red-300/80 leading-relaxed">
+                  Cette action va <span className="font-black text-red-400">effacer définitivement</span> toutes les données du jeu :
                 </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowReset(false)}
-                    className="flex-1 py-2.5 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={() => {
-                      onUpdateState({
-                        countries: state.countries || [],
-                        gameDate: state.gameDate || { day: 1, month: 1, year: 1200 },
-                        citizens: [],
-                        gazette: [],
-                        quests: [],
-                        lore: [],
-                        laws: [],
-                        events: [],
-                        pendingChildren: [],
-                        debtRegistry: [],
-                        companies: [],
-                        jobs: [],
-                        maisonRegistry: [],
-                        library: [],
-                        jobOffers: [],
-                        hiddenTransfers: [],
-                      });
-                      setShowReset(false);
-                      notify("Données réinitialisées.", "success");
-                    }}
-                    className="flex-1 py-2.5 bg-red-900/50 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-900/70 transition-all"
-                  >
-                    Confirmer
-                  </button>
-                </div>
+                <ul className="mt-2 space-y-1">
+                  {["Citoyens & comptes", "Quêtes & objectifs", "Lore & entrées", "Gazette & publications", "Lois & nations", "Calendrier & événements", "Dettes & registres", "Candidatures en attente"].map((item) => (
+                    <li key={item} className="text-[10px] text-red-400/70 flex items-center gap-1.5">
+                      <span className="w-1 h-1 rounded-full bg-red-700 shrink-0" /> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <p className="text-[10px] text-stone-500 text-center">
+                Les pays et la date de jeu seront conservés.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowReset(false)}
+                  className="flex-1 py-2.5 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateState({
+                      countries: state.countries || [],
+                      gameDate: state.gameDate || { day: 1, month: 1, year: 1200 },
+                      citizens: [],
+                      gazette: [],
+                      quests: [],
+                      lore: [],
+                      laws: [],
+                      events: [],
+                      pendingChildren: [],
+                      debtRegistry: [],
+                      companies: [],
+                      jobs: [],
+                      maisonRegistry: [],
+                      library: [],
+                      jobOffers: [],
+                      hiddenTransfers: [],
+                    });
+                    setShowReset(false);
+                    notify("Données réinitialisées.", "success");
+                  }}
+                  className="flex-1 py-2.5 bg-red-900/50 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-900/70 transition-all"
+                >
+                  Confirmer
+                </button>
               </div>
             </div>
           </div>
-        )}
-      </aside>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
