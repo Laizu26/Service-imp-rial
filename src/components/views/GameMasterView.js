@@ -437,228 +437,356 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
     return m;
   }, [safeCitizens]);
 
+  // Accent couleur gauche par rôle (comme RegistryView/CitizenProfileCard)
+  const roleAccent = (role) => {
+    switch (role) {
+      case "EMPEREUR":         return { border: "border-l-yellow-500",  avatar: "border-yellow-500/70",  badge: "bg-yellow-900/30 text-yellow-400 border-yellow-800/50" };
+      case "ROI":              return { border: "border-l-purple-500",  avatar: "border-purple-500/70",  badge: "bg-purple-900/30 text-purple-400 border-purple-800/50" };
+      case "GRAND_FONC_GLOBAL":
+      case "GRAND_FONC_LOCAL": return { border: "border-l-blue-500",    avatar: "border-blue-500/70",    badge: "bg-blue-900/30 text-blue-400 border-blue-800/50" };
+      case "INTENDANT":        return { border: "border-l-emerald-500", avatar: "border-emerald-500/70", badge: "bg-emerald-900/30 text-emerald-400 border-emerald-800/50" };
+      case "FONCTIONNAIRE":
+      case "POSTIERE":         return { border: "border-l-sky-500",     avatar: "border-sky-500/70",     badge: "bg-sky-900/30 text-sky-400 border-sky-800/50" };
+      default:                 return { border: "border-l-stone-700",   avatar: "border-stone-600",      badge: "bg-stone-800 text-stone-400 border-stone-700" };
+    }
+  };
+
+  const statusBadge = (s) => {
+    switch (s) {
+      case "Actif":      return "bg-emerald-900/30 text-emerald-400 border-emerald-800/50";
+      case "Esclave":    return "bg-red-900/40 text-red-400 border-red-800/60";
+      case "Prisonnier": return "bg-orange-900/30 text-orange-400 border-orange-800/50";
+      case "Malade":     return "bg-yellow-900/30 text-yellow-400 border-yellow-800/50";
+      case "Banni":      return "bg-stone-800 text-stone-400 border-stone-700";
+      case "Décédé":     return "bg-stone-900 text-stone-600 border-stone-800";
+      default:           return "bg-emerald-900/30 text-emerald-400 border-emerald-800/50";
+    }
+  };
+
+  const statusFilterBg = (s) => {
+    switch (s) {
+      case "Actif":      return "bg-emerald-500";
+      case "Esclave":    return "bg-red-500";
+      case "Prisonnier": return "bg-orange-400";
+      case "Malade":     return "bg-yellow-400";
+      case "Banni":      return "bg-stone-500";
+      default:           return "bg-stone-600";
+    }
+  };
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <SectionTitle icon={Users}>Gestion des Comptes</SectionTitle>
+    <div className="space-y-6">
+
+      {/* ── EN-TÊTE ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <SectionTitle icon={Users}>Gestion des Comptes</SectionTitle>
+          <span className="text-[10px] font-black text-stone-500 bg-stone-800 border border-stone-700 px-2.5 py-0.5 rounded-full font-mono">
+            {safeCitizens.length}
+          </span>
+        </div>
         <button
           onClick={() => { setView(view === "create" ? "list" : "create"); setCreatedAccount(null); }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-            view === "create" ? "bg-stone-800 text-stone-300 hover:bg-stone-700" : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border active:scale-[0.98] ${
+            view === "create"
+              ? "bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-700"
+              : "bg-red-900/50 border-red-800/50 text-red-300 hover:bg-red-900/70"
           }`}
         >
-          {view === "create" ? <><ArrowLeft size={14} /> Liste</> : <><Plus size={14} /> Nouveau</>}
+          {view === "create" ? <><ArrowLeft size={13} /> Retour à la liste</> : <><Plus size={13} /> Nouveau compte</>}
         </button>
       </div>
 
-      {/* CREATE VIEW */}
+      {/* ── VUE CRÉATION ── */}
       {view === "create" && (
-        <Card className="p-6 space-y-5 max-w-xl">
+        <div className="max-w-xl space-y-4">
+
+          {/* Confirmation création */}
           {createdAccount && (
-            <div className="bg-green-900/20 border border-green-800/50 rounded-xl p-4 space-y-2">
-              <div className="flex items-center gap-2 text-green-400 text-xs font-black uppercase tracking-widest">
-                <CheckCircle size={14} /> Compte cree
+            <Card className="border-t-4 border-t-emerald-500 overflow-hidden">
+              <div className="px-5 py-3 bg-emerald-900/20 border-b border-emerald-800/40 flex items-center gap-2">
+                <CheckCircle size={13} className="text-emerald-400" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Compte créé avec succès</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="p-5 grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[9px] text-stone-500 uppercase tracking-widest block">Identifiant</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-stone-500 block mb-1">Identifiant</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-stone-200 font-mono font-bold">{createdAccount.id}</span>
-                    <button onClick={() => clip(createdAccount.id, notify)} className="text-stone-500 hover:text-white"><Copy size={12} /></button>
+                    <span className="text-stone-200 font-mono font-bold text-xs">{createdAccount.id}</span>
+                    <button onClick={() => clip(createdAccount.id, notify)} className="text-stone-600 hover:text-stone-300 transition-colors"><Copy size={11} /></button>
                   </div>
                 </div>
                 <div>
-                  <span className="text-[9px] text-stone-500 uppercase tracking-widest block">Nom</span>
-                  <span className="text-stone-200 font-bold">{createdAccount.name}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-stone-500 block mb-1">Nom</span>
+                  <span className="text-stone-200 font-bold text-sm">{createdAccount.name}</span>
                 </div>
-                <div className="col-span-2">
-                  <span className="text-[9px] text-stone-500 uppercase tracking-widest block">Mot de passe</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-stone-200 font-mono font-bold">{createdAccount.password}</span>
-                    <button onClick={() => clip(createdAccount.password, notify)} className="text-stone-500 hover:text-white"><Copy size={12} /></button>
+                <div className="col-span-2 bg-stone-800/60 rounded-lg p-3 border border-stone-700/50">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-stone-500 block mb-1.5">Mot de passe</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-stone-100 font-mono font-bold tracking-widest">{createdAccount.password}</span>
+                    <button onClick={() => clip(createdAccount.password, notify)} className="text-stone-500 hover:text-stone-200 transition-colors"><Copy size={12} /></button>
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => clip(`Identifiant: ${createdAccount.id}\nNom: ${createdAccount.name}\nMot de passe: ${createdAccount.password}`, notify)}
-                className="w-full mt-2 py-2 bg-green-800/30 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-800/50 transition-all flex items-center justify-center gap-2"
-              >
-                <Copy size={12} /> Copier tout
-              </button>
-            </div>
+              <div className="px-5 pb-5">
+                <button
+                  onClick={() => clip(`Identifiant: ${createdAccount.id}\nNom: ${createdAccount.name}\nMot de passe: ${createdAccount.password}`, notify)}
+                  className="w-full py-2.5 bg-emerald-900/30 border border-emerald-800/40 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-emerald-900/50 transition-all flex items-center justify-center gap-2"
+                >
+                  <Copy size={12} /> Copier les identifiants complets
+                </button>
+              </div>
+            </Card>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <Label>Nom complet</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nom du citoyen..." />
+          {/* Formulaire création */}
+          <Card className="overflow-hidden">
+            <div className="px-5 py-3 bg-stone-800/50 border-b border-stone-800">
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Identité</span>
             </div>
-            <div>
-              <Label>Mot de passe</Label>
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <Input type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Sceau..." className="pr-10" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300">
-                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
+            <div className="p-5 space-y-3">
+              <div><Label>Nom complet</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nom du citoyen..." /></div>
+              <div>
+                <Label>Mot de passe</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Input type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Sceau..." className="pr-10" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300">
+                      {showPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                    </button>
+                  </div>
+                  <BtnSecondary onClick={() => setForm({ ...form, password: generatePassword() })}>Générer</BtnSecondary>
                 </div>
-                <BtnSecondary onClick={() => setForm({ ...form, password: generatePassword() })}>Generer</BtnSecondary>
+              </div>
+              <div>
+                <Label>Date de naissance (RP)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Input type="number" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
+                  <Select value={form.birthMonth} onChange={(e) => setForm({ ...form, birthMonth: e.target.value })}>
+                    {["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                  </Select>
+                  <Input type="number" value={form.birthYear} onChange={(e) => setForm({ ...form, birthYear: e.target.value })} placeholder="An" />
+                </div>
+                <div className="text-[9px] text-stone-600 mt-1.5 pl-0.5">
+                  Âge : {getCitizenAge({ birthDate: { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) } }, gd)} ans
+                </div>
               </div>
             </div>
-            <div>
-              <Label>Date de naissance (RP)</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Input type="number" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
-                <Select value={form.birthMonth} onChange={(e) => setForm({ ...form, birthMonth: e.target.value })}>
-                  {["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                </Select>
-                <Input type="number" value={form.birthYear} onChange={(e) => setForm({ ...form, birthYear: e.target.value })} placeholder="Annee" />
-              </div>
-              <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) } }, gd)} ans</div>
+
+            <div className="px-5 py-3 bg-stone-800/50 border-y border-stone-800">
+              <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Statut & Appartenance</span>
             </div>
-            <div><Label>Solde (Ecus)</Label><Input type="number" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} min="0" /></div>
-            <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{Object.entries(ROLES).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}</Select></div>
-            <div><Label>Pays</Label><Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>{safeCountries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
-            <div><Label>Occupation</Label><Input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Metier..." /></div>
-            <div><Label>Statut</Label><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{(BASE_STATUSES || ["Actif", "Esclave", "Prisonnier", "Malade", "Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
-            <BtnPrimary onClick={handleCreate} className="w-full"><UserPlus size={16} /> Creer le compte</BtnPrimary>
-          </div>
-        </Card>
+            <div className="p-5 grid grid-cols-2 gap-3">
+              <div><Label>Rôle</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{Object.entries(ROLES).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}</Select></div>
+              <div><Label>Pays</Label><Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>{safeCountries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+              <div><Label>Solde (Écus)</Label><Input type="number" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} min="0" /></div>
+              <div><Label>Occupation</Label><Input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Métier..." /></div>
+              <div className="col-span-2"><Label>Statut</Label><Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{(BASE_STATUSES || ["Actif","Esclave","Prisonnier","Malade","Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
+            </div>
+            <div className="px-5 pb-5">
+              <BtnPrimary onClick={handleCreate} className="w-full py-3"><UserPlus size={15} /> Créer le compte</BtnPrimary>
+            </div>
+          </Card>
+        </div>
       )}
 
-      {/* LIST VIEW */}
+      {/* ── VUE LISTE ── */}
       {view === "list" && (
         <div className="space-y-3">
-          {/* Search */}
+
+          {/* Recherche */}
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-stone-600" placeholder="Rechercher un citoyen..." />
+            <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-red-500/50 placeholder:text-stone-600 transition-colors"
+              placeholder="Rechercher par nom ou identifiant..."
+            />
           </div>
 
-          {/* Status filter chips */}
+          {/* Filtres statut */}
           <div className="flex gap-1.5 flex-wrap">
             {["ALL", ...Object.keys(statusCounts).filter((k) => k !== "ALL")].map((s) => (
               <button
                 key={s}
                 onClick={() => setFilterStatus(s)}
-                className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
-                  filterStatus === s ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest transition-all border ${
+                  filterStatus === s
+                    ? "bg-red-900/50 text-red-300 border-red-800/50"
+                    : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
                 }`}
               >
-                {s === "ALL" ? "Tous" : s} ({statusCounts[s] || 0})
+                {s !== "ALL" && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusFilterBg(s)}`} />}
+                {s === "ALL" ? "Tous" : s}
+                <span className="opacity-50">({statusCounts[s] || 0})</span>
               </button>
             ))}
           </div>
 
-          <div className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">
+          <div className="text-[10px] text-stone-600 font-bold uppercase tracking-widest">
             {filtered.length} compte{filtered.length > 1 ? "s" : ""}
           </div>
 
-          {/* Citizen cards */}
+          {/* Liste des citoyens */}
           <div className="space-y-2">
             {filtered.map((c) => {
+              const accent = roleAccent(c.role);
               const roleLabel = ROLES[c.role]?.label || c.role;
               const country = safeCountries.find((ct) => ct.id === c.countryId);
               const isEditing = editingId === c.id;
               const isDeleting = confirmDeleteId === c.id;
 
               return (
-                <Card key={c.id} className={`overflow-hidden transition-all ${isEditing ? "border-red-800/60" : "hover:border-stone-600"}`}>
-                  {/* Main row */}
-                  <div className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-stone-800 border border-stone-700 flex items-center justify-center shrink-0 overflow-hidden">
-                      {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-stone-500 text-xs font-black">{(c.name || "?")[0]}</span>}
+                <Card
+                  key={c.id}
+                  className={`overflow-hidden transition-all border-l-4 ${accent.border} ${
+                    isEditing ? "border-stone-700 shadow-lg shadow-black/20" : "hover:border-stone-700"
+                  }`}
+                >
+                  {/* Ligne principale */}
+                  <div className="p-4 flex items-center gap-3">
+                    {/* Avatar avec bordure de rôle */}
+                    <div className={`w-12 h-12 rounded-xl border-2 ${accent.avatar} bg-stone-800 flex items-center justify-center shrink-0 overflow-hidden`}>
+                      {c.avatarUrl
+                        ? <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        : <span className="text-stone-200 font-black text-base">{(c.name || "?")[0].toUpperCase()}</span>
+                      }
                     </div>
+
+                    {/* Infos */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-stone-200 truncate">{c.name}</span>
-                        <Badge color={statusColor(c.status)}>{c.status || "Actif"}</Badge>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-stone-100 font-serif truncate">{c.name}</span>
+                        {c.bagueImperiale && <span title="Porteur de la Bague Impériale" className="text-[10px]">💍</span>}
                       </div>
-                      <div className="text-[10px] text-stone-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <span className="font-mono">{c.id}</span>
-                        <span className="text-stone-700">|</span>
-                        <span>{roleLabel}</span>
-                        <span className="text-stone-700">|</span>
-                        <span>{getCitizenAge(c, gd)} ans</span>
-                        {country && <><span className="text-stone-700">|</span><span>{country.name}</span></>}
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {/* Badge rôle */}
+                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${accent.badge}`}>{roleLabel}</span>
+                        {/* Badge statut */}
+                        <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${statusBadge(c.status)}`}>{c.status || "Actif"}</span>
+                        {country && <span className="text-[9px] text-stone-600">· {country.name}</span>}
+                        <span className="text-[9px] text-stone-600">· {getCitizenAge(c, gd)} ans</span>
                       </div>
+                      <div className="text-[9px] font-mono text-stone-700 mt-0.5">{c.id}</div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xs font-bold text-yellow-500">{(c.balance || 0).toLocaleString()} E</div>
-                      <div className="text-[9px] text-stone-600 font-mono mt-0.5">mdp: {c.password || "???"}</div>
+
+                    {/* Solde */}
+                    <div className="shrink-0 hidden sm:flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1 bg-yellow-900/20 border border-yellow-800/30 px-2 py-0.5 rounded">
+                        <Coins size={9} className="text-yellow-600" />
+                        <span className="text-xs font-black text-yellow-500 font-mono">{(c.balance || 0).toLocaleString()}</span>
+                      </div>
+                      <span className="text-[9px] font-mono text-stone-700">{c.password || "???"}</span>
                     </div>
+
+                    {/* Actions */}
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={() => clip(`ID: ${c.id}\nMDP: ${c.password}`, notify)} className="text-stone-600 hover:text-stone-300 p-1.5 rounded hover:bg-stone-800 transition-all" title="Copier identifiants"><Copy size={14} /></button>
-                      <button onClick={() => isEditing ? setEditingId(null) : startEdit(c)} className={`p-1.5 rounded transition-all ${isEditing ? "text-red-400 bg-red-900/20" : "text-stone-600 hover:text-stone-300 hover:bg-stone-800"}`} title="Modifier"><Edit3 size={14} /></button>
+                      <button
+                        onClick={() => clip(`ID: ${c.id}\nMDP: ${c.password}`, notify)}
+                        className="p-1.5 text-stone-600 hover:text-stone-300 hover:bg-stone-800 rounded-lg transition-all"
+                        title="Copier identifiants"
+                      >
+                        <Copy size={13} />
+                      </button>
+                      <button
+                        onClick={() => isEditing ? setEditingId(null) : startEdit(c)}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          isEditing ? "text-red-400 bg-red-900/20" : "text-stone-600 hover:text-stone-300 hover:bg-stone-800"
+                        }`}
+                        title={isEditing ? "Fermer" : "Modifier"}
+                      >
+                        <Edit3 size={13} />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Inline edit form */}
+                  {/* Formulaire d'édition inline */}
                   {isEditing && (
-                    <div className="border-t border-stone-800 p-4 bg-stone-950/50 space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="border-t border-stone-800 bg-stone-950/50">
+                      <div className="px-4 py-2.5 bg-stone-800/40 border-b border-stone-800 flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Identité & Accès</span>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div><Label>Nom</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
                         <div><Label>Mot de passe</Label><Input value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} /></div>
-                        <div><Label>Role</Label><Select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></div>
-                        <div><Label>Pays</Label><Select value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value })}>{safeCountries.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</Select></div>
-                        <div><Label>Statut</Label><Select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>{(BASE_STATUSES || ["Actif", "Esclave", "Prisonnier", "Malade", "Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
-                        <div><Label>Solde</Label><Input type="number" value={editForm.balance} onChange={(e) => setEditForm({ ...editForm, balance: e.target.value })} /></div>
-                        <div><Label>Occupation</Label><Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} /></div>
-                        <div className="md:col-span-2">
+                        <div>
                           <Label>Date de naissance (RP)</Label>
-                          <div className="grid grid-cols-3 gap-2">
-                            <Input type="number" value={editForm.birthDay} onChange={(e) => setEditForm({ ...editForm, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
+                          <div className="grid grid-cols-3 gap-1.5">
+                            <Input type="number" value={editForm.birthDay} onChange={(e) => setEditForm({ ...editForm, birthDay: e.target.value })} min="1" max="30" placeholder="J" />
                             <Select value={editForm.birthMonth} onChange={(e) => setEditForm({ ...editForm, birthMonth: e.target.value })}>
-                              {["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                              {["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                             </Select>
-                            <Input type="number" value={editForm.birthYear} onChange={(e) => setEditForm({ ...editForm, birthYear: e.target.value })} placeholder="Annee" />
+                            <Input type="number" value={editForm.birthYear} onChange={(e) => setEditForm({ ...editForm, birthYear: e.target.value })} placeholder="An" />
                           </div>
-                          <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) } }, gd)} ans</div>
+                          <div className="text-[9px] text-stone-600 mt-1">
+                            {getCitizenAge({ birthDate: { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) } }, gd)} ans
+                          </div>
                         </div>
+                        <div><Label>Occupation</Label><Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} /></div>
                       </div>
-                      {/* ── BAGUE IMPÉRIALE — Visible Empereur uniquement ── */}
+
+                      <div className="px-4 py-2.5 bg-stone-800/40 border-y border-stone-800">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Statut & Rang</span>
+                      </div>
+                      <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="col-span-2"><Label>Rôle</Label><Select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></div>
+                        <div><Label>Pays</Label><Select value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value })}>{safeCountries.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</Select></div>
+                        <div><Label>Statut</Label><Select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>{(BASE_STATUSES || ["Actif","Esclave","Prisonnier","Malade","Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
+                        <div className="col-span-2 md:col-span-4"><Label>Solde (Écus)</Label><Input type="number" value={editForm.balance} onChange={(e) => setEditForm({ ...editForm, balance: e.target.value })} /></div>
+                      </div>
+
+                      {/* Bague Impériale — Empereur uniquement */}
                       {session?.role === "EMPEREUR" && (
-                        <div className="md:col-span-2 border-t border-yellow-900/40 pt-3 mt-1">
-                          <div className="flex items-center gap-2 mb-3">
-                            <span className="text-yellow-500 text-base">💍</span>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-yellow-600">Bague Impériale — Confidentiel</span>
+                        <>
+                          <div className="px-4 py-2.5 bg-yellow-900/10 border-y border-yellow-900/30">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-yellow-700 flex items-center gap-1.5">
+                              💍 Bague Impériale <span className="text-red-600/50 font-normal normal-case tracking-normal text-[9px]">— Confidentiel</span>
+                            </span>
                           </div>
-                          <Toggle
-                            checked={editForm.bagueImperiale || false}
-                            onChange={(v) => setEditForm({ ...editForm, bagueImperiale: v, bagueRestrictions: v ? (editForm.bagueRestrictions || []) : [] })}
-                            label="Porteur de la Bague Impériale"
-                            description="Active le badge sur le profil et les privilèges associés."
-                          />
-                          {editForm.bagueImperiale && (
-                            <div className="mt-3 bg-stone-950/60 border border-stone-800 rounded-lg p-3 space-y-1">
-                              <div className="text-[9px] font-black uppercase tracking-widest text-red-500/80 mb-2 flex items-center gap-1">
-                                <ShieldAlert size={10} /> Restrictions actives (non divulguées au porteur)
+                          <div className="p-4 space-y-2">
+                            <Toggle
+                              checked={editForm.bagueImperiale || false}
+                              onChange={(v) => setEditForm({ ...editForm, bagueImperiale: v, bagueRestrictions: v ? (editForm.bagueRestrictions || []) : [] })}
+                              label="Porteur de la Bague Impériale"
+                              description="Active le badge sur le profil et les privilèges de voyage."
+                            />
+                            {editForm.bagueImperiale && (
+                              <div className="bg-stone-950/60 border border-stone-800 rounded-lg p-3 space-y-1">
+                                <div className="text-[9px] font-black uppercase tracking-widest text-red-500/70 mb-2 flex items-center gap-1.5">
+                                  <ShieldAlert size={10} /> Restrictions secrètes
+                                </div>
+                                {BAGUE_RESTRICTIONS_CONFIG.map((r) => (
+                                  <Toggle
+                                    key={r.id}
+                                    checked={(editForm.bagueRestrictions || []).includes(r.id)}
+                                    onChange={(v) => {
+                                      const current = editForm.bagueRestrictions || [];
+                                      const next = v ? [...current, r.id] : current.filter((x) => x !== r.id);
+                                      setEditForm({ ...editForm, bagueRestrictions: next });
+                                    }}
+                                    label={r.label}
+                                    description={r.desc}
+                                  />
+                                ))}
                               </div>
-                              {BAGUE_RESTRICTIONS_CONFIG.map((r) => (
-                                <Toggle
-                                  key={r.id}
-                                  checked={(editForm.bagueRestrictions || []).includes(r.id)}
-                                  onChange={(v) => {
-                                    const current = editForm.bagueRestrictions || [];
-                                    const next = v ? [...current, r.id] : current.filter((x) => x !== r.id);
-                                    setEditForm({ ...editForm, bagueRestrictions: next });
-                                  }}
-                                  label={r.label}
-                                  description={r.desc}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        </>
                       )}
 
-                      <div className="flex items-center gap-2 pt-1">
-                        <BtnPrimary onClick={saveEdit} className="flex-1"><Save size={14} /> Sauvegarder</BtnPrimary>
-                        <BtnSecondary onClick={() => setEditingId(null)}><X size={14} /></BtnSecondary>
+                      {/* Actions */}
+                      <div className="px-4 pb-4 flex items-center gap-2 border-t border-stone-800/60 pt-3">
+                        <BtnPrimary onClick={saveEdit} className="flex-1"><Save size={13} /> Sauvegarder</BtnPrimary>
+                        <BtnSecondary onClick={() => { setEditingId(null); setConfirmDeleteId(null); }}><X size={13} /></BtnSecondary>
                         {isDeleting ? (
-                          <button onClick={() => deleteCitizen(c.id)} className="px-3 py-2 bg-red-800 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-700 transition-all">Confirmer</button>
+                          <button onClick={() => deleteCitizen(c.id)} className="px-3 py-2 bg-red-800 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-700 transition-all">
+                            Confirmer
+                          </button>
                         ) : (
-                          <button onClick={() => setConfirmDeleteId(c.id)} className="p-2 text-red-500/50 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all" title="Supprimer"><Trash2 size={14} /></button>
+                          <button onClick={() => setConfirmDeleteId(c.id)} className="p-2 text-stone-700 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all" title="Supprimer">
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -666,10 +794,11 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                 </Card>
               );
             })}
+
             {filtered.length === 0 && (
-              <div className="text-center py-12 text-stone-600">
-                <Users size={32} className="mx-auto mb-3 opacity-50" />
-                <div className="text-sm font-bold">Aucun citoyen trouve</div>
+              <div className="text-center py-14 text-stone-700">
+                <Users size={32} className="mx-auto mb-3 opacity-30" />
+                <div className="text-sm font-bold uppercase tracking-widest">Aucun citoyen trouvé</div>
               </div>
             )}
           </div>
