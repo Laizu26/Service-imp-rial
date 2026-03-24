@@ -23,6 +23,7 @@ const FREQUENCIES = [
   { value: "daily", label: "Chaque jour RP" },
   { value: "weekly", label: "Chaque semaine RP (7 jours)" },
   { value: "monthly", label: "Chaque mois RP (1er du mois)" },
+  { value: "par_tache", label: "À la tâche (paiement immédiat)" },
 ];
 
 const SOURCE_TYPES = [
@@ -140,13 +141,14 @@ const JobsAdminView = ({
   };
 
   const totalPercent = (form?.recipients || []).reduce((s, r) => s + (r.percent || 0), 0);
+  const isParTache = form?.frequency === "par_tache";
   const isValid =
     form &&
     form.name.trim() &&
-    form.amount > 0 &&
+    (isParTache || form.amount > 0) &&
     form.recipients.length > 0 &&
     totalPercent === 100 &&
-    (form.source.type === "GLOBAL" || form.source.id);
+    (isParTache || form.source.type === "GLOBAL" || form.source.id);
 
   const handleSave = () => {
     if (!isValid || !onSaveJobContract) return;
@@ -231,8 +233,12 @@ const JobsAdminView = ({
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="font-black text-sm truncate">{job.name || "Sans nom"}</div>
-                  <div className={`text-[10px] mt-0.5 ${selectedJob === job.id ? "text-stone-300" : "text-stone-500"}`}>
-                    {job.amount?.toLocaleString()} Écus · {FREQUENCIES.find((f) => f.value === job.frequency)?.label || job.frequency}
+                  <div className={`text-[10px] mt-0.5 flex items-center gap-1.5 flex-wrap ${selectedJob === job.id ? "text-stone-300" : "text-stone-500"}`}>
+                    {job.frequency !== "par_tache" && <span>{job.amount?.toLocaleString()} Écus · </span>}
+                    <span>{FREQUENCIES.find((f) => f.value === job.frequency)?.label || job.frequency}</span>
+                    {job.type === "MAISON" && (
+                      <span className={`px-1 py-0.5 rounded text-[8px] font-black uppercase ${selectedJob === job.id ? "bg-fuchsia-700 text-fuchsia-200" : "bg-fuchsia-100 text-fuchsia-700"}`}>Maison</span>
+                    )}
                   </div>
                   <div className={`text-[9px] truncate mt-0.5 ${selectedJob === job.id ? "text-stone-400" : "text-stone-400"}`}>
                     {resolveSourceLabel(job)}
@@ -351,7 +357,12 @@ const JobsAdminView = ({
               </div>
             </Card>
 
-            {/* Section : Source */}
+            {/* Section : Source (masquée pour par_tache — la source est le client) */}
+            {isParTache ? (
+              <div className="flex items-center gap-2 p-3 bg-fuchsia-50 border border-fuchsia-200 rounded-lg text-xs text-fuchsia-700 font-bold">
+                <Coins size={14} /> Contrat à la tâche — la source est le client au moment du paiement. Définissez uniquement la répartition ci-dessous.
+              </div>
+            ) : (
             <Card title="Source du Financement" icon={Coins}>
               <div className="space-y-4">
                 {/* Type de source */}
@@ -410,6 +421,7 @@ const JobsAdminView = ({
                 )}
               </div>
             </Card>
+            )}
 
             {/* Section : Bénéficiaires */}
             <Card title="Répartition entre Bénéficiaires" icon={User}>
@@ -596,10 +608,12 @@ const JobsAdminView = ({
                 </div>
 
                 {/* Simulation */}
-                {form.amount > 0 && form.recipients.length > 0 && totalPercent === 100 && (
+                {(isParTache || form.amount > 0) && form.recipients.length > 0 && totalPercent === 100 && (
                   <div className="bg-stone-900 rounded-xl p-4 text-stone-200">
                     <div className="text-[9px] uppercase tracking-widest text-stone-400 mb-3 font-black">
-                      Simulation — par versement ({FREQUENCIES.find((f) => f.value === form.frequency)?.label})
+                      {isParTache
+                        ? "Répartition — appliquée à chaque session (montant = prix du worker)"
+                        : `Simulation — par versement (${FREQUENCIES.find((f) => f.value === form.frequency)?.label})`}
                     </div>
                     <div className="space-y-1.5">
                       {form.recipients.map((r) => (

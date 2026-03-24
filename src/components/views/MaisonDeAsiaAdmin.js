@@ -147,6 +147,7 @@ const MaisonDeAsiaAdmin = ({
   const [newStaffPrice, setNewStaffPrice] = useState(50);
   const [newStaffDuration, setNewStaffDuration] = useState("");
   const [newStaffDescription, setNewStaffDescription] = useState("");
+  const [newStaffContractId, setNewStaffContractId] = useState("");
   // Galerie images (ajout)
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newStaffGallery, setNewStaffGallery] = useState([]);
@@ -158,6 +159,7 @@ const MaisonDeAsiaAdmin = ({
   const [editDuration, setEditDuration] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editGallery, setEditGallery] = useState([]);
+  const [editContractId, setEditContractId] = useState("");
 
   // Gestion galerie séparée (en dehors du mode edit)
   const [galleryMemberId, setGalleryMemberId] = useState(null);
@@ -169,6 +171,12 @@ const MaisonDeAsiaAdmin = ({
 
   // Filtre avis
   const [reviewFilter, setReviewFilter] = useState("all");
+
+  // Contrats à la tâche disponibles pour lier à un worker
+  const maisonContracts = useMemo(
+    () => (jobs || []).filter((j) => j.frequency === "par_tache"),
+    [jobs]
+  );
 
   // --- FILTRER LES ESCLAVES DISPONIBLES ---
   const availableSlaves = useMemo(() => {
@@ -253,6 +261,7 @@ const MaisonDeAsiaAdmin = ({
       specialtyDescription: newStaffDescription || "",
       gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
       isBusy: false,
+      ...(newStaffContractId ? { contractId: newStaffContractId } : {}),
     };
 
     onUpdateStaff([...staff, newWorker]);
@@ -261,6 +270,7 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffPrice(50);
     setNewStaffDuration("");
     setNewStaffDescription("");
+    setNewStaffContractId("");
     setNewStaffGallery([]);
     setNewImageUrl("");
   };
@@ -280,6 +290,7 @@ const MaisonDeAsiaAdmin = ({
     setEditDuration(String(member.sessionDuration || ""));
     setEditDescription(member.specialtyDescription || "");
     setEditGallery([...(member.gallery || [])]);
+    setEditContractId(member.contractId || "");
   };
 
   const cancelEdit = () => {
@@ -289,6 +300,7 @@ const MaisonDeAsiaAdmin = ({
     setEditDuration("");
     setEditDescription("");
     setEditGallery([]);
+    setEditContractId("");
   };
 
   const saveEdit = (id) => {
@@ -301,6 +313,7 @@ const MaisonDeAsiaAdmin = ({
             sessionDuration: editDuration ? parseInt(editDuration) : undefined,
             specialtyDescription: editDescription,
             gallery: editGallery,
+            contractId: editContractId || undefined,
           }
         : s
     );
@@ -594,6 +607,30 @@ const MaisonDeAsiaAdmin = ({
                 </div>
               </div>
 
+              {/* Contrat de rémunération (optionnel) */}
+              <div className="mt-3">
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                  Contrat de rémunération (optionnel)
+                </label>
+                <select
+                  className="w-full p-2.5 border rounded-lg text-sm bg-stone-50 outline-none focus:border-fuchsia-500"
+                  value={newStaffContractId}
+                  onChange={(e) => setNewStaffContractId(e.target.value)}
+                >
+                  <option value="">— Aucun contrat (split 80/20 par défaut) —</option>
+                  {maisonContracts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {(c.recipients || []).map((r) => `${r.name} ${r.percent}%`).join(", ")}
+                    </option>
+                  ))}
+                </select>
+                {maisonContracts.length === 0 && (
+                  <p className="text-[10px] text-stone-400 italic mt-1">
+                    Aucun contrat "À la tâche" créé. Allez dans l'onglet Contrats pour en créer un.
+                  </p>
+                )}
+              </div>
+
               <button
                 onClick={handleAddStaff}
                 disabled={!selectedSlaveId || !newStaffSpecialty}
@@ -694,6 +731,19 @@ const MaisonDeAsiaAdmin = ({
                             placeholder="Description détaillée..."
                             maxLength={500}
                           />
+                          <select
+                            className="w-full p-1.5 border rounded text-xs bg-stone-50 outline-none focus:border-fuchsia-500"
+                            value={editContractId}
+                            onChange={(e) => setEditContractId(e.target.value)}
+                            title="Contrat de rémunération"
+                          >
+                            <option value="">— 80/20 par défaut —</option>
+                            {maisonContracts.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => saveEdit(member.id)}
@@ -722,6 +772,12 @@ const MaisonDeAsiaAdmin = ({
                               <Clock size={10} /> {effectiveDuration} min
                             </span>
                           </div>
+                          {/* Contrat lié */}
+                          {member.contractId && (
+                            <div className="text-[9px] text-fuchsia-600 font-bold mt-0.5 truncate">
+                              📄 {jobs.find((j) => j.id === member.contractId)?.name || member.contractId}
+                            </div>
+                          )}
                           {/* Note moyenne + queue */}
                           <div className="flex items-center gap-3 mt-1.5">
                             {avgRating !== null && (

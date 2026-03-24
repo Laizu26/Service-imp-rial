@@ -16,6 +16,61 @@ const wrapActions = (actionsObj, notify) =>
     ])
   );
 
+// Helper : distribue le paiement d'une session Maison selon le contrat lié au worker,
+// ou en fallback sur le split 80/20 classique (maisonCompanyId).
+// Retourne { newCitizens, updatedCompanies, updatedCountries, newTreasury, toName }
+const applyMaisonPayment = (worker, price, citizens, companies, countries, treasury, jobContracts, maisonCompanyId) => {
+  const newCitizens = [...citizens];
+  const updatedCompanies = [...companies];
+  const updatedCountries = [...(countries || [])];
+  let newTreasury = treasury;
+  let toName;
+
+  const workerContract = worker.contractId
+    ? (jobContracts || []).find((c) => c.id === worker.contractId)
+    : null;
+
+  if (workerContract && (workerContract.recipients || []).length > 0) {
+    toName = workerContract.recipients.map((r) => r.name).join(" / ");
+    workerContract.recipients.forEach((recipient) => {
+      const share = Math.floor(price * (recipient.percent || 0) / 100);
+      if (share <= 0) return;
+      if (recipient.type === "CITIZEN") {
+        const idx = newCitizens.findIndex((c) => c.id === recipient.id);
+        if (idx !== -1) newCitizens[idx] = { ...newCitizens[idx], balance: (newCitizens[idx].balance || 0) + share };
+      } else if (recipient.type === "COMPANY") {
+        const idx = updatedCompanies.findIndex((c) => c.id === recipient.id);
+        if (idx !== -1) updatedCompanies[idx] = { ...updatedCompanies[idx], balance: (updatedCompanies[idx].balance || 0) + share };
+      } else if (recipient.type === "COUNTRY") {
+        const idx = updatedCountries.findIndex((c) => c.id === recipient.id);
+        if (idx !== -1) updatedCountries[idx] = { ...updatedCountries[idx], treasury: (updatedCountries[idx].treasury || 0) + share };
+      } else if (recipient.type === "GLOBAL") {
+        newTreasury += share;
+      }
+    });
+  } else {
+    // Fallback : split 80/20 historique
+    const maisonCompIdx = maisonCompanyId
+      ? updatedCompanies.findIndex((c) => c.id === maisonCompanyId)
+      : -1;
+    const maisonCut = Math.floor(price * 0.8);
+    const treasuryCut = price - maisonCut;
+    if (maisonCompIdx !== -1) {
+      updatedCompanies[maisonCompIdx] = {
+        ...updatedCompanies[maisonCompIdx],
+        balance: (updatedCompanies[maisonCompIdx].balance || 0) + maisonCut,
+      };
+      newTreasury += treasuryCut;
+      toName = updatedCompanies[maisonCompIdx].name + " / Trésor";
+    } else {
+      newTreasury += price;
+      toName = "Trésor Impérial";
+    }
+  }
+
+  return { newCitizens, updatedCompanies, updatedCountries, newTreasury, toName };
+};
+
 export const useGameActions = (session, state, saveState, notify) => {
   return useMemo(() => {
     return wrapActions({
@@ -1711,6 +1766,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           let newQueue = [...queue];
           let newCitizens = [...state.citizens];
           let newCompanies = [...(state.companies || [])];
+          let newCountries = [...(state.countries || [])];
           let newLedger = [...(state.globalLedger || [])];
           let newTreasury = state.treasury || 0;
 
@@ -1726,27 +1782,21 @@ export const useGameActions = (session, state, saveState, notify) => {
 
               if (nextIdx !== -1 && newCitizens[nextIdx].balance >= (worker.price || 0)) {
                 const price = worker.price || 0;
+                // Déduire du client d'abord
                 newCitizens[nextIdx] = {
                   ...newCitizens[nextIdx],
                   balance: newCitizens[nextIdx].balance - price,
                 };
-
-                // Revenue split
-                const maisonCompId = state.maisonCompanyId;
-                const maisonCompIdx = maisonCompId
-                  ? newCompanies.findIndex((c) => c.id === maisonCompId)
-                  : -1;
-                const maisonCut = Math.floor(price * 0.8);
-                const treasuryCut = price - maisonCut;
-                if (maisonCompIdx !== -1) {
-                  newCompanies[maisonCompIdx] = {
-                    ...newCompanies[maisonCompIdx],
-                    balance: (newCompanies[maisonCompIdx].balance || 0) + maisonCut,
-                  };
-                  newTreasury += treasuryCut;
-                } else {
-                  newTreasury += price;
-                }
+                // Distribuer aux bénéficiaires via le helper
+                const qP = applyMaisonPayment(
+                  worker, price,
+                  newCitizens, newCompanies, state.countries || [],
+                  newTreasury, state.jobContracts, state.maisonCompanyId
+                );
+                newCitizens.splice(0, newCitizens.length, ...qP.newCitizens);
+                newCompanies.splice(0, newCompanies.length, ...qP.updatedCompanies);
+                newCountries.splice(0, newCountries.length, ...qP.updatedCountries);
+                newTreasury = qP.newTreasury;
 
                 newRegistry.push({
                   citizenId: next.citizenId,
@@ -1760,7 +1810,7 @@ export const useGameActions = (session, state, saveState, notify) => {
                   {
                     id: Date.now() + 1,
                     fromName: newCitizens[nextIdx].name,
-                    toName: maisonCompIdx !== -1 ? newCompanies[maisonCompIdx].name + " / Trésor" : "Trésor Impérial",
+                    toName: qP.toName,
                     amount: price,
                     timestamp: Date.now(),
                     reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
@@ -1792,6 +1842,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             maisonQueue: newQueue,
             citizens: newCitizens,
             companies: newCompanies,
+            countries: newCountries,
             treasury: newTreasury,
             globalLedger: newLedger,
           });
@@ -1819,7 +1870,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         // Retirer de toute queue
         const cleanedQueue = queue.filter((q) => q.citizenId !== session.id);
 
-        const newCitizens = [...state.citizens];
+        const { newCitizens, updatedCompanies, updatedCountries, newTreasury, toName } =
+          applyMaisonPayment(
+            worker, price,
+            state.citizens, state.companies || [], state.countries || [],
+            state.treasury || 0, state.jobContracts, state.maisonCompanyId
+          );
         newCitizens[clientIdx] = {
           ...newCitizens[clientIdx],
           balance: newCitizens[clientIdx].balance - price,
@@ -1833,25 +1889,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           pricePaid: price,
         };
 
-        // Revenue split 80/20
-        const maisonCompId = state.maisonCompanyId;
-        const maisonCompIdx = maisonCompId
-          ? (state.companies || []).findIndex((c) => c.id === maisonCompId)
-          : -1;
-        const maisonCut = Math.floor(price * 0.8);
-        const treasuryCut = price - maisonCut;
-        const updatedCompanies = [...(state.companies || [])];
-        if (maisonCompIdx !== -1) {
-          updatedCompanies[maisonCompIdx] = {
-            ...updatedCompanies[maisonCompIdx],
-            balance: (updatedCompanies[maisonCompIdx].balance || 0) + maisonCut,
-          };
-        }
-
         const maisonLedger = {
           id: Date.now(),
           fromName: session.name,
-          toName: maisonCompIdx !== -1 ? updatedCompanies[maisonCompIdx].name + " / Trésor" : "Trésor Impérial",
+          toName,
           amount: price,
           timestamp: Date.now(),
           reason: `Réservation Maison d'Asia — ${worker.name || "Personnel"}`,
@@ -1863,8 +1904,9 @@ export const useGameActions = (session, state, saveState, notify) => {
           citizens: newCitizens,
           maisonRegistry: [...registry, newEntry],
           maisonQueue: cleanedQueue,
-          treasury: (state.treasury || 0) + (maisonCompIdx !== -1 ? treasuryCut : price),
-          companies: maisonCompIdx !== -1 ? updatedCompanies : state.companies,
+          treasury: newTreasury,
+          companies: updatedCompanies,
+          countries: updatedCountries,
           globalLedger: [maisonLedger, ...(state.globalLedger || [])],
         });
         notify("Réservé.", "success");
@@ -1896,6 +1938,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         let newQueue = [...queue];
         let newCitizens = [...state.citizens];
         let newCompanies = [...(state.companies || [])];
+        let newCountries = [...(state.countries || [])];
         let newLedger = [...(state.globalLedger || [])];
         let newTreasury = state.treasury || 0;
 
@@ -1914,21 +1957,15 @@ export const useGameActions = (session, state, saveState, notify) => {
                 ...newCitizens[nextIdx],
                 balance: newCitizens[nextIdx].balance - price,
               };
-              const maisonCompId = state.maisonCompanyId;
-              const maisonCompIdx = maisonCompId
-                ? newCompanies.findIndex((c) => c.id === maisonCompId)
-                : -1;
-              const maisonCut = Math.floor(price * 0.8);
-              const treasuryCut = price - maisonCut;
-              if (maisonCompIdx !== -1) {
-                newCompanies[maisonCompIdx] = {
-                  ...newCompanies[maisonCompIdx],
-                  balance: (newCompanies[maisonCompIdx].balance || 0) + maisonCut,
-                };
-                newTreasury += treasuryCut;
-              } else {
-                newTreasury += price;
-              }
+              const evictQP = applyMaisonPayment(
+                worker, price,
+                newCitizens, newCompanies, newCountries,
+                newTreasury, state.jobContracts, state.maisonCompanyId
+              );
+              newCitizens.splice(0, newCitizens.length, ...evictQP.newCitizens);
+              newCompanies.splice(0, newCompanies.length, ...evictQP.updatedCompanies);
+              newCountries.splice(0, newCountries.length, ...evictQP.updatedCountries);
+              newTreasury = evictQP.newTreasury;
               newRegistry.push({
                 citizenId: next.citizenId,
                 staffId: worker.id,
@@ -1940,7 +1977,7 @@ export const useGameActions = (session, state, saveState, notify) => {
                 {
                   id: Date.now() + 1,
                   fromName: newCitizens[nextIdx].name,
-                  toName: maisonCompIdx !== -1 ? newCompanies[maisonCompIdx].name + " / Trésor" : "Trésor Impérial",
+                  toName: evictQP.toName,
                   amount: price,
                   timestamp: Date.now(),
                   reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
@@ -1970,6 +2007,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           maisonQueue: newQueue,
           citizens: newCitizens,
           companies: newCompanies,
+          countries: newCountries,
           treasury: newTreasury,
           globalLedger: newLedger,
         });
