@@ -40,9 +40,16 @@ import {
   CheckCircle2,
   XCircle,
   ScrollText,
+  HeartPulse,
+  Sparkles,
+  Activity,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
+import {
+  BODY_ZONES, INJURY_STATES, getInjuryState, getOverallHealth,
+  BodySVG, hashCode, getUserAura,
+} from "./CitizenPhysicsMagicView";
 
 /* ================================================
    HELPERS
@@ -2059,6 +2066,411 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
 };
 
 /* ================================================
+   5. PHYSIQUE & MAGIQUE
+   ================================================ */
+const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
+  const safeCitizens = Array.isArray(state.citizens) ? state.citizens : [];
+  const safeCountries = Array.isArray(state.countries) ? state.countries : [];
+
+  const [selectedId, setSelectedId]     = useState(null);
+  const [search, setSearch]             = useState("");
+  const [section, setSection]           = useState("physique"); // "physique" | "magie"
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [hoveredZone, setHoveredZone]   = useState(null);
+  const [magicNotes, setMagicNotes]     = useState("");
+  const [savingMagic, setSavingMagic]   = useState(false);
+
+  const selected = safeCitizens.find((c) => c.id === selectedId);
+  const injuries = selected?.physicalStats?.injuries || {};
+  const overallHealth = getOverallHealth(injuries);
+  const injuredCount = BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").length;
+  const selectedMeta = BODY_ZONES.find((z) => z.id === selectedZone);
+  const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
+  const aura = selected ? getUserAura(selected) : null;
+  const magieCoupee = (selected?.bagueRestrictions || []).includes("magie_coupee");
+
+  const filtered = safeCitizens.filter((c) => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return c.name?.toLowerCase().includes(s) || c.id?.toLowerCase().includes(s);
+  });
+
+  // Sauvegarder l'état d'une blessure
+  const setInjury = (zoneId, stateId) => {
+    const updated = safeCitizens.map((c) => {
+      if (c.id !== selectedId) return c;
+      const newInjuries = { ...((c.physicalStats || {}).injuries || {}), [zoneId]: stateId };
+      return { ...c, physicalStats: { ...(c.physicalStats || {}), injuries: newInjuries } };
+    });
+    onUpdateState({ ...state, citizens: updated });
+    notify(`Zone mise à jour : ${BODY_ZONES.find((z) => z.id === zoneId)?.label}`, "success");
+  };
+
+  // Sauvegarder les notes magiques
+  const saveMagicNotes = () => {
+    const updated = safeCitizens.map((c) =>
+      c.id === selectedId ? { ...c, magicNotes: magicNotes.trim() } : c
+    );
+    onUpdateState({ ...state, citizens: updated });
+    notify("Notes magiques sauvegardées.", "success");
+    setSavingMagic(false);
+  };
+
+  // Sélectionner un citoyen : init magicNotes
+  const handleSelect = (id) => {
+    setSelectedId(id);
+    setSelectedZone(null);
+    setSection("physique");
+    const c = safeCitizens.find((x) => x.id === id);
+    setMagicNotes(c?.magicNotes || "");
+    setSavingMagic(false);
+  };
+
+  // Couleur santé globale (dark theme)
+  const healthDark = (h) => {
+    if (h.label.includes("critique"))    return "bg-slate-800/60 border-slate-600 text-slate-300";
+    if (h.label.includes("Gravement"))   return "bg-violet-900/30 border-violet-700 text-violet-300";
+    if (h.label.includes("Sérieusement"))return "bg-red-900/30 border-red-700 text-red-300";
+    if (h.label.includes("Légèrement"))  return "bg-orange-900/30 border-orange-700 text-orange-300";
+    if (h.label.includes("contusions"))  return "bg-amber-900/30 border-amber-700 text-amber-300";
+    return "bg-emerald-900/20 border-emerald-800/50 text-emerald-400";
+  };
+
+  return (
+    <div className="space-y-5">
+      <SectionTitle icon={HeartPulse}>Physique & Magie</SectionTitle>
+
+      <div className="flex flex-col md:flex-row gap-4 min-h-0" style={{ minHeight: 600 }}>
+
+        {/* ── LISTE CITOYENS ── */}
+        <div className={`md:w-72 shrink-0 flex flex-col gap-2 ${selectedId ? "hidden md:flex" : "flex"}`}>
+          <div className="relative">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-red-500/50 placeholder:text-stone-600"
+              placeholder="Rechercher..."
+            />
+          </div>
+
+          <div className="overflow-y-auto space-y-1 flex-1">
+            {filtered.map((c) => {
+              const h = getOverallHealth(c?.physicalStats?.injuries || {});
+              const ic = BODY_ZONES.filter((z) => {
+                const inj = c?.physicalStats?.injuries || {};
+                return inj[z.id] && inj[z.id] !== "sain";
+              }).length;
+              const country = safeCountries.find((ct) => ct.id === c.countryId);
+              const isSelected = selectedId === c.id;
+              const mCoupee = (c.bagueRestrictions || []).includes("magie_coupee");
+
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => handleSelect(c.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? "bg-red-900/20 border-red-800/50 shadow-lg"
+                      : "bg-stone-900 border-stone-800 hover:border-stone-600 hover:bg-stone-800/60"
+                  }`}
+                >
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-lg bg-stone-800 border border-stone-700 flex items-center justify-center shrink-0 overflow-hidden">
+                    {c.avatarUrl
+                      ? <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-stone-300 text-xs font-black">{(c.name || "?")[0]}</span>
+                    }
+                  </div>
+                  {/* Infos */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black text-stone-200 truncate">{c.name}</span>
+                      {mCoupee && <Sparkles size={9} className="text-indigo-400 shrink-0" title="Magie perturbée" />}
+                    </div>
+                    <div className="text-[9px] text-stone-500 truncate">{country?.name || ""}</div>
+                  </div>
+                  {/* Santé */}
+                  {ic > 0
+                    ? <span className="shrink-0 text-[9px] font-black text-orange-400 bg-orange-900/20 border border-orange-800/40 px-1.5 py-0.5 rounded">{ic}✕</span>
+                    : <span className="shrink-0 w-2 h-2 rounded-full bg-emerald-500/70" />
+                  }
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="text-center py-8 text-stone-600 text-xs">Aucun citoyen</div>
+            )}
+          </div>
+        </div>
+
+        {/* ── PANNEAU DÉTAIL ── */}
+        {selected ? (
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
+            {/* En-tête citoyen */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedId(null)}
+                className="md:hidden p-1.5 text-stone-500 hover:text-stone-300 hover:bg-stone-800 rounded-lg transition-all"
+              >
+                <ArrowLeft size={15} />
+              </button>
+              <div className="w-10 h-10 rounded-xl bg-stone-800 border border-stone-700 flex items-center justify-center overflow-hidden shrink-0">
+                {selected.avatarUrl
+                  ? <img src={selected.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  : <span className="text-stone-200 font-black">{(selected.name || "?")[0]}</span>
+                }
+              </div>
+              <div>
+                <div className="text-base font-black text-stone-100 font-serif">{selected.name}</div>
+                <div className="text-[9px] font-mono text-stone-600">{selected.id}</div>
+              </div>
+              {/* Santé globale */}
+              <div className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest ${healthDark(overallHealth)}`}>
+                <HeartPulse size={11} />
+                {overallHealth.label}
+                {injuredCount > 0 && <span className="opacity-60 ml-1">({injuredCount})</span>}
+              </div>
+            </div>
+
+            {/* Onglets internes */}
+            <div className="flex border-b border-stone-800">
+              {[
+                { id: "physique", label: "Corps & Blessures", icon: HeartPulse },
+                { id: "magie",    label: "Magie",              icon: Sparkles   },
+              ].map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setSection(id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 -mb-px ${
+                    section === id
+                      ? "border-red-500 text-red-300"
+                      : "border-transparent text-stone-500 hover:text-stone-300"
+                  }`}
+                >
+                  <Icon size={12} /> {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── SECTION PHYSIQUE ── */}
+            {section === "physique" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+
+                {/* Schéma corporel */}
+                <div className="flex flex-col items-center">
+                  <p className="text-[9px] text-stone-500 uppercase tracking-widest font-bold mb-2 flex items-center gap-1">
+                    <Activity size={9} /> Cliquez une zone pour modifier
+                  </p>
+                  <div className="w-full max-w-[180px]">
+                    <BodySVG
+                      injuries={injuries}
+                      selectedZone={selectedZone}
+                      hoveredZone={hoveredZone}
+                      onSelect={(id) => setSelectedZone(selectedZone === id ? null : id)}
+                      onHover={setHoveredZone}
+                    />
+                  </div>
+                </div>
+
+                {/* Panneau édition */}
+                <div className="space-y-3">
+                  {/* Zone sélectionnée → sélecteur d'état */}
+                  {selectedZone ? (
+                    <Card className="overflow-hidden">
+                      <div className="px-4 py-2.5 bg-stone-800/50 border-b border-stone-800 flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                          {selectedMeta?.label}
+                        </span>
+                        <span
+                          className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${selectedState?.badge}`}
+                          style={{ backgroundColor: selectedState?.fill + "cc", color: selectedState?.textColor, borderColor: selectedState?.stroke }}
+                        >
+                          {selectedState?.label}
+                        </span>
+                      </div>
+                      <div className="p-3 grid grid-cols-2 gap-1.5">
+                        {INJURY_STATES.map((st) => {
+                          const isCurrent = (injuries[selectedZone] || "sain") === st.id;
+                          return (
+                            <button
+                              key={st.id}
+                              onClick={() => setInjury(selectedZone, st.id)}
+                              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs font-bold hover:scale-[1.02] active:scale-[0.98] ${
+                                isCurrent ? "ring-2 ring-stone-400 shadow-md" : "hover:shadow-sm"
+                              }`}
+                              style={{
+                                backgroundColor: st.fill,
+                                borderColor: st.stroke,
+                                color: st.textColor,
+                              }}
+                            >
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: st.stroke }} />
+                              {st.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  ) : (
+                    <Card className="p-5 text-center text-stone-600 border-dashed">
+                      <Activity size={20} className="mx-auto mb-2 opacity-40" />
+                      <p className="text-xs">Sélectionnez une zone du schéma pour modifier son état</p>
+                    </Card>
+                  )}
+
+                  {/* Zones blessées */}
+                  {injuredCount > 0 && (
+                    <Card className="overflow-hidden">
+                      <div className="px-4 py-2.5 bg-stone-800/50 border-b border-stone-800">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                          Zones atteintes ({injuredCount})
+                        </span>
+                      </div>
+                      <div className="p-3 space-y-1.5">
+                        {BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").map((z) => {
+                          const st = getInjuryState(injuries[z.id]);
+                          return (
+                            <button
+                              key={z.id}
+                              onClick={() => setSelectedZone(z.id)}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all hover:scale-[1.01] text-xs font-bold ${
+                                selectedZone === z.id ? "ring-2 ring-stone-400" : ""
+                              }`}
+                              style={{ backgroundColor: st.fill, borderColor: st.stroke, color: st.textColor }}
+                            >
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: st.stroke }} />
+                              <span className="flex-1">{z.label}</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest">{st.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  )}
+
+                  {injuredCount === 0 && !selectedZone && (
+                    <Card className="p-4 flex items-center gap-3 bg-emerald-900/10 border-emerald-800/30">
+                      <span className="text-xl">💪</span>
+                      <div>
+                        <div className="text-xs font-black text-emerald-400 uppercase tracking-widest">Aucune blessure</div>
+                        <div className="text-[10px] text-stone-500 mt-0.5">{selected.name} est en pleine forme.</div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Légende compacte */}
+                  <div className="flex flex-wrap gap-2">
+                    {INJURY_STATES.map((st) => (
+                      <div key={st.id} className="flex items-center gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: st.fill, borderColor: st.stroke }} />
+                        <span className="text-[9px] text-stone-500 font-bold">{st.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── SECTION MAGIE ── */}
+            {section === "magie" && (
+              <div className="space-y-4">
+                {/* Orbe magie + état */}
+                <Card className="p-6 flex flex-col items-center gap-5">
+                  {/* Orbe */}
+                  <div className="relative flex items-center justify-center">
+                    <div
+                      className="absolute rounded-full blur-2xl"
+                      style={{
+                        width: 160, height: 160,
+                        background: magieCoupee ? "#374151" : (aura?.colorGlow || "#888"),
+                        opacity: magieCoupee ? 0.15 : 0.3,
+                      }}
+                    />
+                    <div
+                      className="relative rounded-full shadow-2xl flex items-center justify-center"
+                      style={{
+                        width: 96, height: 96,
+                        background: magieCoupee
+                          ? "radial-gradient(circle at 38% 35%, #4b5563, #1f2937 55%, #111827)"
+                          : `radial-gradient(circle at 38% 35%, ${aura?.colorLight}, ${aura?.color} 55%, ${aura?.colorDark})`,
+                        boxShadow: magieCoupee
+                          ? "0 0 12px 2px #1f293760, 0 4px 24px 0 #11182760"
+                          : `0 0 24px 4px ${aura?.color}60, 0 4px 20px 0 ${aura?.colorDark}50`,
+                      }}
+                    >
+                      {magieCoupee && <Lock size={22} className="text-slate-500 opacity-70" />}
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    {magieCoupee ? (
+                      <>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Flux Magique Perturbé</div>
+                        <div className="text-[10px] text-slate-600 italic">Le flux de {selected.name} est bloqué ou altéré.</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-1">Aura Magique</div>
+                        <div className="text-[10px] text-stone-500 italic">Signature unique de {selected.name}</div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Restrictions bague actives */}
+                  {(selected.bagueRestrictions || []).length > 0 && (
+                    <div className="w-full bg-stone-950/60 border border-stone-800 rounded-lg p-3">
+                      <div className="text-[9px] font-black uppercase tracking-widest text-red-500/70 mb-2 flex items-center gap-1.5">
+                        <ShieldAlert size={10} /> Restrictions de la Bague actives
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(selected.bagueRestrictions || []).map((r) => (
+                          <span key={r} className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-red-900/30 text-red-400 border-red-800/40">{r.replace(/_/g, " ")}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                {/* Notes magiques GM */}
+                <Card className="overflow-hidden">
+                  <div className="px-4 py-2.5 bg-stone-800/50 border-b border-stone-800 flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-1.5">
+                      <Sparkles size={10} /> Notes Magiques (GM)
+                    </span>
+                    <span className="text-[9px] text-stone-600 italic">Non visible par le joueur</span>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <textarea
+                      value={magicNotes}
+                      onChange={(e) => { setMagicNotes(e.target.value); setSavingMagic(true); }}
+                      rows={4}
+                      className="w-full bg-stone-800 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none placeholder:text-stone-600"
+                      placeholder="Pouvoirs spéciaux, affections magiques, sorts actifs, observations..."
+                    />
+                    {savingMagic && (
+                      <BtnPrimary onClick={saveMagicNotes} className="w-full">
+                        <Save size={13} /> Sauvegarder les notes
+                      </BtnPrimary>
+                    )}
+                  </div>
+                </Card>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-stone-700 py-16">
+            <HeartPulse size={40} className="mb-4 opacity-20" />
+            <div className="text-sm font-bold uppercase tracking-widest mb-1">Aucun citoyen sélectionné</div>
+            <div className="text-xs opacity-60">Choisissez un citoyen dans la liste pour voir et modifier son état.</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ================================================
    MAIN LAYOUT
    ================================================ */
 const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
@@ -2072,6 +2484,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
     { id: "dashboard", label: "Vue d'Ensemble", icon: LayoutDashboard },
     { id: "accounts", label: "Comptes", icon: Users, badge: pendingChildCount || null },
     { id: "quests", label: "Quêtes", icon: ScrollText, badge: questCount || null },
+    { id: "physique", label: "Physique & Magie", icon: HeartPulse },
     { id: "lore", label: "Lore & Univers", icon: BookOpen },
     { id: "lois", label: "Lois & Nations", icon: Gavel },
     { id: "calendrier", label: "Calendrier", icon: Calendar },
@@ -2237,6 +2650,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
               </>
             )}
             {activeSection === "quests" && <GMQuests state={state} onUpdateState={onUpdateState} notify={notify} />}
+            {activeSection === "physique" && <GMPhysicsMagic state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lore" && <GMLore state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lois" && <GMLois state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "calendrier" && <GMCalendrier state={state} onUpdateState={onUpdateState} notify={notify} />}

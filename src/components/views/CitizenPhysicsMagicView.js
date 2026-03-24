@@ -598,3 +598,4 @@ const CitizenPhysicsMagicView = ({ user }) => {
 };
 
 export default CitizenPhysicsMagicView;
+export { BODY_ZONES, INJURY_STATES, getInjuryState, getOverallHealth, BodySVG, hashCode, getUserAura, BAGUE_CONDITIONS };
