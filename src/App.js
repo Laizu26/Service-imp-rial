@@ -424,7 +424,7 @@ export default function App() {
             onUpdateState={saveState}
             notify={notify}
             onClose={() => setGmMode(false)}
-            session={session}
+            session={currentUser}
           />
         ) : !session ? (
           <LoginScreen
