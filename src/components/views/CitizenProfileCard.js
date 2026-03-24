@@ -92,6 +92,11 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
                 }`}>
                   {citizen.status || "Actif"}
                 </span>
+                {citizen.bagueImperiale && (
+                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-yellow-50 text-yellow-900 border border-yellow-500 flex items-center gap-1" title="Porteur de la Bague Impériale">
+                    💍 Bague Impériale
+                  </span>
+                )}
                 {ownedCompany && (
                   <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
                     <Building2 size={9} /> Patron

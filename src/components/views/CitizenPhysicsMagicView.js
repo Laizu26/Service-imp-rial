@@ -1,5 +1,44 @@
 import React, { useState } from "react";
-import { Sparkles, Star, HeartPulse, Info, Lock } from "lucide-react";
+import { Sparkles, Star, HeartPulse, Info, Lock, AlertTriangle } from "lucide-react";
+
+// ===== CONDITIONS LIÉES À LA BAGUE (source cachée) =====
+const BAGUE_CONDITIONS = [
+  {
+    id: "malade",
+    label: "Maladie chronique inexpliquée",
+    desc: "État maladif persistant dont l'origine demeure indéterminée. Aucune cause organique identifiée à ce stade.",
+    badge: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    icon: "🤒",
+  },
+  {
+    id: "incontinent",
+    label: "Troubles vésicaux chroniques",
+    desc: "Incontinence persistante sans étiologie claire. Les examens pratiqués n'ont révélé aucune lésion physique apparente.",
+    badge: "bg-orange-100 text-orange-800 border-orange-300",
+    icon: "💧",
+  },
+  {
+    id: "impuissant",
+    label: "Défaillance organique intime",
+    desc: "Dysfonction d'origine inconnue. Les traitements conventionnels se sont révélés sans effet.",
+    badge: "bg-red-100 text-red-800 border-red-300",
+    icon: "⚠️",
+  },
+  {
+    id: "fatigue",
+    label: "Fatigue chronique sévère",
+    desc: "Épuisement profond et persistant résistant au repos. Origine indéterminée.",
+    badge: "bg-stone-100 text-stone-700 border-stone-300",
+    icon: "😔",
+  },
+  {
+    id: "douleurs",
+    label: "Douleurs diffuses inexpliquées",
+    desc: "Douleurs corporelles sans traumatisme apparent, fluctuantes et sans localisation précise.",
+    badge: "bg-purple-100 text-purple-800 border-purple-300",
+    icon: "🔴",
+  },
+];
 
 // ===== ZONES DU CORPS =====
 const BODY_ZONES = [
@@ -275,6 +314,11 @@ const CitizenPhysicsMagicView = ({ user }) => {
   const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
   const injuredCount  = BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").length;
 
+  // Restrictions bague (source volontairement masquée)
+  const bagueRestrictions = user?.bagueRestrictions || [];
+  const magieCoupee = bagueRestrictions.includes("magie_coupee");
+  const activeConditions = BAGUE_CONDITIONS.filter((c) => bagueRestrictions.includes(c.id));
+
   const aura = getUserAura(user);
 
   return (
@@ -422,12 +466,35 @@ const CitizenPhysicsMagicView = ({ user }) => {
                   </div>
                 )}
 
-                {injuredCount === 0 && (
+                {injuredCount === 0 && activeConditions.length === 0 && (
                   <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-center">
                     <div className="text-2xl mb-1">💪</div>
                     <p className="text-xs font-bold text-stone-500 uppercase tracking-widest">
                       Aucune blessure déclarée
                     </p>
+                  </div>
+                )}
+
+                {/* Affections chroniques (source masquée) */}
+                {activeConditions.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1">
+                      <AlertTriangle size={10} /> Affections chroniques
+                    </h4>
+                    <div className="space-y-2">
+                      {activeConditions.map((cond) => (
+                        <div
+                          key={cond.id}
+                          className={`rounded-lg border px-3 py-2.5 text-left ${cond.badge}`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span>{cond.icon}</span>
+                            <span className="text-xs font-black uppercase tracking-widest">{cond.label}</span>
+                          </div>
+                          <p className="text-[10px] italic opacity-80">{cond.desc}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -458,15 +525,15 @@ const CitizenPhysicsMagicView = ({ user }) => {
             ══════════════════════ */}
         {activeSection === "magie" && (
           <div className="flex flex-col items-center justify-center py-16 gap-8">
-            {/* Orbe lumineux */}
+            {/* Orbe lumineux — éteint si flux bloqué */}
             <div className="relative flex items-center justify-center">
               {/* Halo extérieur flou */}
               <div
                 className="absolute rounded-full blur-2xl"
                 style={{
                   width: 200, height: 200,
-                  background: aura.colorGlow,
-                  opacity: 0.35,
+                  background: magieCoupee ? "#374151" : aura.colorGlow,
+                  opacity: magieCoupee ? 0.2 : 0.35,
                 }}
               />
               {/* Anneau intermédiaire */}
@@ -474,8 +541,10 @@ const CitizenPhysicsMagicView = ({ user }) => {
                 className="absolute rounded-full"
                 style={{
                   width: 164, height: 164,
-                  background: `radial-gradient(circle, ${aura.colorLight}22 0%, ${aura.color}18 60%, transparent 100%)`,
-                  border: `1.5px solid ${aura.color}40`,
+                  background: magieCoupee
+                    ? "radial-gradient(circle, #1f293722 0%, #11182718 60%, transparent 100%)"
+                    : `radial-gradient(circle, ${aura.colorLight}22 0%, ${aura.color}18 60%, transparent 100%)`,
+                  border: magieCoupee ? "1.5px solid #37415140" : `1.5px solid ${aura.color}40`,
                 }}
               />
               {/* Cercle principal */}
@@ -483,20 +552,43 @@ const CitizenPhysicsMagicView = ({ user }) => {
                 className="relative rounded-full shadow-2xl"
                 style={{
                   width: 128, height: 128,
-                  background: `radial-gradient(circle at 38% 35%, ${aura.colorLight}, ${aura.color} 55%, ${aura.colorDark})`,
-                  boxShadow: `0 0 32px 6px ${aura.color}70, 0 4px 24px 0 ${aura.colorDark}60`,
+                  background: magieCoupee
+                    ? "radial-gradient(circle at 38% 35%, #4b5563, #1f2937 55%, #111827)"
+                    : `radial-gradient(circle at 38% 35%, ${aura.colorLight}, ${aura.color} 55%, ${aura.colorDark})`,
+                  boxShadow: magieCoupee
+                    ? "0 0 12px 2px #1f293760, 0 4px 24px 0 #11182760"
+                    : `0 0 32px 6px ${aura.color}70, 0 4px 24px 0 ${aura.colorDark}60`,
                 }}
-              />
+              >
+                {magieCoupee && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Lock size={28} className="text-slate-500 opacity-70" />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Légende */}
             <div className="text-center space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">
-                Aura Magique
-              </p>
-              <p className="text-[10px] text-stone-400 italic">
-                Signature unique et permanente de {user?.name || "ce citoyen"}
-              </p>
+              {magieCoupee ? (
+                <>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Flux Magique Perturbé
+                  </p>
+                  <p className="text-[10px] text-slate-500 italic">
+                    Le flux magique de {user?.name || "ce citoyen"} semble bloqué ou supprimé. Cause indéterminée.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-stone-500">
+                    Aura Magique
+                  </p>
+                  <p className="text-[10px] text-stone-400 italic">
+                    Signature unique et permanente de {user?.name || "ce citoyen"}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

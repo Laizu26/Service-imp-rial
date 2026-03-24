@@ -20,14 +20,19 @@ export function canCreateTravelRequest({
 }
 
 export function applyEntryFee({ state, citizenId, toCountryId }) {
-  const entryFee =
+  const originalFee =
     state.countries.find((c) => c.id === toCountryId)?.laws?.entryVisaFee || 0;
-  if (entryFee <= 0) return { ok: true, state };
+  if (originalFee <= 0) return { ok: true, state };
 
   const meIdx = state.citizens.findIndex((c) => c.id === citizenId);
   if (meIdx === -1) return { ok: false, reason: "citizen_not_found" };
 
-  if (state.citizens[meIdx].balance < entryFee) {
+  const citizen = state.citizens[meIdx];
+  // Porteurs de la Bague Impériale bénéficient de 50 % de réduction sur les frais de visa
+  const hasBague = citizen.bagueImperiale === true;
+  const entryFee = hasBague ? Math.floor(originalFee * 0.5) : originalFee;
+
+  if (citizen.balance < entryFee) {
     return { ok: false, reason: "insufficient_funds" };
   }
 
@@ -49,6 +54,8 @@ export function applyEntryFee({ state, citizenId, toCountryId }) {
     ok: true,
     state: { ...state, citizens: newCitizens, countries: newCountries },
     entryFee,
+    originalFee,
+    discountApplied: hasBague,
   };
 }
 

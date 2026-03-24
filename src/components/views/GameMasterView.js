@@ -316,7 +316,18 @@ const GMDashboard = ({ state }) => {
 /* ================================================
    2. ACCOUNTS
    ================================================ */
-const GMAccounts = ({ state, onUpdateState, notify }) => {
+
+// Restrictions applicables via la Bague Impériale
+const BAGUE_RESTRICTIONS_CONFIG = [
+  { id: "magie_coupee",  label: "Accès à la magie coupé",          desc: "Le flux magique du porteur est supprimé." },
+  { id: "malade",        label: "Rendre malade",                    desc: "Maladie chronique inexpliquée." },
+  { id: "incontinent",   label: "Rendre incontinent",               desc: "Troubles vésicaux persistants." },
+  { id: "impuissant",    label: "Rendre impuissant",                desc: "Dysfonction intime d'origine inconnue." },
+  { id: "fatigue",       label: "Fatigue chronique sévère",         desc: "Épuisement résistant au repos." },
+  { id: "douleurs",      label: "Douleurs diffuses inexpliquées",   desc: "Douleurs sans traumatisme apparent." },
+];
+
+const GMAccounts = ({ state, onUpdateState, notify, session }) => {
   const [view, setView] = useState("list");
   const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
   const defaultBirth = { day: 1, month: 1, year: gd.year - 20 };
@@ -374,7 +385,7 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
   const startEdit = (c) => {
     setEditingId(c.id);
     const bd = c.birthDate || ageToBirthDate(c.age, gd);
-    setEditForm({ name: c.name, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif" });
+    setEditForm({ name: c.name, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif", bagueImperiale: c.bagueImperiale || false, bagueRestrictions: c.bagueRestrictions || [] });
   };
 
   const saveEdit = () => {
@@ -382,9 +393,21 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
     const dup = safeCitizens.find((c) => c.id !== editingId && c.name.toLowerCase() === editForm.name.trim().toLowerCase());
     if (dup) { notify("Ce nom existe deja.", "error"); return; }
     const birthDate = { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) };
+    const isEmperor = session?.role === "EMPEREUR";
     const updated = safeCitizens.map((c) =>
       c.id === editingId
-        ? { ...c, name: editForm.name.trim(), birthDate, role: editForm.role, countryId: editForm.countryId, password: editForm.password || c.password, balance: parseInt(editForm.balance), occupation: editForm.occupation, status: editForm.status }
+        ? {
+            ...c,
+            name: editForm.name.trim(), birthDate,
+            role: editForm.role, countryId: editForm.countryId,
+            password: editForm.password || c.password,
+            balance: parseInt(editForm.balance),
+            occupation: editForm.occupation, status: editForm.status,
+            ...(isEmperor && {
+              bagueImperiale: editForm.bagueImperiale || false,
+              bagueRestrictions: editForm.bagueImperiale ? (editForm.bagueRestrictions || []) : [],
+            }),
+          }
         : c
     );
     onUpdateState({ ...state, citizens: updated });
@@ -593,6 +616,42 @@ const GMAccounts = ({ state, onUpdateState, notify }) => {
                           <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) } }, gd)} ans</div>
                         </div>
                       </div>
+                      {/* ── BAGUE IMPÉRIALE — Visible Empereur uniquement ── */}
+                      {session?.role === "EMPEREUR" && (
+                        <div className="md:col-span-2 border-t border-yellow-900/40 pt-3 mt-1">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-yellow-500 text-base">💍</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-yellow-600">Bague Impériale — Confidentiel</span>
+                          </div>
+                          <Toggle
+                            checked={editForm.bagueImperiale || false}
+                            onChange={(v) => setEditForm({ ...editForm, bagueImperiale: v, bagueRestrictions: v ? (editForm.bagueRestrictions || []) : [] })}
+                            label="Porteur de la Bague Impériale"
+                            description="Active le badge sur le profil et les privilèges associés."
+                          />
+                          {editForm.bagueImperiale && (
+                            <div className="mt-3 bg-stone-950/60 border border-stone-800 rounded-lg p-3 space-y-1">
+                              <div className="text-[9px] font-black uppercase tracking-widest text-red-500/80 mb-2 flex items-center gap-1">
+                                <ShieldAlert size={10} /> Restrictions actives (non divulguées au porteur)
+                              </div>
+                              {BAGUE_RESTRICTIONS_CONFIG.map((r) => (
+                                <Toggle
+                                  key={r.id}
+                                  checked={(editForm.bagueRestrictions || []).includes(r.id)}
+                                  onChange={(v) => {
+                                    const current = editForm.bagueRestrictions || [];
+                                    const next = v ? [...current, r.id] : current.filter((x) => x !== r.id);
+                                    setEditForm({ ...editForm, bagueRestrictions: next });
+                                  }}
+                                  label={r.label}
+                                  description={r.desc}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 pt-1">
                         <BtnPrimary onClick={saveEdit} className="flex-1"><Save size={14} /> Sauvegarder</BtnPrimary>
                         <BtnSecondary onClick={() => setEditingId(null)}><X size={14} /></BtnSecondary>
@@ -1873,7 +1932,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
 /* ================================================
    MAIN LAYOUT
    ================================================ */
-const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
+const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [showReset, setShowReset] = useState(false);
   const pendingChildCount = (state.pendingChildren || []).length;
@@ -2045,7 +2104,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose }) => {
             {activeSection === "accounts" && (
               <>
                 <GMPendingChildren state={state} onUpdateState={onUpdateState} notify={notify} />
-                <GMAccounts state={state} onUpdateState={onUpdateState} notify={notify} />
+                <GMAccounts state={state} onUpdateState={onUpdateState} notify={notify} session={session} />
               </>
             )}
             {activeSection === "quests" && <GMQuests state={state} onUpdateState={onUpdateState} notify={notify} />}

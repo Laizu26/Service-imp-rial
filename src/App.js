@@ -29,6 +29,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
+import { applyEntryFee } from "./lib/travelUtils";
 import { useSettings } from "./hooks/useSettings";
 
 // UI Components
@@ -423,6 +424,7 @@ export default function App() {
             onUpdateState={saveState}
             notify={notify}
             onClose={() => setGmMode(false)}
+            session={session}
           />
         ) : !session ? (
           <LoginScreen
@@ -831,9 +833,21 @@ export default function App() {
                         region,
                         updatedRequests
                       ) => {
+                        // Appliquer les frais de visa (avec réduction bague si applicable)
+                        const feeResult = applyEntryFee({ state, citizenId, toCountryId });
+                        const baseState = feeResult.ok ? feeResult.state : state;
+
+                        if (feeResult.ok && feeResult.entryFee > 0) {
+                          if (feeResult.discountApplied) {
+                            notify(`Frais de visa : ${feeResult.entryFee} É (réduction impériale appliquée — ${feeResult.originalFee} É initialement).`, "info");
+                          } else {
+                            notify(`Frais de visa prélevés : ${feeResult.entryFee} É.`, "info");
+                          }
+                        }
+
                         // Le voyage change la LOCALISATION (locationCountryId + currentPosition),
                         // PAS l'allégeance (countryId)
-                        const newCitizens = state.citizens.map((c) =>
+                        const newCitizens = baseState.citizens.map((c) =>
                           c.id === citizenId
                             ? {
                                 ...c,
@@ -843,7 +857,7 @@ export default function App() {
                             : c
                         );
                         saveState({
-                          ...state,
+                          ...baseState,
                           citizens: newCitizens,
                           travelRequests: updatedRequests,
                         });
