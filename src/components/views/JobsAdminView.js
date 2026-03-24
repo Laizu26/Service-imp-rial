@@ -198,8 +198,8 @@ const JobsAdminView = ({
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans min-h-0">
-      {/* ── LISTE DES CONTRATS ── */}
-      <div className="w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md min-h-0">
+      {/* ── LISTE DES CONTRATS ── masquée sur mobile quand un formulaire est ouvert */}
+      <div className={`w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md min-h-0 ${form ? "hidden md:flex" : "flex"}`}>
         {/* En-tête */}
         <div className="p-4 bg-stone-100 border-b flex justify-between items-center font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500">
           <span>Contrats d'Emploi</span>
@@ -274,8 +274,8 @@ const JobsAdminView = ({
         </div>
       </div>
 
-      {/* ── FORMULAIRE ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* ── FORMULAIRE ── masqué sur mobile quand aucun formulaire n'est ouvert */}
+      <div className={`flex-1 min-h-0 overflow-y-auto ${!form ? "hidden md:block" : "block"}`}>
         {!form ? (
           <div className="h-full flex items-center justify-center text-stone-300 flex-col gap-6 italic">
             <Briefcase size={80} className="opacity-10" />
@@ -283,6 +283,14 @@ const JobsAdminView = ({
           </div>
         ) : (
           <div className="space-y-4 pb-10">
+            {/* Bouton retour (mobile uniquement) */}
+            <button
+              onClick={() => { setForm(null); setSelectedJob(null); }}
+              className="md:hidden flex items-center gap-2 text-stone-500 text-xs font-bold uppercase tracking-widest hover:text-stone-800 mb-1"
+            >
+              <ChevronDown size={14} className="rotate-90" /> Retour à la liste
+            </button>
+
             {/* En-tête formulaire */}
             <div className="bg-stone-900 text-stone-100 rounded-xl p-5 flex items-center justify-between shadow-lg">
               <div>
@@ -294,7 +302,7 @@ const JobsAdminView = ({
               <div className="flex gap-2">
                 <button
                   onClick={() => { setForm(null); setSelectedJob(null); }}
-                  className="px-3 py-2 bg-stone-700 text-stone-300 rounded-lg text-[10px] font-bold uppercase hover:bg-stone-600"
+                  className="hidden md:block px-3 py-2 bg-stone-700 text-stone-300 rounded-lg text-[10px] font-bold uppercase hover:bg-stone-600"
                 >
                   Annuler
                 </button>
