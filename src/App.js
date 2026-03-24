@@ -489,6 +489,10 @@ export default function App() {
             onCustomizeCompany={actions.onCustomizeCompany}
             onDeleteCompany={actions.onDeleteCompany}
             onQuitCompany={actions.onQuitCompany}
+            jobContracts={state.jobContracts || []}
+            onSaveJobContract={actions.onSaveJobContract}
+            onDeleteJobContract={actions.onDeleteJobContract}
+            onToggleJobContract={actions.onToggleJobContract}
             onHideMoney={actions.onHideMoney}
             onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
             onHiddenTransfer={actions.onHiddenTransfer}
