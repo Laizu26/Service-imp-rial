@@ -784,19 +784,100 @@ const MaisonDeAsiaAdmin = ({
                             placeholder="Description détaillée..."
                             maxLength={500}
                           />
-                          <select
-                            className="w-full p-1.5 border rounded text-xs bg-stone-50 outline-none focus:border-fuchsia-500"
-                            value={editContractId}
-                            onChange={(e) => setEditContractId(e.target.value)}
-                            title="Contrat de rémunération"
-                          >
-                            <option value="">— 80/20 par défaut —</option>
-                            {maisonContracts.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
+                          {/* Contrat nominatif inline */}
+                          {editContractId ? (
+                            <div className="p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200">
+                              {editContractExpanded ? (
+                                <div className="space-y-2">
+                                  <div className="text-[9px] font-black uppercase text-fuchsia-700 tracking-widest">Modifier le contrat</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-stone-600 flex-1">Part pensionnaire</span>
+                                    <input
+                                      type="number" min="0" max="100"
+                                      value={editContractPercent}
+                                      onChange={(e) => setEditContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                      className="w-14 p-1 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                                    />
+                                    <span className="text-[10px] text-stone-400">%</span>
+                                  </div>
+                                  <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - Math.max(0, Math.min(100, editContractPercent))}%</div>
+                                  <div className="flex gap-1.5">
+                                    <button
+                                      onClick={() => {
+                                        saveInlineContract(member.id, member.name, editContractPercent, editContractId);
+                                        setEditContractExpanded(false);
+                                      }}
+                                      className="flex-1 bg-fuchsia-900 text-white py-1 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
+                                    >
+                                      <Check size={11} /> Sauver
+                                    </button>
+                                    <button onClick={() => setEditContractExpanded(false)} className="px-2 py-1 bg-stone-100 text-stone-400 rounded text-[10px] hover:bg-stone-200">
+                                      <X size={11} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <div className="text-[9px] font-bold text-fuchsia-700">📄 Contrat actif</div>
+                                    <div className="text-[9px] text-stone-400">{editContractPercent}% pensionnaire · {100 - Math.max(0, Math.min(100, editContractPercent))}% maison</div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <button onClick={() => setEditContractExpanded(true)} className="p-1.5 text-stone-400 hover:text-fuchsia-700 rounded transition-colors"><Pencil size={11} /></button>
+                                    <button
+                                      onClick={() => {
+                                        if (typeof onDeleteJobContract === "function") onDeleteJobContract(editContractId);
+                                        setEditContractId("");
+                                        setEditContractExpanded(false);
+                                      }}
+                                      className="p-1.5 text-stone-400 hover:text-red-500 rounded transition-colors"
+                                    >
+                                      <X size={11} />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setEditContractExpanded(!editContractExpanded)}
+                                className={`w-full py-1.5 border border-dashed text-[10px] font-bold uppercase rounded transition-colors flex items-center justify-center gap-1 ${
+                                  editContractExpanded
+                                    ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700"
+                                    : "border-stone-300 text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600"
+                                }`}
+                              >
+                                {editContractExpanded ? <X size={11} /> : <Plus size={11} />}
+                                {editContractExpanded ? "Annuler" : "Créer un contrat"}
+                              </button>
+                              {editContractExpanded && (
+                                <div className="mt-1.5 p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-stone-600 flex-1">Part pensionnaire</span>
+                                    <input
+                                      type="number" min="0" max="100"
+                                      value={editContractPercent}
+                                      onChange={(e) => setEditContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                      className="w-14 p-1 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                                    />
+                                    <span className="text-[10px] text-stone-400">%</span>
+                                  </div>
+                                  <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - Math.max(0, Math.min(100, editContractPercent))}%</div>
+                                  <button
+                                    onClick={() => {
+                                      const cid = saveInlineContract(member.id, member.name, editContractPercent, null);
+                                      if (cid) { setEditContractId(cid); setEditContractExpanded(false); }
+                                    }}
+                                    className="w-full bg-fuchsia-900 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
+                                  >
+                                    <Check size={12} /> Créer
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => saveEdit(member.id)}
@@ -1453,22 +1534,7 @@ const MaisonDeAsiaAdmin = ({
             );
           })()}
 
-        {/* ════════════════ ONGLET 5 : CONTRATS ════════════════ */}
-        {activeTab === "contrats" && (
-          <div className="h-full">
-            <JobsAdminView
-              jobs={jobs}
-              citizens={citizens}
-              countries={countries}
-              companies={companies}
-              session={session}
-              roleInfo={roleInfo}
-              onSaveJobContract={onSaveJobContract}
-              onDeleteJobContract={onDeleteJobContract}
-              onToggleJobContract={onToggleJobContract}
-            />
-          </div>
-        )}
+
       </div>
     </div>
   );
