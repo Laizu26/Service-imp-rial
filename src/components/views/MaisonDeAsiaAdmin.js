@@ -440,23 +440,24 @@ const MaisonDeAsiaAdmin = ({
           </button>
         </div>
 
-        {/* TABS — scrollable */}
-        <div className="overflow-x-auto px-4 pb-2">
-          <div className="flex bg-fuchsia-950/50 rounded-lg p-1 min-w-max">
+        {/* TABS — full width, flex-wrap sur mobile */}
+        <div className="px-3 pb-2">
+          <div className="flex flex-wrap gap-1 bg-fuchsia-950/50 rounded-lg p-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${
+                className={`flex-1 min-w-0 px-2 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
                   activeTab === tab.id
                     ? "bg-white text-fuchsia-900 shadow"
                     : "text-fuchsia-300 hover:text-white"
                 }`}
               >
-                <tab.icon size={14} /> {tab.label}
+                <tab.icon size={13} />
+                <span className="hidden sm:inline">{tab.label}</span>
                 {tab.count !== undefined && (
                   <span
-                    className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] ${
+                    className={`px-1.5 py-0.5 rounded-full text-[9px] ${
                       activeTab === tab.id
                         ? "bg-fuchsia-100 text-fuchsia-700"
                         : "bg-fuchsia-800 text-fuchsia-300"
