@@ -22,8 +22,18 @@ import {
   AlertTriangle,
   ImagePlus,
   Images,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
+
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+
+const MAISON_FREQUENCIES = [
+  { value: "par_tache", label: "À la tâche (par session)" },
+  { value: "daily",    label: "Chaque jour RP" },
+  { value: "weekly",   label: "Chaque semaine RP" },
+  { value: "monthly",  label: "Chaque mois RP" },
+];
 
 
 /* ───────────── Petit composant étoiles (lecture seule) ───────────── */
@@ -159,12 +169,10 @@ const MaisonDeAsiaAdmin = ({
   const [editDescription, setEditDescription] = useState("");
   const [editGallery, setEditGallery] = useState([]);
   const [editContractId, setEditContractId] = useState("");
-  const [editContractExpanded, setEditContractExpanded] = useState(false);
-  const [editContractPercent, setEditContractPercent] = useState(80);
+  const [memberContractForm, setMemberContractForm] = useState(null);
 
   // Ajout : contrat inline lors de l'ajout d'un nouveau membre
-  const [newContractExpanded, setNewContractExpanded] = useState(false);
-  const [newContractPercent, setNewContractPercent] = useState(80);
+  const [newMemberContractForm, setNewMemberContractForm] = useState(null);
 
   // Gestion galerie séparée (en dehors du mode edit)
   const [galleryMemberId, setGalleryMemberId] = useState(null);
@@ -238,9 +246,47 @@ const MaisonDeAsiaAdmin = ({
       totalQueueSize,
       avgRating,
       totalReviews: allRatings.length,
+
       revenueByStaff,
     };
   }, [staff, maisonHistory, maisonReviews, maisonQueue]);
+
+  // --- CONTRAT : valeurs calculées ---
+  const totalContractPct = (memberContractForm?.recipients || []).reduce((s, r) => s + (r.percent || 0), 0);
+  const isContractValid = !!(memberContractForm?.name?.trim() && totalContractPct === 100);
+  const totalNewContractPct = (newMemberContractForm?.recipients || []).reduce((s, r) => s + (r.percent || 0), 0);
+  const isNewContractValid = !!(newMemberContractForm?.name?.trim() && totalNewContractPct === 100);
+
+  const buildEmptyContractForm = (memberId, memberName) => {
+    const maison = maisonCompanyId ? companies.find((c) => c.id === maisonCompanyId) : null;
+    return {
+      name: `Contrat — ${memberName}`,
+      active: true,
+      amount: 0,
+      frequency: "par_tache",
+      recipients: [
+        { id: memberId, name: memberName, type: "CITIZEN", percent: 80 },
+        ...(maison ? [{ id: maisonCompanyId, name: maison.name, type: "COMPANY", percent: 20 }] : []),
+      ],
+    };
+  };
+
+  const saveContractForm = (form, existingId, memberId) => {
+    if (!form || typeof onSaveJobContract !== "function") return null;
+    const maison = maisonCompanyId ? companies.find((c) => c.id === maisonCompanyId) : null;
+    const cid = existingId || `JOB-${memberId}-${Date.now().toString().slice(-6)}`;
+    onSaveJobContract({
+      id: cid,
+      name: form.name,
+      active: form.active,
+      amount: form.frequency === "par_tache" ? 0 : (form.amount || 0),
+      frequency: form.frequency,
+      source: maison ? { type: "COMPANY", id: maisonCompanyId } : { type: "GLOBAL", id: "" },
+      sourceName: maison?.name || "Trésor Impérial",
+      recipients: form.recipients,
+    });
+    return cid;
+  };
 
   // --- GESTION DU STAFF ---
   const handleAddStaff = () => {
@@ -248,10 +294,9 @@ const MaisonDeAsiaAdmin = ({
     const slaveProfile = citizens.find((c) => c.id === selectedSlaveId);
     if (!slaveProfile) return;
 
-    // Créer un contrat nominatif inline si demandé
     let contractId = undefined;
-    if (newContractExpanded && typeof onSaveJobContract === "function") {
-      contractId = saveInlineContract(slaveProfile.id, slaveProfile.name, newContractPercent, null);
+    if (newMemberContractForm && isNewContractValid) {
+      contractId = saveContractForm(newMemberContractForm, null, slaveProfile.id);
     }
 
     const newWorker = {
@@ -273,8 +318,7 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffPrice(50);
     setNewStaffDuration("");
     setNewStaffDescription("");
-    setNewContractExpanded(false);
-    setNewContractPercent(80);
+    setNewMemberContractForm(null);
     setNewStaffGallery([]);
     setNewImageUrl("");
   };
@@ -295,10 +339,19 @@ const MaisonDeAsiaAdmin = ({
     setEditDescription(member.specialtyDescription || "");
     setEditGallery([...(member.gallery || [])]);
     setEditContractId(member.contractId || "");
-    setEditContractExpanded(false);
     const existingContract = member.contractId ? (jobs || []).find((j) => j.id === member.contractId) : null;
-    const workerRecipient = existingContract?.recipients?.find((r) => r.id === member.id);
-    setEditContractPercent(workerRecipient?.percent ?? 80);
+    if (existingContract) {
+      setMemberContractForm({
+        id: existingContract.id,
+        name: existingContract.name,
+        active: existingContract.active ?? true,
+        amount: existingContract.amount || 0,
+        frequency: existingContract.frequency || "par_tache",
+        recipients: [...(existingContract.recipients || [])],
+      });
+    } else {
+      setMemberContractForm(null);
+    }
   };
 
   const cancelEdit = () => {
@@ -309,11 +362,15 @@ const MaisonDeAsiaAdmin = ({
     setEditDescription("");
     setEditGallery([]);
     setEditContractId("");
-    setEditContractExpanded(false);
-    setEditContractPercent(80);
+    setMemberContractForm(null);
   };
 
   const saveEdit = (id) => {
+    let finalContractId = editContractId;
+    if (memberContractForm && isContractValid) {
+      const saved = saveContractForm(memberContractForm, memberContractForm.id || editContractId, id);
+      if (saved) finalContractId = saved;
+    }
     const updated = staff.map((s) =>
       s.id === id
         ? {
@@ -323,7 +380,7 @@ const MaisonDeAsiaAdmin = ({
             sessionDuration: editDuration ? parseInt(editDuration) : undefined,
             specialtyDescription: editDescription,
             gallery: editGallery,
-            contractId: editContractId || undefined,
+            contractId: finalContractId || undefined,
           }
         : s
     );
@@ -384,29 +441,6 @@ const MaisonDeAsiaAdmin = ({
     if (typeof onSetDefaultDuration === "function") {
       onSetDefaultDuration(val);
     }
-  };
-
-  // --- CONTRAT NOMINATIF INLINE ---
-  const saveInlineContract = (memberId, memberName, percent, existingId) => {
-    if (typeof onSaveJobContract !== "function") return null;
-    const cid = existingId || `JOB-${memberId}-${Date.now().toString().slice(-6)}`;
-    const maison = maisonCompanyId ? companies.find((c) => c.id === maisonCompanyId) : null;
-    const pct = Math.max(0, Math.min(100, percent));
-    const recipients = [{ id: memberId, name: memberName, type: "CITIZEN", percent: pct }];
-    if (maison && 100 - pct > 0) {
-      recipients.push({ id: maisonCompanyId, name: maison.name, type: "COMPANY", percent: 100 - pct });
-    }
-    onSaveJobContract({
-      id: cid,
-      name: `Contrat — ${memberName}`,
-      active: true,
-      amount: 0,
-      frequency: "par_tache",
-      source: maison ? { type: "COMPANY", id: maisonCompanyId } : { type: "GLOBAL", id: "" },
-      sourceName: maison?.name || "Trésor Impérial",
-      recipients,
-    });
-    return cid;
   };
 
   // --- TABS DEFINITION ---
@@ -646,34 +680,112 @@ const MaisonDeAsiaAdmin = ({
                 </label>
                 {selectedSlaveId ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setNewContractExpanded(!newContractExpanded)}
-                      className={`w-full py-2 border border-dashed text-[10px] font-bold uppercase rounded-lg transition-colors flex items-center justify-center gap-1 ${
-                        newContractExpanded
-                          ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700"
-                          : "border-stone-300 text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600 hover:bg-fuchsia-50"
-                      }`}
-                    >
-                      {newContractExpanded ? <X size={12} /> : <Plus size={12} />}
-                      {newContractExpanded ? "Annuler" : "Créer un contrat nominatif"}
-                    </button>
-                    {newContractExpanded && (
-                      <div className="mt-2 p-3 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
-                        <div className="text-[9px] text-stone-500 italic">
-                          Contrat "à la tâche" automatiquement nommé d'après la pensionnaire.
+                    {!newMemberContractForm ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const slave = citizens.find((c) => c.id === selectedSlaveId);
+                          if (slave) setNewMemberContractForm(buildEmptyContractForm(slave.id, slave.name));
+                        }}
+                        className="w-full py-2 border border-dashed border-stone-300 text-[10px] font-bold uppercase rounded-lg text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600 hover:bg-fuchsia-50 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Plus size={12} /> Créer un contrat nominatif
+                      </button>
+                    ) : (
+                      <div className="p-3 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
+                        {/* Nom */}
+                        <input
+                          className="w-full p-1.5 border rounded text-xs bg-white outline-none focus:border-fuchsia-400"
+                          placeholder="Nom du contrat"
+                          value={newMemberContractForm.name}
+                          onChange={(e) => setNewMemberContractForm({ ...newMemberContractForm, name: e.target.value })}
+                        />
+                        {/* Fréquence + Actif */}
+                        <div className="flex gap-2 items-center">
+                          <select
+                            value={newMemberContractForm.frequency}
+                            onChange={(e) => setNewMemberContractForm({ ...newMemberContractForm, frequency: e.target.value })}
+                            className="flex-1 p-1.5 border rounded text-xs bg-white outline-none focus:border-fuchsia-400"
+                          >
+                            {MAISON_FREQUENCIES.map((f) => (
+                              <option key={f.value} value={f.value}>{f.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => setNewMemberContractForm({ ...newMemberContractForm, active: !newMemberContractForm.active })}
+                            className={`flex items-center gap-1 text-[10px] font-bold ${newMemberContractForm.active ? "text-emerald-600" : "text-stone-400"}`}
+                          >
+                            {newMemberContractForm.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                            {newMemberContractForm.active ? "Actif" : "Inactif"}
+                          </button>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-stone-600 flex-1">Part de la pensionnaire</span>
-                          <input
-                            type="number" min="0" max="100"
-                            value={newContractPercent}
-                            onChange={(e) => setNewContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                            className="w-16 p-1.5 border rounded text-sm text-center font-mono bg-white outline-none focus:border-fuchsia-400"
-                          />
-                          <span className="text-[10px] text-stone-500">%</span>
+                        {/* Montant (si pas à la tâche) */}
+                        {newMemberContractForm.frequency !== "par_tache" && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-stone-500 flex-1">Montant</span>
+                            <input
+                              type="number" min="0"
+                              className="w-20 p-1.5 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                              value={newMemberContractForm.amount}
+                              onChange={(e) => setNewMemberContractForm({ ...newMemberContractForm, amount: parseInt(e.target.value) || 0 })}
+                            />
+                            <span className="text-[10px] text-stone-400">Écus</span>
+                          </div>
+                        )}
+                        {/* Bénéficiaires */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black uppercase text-fuchsia-700 tracking-widest">Bénéficiaires</span>
+                            <span className={`text-[9px] font-bold ${totalNewContractPct === 100 ? "text-emerald-600" : "text-red-500"}`}>
+                              {totalNewContractPct}% / 100%
+                            </span>
+                          </div>
+                          {newMemberContractForm.recipients.map((r, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5">
+                              <span className="flex-1 text-[10px] text-stone-700 truncate">{r.name}</span>
+                              <span className="text-[9px] text-stone-400">{r.type === "CITIZEN" ? "Cit." : "Ent."}</span>
+                              <input
+                                type="number" min="0" max="100"
+                                value={r.percent}
+                                onChange={(e) => {
+                                  const recs = [...newMemberContractForm.recipients];
+                                  recs[idx] = { ...r, percent: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) };
+                                  setNewMemberContractForm({ ...newMemberContractForm, recipients: recs });
+                                }}
+                                className="w-12 p-1 border rounded text-[10px] text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                              />
+                              <span className="text-[10px] text-stone-400">%</span>
+                              <button
+                                onClick={() => setNewMemberContractForm({ ...newMemberContractForm, recipients: newMemberContractForm.recipients.filter((_, i) => i !== idx) })}
+                                className="text-stone-300 hover:text-red-400 transition-colors"
+                              ><X size={10} /></button>
+                            </div>
+                          ))}
+                          {maisonCompanyId && !newMemberContractForm.recipients.find((r) => r.id === maisonCompanyId) && (
+                            <button
+                              onClick={() => {
+                                const maison = companies.find((c) => c.id === maisonCompanyId);
+                                if (maison) setNewMemberContractForm({ ...newMemberContractForm, recipients: [...newMemberContractForm.recipients, { id: maisonCompanyId, name: maison.name, type: "COMPANY", percent: 0 }] });
+                              }}
+                              className="w-full py-1 border border-dashed border-fuchsia-300 text-[10px] text-fuchsia-600 hover:bg-fuchsia-100 rounded transition-colors flex items-center justify-center gap-1"
+                            >
+                              <Plus size={10} /> Ajouter la Maison
+                            </button>
+                          )}
                         </div>
-                        <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - newContractPercent}%</div>
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            onClick={() => setNewMemberContractForm(null)}
+                            className="px-2 py-1 bg-stone-100 text-stone-400 rounded text-[10px] hover:bg-stone-200 flex items-center gap-1"
+                          >
+                            <X size={11} /> Annuler
+                          </button>
+                          {!isNewContractValid && (
+                            <span className="text-[9px] text-red-400 italic">
+                              {totalNewContractPct !== 100 ? `Total: ${totalNewContractPct}% ≠ 100%` : "Nom requis"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </>
@@ -785,99 +897,127 @@ const MaisonDeAsiaAdmin = ({
                             maxLength={500}
                           />
                           {/* Contrat nominatif inline */}
-                          {editContractId ? (
-                            <div className="p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200">
-                              {editContractExpanded ? (
-                                <div className="space-y-2">
-                                  <div className="text-[9px] font-black uppercase text-fuchsia-700 tracking-widest">Modifier le contrat</div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-stone-600 flex-1">Part pensionnaire</span>
-                                    <input
-                                      type="number" min="0" max="100"
-                                      value={editContractPercent}
-                                      onChange={(e) => setEditContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                                      className="w-14 p-1 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
-                                    />
-                                    <span className="text-[10px] text-stone-400">%</span>
-                                  </div>
-                                  <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - Math.max(0, Math.min(100, editContractPercent))}%</div>
-                                  <div className="flex gap-1.5">
-                                    <button
-                                      onClick={() => {
-                                        saveInlineContract(member.id, member.name, editContractPercent, editContractId);
-                                        setEditContractExpanded(false);
-                                      }}
-                                      className="flex-1 bg-fuchsia-900 text-white py-1 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
-                                    >
-                                      <Check size={11} /> Sauver
-                                    </button>
-                                    <button onClick={() => setEditContractExpanded(false)} className="px-2 py-1 bg-stone-100 text-stone-400 rounded text-[10px] hover:bg-stone-200">
-                                      <X size={11} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <div className="text-[9px] font-bold text-fuchsia-700">📄 Contrat actif</div>
-                                    <div className="text-[9px] text-stone-400">{editContractPercent}% pensionnaire · {100 - Math.max(0, Math.min(100, editContractPercent))}% maison</div>
-                                  </div>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => setEditContractExpanded(true)} className="p-1.5 text-stone-400 hover:text-fuchsia-700 rounded transition-colors"><Pencil size={11} /></button>
-                                    <button
-                                      onClick={() => {
-                                        if (typeof onDeleteJobContract === "function") onDeleteJobContract(editContractId);
-                                        setEditContractId("");
-                                        setEditContractExpanded(false);
-                                      }}
-                                      className="p-1.5 text-stone-400 hover:text-red-500 rounded transition-colors"
-                                    >
-                                      <X size={11} />
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <>
+                          <div>
+                            <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Contrat nominatif</div>
+                            {!memberContractForm ? (
                               <button
                                 type="button"
-                                onClick={() => setEditContractExpanded(!editContractExpanded)}
-                                className={`w-full py-1.5 border border-dashed text-[10px] font-bold uppercase rounded transition-colors flex items-center justify-center gap-1 ${
-                                  editContractExpanded
-                                    ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700"
-                                    : "border-stone-300 text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600"
-                                }`}
+                                onClick={() => setMemberContractForm(buildEmptyContractForm(member.id, member.name))}
+                                className="w-full py-1.5 border border-dashed border-stone-300 text-[10px] font-bold uppercase rounded text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600 hover:bg-fuchsia-50 transition-colors flex items-center justify-center gap-1"
                               >
-                                {editContractExpanded ? <X size={11} /> : <Plus size={11} />}
-                                {editContractExpanded ? "Annuler" : "Créer un contrat"}
+                                <Plus size={11} /> {editContractId ? "Modifier le contrat" : "Créer un contrat"}
                               </button>
-                              {editContractExpanded && (
-                                <div className="mt-1.5 p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-stone-600 flex-1">Part pensionnaire</span>
-                                    <input
-                                      type="number" min="0" max="100"
-                                      value={editContractPercent}
-                                      onChange={(e) => setEditContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                                      className="w-14 p-1 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
-                                    />
-                                    <span className="text-[10px] text-stone-400">%</span>
-                                  </div>
-                                  <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - Math.max(0, Math.min(100, editContractPercent))}%</div>
-                                  <button
-                                    onClick={() => {
-                                      const cid = saveInlineContract(member.id, member.name, editContractPercent, null);
-                                      if (cid) { setEditContractId(cid); setEditContractExpanded(false); }
-                                    }}
-                                    className="w-full bg-fuchsia-900 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
+                            ) : (
+                              <div className="p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
+                                {/* Nom */}
+                                <input
+                                  className="w-full p-1.5 border rounded text-xs bg-white outline-none focus:border-fuchsia-400"
+                                  placeholder="Nom du contrat"
+                                  value={memberContractForm.name}
+                                  onChange={(e) => setMemberContractForm({ ...memberContractForm, name: e.target.value })}
+                                />
+                                {/* Fréquence + Actif */}
+                                <div className="flex gap-2 items-center">
+                                  <select
+                                    value={memberContractForm.frequency}
+                                    onChange={(e) => setMemberContractForm({ ...memberContractForm, frequency: e.target.value })}
+                                    className="flex-1 p-1.5 border rounded text-xs bg-white outline-none focus:border-fuchsia-400"
                                   >
-                                    <Check size={12} /> Créer
+                                    {MAISON_FREQUENCIES.map((f) => (
+                                      <option key={f.value} value={f.value}>{f.label}</option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={() => setMemberContractForm({ ...memberContractForm, active: !memberContractForm.active })}
+                                    className={`flex items-center gap-1 text-[10px] font-bold ${memberContractForm.active ? "text-emerald-600" : "text-stone-400"}`}
+                                  >
+                                    {memberContractForm.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                    {memberContractForm.active ? "Actif" : "Inactif"}
                                   </button>
                                 </div>
-                              )}
-                            </>
-                          )}
+                                {/* Montant (si pas à la tâche) */}
+                                {memberContractForm.frequency !== "par_tache" && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-stone-500 flex-1">Montant</span>
+                                    <input
+                                      type="number" min="0"
+                                      className="w-20 p-1.5 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                                      value={memberContractForm.amount}
+                                      onChange={(e) => setMemberContractForm({ ...memberContractForm, amount: parseInt(e.target.value) || 0 })}
+                                    />
+                                    <span className="text-[10px] text-stone-400">Écus</span>
+                                  </div>
+                                )}
+                                {/* Bénéficiaires */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black uppercase text-fuchsia-700 tracking-widest">Bénéficiaires</span>
+                                    <span className={`text-[9px] font-bold ${totalContractPct === 100 ? "text-emerald-600" : "text-red-500"}`}>
+                                      {totalContractPct}% / 100%
+                                    </span>
+                                  </div>
+                                  {memberContractForm.recipients.map((r, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5">
+                                      <span className="flex-1 text-[10px] text-stone-700 truncate">{r.name}</span>
+                                      <span className="text-[9px] text-stone-400">{r.type === "CITIZEN" ? "Cit." : "Ent."}</span>
+                                      <input
+                                        type="number" min="0" max="100"
+                                        value={r.percent}
+                                        onChange={(e) => {
+                                          const recs = [...memberContractForm.recipients];
+                                          recs[idx] = { ...r, percent: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) };
+                                          setMemberContractForm({ ...memberContractForm, recipients: recs });
+                                        }}
+                                        className="w-12 p-1 border rounded text-[10px] text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                                      />
+                                      <span className="text-[10px] text-stone-400">%</span>
+                                      <button
+                                        onClick={() => setMemberContractForm({ ...memberContractForm, recipients: memberContractForm.recipients.filter((_, i) => i !== idx) })}
+                                        className="text-stone-300 hover:text-red-400 transition-colors"
+                                      ><X size={10} /></button>
+                                    </div>
+                                  ))}
+                                  {maisonCompanyId && !memberContractForm.recipients.find((r) => r.id === maisonCompanyId) && (
+                                    <button
+                                      onClick={() => {
+                                        const maison = companies.find((c) => c.id === maisonCompanyId);
+                                        if (maison) setMemberContractForm({ ...memberContractForm, recipients: [...memberContractForm.recipients, { id: maisonCompanyId, name: maison.name, type: "COMPANY", percent: 0 }] });
+                                      }}
+                                      className="w-full py-0.5 border border-dashed border-fuchsia-300 text-[10px] text-fuchsia-600 hover:bg-fuchsia-100 rounded transition-colors flex items-center justify-center gap-1"
+                                    >
+                                      <Plus size={10} /> Ajouter la Maison
+                                    </button>
+                                  )}
+                                </div>
+                                {/* Fermer / Supprimer */}
+                                <div className="flex items-center gap-1.5 pt-1">
+                                  <button
+                                    onClick={() => setMemberContractForm(null)}
+                                    className="px-2 py-1 bg-stone-100 text-stone-400 rounded text-[10px] hover:bg-stone-200 flex items-center gap-1"
+                                  >
+                                    <X size={11} /> Fermer
+                                  </button>
+                                  {editContractId && typeof onDeleteJobContract === "function" && (
+                                    <button
+                                      onClick={() => {
+                                        onDeleteJobContract(editContractId);
+                                        setEditContractId("");
+                                        setMemberContractForm(null);
+                                      }}
+                                      className="px-2 py-1 bg-red-50 text-red-400 rounded text-[10px] hover:bg-red-100 flex items-center gap-1"
+                                    >
+                                      <Trash2 size={11} /> Supprimer
+                                    </button>
+                                  )}
+                                  {!isContractValid && (
+                                    <span className="text-[9px] text-red-400 italic ml-auto">
+                                      {totalContractPct !== 100 ? `${totalContractPct}% ≠ 100%` : "Nom requis"}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => saveEdit(member.id)}
