@@ -24,7 +24,7 @@ import {
   Images,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
-import JobsAdminView from "./JobsAdminView";
+
 
 /* ───────────── Petit composant étoiles (lecture seule) ───────────── */
 const Stars = ({ rating, size = 12 }) => (
@@ -147,7 +147,6 @@ const MaisonDeAsiaAdmin = ({
   const [newStaffPrice, setNewStaffPrice] = useState(50);
   const [newStaffDuration, setNewStaffDuration] = useState("");
   const [newStaffDescription, setNewStaffDescription] = useState("");
-  const [newStaffContractId, setNewStaffContractId] = useState("");
   // Galerie images (ajout)
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newStaffGallery, setNewStaffGallery] = useState([]);
@@ -160,6 +159,12 @@ const MaisonDeAsiaAdmin = ({
   const [editDescription, setEditDescription] = useState("");
   const [editGallery, setEditGallery] = useState([]);
   const [editContractId, setEditContractId] = useState("");
+  const [editContractExpanded, setEditContractExpanded] = useState(false);
+  const [editContractPercent, setEditContractPercent] = useState(80);
+
+  // Ajout : contrat inline lors de l'ajout d'un nouveau membre
+  const [newContractExpanded, setNewContractExpanded] = useState(false);
+  const [newContractPercent, setNewContractPercent] = useState(80);
 
   // Gestion galerie séparée (en dehors du mode edit)
   const [galleryMemberId, setGalleryMemberId] = useState(null);
@@ -171,12 +176,6 @@ const MaisonDeAsiaAdmin = ({
 
   // Filtre avis
   const [reviewFilter, setReviewFilter] = useState("all");
-
-  // Contrats à la tâche disponibles pour lier à un worker
-  const maisonContracts = useMemo(
-    () => (jobs || []).filter((j) => j.frequency === "par_tache"),
-    [jobs]
-  );
 
   // --- FILTRER LES ESCLAVES DISPONIBLES ---
   const availableSlaves = useMemo(() => {
@@ -249,19 +248,23 @@ const MaisonDeAsiaAdmin = ({
     const slaveProfile = citizens.find((c) => c.id === selectedSlaveId);
     if (!slaveProfile) return;
 
+    // Créer un contrat nominatif inline si demandé
+    let contractId = undefined;
+    if (newContractExpanded && typeof onSaveJobContract === "function") {
+      contractId = saveInlineContract(slaveProfile.id, slaveProfile.name, newContractPercent, null);
+    }
+
     const newWorker = {
       id: slaveProfile.id,
       name: slaveProfile.name,
       avatarUrl: slaveProfile.avatarUrl,
       specialty: newStaffSpecialty,
       price: parseInt(newStaffPrice),
-      sessionDuration: newStaffDuration
-        ? parseInt(newStaffDuration)
-        : undefined,
+      sessionDuration: newStaffDuration ? parseInt(newStaffDuration) : undefined,
       specialtyDescription: newStaffDescription || "",
       gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
       isBusy: false,
-      ...(newStaffContractId ? { contractId: newStaffContractId } : {}),
+      ...(contractId ? { contractId } : {}),
     };
 
     onUpdateStaff([...staff, newWorker]);
@@ -270,7 +273,8 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffPrice(50);
     setNewStaffDuration("");
     setNewStaffDescription("");
-    setNewStaffContractId("");
+    setNewContractExpanded(false);
+    setNewContractPercent(80);
     setNewStaffGallery([]);
     setNewImageUrl("");
   };
@@ -291,6 +295,10 @@ const MaisonDeAsiaAdmin = ({
     setEditDescription(member.specialtyDescription || "");
     setEditGallery([...(member.gallery || [])]);
     setEditContractId(member.contractId || "");
+    setEditContractExpanded(false);
+    const existingContract = member.contractId ? (jobs || []).find((j) => j.id === member.contractId) : null;
+    const workerRecipient = existingContract?.recipients?.find((r) => r.id === member.id);
+    setEditContractPercent(workerRecipient?.percent ?? 80);
   };
 
   const cancelEdit = () => {
@@ -301,6 +309,8 @@ const MaisonDeAsiaAdmin = ({
     setEditDescription("");
     setEditGallery([]);
     setEditContractId("");
+    setEditContractExpanded(false);
+    setEditContractPercent(80);
   };
 
   const saveEdit = (id) => {
@@ -376,6 +386,29 @@ const MaisonDeAsiaAdmin = ({
     }
   };
 
+  // --- CONTRAT NOMINATIF INLINE ---
+  const saveInlineContract = (memberId, memberName, percent, existingId) => {
+    if (typeof onSaveJobContract !== "function") return null;
+    const cid = existingId || `JOB-${memberId}-${Date.now().toString().slice(-6)}`;
+    const maison = maisonCompanyId ? companies.find((c) => c.id === maisonCompanyId) : null;
+    const pct = Math.max(0, Math.min(100, percent));
+    const recipients = [{ id: memberId, name: memberName, type: "CITIZEN", percent: pct }];
+    if (maison && 100 - pct > 0) {
+      recipients.push({ id: maisonCompanyId, name: maison.name, type: "COMPANY", percent: 100 - pct });
+    }
+    onSaveJobContract({
+      id: cid,
+      name: `Contrat — ${memberName}`,
+      active: true,
+      amount: 0,
+      frequency: "par_tache",
+      source: maison ? { type: "COMPANY", id: maisonCompanyId } : { type: "GLOBAL", id: "" },
+      sourceName: maison?.name || "Trésor Impérial",
+      recipients,
+    });
+    return cid;
+  };
+
   // --- TABS DEFINITION ---
   const tabs = [
     { id: "staff", label: "Pensionnaires", icon: Heart, count: staff.length },
@@ -392,7 +425,6 @@ const MaisonDeAsiaAdmin = ({
       count: maisonReviews.length,
     },
     { id: "finances", label: "Finances", icon: Wallet },
-    { id: "contrats", label: "Contrats", icon: Building2, count: jobs.length },
   ];
 
   return (
@@ -607,26 +639,47 @@ const MaisonDeAsiaAdmin = ({
                 </div>
               </div>
 
-              {/* Contrat de rémunération (optionnel) */}
+              {/* Contrat nominatif (optionnel) */}
               <div className="mt-3">
                 <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
-                  Contrat de rémunération (optionnel)
+                  Contrat nominatif (optionnel)
                 </label>
-                <select
-                  className="w-full p-2.5 border rounded-lg text-sm bg-stone-50 outline-none focus:border-fuchsia-500"
-                  value={newStaffContractId}
-                  onChange={(e) => setNewStaffContractId(e.target.value)}
-                >
-                  <option value="">— Aucun contrat (split 80/20 par défaut) —</option>
-                  {maisonContracts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} — {(c.recipients || []).map((r) => `${r.name} ${r.percent}%`).join(", ")}
-                    </option>
-                  ))}
-                </select>
-                {maisonContracts.length === 0 && (
-                  <p className="text-[10px] text-stone-400 italic mt-1">
-                    Aucun contrat "À la tâche" créé. Allez dans l'onglet Contrats pour en créer un.
+                {selectedSlaveId ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setNewContractExpanded(!newContractExpanded)}
+                      className={`w-full py-2 border border-dashed text-[10px] font-bold uppercase rounded-lg transition-colors flex items-center justify-center gap-1 ${
+                        newContractExpanded
+                          ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700"
+                          : "border-stone-300 text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600 hover:bg-fuchsia-50"
+                      }`}
+                    >
+                      {newContractExpanded ? <X size={12} /> : <Plus size={12} />}
+                      {newContractExpanded ? "Annuler" : "Créer un contrat nominatif"}
+                    </button>
+                    {newContractExpanded && (
+                      <div className="mt-2 p-3 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
+                        <div className="text-[9px] text-stone-500 italic">
+                          Contrat "à la tâche" automatiquement nommé d'après la pensionnaire.
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] text-stone-600 flex-1">Part de la pensionnaire</span>
+                          <input
+                            type="number" min="0" max="100"
+                            value={newContractPercent}
+                            onChange={(e) => setNewContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                            className="w-16 p-1.5 border rounded text-sm text-center font-mono bg-white outline-none focus:border-fuchsia-400"
+                          />
+                          <span className="text-[10px] text-stone-500">%</span>
+                        </div>
+                        <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - newContractPercent}%</div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[10px] text-stone-400 italic py-1.5">
+                    Sélectionnez d'abord une pensionnaire pour créer un contrat.
                   </p>
                 )}
               </div>
