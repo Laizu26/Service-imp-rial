@@ -182,13 +182,6 @@ const MaisonDeAsiaAdmin = ({
   const [editDuration, setEditDuration] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editGallery, setEditGallery] = useState([]);
-  const [editContractId, setEditContractId] = useState("");
-  const [editContractExpanded, setEditContractExpanded] = useState(false);
-  const [editContractPercent, setEditContractPercent] = useState(80);
-
-  // Ajout : contrat inline lors de l'ajout d'un nouveau membre
-  const [newContractExpanded, setNewContractExpanded] = useState(false);
-  const [newContractPercent, setNewContractPercent] = useState(80);
 
   // Gestion onglet Contrats
   const [contractForm, setContractForm] = useState(null);
@@ -276,12 +269,6 @@ const MaisonDeAsiaAdmin = ({
     const slaveProfile = citizens.find((c) => c.id === selectedSlaveId);
     if (!slaveProfile) return;
 
-    // Créer un contrat nominatif inline si demandé
-    let contractId = undefined;
-    if (newContractExpanded && typeof onSaveJobContract === "function") {
-      contractId = saveInlineContract(slaveProfile.id, slaveProfile.name, newContractPercent, null);
-    }
-
     const newWorker = {
       id: slaveProfile.id,
       name: slaveProfile.name,
@@ -292,7 +279,6 @@ const MaisonDeAsiaAdmin = ({
       specialtyDescription: newStaffDescription || "",
       gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
       isBusy: false,
-      ...(contractId ? { contractId } : {}),
     };
 
     onUpdateStaff([...staff, newWorker]);
@@ -301,8 +287,6 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffPrice(50);
     setNewStaffDuration("");
     setNewStaffDescription("");
-    setNewContractExpanded(false);
-    setNewContractPercent(80);
     setNewStaffGallery([]);
     setNewImageUrl("");
   };
@@ -322,11 +306,6 @@ const MaisonDeAsiaAdmin = ({
     setEditDuration(String(member.sessionDuration || ""));
     setEditDescription(member.specialtyDescription || "");
     setEditGallery([...(member.gallery || [])]);
-    setEditContractId(member.contractId || "");
-    setEditContractExpanded(false);
-    const existingContract = member.contractId ? (jobs || []).find((j) => j.id === member.contractId) : null;
-    const workerRecipient = existingContract?.recipients?.find((r) => r.id === member.id);
-    setEditContractPercent(workerRecipient?.percent ?? 80);
   };
 
   const cancelEdit = () => {
@@ -336,9 +315,6 @@ const MaisonDeAsiaAdmin = ({
     setEditDuration("");
     setEditDescription("");
     setEditGallery([]);
-    setEditContractId("");
-    setEditContractExpanded(false);
-    setEditContractPercent(80);
   };
 
   const saveEdit = (id) => {
@@ -351,7 +327,6 @@ const MaisonDeAsiaAdmin = ({
             sessionDuration: editDuration ? parseInt(editDuration) : undefined,
             specialtyDescription: editDescription,
             gallery: editGallery,
-            contractId: editContractId || undefined,
           }
         : s
     );
@@ -414,29 +389,6 @@ const MaisonDeAsiaAdmin = ({
     }
   };
 
-  // --- CONTRAT NOMINATIF INLINE ---
-  const saveInlineContract = (memberId, memberName, percent, existingId) => {
-    if (typeof onSaveJobContract !== "function") return null;
-    const cid = existingId || `JOB-${memberId}-${Date.now().toString().slice(-6)}`;
-    const maison = maisonCompanyId ? companies.find((c) => c.id === maisonCompanyId) : null;
-    const pct = Math.max(0, Math.min(100, percent));
-    const recipients = [{ id: memberId, name: memberName, type: "CITIZEN", percent: pct }];
-    if (maison && 100 - pct > 0) {
-      recipients.push({ id: maisonCompanyId, name: maison.name, type: "COMPANY", percent: 100 - pct });
-    }
-    onSaveJobContract({
-      id: cid,
-      name: `Contrat — ${memberName}`,
-      active: true,
-      amount: 0,
-      frequency: "par_tache",
-      source: maison ? { type: "COMPANY", id: maisonCompanyId } : { type: "GLOBAL", id: "" },
-      sourceName: maison?.name || "Trésor Impérial",
-      recipients,
-    });
-    return cid;
-  };
-
   // --- TABS DEFINITION ---
   const tabs = [
     { id: "staff", label: "Pensionnaires", icon: Heart, count: staff.length },
@@ -464,54 +416,58 @@ const MaisonDeAsiaAdmin = ({
   return (
     <div className="h-full flex flex-col bg-stone-100 rounded-xl overflow-hidden border border-stone-300 font-sans">
       {/* HEADER */}
-      <div className="bg-fuchsia-900 text-white p-6 shadow-md z-10 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-fuchsia-800 rounded-lg border border-fuchsia-600 shadow-inner">
-            <Gem size={24} className="text-fuchsia-200" />
+      <div className="bg-fuchsia-900 text-white shadow-md z-10">
+        <div className="px-6 pt-5 pb-3 flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-fuchsia-800 rounded-lg border border-fuchsia-600 shadow-inner">
+              <Gem size={24} className="text-fuchsia-200" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black uppercase tracking-widest text-white">
+                Maison Asia
+              </h2>
+              <p className="text-xs text-fuchsia-300 font-mono">
+                Administration
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-black uppercase tracking-widest text-white">
-              Maison Asia
-            </h2>
-            <p className="text-xs text-fuchsia-300 font-mono">
-              Administration
-            </p>
-          </div>
-        </div>
-
-        {/* TABS */}
-        <div className="flex bg-fuchsia-950/50 rounded-lg p-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all ${
-                activeTab === tab.id
-                  ? "bg-white text-fuchsia-900 shadow"
-                  : "text-fuchsia-300 hover:text-white"
-              }`}
-            >
-              <tab.icon size={14} /> {tab.label}
-              {tab.count !== undefined && (
-                <span
-                  className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] ${
-                    activeTab === tab.id
-                      ? "bg-fuchsia-100 text-fuchsia-700"
-                      : "bg-fuchsia-800 text-fuchsia-300"
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
           <button
             onClick={handlePurge}
-            className="px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all text-red-300 hover:text-white hover:bg-red-600/50 ml-2"
+            className="px-3 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all text-red-300 hover:text-white hover:bg-red-600/50"
             title="Purger toutes les données de la Maison"
           >
             <Trash2 size={14} /> Purger
           </button>
+        </div>
+
+        {/* TABS — scrollable */}
+        <div className="overflow-x-auto px-4 pb-2">
+          <div className="flex bg-fuchsia-950/50 rounded-lg p-1 min-w-max">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "bg-white text-fuchsia-900 shadow"
+                    : "text-fuchsia-300 hover:text-white"
+                }`}
+              >
+                <tab.icon size={14} /> {tab.label}
+                {tab.count !== undefined && (
+                  <span
+                    className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] ${
+                      activeTab === tab.id
+                        ? "bg-fuchsia-100 text-fuchsia-700"
+                        : "bg-fuchsia-800 text-fuchsia-300"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -673,51 +629,6 @@ const MaisonDeAsiaAdmin = ({
                 </div>
               </div>
 
-              {/* Contrat nominatif (optionnel) */}
-              <div className="mt-3">
-                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
-                  Contrat nominatif (optionnel)
-                </label>
-                {selectedSlaveId ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setNewContractExpanded(!newContractExpanded)}
-                      className={`w-full py-2 border border-dashed text-[10px] font-bold uppercase rounded-lg transition-colors flex items-center justify-center gap-1 ${
-                        newContractExpanded
-                          ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700"
-                          : "border-stone-300 text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600 hover:bg-fuchsia-50"
-                      }`}
-                    >
-                      {newContractExpanded ? <X size={12} /> : <Plus size={12} />}
-                      {newContractExpanded ? "Annuler" : "Créer un contrat nominatif"}
-                    </button>
-                    {newContractExpanded && (
-                      <div className="mt-2 p-3 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
-                        <div className="text-[9px] text-stone-500 italic">
-                          Contrat "à la tâche" automatiquement nommé d'après la pensionnaire.
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-stone-600 flex-1">Part de la pensionnaire</span>
-                          <input
-                            type="number" min="0" max="100"
-                            value={newContractPercent}
-                            onChange={(e) => setNewContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                            className="w-16 p-1.5 border rounded text-sm text-center font-mono bg-white outline-none focus:border-fuchsia-400"
-                          />
-                          <span className="text-[10px] text-stone-500">%</span>
-                        </div>
-                        <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - newContractPercent}%</div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-[10px] text-stone-400 italic py-1.5">
-                    Sélectionnez d'abord une pensionnaire pour créer un contrat.
-                  </p>
-                )}
-              </div>
-
               <button
                 onClick={handleAddStaff}
                 disabled={!selectedSlaveId || !newStaffSpecialty}
@@ -818,100 +729,6 @@ const MaisonDeAsiaAdmin = ({
                             placeholder="Description détaillée..."
                             maxLength={500}
                           />
-                          {/* Contrat nominatif inline */}
-                          {editContractId ? (
-                            <div className="p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200">
-                              {editContractExpanded ? (
-                                <div className="space-y-2">
-                                  <div className="text-[9px] font-black uppercase text-fuchsia-700 tracking-widest">Modifier le contrat</div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-stone-600 flex-1">Part pensionnaire</span>
-                                    <input
-                                      type="number" min="0" max="100"
-                                      value={editContractPercent}
-                                      onChange={(e) => setEditContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                                      className="w-14 p-1 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
-                                    />
-                                    <span className="text-[10px] text-stone-400">%</span>
-                                  </div>
-                                  <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - Math.max(0, Math.min(100, editContractPercent))}%</div>
-                                  <div className="flex gap-1.5">
-                                    <button
-                                      onClick={() => {
-                                        saveInlineContract(member.id, member.name, editContractPercent, editContractId);
-                                        setEditContractExpanded(false);
-                                      }}
-                                      className="flex-1 bg-fuchsia-900 text-white py-1 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
-                                    >
-                                      <Check size={11} /> Sauver
-                                    </button>
-                                    <button onClick={() => setEditContractExpanded(false)} className="px-2 py-1 bg-stone-100 text-stone-400 rounded text-[10px] hover:bg-stone-200">
-                                      <X size={11} />
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <div className="text-[9px] font-bold text-fuchsia-700">📄 Contrat actif</div>
-                                    <div className="text-[9px] text-stone-400">{editContractPercent}% pensionnaire · {100 - Math.max(0, Math.min(100, editContractPercent))}% maison</div>
-                                  </div>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => setEditContractExpanded(true)} className="p-1.5 text-stone-400 hover:text-fuchsia-700 rounded transition-colors"><Pencil size={11} /></button>
-                                    <button
-                                      onClick={() => {
-                                        if (typeof onDeleteJobContract === "function") onDeleteJobContract(editContractId);
-                                        setEditContractId("");
-                                        setEditContractExpanded(false);
-                                      }}
-                                      className="p-1.5 text-stone-400 hover:text-red-500 rounded transition-colors"
-                                    >
-                                      <X size={11} />
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setEditContractExpanded(!editContractExpanded)}
-                                className={`w-full py-1.5 border border-dashed text-[10px] font-bold uppercase rounded transition-colors flex items-center justify-center gap-1 ${
-                                  editContractExpanded
-                                    ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700"
-                                    : "border-stone-300 text-stone-400 hover:border-fuchsia-300 hover:text-fuchsia-600"
-                                }`}
-                              >
-                                {editContractExpanded ? <X size={11} /> : <Plus size={11} />}
-                                {editContractExpanded ? "Annuler" : "Créer un contrat"}
-                              </button>
-                              {editContractExpanded && (
-                                <div className="mt-1.5 p-2 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-stone-600 flex-1">Part pensionnaire</span>
-                                    <input
-                                      type="number" min="0" max="100"
-                                      value={editContractPercent}
-                                      onChange={(e) => setEditContractPercent(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
-                                      className="w-14 p-1 border rounded text-xs text-center font-mono bg-white outline-none focus:border-fuchsia-400"
-                                    />
-                                    <span className="text-[10px] text-stone-400">%</span>
-                                  </div>
-                                  <div className="text-[9px] text-fuchsia-600 font-bold">Maison : {100 - Math.max(0, Math.min(100, editContractPercent))}%</div>
-                                  <button
-                                    onClick={() => {
-                                      const cid = saveInlineContract(member.id, member.name, editContractPercent, null);
-                                      if (cid) { setEditContractId(cid); setEditContractExpanded(false); }
-                                    }}
-                                    className="w-full bg-fuchsia-900 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"
-                                  >
-                                    <Check size={12} /> Créer
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          )}
                           <div className="flex gap-1.5">
                             <button
                               onClick={() => saveEdit(member.id)}
@@ -1579,12 +1396,24 @@ const MaisonDeAsiaAdmin = ({
             (c) => c.source?.id === maisonCompanyId
           );
 
-          // Pool des bénéficiaires : pensionnaires + trésorerie de la maison
+          // Pool des bénéficiaires : pensionnaires en tête, puis tous les
+          // citoyens, puis toutes les entreprises (propriétaires externes inclus)
+          const staffIds = new Set(staff.map((s) => s.id));
           const workerPool = [
-            ...staff.map((s) => ({ id: s.id, type: "CITIZEN", name: s.name })),
-            ...(linkedCompany
-              ? [{ id: maisonCompanyId, type: "COMPANY", name: linkedCompany.name + " (trésorerie)" }]
-              : []),
+            // Pensionnaires en premier
+            ...staff.map((s) => ({ id: s.id, type: "CITIZEN", name: s.name + " (pensionnaire)" })),
+            // Tous les autres citoyens
+            ...(citizens || [])
+              .filter((c) => !staffIds.has(c.id))
+              .map((c) => ({ id: c.id, type: "CITIZEN", name: c.name })),
+            // Toutes les entreprises
+            ...(companies || []).map((c) => ({
+              id: c.id,
+              type: "COMPANY",
+              name: c.id === maisonCompanyId
+                ? c.name + " (trésorerie Maison)"
+                : c.name + " (entreprise)",
+            })),
           ];
 
           const form = contractForm;
@@ -1889,7 +1718,7 @@ const MaisonDeAsiaAdmin = ({
                                   </button>
                                 ))}
                               {workerPool.filter((w) => !form.recipients.some((r) => r.id === w.id)).length === 0 && (
-                                <p className="text-xs text-stone-400 italic text-center py-2">Toutes les pensionnaires sont déjà ajoutées.</p>
+                                <p className="text-xs text-stone-400 italic text-center py-2">Tous les bénéficiaires disponibles sont déjà ajoutés.</p>
                               )}
                             </div>
                           </div>
