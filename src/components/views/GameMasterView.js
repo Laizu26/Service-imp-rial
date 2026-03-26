@@ -327,6 +327,37 @@ const BAGUE_RESTRICTIONS_CONFIG = [
   { id: "douleurs",      label: "Douleurs diffuses inexpliquées",   desc: "Douleurs sans traumatisme apparent." },
 ];
 
+// États temporaires gérés par les MJs (visibles côté joueur)
+const STATUS_EFFECTS_CONFIG = {
+  physique: [
+    { id: "fatigue_legere",   label: "Fatigué(e)",              icon: "😴", desc: "Légère fatigue, manque d'énergie.",                     badge: "bg-stone-100 text-stone-700 border-stone-300" },
+    { id: "emeche",           label: "Éméché(e)",               icon: "🍷", desc: "Légèrement sous l'effet de l'alcool.",                  badge: "bg-rose-100 text-rose-700 border-rose-300" },
+    { id: "alcoolise",        label: "Alcoolisé(e)",            icon: "🍺", desc: "Ivre, coordination et jugement altérés.",                badge: "bg-amber-100 text-amber-800 border-amber-300" },
+    { id: "ovulation",        label: "En ovulation",            icon: "🌸", desc: "Période fertile active.",                               badge: "bg-pink-100 text-pink-700 border-pink-300" },
+    { id: "enceinte",         label: "Enceinte",                icon: "🤰", desc: "Grossesse en cours.",                                   badge: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300" },
+    { id: "enrhume",          label: "Enrhumé(e)",              icon: "🤧", desc: "Rhume ou infection légère des voies respiratoires.",    badge: "bg-blue-100 text-blue-700 border-blue-300" },
+    { id: "fievre",           label: "Fièvre",                  icon: "🌡️", desc: "Température élevée, état fébrile.",                     badge: "bg-orange-100 text-orange-800 border-orange-300" },
+    { id: "empoisonne",       label: "Empoisonné(e)",           icon: "☠️", desc: "Présence d'un poison dans l'organisme.",                badge: "bg-green-100 text-green-800 border-green-300" },
+    { id: "sous_drogue",      label: "Sous substance",          icon: "💊", desc: "Sous l'emprise d'une substance altérante.",             badge: "bg-violet-100 text-violet-800 border-violet-300" },
+    { id: "affaibli",         label: "Affaibli(e)",             icon: "😓", desc: "Force physique réduite, état de faiblesse générale.",   badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    { id: "en_rut",           label: "En rut / en chaleur",     icon: "🔥", desc: "État de pulsion physiologique intense.",                badge: "bg-red-100 text-red-700 border-red-300" },
+    { id: "blessure_cachee",  label: "Blessure interne",        icon: "🩸", desc: "Blessure interne non apparente, douleur sourde.",       badge: "bg-red-100 text-red-800 border-red-300" },
+    { id: "paralysie",        label: "Paralysé(e)",             icon: "🧊", desc: "Incapacité partielle ou totale à se mouvoir.",          badge: "bg-cyan-100 text-cyan-800 border-cyan-300" },
+  ],
+  magique: [
+    { id: "sous_charme",      label: "Sous charme",             icon: "✨", desc: "Sous l'effet d'un sort de charme ou d'attrait.",        badge: "bg-pink-100 text-pink-700 border-pink-300" },
+    { id: "envoute",          label: "Envoûté(e)",              icon: "🔮", desc: "Esprit influencé par une magie externe.",                badge: "bg-purple-100 text-purple-800 border-purple-300" },
+    { id: "malediction",      label: "Sous malédiction",        icon: "💀", desc: "Affecté(e) par une malédiction active.",                badge: "bg-slate-100 text-slate-800 border-slate-300" },
+    { id: "beni",             label: "Béni(e)",                 icon: "⭐", desc: "Protection ou faveur divine en cours.",                  badge: "bg-amber-100 text-amber-700 border-amber-300" },
+    { id: "transformation",   label: "En transformation",       icon: "🐺", desc: "Processus de métamorphose physique actif.",              badge: "bg-orange-100 text-orange-800 border-orange-300" },
+    { id: "possede",          label: "Possédé(e)",              icon: "👻", desc: "Entité extérieure exerçant une influence sur l'hôte.",   badge: "bg-indigo-100 text-indigo-800 border-indigo-300" },
+    { id: "lien_magique",     label: "Lié(e) magiquement",      icon: "🔗", desc: "Lien magique actif avec une personne ou un objet.",      badge: "bg-teal-100 text-teal-800 border-teal-300" },
+    { id: "surcharge_mana",   label: "Surcharge de mana",       icon: "⚡", desc: "Excès d'énergie magique, instabilité des sorts.",        badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    { id: "manque_mana",      label: "Manque de mana",          icon: "🌑", desc: "Réserves magiques épuisées, incapacité à lancer des sorts.", badge: "bg-gray-100 text-gray-700 border-gray-300" },
+    { id: "vision_magique",   label: "Vision altérée (magie)",  icon: "👁️", desc: "Perception du monde altérée par un effet magique.",      badge: "bg-violet-100 text-violet-700 border-violet-300" },
+  ],
+};
+
 const GMAccounts = ({ state, onUpdateState, notify, session }) => {
   const [view, setView] = useState("list");
   const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
@@ -385,7 +416,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
   const startEdit = (c) => {
     setEditingId(c.id);
     const bd = c.birthDate || ageToBirthDate(c.age, gd);
-    setEditForm({ name: c.name, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif", bagueImperiale: c.bagueImperiale || false, bagueRestrictions: c.bagueRestrictions || [] });
+    setEditForm({ name: c.name, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif", bagueImperiale: c.bagueImperiale || false, bagueRestrictions: c.bagueRestrictions || [], statusEffects: c.statusEffects || [] });
   };
 
   const saveEdit = () => {
@@ -403,6 +434,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
             password: editForm.password || c.password,
             balance: parseInt(editForm.balance),
             occupation: editForm.occupation, status: editForm.status,
+            statusEffects: editForm.statusEffects || [],
             ...(isEmperor && {
               bagueImperiale: editForm.bagueImperiale || false,
               bagueRestrictions: editForm.bagueImperiale ? (editForm.bagueRestrictions || []) : [],
@@ -651,6 +683,56 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                           )}
                         </div>
                       )}
+
+                      {/* ── ÉTATS DU PERSONNAGE — Physique & Magique ── */}
+                      <div className="border-t border-stone-800 pt-3 mt-1">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-base">🎭</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">États du personnage</span>
+                        </div>
+                        <div className="space-y-3">
+                          {[
+                            { key: "physique", label: "Physiques", icon: "💪" },
+                            { key: "magique",  label: "Magiques",  icon: "✨" },
+                          ].map(({ key, label, icon }) => (
+                            <div key={key} className="bg-stone-950/60 border border-stone-800 rounded-lg p-3">
+                              <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1">
+                                <span>{icon}</span> {label}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {STATUS_EFFECTS_CONFIG[key].map((eff) => {
+                                  const active = (editForm.statusEffects || []).includes(eff.id);
+                                  return (
+                                    <button
+                                      key={eff.id}
+                                      type="button"
+                                      title={eff.desc}
+                                      onClick={() => {
+                                        const current = editForm.statusEffects || [];
+                                        const next = active ? current.filter((x) => x !== eff.id) : [...current, eff.id];
+                                        setEditForm({ ...editForm, statusEffects: next });
+                                      }}
+                                      className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-bold transition-all ${
+                                        active
+                                          ? "bg-red-900/60 border-red-700 text-red-300 ring-1 ring-red-600"
+                                          : "bg-stone-900 border-stone-700 text-stone-500 hover:text-stone-300 hover:border-stone-500"
+                                      }`}
+                                    >
+                                      <span>{eff.icon}</span>
+                                      <span>{eff.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {(editForm.statusEffects || []).length > 0 && (
+                          <div className="mt-2 text-[9px] text-stone-500">
+                            {(editForm.statusEffects || []).length} état{(editForm.statusEffects || []).length > 1 ? "s" : ""} actif{(editForm.statusEffects || []).length > 1 ? "s" : ""} — visibles dans la fiche physique/magie du personnage.
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-2 pt-1">
                         <BtnPrimary onClick={saveEdit} className="flex-1"><Save size={14} /> Sauvegarder</BtnPrimary>

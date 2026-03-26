@@ -40,6 +40,37 @@ const BAGUE_CONDITIONS = [
   },
 ];
 
+// ===== ÉTATS DU PERSONNAGE (physique + magique) =====
+const STATUS_EFFECTS = {
+  physique: [
+    { id: "fatigue_legere",  label: "Fatigué(e)",            icon: "😴", badge: "bg-stone-100 text-stone-700 border-stone-300" },
+    { id: "emeche",          label: "Éméché(e)",             icon: "🍷", badge: "bg-rose-100 text-rose-700 border-rose-300" },
+    { id: "alcoolise",       label: "Alcoolisé(e)",          icon: "🍺", badge: "bg-amber-100 text-amber-800 border-amber-300" },
+    { id: "ovulation",       label: "En ovulation",          icon: "🌸", badge: "bg-pink-100 text-pink-700 border-pink-300" },
+    { id: "enceinte",        label: "Enceinte",              icon: "🤰", badge: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-300" },
+    { id: "enrhume",         label: "Enrhumé(e)",            icon: "🤧", badge: "bg-blue-100 text-blue-700 border-blue-300" },
+    { id: "fievre",          label: "Fièvre",                icon: "🌡️", badge: "bg-orange-100 text-orange-800 border-orange-300" },
+    { id: "empoisonne",      label: "Empoisonné(e)",         icon: "☠️", badge: "bg-green-100 text-green-800 border-green-300" },
+    { id: "sous_drogue",     label: "Sous substance",        icon: "💊", badge: "bg-violet-100 text-violet-800 border-violet-300" },
+    { id: "affaibli",        label: "Affaibli(e)",           icon: "😓", badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    { id: "en_rut",          label: "En rut / en chaleur",   icon: "🔥", badge: "bg-red-100 text-red-700 border-red-300" },
+    { id: "blessure_cachee", label: "Blessure interne",      icon: "🩸", badge: "bg-red-100 text-red-800 border-red-300" },
+    { id: "paralysie",       label: "Paralysé(e)",           icon: "🧊", badge: "bg-cyan-100 text-cyan-800 border-cyan-300" },
+  ],
+  magique: [
+    { id: "sous_charme",     label: "Sous charme",           icon: "✨", badge: "bg-pink-100 text-pink-700 border-pink-300" },
+    { id: "envoute",         label: "Envoûté(e)",            icon: "🔮", badge: "bg-purple-100 text-purple-800 border-purple-300" },
+    { id: "malediction",     label: "Sous malédiction",      icon: "💀", badge: "bg-slate-100 text-slate-800 border-slate-300" },
+    { id: "beni",            label: "Béni(e)",               icon: "⭐", badge: "bg-amber-100 text-amber-700 border-amber-300" },
+    { id: "transformation",  label: "En transformation",     icon: "🐺", badge: "bg-orange-100 text-orange-800 border-orange-300" },
+    { id: "possede",         label: "Possédé(e)",            icon: "👻", badge: "bg-indigo-100 text-indigo-800 border-indigo-300" },
+    { id: "lien_magique",    label: "Lié(e) magiquement",    icon: "🔗", badge: "bg-teal-100 text-teal-800 border-teal-300" },
+    { id: "surcharge_mana",  label: "Surcharge de mana",     icon: "⚡", badge: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    { id: "manque_mana",     label: "Manque de mana",        icon: "🌑", badge: "bg-gray-100 text-gray-700 border-gray-300" },
+    { id: "vision_magique",  label: "Vision altérée (magie)",icon: "👁️", badge: "bg-violet-100 text-violet-700 border-violet-300" },
+  ],
+};
+
 // ===== ZONES DU CORPS =====
 const BODY_ZONES = [
   { id: "tete",         label: "Tête",              desc: "Crâne, mâchoire, cerveau, yeux" },
@@ -314,6 +345,10 @@ const CitizenPhysicsMagicView = ({ user }) => {
   const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
   const injuredCount  = BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").length;
 
+  const activeStatusIds   = user?.statusEffects || [];
+  const activePhysical    = STATUS_EFFECTS.physique.filter((e) => activeStatusIds.includes(e.id));
+  const activeMagical     = STATUS_EFFECTS.magique.filter((e) => activeStatusIds.includes(e.id));
+
   // Restrictions bague (source volontairement masquée)
   const bagueRestrictions = user?.bagueRestrictions || [];
   const magieCoupee = bagueRestrictions.includes("magie_coupee");
@@ -500,6 +535,23 @@ const CitizenPhysicsMagicView = ({ user }) => {
               </div>
             </div>
 
+            {/* États physiques actifs */}
+            {activePhysical.length > 0 && (
+              <div className="pt-3 border-t border-stone-200">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1">
+                  <span>💪</span> États physiques
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {activePhysical.map((eff) => (
+                    <span key={eff.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold ${eff.badge}`}>
+                      <span>{eff.icon}</span>
+                      {eff.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Légende */}
             <div className="pt-3 border-t border-stone-200">
               <p className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Légende</p>
@@ -590,6 +642,23 @@ const CitizenPhysicsMagicView = ({ user }) => {
                 </>
               )}
             </div>
+
+            {/* États magiques actifs */}
+            {activeMagical.length > 0 && (
+              <div className="w-full max-w-sm px-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2 text-center flex items-center justify-center gap-1">
+                  <Sparkles size={10} /> États magiques
+                </h4>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {activeMagical.map((eff) => (
+                    <span key={eff.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold ${eff.badge}`}>
+                      <span>{eff.icon}</span>
+                      {eff.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
