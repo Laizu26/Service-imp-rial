@@ -23,6 +23,7 @@ const RegistryView = ({
   citizens,
   countries,
   catalog,
+  families = [],
   session,
   onSave,
   onDelete,
@@ -353,17 +354,34 @@ const RegistryView = ({
                       </div>
                     </div>
 
-                    {/* Nom Complet */}
-                    <div className="col-span-1 md:col-span-2 space-y-1">
+                    {/* Prénom + Nom de famille */}
+                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
-                        Nom Complet
+                        Prénom
                       </label>
                       <input
                         className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
-                        value={editForm.name}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, name: e.target.value })
-                        }
+                        value={editForm.firstName || (editForm.name || "").split(" ")[0] || ""}
+                        onChange={(e) => {
+                          const firstName = e.target.value;
+                          const lastName = editForm.lastName || (editForm.name || "").split(" ").slice(1).join(" ") || "";
+                          setEditForm({ ...editForm, firstName, lastName, name: [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Nom de famille
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                        value={editForm.lastName || (editForm.name || "").split(" ").slice(1).join(" ") || ""}
+                        onChange={(e) => {
+                          const lastName = e.target.value;
+                          const firstName = editForm.firstName || (editForm.name || "").split(" ")[0] || "";
+                          setEditForm({ ...editForm, lastName, firstName, name: [firstName.trim(), lastName.trim()].filter(Boolean).join(" ") });
+                        }}
+                        placeholder="(optionnel)"
                       />
                     </div>
 
@@ -911,6 +929,29 @@ const RegistryView = ({
                           )}
                         </div>
                       )}
+                      {(() => {
+                        const fam = families.find((f) => {
+                          const byName = selected.lastName && f.lastName && selected.lastName.toLowerCase() === f.lastName.toLowerCase();
+                          const byExtra = (f.extraMemberIds || []).includes(selected.id);
+                          return byName || byExtra;
+                        });
+                        if (!fam) return null;
+                        const displayName = fam.type === "noble"
+                          ? (fam.dynastyName ? `Maison ${fam.houseName || fam.lastName} — Dynastie ${fam.dynastyName}` : `Maison ${fam.houseName || fam.lastName}`)
+                          : `Famille ${fam.lastName}`;
+                        return (
+                          <div className="pt-1">
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">Famille</span>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest border ${
+                              fam.type === "noble"
+                                ? "bg-yellow-50 text-yellow-800 border-yellow-300"
+                                : "bg-stone-100 text-stone-700 border-stone-200"
+                            }`}>
+                              {fam.coat || (fam.type === "noble" ? "⚜️" : "🏠")} {displayName}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </Card>
                   <Card

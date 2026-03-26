@@ -781,6 +781,7 @@ export default function App() {
                       citizens={state.citizens}
                       countries={state.countries}
                       catalog={state.inventoryCatalog}
+                      families={state.families || []}
                       session={session}
                       roleInfo={roleInfo}
                       gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
