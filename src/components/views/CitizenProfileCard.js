@@ -67,7 +67,16 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-xl font-black text-stone-800 font-serif">{citizen.name}</h3>
+                <h3 className="text-xl font-black text-stone-800 font-serif">
+                  {citizen.firstName ? (
+                    <>
+                      <span className="font-medium">{citizen.firstName}</span>
+                      {citizen.lastName && <span className="ml-1 uppercase tracking-wide">{citizen.lastName}</span>}
+                    </>
+                  ) : (
+                    citizen.name
+                  )}
+                </h3>
                 <span className="text-xs text-stone-400 font-mono">#{citizen.id}</span>
               </div>
               {citizen.title && (

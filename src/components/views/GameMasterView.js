@@ -366,7 +366,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
   const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
   const defaultBirth = { day: 1, month: 1, year: gd.year - 20 };
   const [form, setForm] = useState({
-    name: "", birthDay: 1, birthMonth: 1, birthYear: gd.year - 20, role: "CITOYEN",
+    firstName: "", lastName: "", birthDay: 1, birthMonth: 1, birthYear: gd.year - 20, role: "CITOYEN",
     countryId: state.countries?.[0]?.id || "C1",
     password: "", balance: 100, occupation: "", status: "Actif",
   });
@@ -395,15 +395,16 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
   };
 
   const handleCreate = () => {
-    if (!form.name.trim()) { notify("Le nom est requis.", "error"); return; }
+    if (!form.firstName.trim()) { notify("Le prénom est requis.", "error"); return; }
     if (!form.password.trim()) { notify("Le mot de passe est requis.", "error"); return; }
-    if (safeCitizens.find((c) => c.name.toLowerCase() === form.name.trim().toLowerCase())) {
+    const fullName = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(" ");
+    if (safeCitizens.find((c) => c.name.toLowerCase() === fullName.toLowerCase())) {
       notify("Ce nom existe deja.", "error"); return;
     }
     const birthDate = { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) };
     const newId = generateId();
     const newCitizen = {
-      id: newId, name: form.name.trim(), birthDate,
+      id: newId, firstName: form.firstName.trim(), lastName: form.lastName.trim(), name: fullName, birthDate,
       role: form.role, countryId: form.countryId, locationCountryId: form.countryId,
       password: form.password, balance: parseInt(form.balance) || 0,
       occupation: form.occupation || "Citoyen", status: form.status,
@@ -411,20 +412,24 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
       currentPosition: "", motto: "", title: "", religion: "", origin: "",
     };
     onUpdateState({ ...state, citizens: [...safeCitizens, newCitizen] });
-    setCreatedAccount({ id: newId, name: form.name.trim(), password: form.password });
-    notify(`Compte "${form.name.trim()}" cree.`, "success");
-    setForm({ name: "", birthDay: 1, birthMonth: 1, birthYear: gd.year - 20, role: "CITOYEN", countryId: state.countries?.[0]?.id || "C1", password: "", balance: 100, occupation: "", status: "Actif" });
+    setCreatedAccount({ id: newId, name: fullName, password: form.password });
+    notify(`Compte "${fullName}" cree.`, "success");
+    setForm({ firstName: "", lastName: "", birthDay: 1, birthMonth: 1, birthYear: gd.year - 20, role: "CITOYEN", countryId: state.countries?.[0]?.id || "C1", password: "", balance: 100, occupation: "", status: "Actif" });
   };
 
   const startEdit = (c) => {
     setEditingId(c.id);
     const bd = c.birthDate || ageToBirthDate(c.age, gd);
-    setEditForm({ name: c.name, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif", bagueImperiale: c.bagueImperiale || false, bagueRestrictions: c.bagueRestrictions || [], statusEffects: c.statusEffects || [] });
+    // Rétrocompatibilité : si firstName/lastName pas encore stockés, on split le name
+    const firstName = c.firstName || (c.name || "").split(" ")[0] || "";
+    const lastName  = c.lastName  || (c.name || "").split(" ").slice(1).join(" ") || "";
+    setEditForm({ firstName, lastName, birthDay: bd.day, birthMonth: bd.month, birthYear: bd.year, role: c.role, countryId: c.countryId, password: c.password || "", balance: c.balance || 0, occupation: c.occupation || "", status: c.status || "Actif", bagueImperiale: c.bagueImperiale || false, bagueRestrictions: c.bagueRestrictions || [], statusEffects: c.statusEffects || [] });
   };
 
   const saveEdit = () => {
-    if (!editForm.name?.trim()) { notify("Le nom est requis.", "error"); return; }
-    const dup = safeCitizens.find((c) => c.id !== editingId && c.name.toLowerCase() === editForm.name.trim().toLowerCase());
+    if (!editForm.firstName?.trim()) { notify("Le prénom est requis.", "error"); return; }
+    const fullName = [editForm.firstName.trim(), editForm.lastName.trim()].filter(Boolean).join(" ");
+    const dup = safeCitizens.find((c) => c.id !== editingId && c.name.toLowerCase() === fullName.toLowerCase());
     if (dup) { notify("Ce nom existe deja.", "error"); return; }
     const birthDate = { day: parseInt(editForm.birthDay) || 1, month: parseInt(editForm.birthMonth) || 1, year: parseInt(editForm.birthYear) || (gd.year - 20) };
     const isEmperor = session?.role === "EMPEREUR";
@@ -432,7 +437,8 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
       c.id === editingId
         ? {
             ...c,
-            name: editForm.name.trim(), birthDate,
+            firstName: editForm.firstName.trim(), lastName: editForm.lastName.trim(),
+            name: fullName, birthDate,
             role: editForm.role, countryId: editForm.countryId,
             password: editForm.password || c.password,
             balance: parseInt(editForm.balance),
@@ -524,9 +530,15 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
           )}
 
           <div className="space-y-4">
-            <div>
-              <Label>Nom complet</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nom du citoyen..." />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Prénom</Label>
+                <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} placeholder="Prénom..." />
+              </div>
+              <div>
+                <Label>Nom de famille</Label>
+                <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="Nom..." />
+              </div>
             </div>
             <div>
               <Label>Mot de passe</Label>
@@ -632,7 +644,8 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                   {isEditing && (
                     <div className="border-t border-stone-800 p-4 bg-stone-950/50 space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div><Label>Nom</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+                        <div><Label>Prénom</Label><Input value={editForm.firstName || ""} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} placeholder="Prénom..." /></div>
+                        <div><Label>Nom de famille</Label><Input value={editForm.lastName || ""} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} placeholder="Nom..." /></div>
                         <div><Label>Mot de passe</Label><Input value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} /></div>
                         <div><Label>Role</Label><Select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></div>
                         <div><Label>Pays</Label><Select value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value })}>{safeCountries.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</Select></div>
