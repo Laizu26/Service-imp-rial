@@ -453,6 +453,7 @@ export default function App() {
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}
             gazette={state.gazette || []}
+            families={state.families || []}
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}

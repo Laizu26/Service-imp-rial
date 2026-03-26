@@ -152,6 +152,7 @@ const CitizenLayout = (props) => {
     gmBoostActive = false,
     gmTempBoost = null,
     gameDate,
+    families = [],
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1244,6 +1245,7 @@ const CitizenLayout = (props) => {
                     countries={safeCountries}
                     companies={safeCompanies}
                     users={safeUsers}
+                    families={families}
                     gameDate={gd}
                     onClose={() => setSelectedCitizen(null)}
                   />

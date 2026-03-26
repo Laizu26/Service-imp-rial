@@ -33,7 +33,25 @@ const getRoleTheme = (role) => {
   }
 };
 
-const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], onClose, gameDate }) => {
+const getFamilyForCitizen = (citizen, families) => {
+  if (!Array.isArray(families)) return null;
+  return families.find((f) => {
+    const byName = citizen.lastName && f.lastName && citizen.lastName.toLowerCase() === f.lastName.toLowerCase();
+    const byExtra = (f.extraMemberIds || []).includes(citizen.id);
+    return byName || byExtra;
+  }) || null;
+};
+
+const getFamilyDisplayName = (fam) => {
+  if (fam.type === "noble") {
+    const house = fam.houseName || fam.lastName;
+    const dyn   = fam.dynastyName;
+    return dyn ? `Maison ${house} — Dynastie ${dyn}` : `Maison ${house}`;
+  }
+  return `Famille ${fam.lastName}`;
+};
+
+const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], families = [], onClose, gameDate }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   if (!citizen) return null;
 
@@ -42,6 +60,7 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
   const country = countries.find((c) => c.id === citizen.countryId);
   const locCountry = countries.find((c) => c.id === (citizen.locationCountryId || citizen.countryId));
   const isSlave = citizen.status === "Esclave";
+  const citizenFamily = getFamilyForCitizen(citizen, families);
   const owner = isSlave && citizen.ownerId ? users.find((u) => u.id === citizen.ownerId) : null;
   const safeCompanies = Array.isArray(companies) ? companies : [];
   const ownedCompany = safeCompanies.find((c) => c.ownerId === citizen.id);
@@ -101,6 +120,15 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
                 }`}>
                   {citizen.status || "Actif"}
                 </span>
+                {citizenFamily && (
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${
+                    citizenFamily.type === "noble"
+                      ? "bg-yellow-50 text-yellow-900 border border-yellow-400"
+                      : "bg-stone-100 text-stone-700 border border-stone-300"
+                  }`} title={getFamilyDisplayName(citizenFamily)}>
+                    {citizenFamily.coat || (citizenFamily.type === "noble" ? "⚜️" : "🏠")} {getFamilyDisplayName(citizenFamily)}
+                  </span>
+                )}
                 {citizen.bagueImperiale && (
                   <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-yellow-50 text-yellow-900 border border-yellow-500 flex items-center gap-1" title="Porteur de la Bague Impériale">
                     💍 Bague Impériale
