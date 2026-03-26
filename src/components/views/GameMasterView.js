@@ -40,6 +40,9 @@ import {
   CheckCircle2,
   XCircle,
   ScrollText,
+  HeartPulse,
+  Sparkles,
+  Activity,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
@@ -2054,6 +2057,255 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
 };
 
 /* ================================================
+   6. PHYSIQUE & MAGIE
+   ================================================ */
+const INJURY_STATES_GM = [
+  { id: "sain",            label: "Sain",          color: "bg-stone-700 text-stone-300 border-stone-600" },
+  { id: "contusion",       label: "Contusion",      color: "bg-amber-900/50 text-amber-300 border-amber-700" },
+  { id: "blessure_legere", label: "Blessé léger",   color: "bg-orange-900/50 text-orange-300 border-orange-700" },
+  { id: "blessure_grave",  label: "Blessé grave",   color: "bg-red-900/60 text-red-300 border-red-700" },
+  { id: "fracture",        label: "Fracture",        color: "bg-violet-900/50 text-violet-300 border-violet-700" },
+  { id: "critique",        label: "État critique",   color: "bg-slate-800 text-slate-200 border-slate-600" },
+];
+
+const BODY_ZONES_GM = [
+  { id: "tete",         label: "Tête"         },
+  { id: "cou",          label: "Cou"          },
+  { id: "torse",        label: "Torse"        },
+  { id: "abdomen",      label: "Abdomen"      },
+  { id: "bassin",       label: "Bassin"       },
+  { id: "bras_g",       label: "Bras G."      },
+  { id: "bras_d",       label: "Bras D."      },
+  { id: "avant_bras_g", label: "Av. bras G."  },
+  { id: "avant_bras_d", label: "Av. bras D."  },
+  { id: "main_g",       label: "Main G."      },
+  { id: "main_d",       label: "Main D."      },
+  { id: "cuisse_g",     label: "Cuisse G."    },
+  { id: "cuisse_d",     label: "Cuisse D."    },
+  { id: "jambe_g",      label: "Jambe G."     },
+  { id: "jambe_d",      label: "Jambe D."     },
+  { id: "pied_g",       label: "Pied G."      },
+  { id: "pied_d",       label: "Pied D."      },
+];
+
+const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
+  const safeCitizens = Array.isArray(state.citizens) ? state.citizens : [];
+  const [search, setSearch]       = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const [activeTab, setActiveTab]   = useState("physique");
+
+  const filtered = safeCitizens.filter(
+    (c) => c.name?.toLowerCase().includes(search.toLowerCase())
+  );
+  const selected = safeCitizens.find((c) => c.id === selectedId) || null;
+
+  const updateCitizen = (patch) => {
+    onUpdateState({
+      ...state,
+      citizens: safeCitizens.map((c) => (c.id === selectedId ? { ...c, ...patch } : c)),
+    });
+  };
+
+  const setInjury = (zoneId, value) => {
+    const injuries = { ...(selected?.physicalStats?.injuries || {}), [zoneId]: value };
+    updateCitizen({ physicalStats: { ...(selected?.physicalStats || {}), injuries } });
+  };
+
+  const toggleEffect = (effectId) => {
+    const current = selected?.statusEffects || [];
+    const next = current.includes(effectId)
+      ? current.filter((x) => x !== effectId)
+      : [...current, effectId];
+    updateCitizen({ statusEffects: next });
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle icon={HeartPulse}>Physique & Magie</SectionTitle>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
+
+        {/* ─ Liste des citoyens ─ */}
+        <div className="md:col-span-1 space-y-2">
+          <div className="relative">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Chercher un citoyen…"
+              className="w-full bg-stone-800 border border-stone-700 rounded-lg pl-8 pr-3 py-2 text-xs text-stone-200 outline-none focus:border-red-500/50"
+            />
+          </div>
+          <div className="space-y-1 max-h-[70vh] overflow-y-auto pr-1">
+            {filtered.map((c) => {
+              const injuries   = c?.physicalStats?.injuries || {};
+              const hasInjury  = Object.values(injuries).some((v) => v && v !== "sain");
+              const hasEffects = (c.statusEffects || []).length > 0;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedId(c.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all flex items-center gap-2 ${
+                    selectedId === c.id
+                      ? "bg-red-900/30 border-red-800/50 text-red-300"
+                      : "bg-stone-800/50 border-stone-700/50 text-stone-300 hover:bg-stone-800 hover:border-stone-600"
+                  }`}
+                >
+                  <span className="text-xs font-bold flex-1 truncate">{c.name}</span>
+                  {hasInjury  && <span title="Blessures" className="text-red-400 text-xs">🩹</span>}
+                  {hasEffects && <span title="États actifs" className="text-amber-400 text-xs">⚡</span>}
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div className="text-center py-8 text-stone-600 text-xs">Aucun citoyen trouvé</div>
+            )}
+          </div>
+        </div>
+
+        {/* ─ Panneau d'édition ─ */}
+        <div className="md:col-span-2">
+          {!selected ? (
+            <div className="flex flex-col items-center justify-center h-64 text-stone-600 gap-3 border border-dashed border-stone-700 rounded-xl">
+              <Activity size={32} className="opacity-40" />
+              <div className="text-xs font-bold uppercase tracking-widest">Sélectionner un citoyen</div>
+            </div>
+          ) : (
+            <div className="bg-stone-900/60 border border-stone-700 rounded-xl overflow-hidden">
+
+              {/* En-tête citoyen */}
+              <div className="px-4 py-3 border-b border-stone-700 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red-900/30 border border-red-800/40 flex items-center justify-center text-xs font-black text-red-400">
+                  {selected.name?.[0]?.toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-sm font-black text-stone-200">{selected.name}</div>
+                  <div className="text-[9px] text-stone-500 uppercase tracking-widest">{selected.occupation || "Citoyen"}</div>
+                </div>
+              </div>
+
+              {/* Onglets internes */}
+              <div className="flex border-b border-stone-700">
+                {[
+                  { id: "physique", label: "Corps & Blessures", icon: HeartPulse },
+                  { id: "magie",    label: "Magie & États",     icon: Sparkles   },
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${
+                      activeTab === id
+                        ? "border-red-600 text-red-300 bg-red-900/10"
+                        : "border-transparent text-stone-500 hover:text-stone-300"
+                    }`}
+                  >
+                    <Icon size={12} /> {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+
+                {/* ── TAB PHYSIQUE ── */}
+                {activeTab === "physique" && (
+                  <>
+                    <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">
+                      Cliquez sur une zone puis choisissez son état
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {BODY_ZONES_GM.map((zone) => {
+                        const currentId = selected?.physicalStats?.injuries?.[zone.id] || "sain";
+                        const current   = INJURY_STATES_GM.find((s) => s.id === currentId) || INJURY_STATES_GM[0];
+                        return (
+                          <div key={zone.id} className="bg-stone-800/60 border border-stone-700 rounded-lg p-2">
+                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-1.5">{zone.label}</div>
+                            <select
+                              value={currentId}
+                              onChange={(e) => { setInjury(zone.id, e.target.value); notify(`${zone.label} → ${e.target.options[e.target.selectedIndex].text}`, "success"); }}
+                              className="w-full bg-stone-900 border border-stone-700 rounded text-[10px] text-stone-200 p-1 outline-none focus:border-red-500/50"
+                            >
+                              {INJURY_STATES_GM.map((s) => (
+                                <option key={s.id} value={s.id}>{s.label}</option>
+                              ))}
+                            </select>
+                            {currentId !== "sain" && (
+                              <div className={`mt-1.5 text-[9px] font-bold px-2 py-0.5 rounded border text-center ${current.color}`}>
+                                {current.label}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => { updateCitizen({ physicalStats: { ...(selected?.physicalStats || {}), injuries: {} } }); notify("Blessures effacées.", "success"); }}
+                      className="text-[9px] text-stone-500 hover:text-red-400 underline transition-colors"
+                    >
+                      Réinitialiser toutes les blessures
+                    </button>
+                  </>
+                )}
+
+                {/* ── TAB MAGIE & ÉTATS ── */}
+                {activeTab === "magie" && (
+                  <div className="space-y-4">
+                    {[
+                      { key: "physique", label: "États physiques", icon: "💪" },
+                      { key: "magique",  label: "États magiques",  icon: "✨" },
+                    ].map(({ key, label, icon }) => (
+                      <div key={key}>
+                        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1">
+                          <span>{icon}</span> {label}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {STATUS_EFFECTS_CONFIG[key].map((eff) => {
+                            const active = (selected.statusEffects || []).includes(eff.id);
+                            return (
+                              <button
+                                key={eff.id}
+                                type="button"
+                                title={eff.desc}
+                                onClick={() => { toggleEffect(eff.id); notify(`${eff.label} ${active ? "retiré" : "ajouté"}.`, "success"); }}
+                                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full border text-[10px] font-bold transition-all ${
+                                  active
+                                    ? "bg-red-900/60 border-red-700 text-red-300 ring-1 ring-red-600"
+                                    : "bg-stone-800 border-stone-700 text-stone-500 hover:text-stone-200 hover:border-stone-500"
+                                }`}
+                              >
+                                <span>{eff.icon}</span>
+                                <span>{eff.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+
+                    {(selected.statusEffects || []).length > 0 && (
+                      <div className="pt-2 border-t border-stone-700">
+                        <div className="text-[9px] text-stone-500 mb-2 font-bold uppercase tracking-widest">
+                          {(selected.statusEffects || []).length} état{(selected.statusEffects || []).length > 1 ? "s" : ""} actif{(selected.statusEffects || []).length > 1 ? "s" : ""}
+                        </div>
+                        <button
+                          onClick={() => { updateCitizen({ statusEffects: [] }); notify("États effacés.", "success"); }}
+                          className="text-[9px] text-stone-500 hover:text-red-400 underline transition-colors"
+                        >
+                          Effacer tous les états
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ================================================
    MAIN LAYOUT
    ================================================ */
 const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
@@ -2064,12 +2316,13 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
   const questCount = (state.quests || []).filter((q) => q.status === "Active").length;
 
   const menuItems = [
-    { id: "dashboard", label: "Vue d'Ensemble", icon: LayoutDashboard },
-    { id: "accounts", label: "Comptes", icon: Users, badge: pendingChildCount || null },
-    { id: "quests", label: "Quêtes", icon: ScrollText, badge: questCount || null },
-    { id: "lore", label: "Lore & Univers", icon: BookOpen },
-    { id: "lois", label: "Lois & Nations", icon: Gavel },
-    { id: "calendrier", label: "Calendrier", icon: Calendar },
+    { id: "dashboard",   label: "Vue d'Ensemble",  icon: LayoutDashboard },
+    { id: "accounts",    label: "Comptes",          icon: Users, badge: pendingChildCount || null },
+    { id: "quests",      label: "Quêtes",           icon: ScrollText, badge: questCount || null },
+    { id: "physique",    label: "Physique & Magie", icon: HeartPulse },
+    { id: "lore",        label: "Lore & Univers",   icon: BookOpen },
+    { id: "lois",        label: "Lois & Nations",   icon: Gavel },
+    { id: "calendrier",  label: "Calendrier",        icon: Calendar },
   ];
 
   return (
@@ -2233,6 +2486,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
               </>
             )}
             {activeSection === "quests" && <GMQuests state={state} onUpdateState={onUpdateState} notify={notify} />}
+            {activeSection === "physique" && <GMPhysicsMagic state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lore" && <GMLore state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lois" && <GMLois state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "calendrier" && <GMCalendrier state={state} onUpdateState={onUpdateState} notify={notify} />}
