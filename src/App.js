@@ -22,6 +22,7 @@ import {
   Library, // <--- 1. ICÔNE AJOUTÉE
   Settings,
   Key,
+  HeartHandshake,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -54,6 +55,7 @@ import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
 import JobsAdminView from "./components/views/JobsAdminView";
+import FamiliesAdminView from "./components/views/FamiliesAdminView";
 import GameMasterView from "./components/views/GameMasterView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
@@ -255,6 +257,8 @@ export default function App() {
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
     if (effectiveLevel >= 40)
       tabs.push({ id: "jobs_admin", label: "Emplois", icon: Briefcase });
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "families_admin", label: "Familles", icon: HeartHandshake });
     if (effectiveLevel >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
 
@@ -901,6 +905,14 @@ export default function App() {
                       onSaveJobContract={actions.onSaveJobContract}
                       onDeleteJobContract={actions.onDeleteJobContract}
                       onToggleJobContract={actions.onToggleJobContract}
+                    />
+                  )}
+
+                  {activeTab === "families_admin" && (
+                    <FamiliesAdminView
+                      state={state}
+                      onUpdateState={saveState}
+                      notify={notify}
                     />
                   )}
 
