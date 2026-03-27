@@ -931,24 +931,52 @@ const RegistryView = ({
                       )}
                       {(() => {
                         const fam = families.find((f) => {
+                          if (f.type === "noble") {
+                            const branches = Array.isArray(f.branches) && f.branches.length > 0
+                              ? f.branches
+                              : (() => {
+                                  const dn = f.dynastyName || f.lastName;
+                                  const main = { name: dn, lastName: dn, isMain: true };
+                                  if (f.houseName && f.houseName.toLowerCase() !== dn.toLowerCase()) {
+                                    return [main, { name: f.houseName, lastName: f.lastName || f.houseName, isMain: false }];
+                                  }
+                                  return [main];
+                                })();
+                            const byBranch = branches.some((b) => selected.lastName && b.lastName && selected.lastName.toLowerCase() === b.lastName.toLowerCase());
+                            return byBranch || (f.extraMemberIds || []).includes(selected.id);
+                          }
                           const byName = selected.lastName && f.lastName && selected.lastName.toLowerCase() === f.lastName.toLowerCase();
-                          const byExtra = (f.extraMemberIds || []).includes(selected.id);
-                          return byName || byExtra;
+                          return byName || (f.extraMemberIds || []).includes(selected.id);
                         });
                         if (!fam) return null;
-                        const displayName = fam.type === "noble"
-                          ? (fam.dynastyName ? `Maison ${fam.houseName || fam.lastName} — Dynastie ${fam.dynastyName}` : `Maison ${fam.houseName || fam.lastName}`)
-                          : `Famille ${fam.lastName}`;
+                        const dynastyLabel = fam.type === "noble" ? `Dynastie ${fam.dynastyName || fam.lastName}` : `Famille ${fam.lastName}`;
+                        // Trouver la branche du citoyen
+                        let branchLabel = null;
+                        if (fam.type === "noble") {
+                          const branches = Array.isArray(fam.branches) && fam.branches.length > 0
+                            ? fam.branches
+                            : [{ name: fam.dynastyName || fam.lastName, lastName: fam.dynastyName || fam.lastName, isMain: true }];
+                          const branch = branches.find((b) => selected.lastName && b.lastName && selected.lastName.toLowerCase() === b.lastName.toLowerCase());
+                          if (branch && !branch.isMain) branchLabel = `Maison ${branch.name}`;
+                          else if (branch && branch.isMain) branchLabel = "Branche principale";
+                        }
                         return (
                           <div className="pt-1">
                             <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">Famille</span>
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest border ${
-                              fam.type === "noble"
-                                ? "bg-yellow-50 text-yellow-800 border-yellow-300"
-                                : "bg-stone-100 text-stone-700 border-stone-200"
-                            }`}>
-                              {fam.coat || (fam.type === "noble" ? "⚜️" : "🏠")} {displayName}
-                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-widest border ${
+                                fam.type === "noble"
+                                  ? "bg-yellow-50 text-yellow-800 border-yellow-300"
+                                  : "bg-stone-100 text-stone-700 border-stone-200"
+                              }`}>
+                                {fam.coat || (fam.type === "noble" ? "⚜️" : "🏠")} {dynastyLabel}
+                              </span>
+                              {branchLabel && (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200">
+                                  {branchLabel}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         );
                       })()}

@@ -8,6 +8,7 @@ import {
   Trash2,
   Edit3,
   Users,
+  GitBranch,
 } from "lucide-react";
 
 /* ── Helpers communs ── */
@@ -33,31 +34,81 @@ const BtnSecondary = ({ children, onClick, className = "" }) => (
 /* ── Constantes ── */
 const FAMILY_TYPES = [
   { id: "commune", label: "Famille commune", icon: "🏠", desc: "Famille ordinaire, sans titre de noblesse." },
-  { id: "noble",   label: "Maison noble",    icon: "⚜️",  desc: "Famille noble avec titre et maison dynastique." },
+  { id: "noble",   label: "Maison noble",    icon: "⚜️",  desc: "Dynastie noble avec branches principales et cadettes." },
 ];
 
 const EMPTY_FORM = {
   lastName: "", type: "commune",
-  dynastyName: "", houseName: "",
+  dynastyName: "",
+  branches: [],
   coat: "", motto: "", description: "", foundedYear: "",
   extraMemberIds: [],
 };
 
+/* ── Normaliser les branches (rétrocompat anciennes données) ── */
+export const normalizeBranches = (fam) => {
+  if (Array.isArray(fam.branches) && fam.branches.length > 0) return fam.branches;
+  // Format legacy : houseName + dynastyName sans branches[]
+  if (fam.type === "noble") {
+    const dynName = fam.dynastyName || fam.lastName;
+    const main = { name: dynName, lastName: dynName, isMain: true };
+    if (fam.houseName && fam.houseName.toLowerCase() !== dynName.toLowerCase()) {
+      return [main, { name: fam.houseName, lastName: fam.lastName || fam.houseName, isMain: false }];
+    }
+    return [main];
+  }
+  return [];
+};
+
 export const getFamilyDisplayName = (fam) => {
   if (fam.type === "noble") {
-    const house = fam.houseName || fam.lastName;
-    const dyn   = fam.dynastyName;
-    return dyn ? `Maison ${house} — Dynastie ${dyn}` : `Maison ${house}`;
+    return `Dynastie ${fam.dynastyName || fam.lastName}`;
   }
   return `Famille ${fam.lastName}`;
 };
 
+export const getBranchDisplayName = (branch, fam) => {
+  if (branch.isMain) return `Branche principale (${fam.dynastyName || branch.name})`;
+  return `Maison ${branch.name}`;
+};
+
 export const getFamilyMembers = (fam, citizens) => {
+  if (fam.type === "noble") {
+    const branches = normalizeBranches(fam);
+    const byBranch = branches.flatMap((b) =>
+      citizens.filter((c) => c.lastName && b.lastName && c.lastName.toLowerCase() === b.lastName.toLowerCase())
+    );
+    const extra = (fam.extraMemberIds || []).map((id) => citizens.find((c) => c.id === id)).filter(Boolean);
+    const all = [...byBranch];
+    extra.forEach((c) => { if (!all.find((x) => x.id === c.id)) all.push(c); });
+    return all;
+  }
   const byName = citizens.filter((c) => c.lastName && c.lastName.toLowerCase() === fam.lastName.toLowerCase());
-  const extra  = (fam.extraMemberIds || []).map((id) => citizens.find((c) => c.id === id)).filter(Boolean);
-  const all    = [...byName];
+  const extra = (fam.extraMemberIds || []).map((id) => citizens.find((c) => c.id === id)).filter(Boolean);
+  const all = [...byName];
   extra.forEach((c) => { if (!all.find((x) => x.id === c.id)) all.push(c); });
   return all;
+};
+
+export const getFamilyForCitizen = (citizen, families) => {
+  if (!Array.isArray(families)) return null;
+  return families.find((f) => {
+    if (f.type === "noble") {
+      const branches = normalizeBranches(f);
+      const byBranch = branches.some((b) => citizen.lastName && b.lastName && citizen.lastName.toLowerCase() === b.lastName.toLowerCase());
+      const byExtra = (f.extraMemberIds || []).includes(citizen.id);
+      return byBranch || byExtra;
+    }
+    const byName = citizen.lastName && f.lastName && citizen.lastName.toLowerCase() === f.lastName.toLowerCase();
+    const byExtra = (f.extraMemberIds || []).includes(citizen.id);
+    return byName || byExtra;
+  }) || null;
+};
+
+export const getBranchForCitizen = (citizen, fam) => {
+  if (!fam || fam.type !== "noble") return null;
+  const branches = normalizeBranches(fam);
+  return branches.find((b) => citizen.lastName && b.lastName && citizen.lastName.toLowerCase() === b.lastName.toLowerCase()) || null;
 };
 
 /* ── Composant principal ── */
@@ -71,23 +122,48 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   const [form,        setForm]        = useState(EMPTY_FORM);
   const [search,      setSearch]      = useState("");
   const [addMemberId, setAddMemberId] = useState("");
+  const [newBranchName, setNewBranchName] = useState("");
+  const [newBranchLastName, setNewBranchLastName] = useState("");
 
   const generateId = () => `FAM-${Date.now().toString(36).toUpperCase()}`;
   const openCreate = () => { setForm(EMPTY_FORM); setEditingId(null); setView("form"); };
-  const openEdit   = (fam) => { setForm({ ...EMPTY_FORM, ...fam }); setEditingId(fam.id); setView("form"); };
+  const openEdit = (fam) => {
+    const branches = normalizeBranches(fam);
+    setForm({ ...EMPTY_FORM, ...fam, branches });
+    setEditingId(fam.id);
+    setView("form");
+  };
 
   const saveForm = () => {
-    if (!form.lastName.trim()) { notify("Le nom de famille est requis.", "error"); return; }
-    if (form.type === "noble" && !form.houseName.trim() && !form.dynastyName.trim()) {
-      notify("Une maison noble doit avoir un nom de maison ou de dynastie.", "error"); return;
+    if (form.type === "commune" && !form.lastName.trim()) {
+      notify("Le nom de famille est requis.", "error"); return;
     }
+    if (form.type === "noble" && !form.dynastyName.trim()) {
+      notify("Le nom de la dynastie est requis.", "error"); return;
+    }
+    // Pour les nobles, s'assurer qu'il y a au moins la branche principale
+    let branches = form.branches || [];
+    if (form.type === "noble") {
+      const hasMain = branches.some((b) => b.isMain);
+      if (!hasMain) {
+        branches = [{ name: form.dynastyName.trim(), lastName: form.dynastyName.trim(), isMain: true }, ...branches];
+      }
+    }
+    const toSave = { ...form, branches };
+    // Nettoyer les champs legacy
+    delete toSave.houseName;
+
     if (editingId) {
-      onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === editingId ? { ...f, ...form, id: editingId } : f) });
+      onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === editingId ? { ...f, ...toSave, id: editingId } : f) });
       notify("Famille mise à jour.", "success");
     } else {
-      const dup = safeFamilies.find((f) => f.lastName.toLowerCase() === form.lastName.trim().toLowerCase());
-      if (dup) { notify("Une famille avec ce nom de famille existe déjà.", "error"); return; }
-      onUpdateState({ ...state, families: [...safeFamilies, { ...form, lastName: form.lastName.trim(), id: generateId() }] });
+      const checkName = form.type === "noble" ? form.dynastyName.trim() : form.lastName.trim();
+      const dup = safeFamilies.find((f) => {
+        const existing = f.type === "noble" ? (f.dynastyName || f.lastName) : f.lastName;
+        return existing.toLowerCase() === checkName.toLowerCase();
+      });
+      if (dup) { notify("Une famille/dynastie avec ce nom existe déjà.", "error"); return; }
+      onUpdateState({ ...state, families: [...safeFamilies, { ...toSave, id: generateId() }] });
       notify("Famille créée.", "success");
     }
     setView("list"); setEditingId(null);
@@ -97,6 +173,22 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
     onUpdateState({ ...state, families: safeFamilies.filter((f) => f.id !== id) });
     notify("Famille supprimée.", "info");
     if (detailId === id) { setDetailId(null); setView("list"); }
+  };
+
+  const addBranch = () => {
+    if (!newBranchName.trim()) return;
+    const ln = newBranchLastName.trim() || newBranchName.trim();
+    const exists = (form.branches || []).some((b) => b.name.toLowerCase() === newBranchName.trim().toLowerCase());
+    if (exists) { notify("Cette branche existe déjà.", "error"); return; }
+    setForm({ ...form, branches: [...(form.branches || []), { name: newBranchName.trim(), lastName: ln, isMain: false }] });
+    setNewBranchName("");
+    setNewBranchLastName("");
+  };
+
+  const removeBranch = (idx) => {
+    const branch = form.branches[idx];
+    if (branch.isMain) { notify("Impossible de supprimer la branche principale.", "error"); return; }
+    setForm({ ...form, branches: form.branches.filter((_, i) => i !== idx) });
   };
 
   const addExtraMember = (famId) => {
@@ -116,7 +208,8 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
 
   const filtered = safeFamilies.filter((f) =>
     getFamilyDisplayName(f).toLowerCase().includes(search.toLowerCase()) ||
-    f.lastName?.toLowerCase().includes(search.toLowerCase())
+    f.lastName?.toLowerCase().includes(search.toLowerCase()) ||
+    f.dynastyName?.toLowerCase().includes(search.toLowerCase())
   );
   const detailFam = safeFamilies.find((f) => f.id === detailId) || null;
 
@@ -151,34 +244,91 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           </div>
         </div>
 
-        {/* Nom + blason */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <Label>Nom de famille *</Label>
-            <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="ex: Reinhafer" />
-            <div className="text-[9px] text-stone-500 mt-1">Lie automatiquement tous les citoyens portant ce nom.</div>
+        {/* Commune : Nom + blason */}
+        {form.type === "commune" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>Nom de famille *</Label>
+              <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} placeholder="ex: Durand" />
+              <div className="text-[9px] text-stone-500 mt-1">Lie automatiquement tous les citoyens portant ce nom.</div>
+            </div>
+            <div>
+              <Label>Blason / Symbole</Label>
+              <Input value={form.coat} onChange={(e) => setForm({ ...form, coat: e.target.value })} placeholder="Emoji : 🦁 🐍 ⚔️ 🌹…" />
+            </div>
           </div>
-          <div>
-            <Label>Blason / Symbole</Label>
-            <Input value={form.coat} onChange={(e) => setForm({ ...form, coat: e.target.value })} placeholder="Emoji : 🦁 🐍 ⚔️ 🌹…" />
-          </div>
-        </div>
+        )}
 
-        {/* Noble seulement */}
+        {/* Noble : Dynastie + branches */}
         {form.type === "noble" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
-            <div className="md:col-span-2 text-[9px] font-black uppercase tracking-widest text-yellow-600 flex items-center gap-1">
-              ⚜️ Détails Maison Noble
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
+              <div className="md:col-span-2 text-[9px] font-black uppercase tracking-widest text-yellow-600 flex items-center gap-1">
+                ⚜️ Dynastie Noble
+              </div>
+              <div>
+                <Label>Nom de la Dynastie *</Label>
+                <Input value={form.dynastyName} onChange={(e) => setForm({ ...form, dynastyName: e.target.value })} placeholder="ex: Loro" />
+                <div className="text-[9px] text-stone-500 mt-1">La branche principale porte ce nom de famille.</div>
+              </div>
+              <div>
+                <Label>Blason / Symbole</Label>
+                <Input value={form.coat} onChange={(e) => setForm({ ...form, coat: e.target.value })} placeholder="Emoji : 🦁 🐍 ⚔️ 🌹…" />
+              </div>
             </div>
-            <div>
-              <Label>Nom de la Maison</Label>
-              <Input value={form.houseName} onChange={(e) => setForm({ ...form, houseName: e.target.value })} placeholder="ex: Reinhafer" />
+
+            {/* Branches cadettes */}
+            <div className="p-3 bg-stone-800/60 border border-stone-600 rounded-lg space-y-3">
+              <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-1">
+                <GitBranch size={10} /> Branches de la Dynastie
+              </div>
+
+              {/* Branche principale (auto) */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-900/20 border border-yellow-800/40">
+                <span className="text-yellow-400 text-xs">👑</span>
+                <span className="text-xs text-yellow-300 font-bold flex-1">
+                  Branche principale — {form.dynastyName || "…"}
+                </span>
+                <span className="text-[8px] text-yellow-600 uppercase font-black tracking-widest">auto</span>
+              </div>
+
+              {/* Branches cadettes existantes */}
+              {(form.branches || []).filter((b) => !b.isMain).map((b, idx) => {
+                const realIdx = (form.branches || []).indexOf(b);
+                return (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-stone-700/50 border border-stone-600">
+                    <span className="text-stone-400 text-xs">⚜️</span>
+                    <span className="text-xs text-stone-200 font-bold flex-1">
+                      Maison {b.name}
+                    </span>
+                    <span className="text-[9px] text-stone-500">nom: {b.lastName}</span>
+                    <button onClick={() => removeBranch(realIdx)} className="text-red-500/50 hover:text-red-400 transition-colors">
+                      <X size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Ajouter une branche cadette */}
+              <div className="border-t border-stone-600 pt-3">
+                <div className="text-[9px] text-stone-500 mb-2">Ajouter une branche cadette (maison)</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div>
+                    <Input value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)}
+                      placeholder="Nom de la maison" className="text-xs" />
+                  </div>
+                  <div>
+                    <Input value={newBranchLastName} onChange={(e) => setNewBranchLastName(e.target.value)}
+                      placeholder="Nom de famille (auto)" className="text-xs" />
+                  </div>
+                  <BtnPrimary onClick={addBranch} className="px-3"><Plus size={14} /> Ajouter</BtnPrimary>
+                </div>
+                <div className="text-[9px] text-stone-600 mt-1">
+                  Le nom de famille lie automatiquement les citoyens à cette branche. Par défaut = nom de la maison.
+                </div>
+              </div>
             </div>
-            <div>
-              <Label>Nom de la Dynastie</Label>
-              <Input value={form.dynastyName} onChange={(e) => setForm({ ...form, dynastyName: e.target.value })} placeholder="ex: Loro" />
-            </div>
-          </div>
+          </>
         )}
 
         <div>
@@ -206,9 +356,11 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
 
   /* ── DÉTAIL ── */
   if (view === "detail" && detailFam) {
-    const members   = getFamilyMembers(detailFam, safeCitizens);
-    const extraIds  = detailFam.extraMemberIds || [];
-    const nonMembers = safeCitizens.filter((c) => !members.find((m) => m.id === c.id));
+    const branches = normalizeBranches(detailFam);
+    const allMembers = getFamilyMembers(detailFam, safeCitizens);
+    const extraIds = detailFam.extraMemberIds || [];
+    const nonMembers = safeCitizens.filter((c) => !allMembers.find((m) => m.id === c.id));
+
     return (
       <div className="space-y-4 max-w-4xl">
         <div className="flex items-center gap-3 pb-2 border-b border-stone-700">
@@ -232,13 +384,13 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               <div className="flex justify-between">
                 <span className="text-stone-500">Type</span>
                 <span className={`font-bold ${detailFam.type === "noble" ? "text-yellow-400" : "text-stone-300"}`}>
-                  {detailFam.type === "noble" ? "Maison noble" : "Famille commune"}
+                  {detailFam.type === "noble" ? "Dynastie noble" : "Famille commune"}
                 </span>
               </div>
-              {detailFam.type === "noble" && detailFam.dynastyName && (
+              {detailFam.type === "noble" && (
                 <div className="flex justify-between">
-                  <span className="text-stone-500">Dynastie</span>
-                  <span className="text-stone-300 font-bold">{detailFam.dynastyName}</span>
+                  <span className="text-stone-500">Branches</span>
+                  <span className="text-stone-300 font-bold">{branches.length}</span>
                 </div>
               )}
               {detailFam.foundedYear && (
@@ -248,8 +400,8 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-stone-500">Membres</span>
-                <span className="text-stone-300 font-bold">{members.length}</span>
+                <span className="text-stone-500">Membres totaux</span>
+                <span className="text-stone-300 font-bold">{allMembers.length}</span>
               </div>
             </div>
             {detailFam.description && (
@@ -257,18 +409,89 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
             )}
           </div>
 
-          {/* Membres */}
+          {/* Membres par branche */}
           <div className="md:col-span-2 space-y-3">
-            <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
-              <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-1">
-                <Users size={10} /> Membres ({members.length})
+            {detailFam.type === "noble" ? (
+              /* Noble : afficher membres par branche */
+              branches.map((branch, bIdx) => {
+                const branchMembers = safeCitizens.filter(
+                  (c) => c.lastName && branch.lastName && c.lastName.toLowerCase() === branch.lastName.toLowerCase()
+                );
+                return (
+                  <div key={bIdx} className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
+                    <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
+                      {branch.isMain ? "👑" : "⚜️"}
+                      {branch.isMain ? `Branche principale — ${branch.name}` : `Maison ${branch.name}`}
+                      <span className="text-stone-600 ml-auto">({branchMembers.length} membre{branchMembers.length > 1 ? "s" : ""})</span>
+                    </div>
+                    {branchMembers.length === 0 ? (
+                      <div className="text-xs text-stone-600 text-center py-3 italic">Aucun membre (nom: {branch.lastName})</div>
+                    ) : (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {branchMembers.map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
+                            <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
+                              {(c.firstName || c.name || "?")[0].toUpperCase()}
+                            </div>
+                            <span className="text-xs text-stone-200 font-bold flex-1 truncate">
+                              {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
+                            </span>
+                            <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
+                            <span className="text-[8px] text-stone-600 shrink-0">auto</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              /* Commune : liste plate */
+              <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
+                <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-1">
+                  <Users size={10} /> Membres ({allMembers.length})
+                </div>
+                {allMembers.length === 0 ? (
+                  <div className="text-xs text-stone-600 text-center py-6 italic">Aucun membre actuellement</div>
+                ) : (
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                    {allMembers.map((c) => {
+                      const isExtra = extraIds.includes(c.id);
+                      return (
+                        <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
+                          <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
+                            {(c.firstName || c.name || "?")[0].toUpperCase()}
+                          </div>
+                          <span className="text-xs text-stone-200 font-bold flex-1 truncate">
+                            {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
+                          </span>
+                          <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
+                          {isExtra ? (
+                            <button onClick={() => removeExtraMember(detailFam.id, c.id)}
+                              className="text-red-500/50 hover:text-red-400 transition-colors shrink-0 ml-1" title="Retirer">
+                              <X size={12} />
+                            </button>
+                          ) : (
+                            <span className="text-[8px] text-stone-600 shrink-0">auto</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              {members.length === 0 ? (
-                <div className="text-xs text-stone-600 text-center py-6 italic">Aucun membre actuellement</div>
-              ) : (
-                <div className="space-y-1.5 max-h-56 overflow-y-auto">
-                  {members.map((c) => {
-                    const isExtra = extraIds.includes(c.id);
+            )}
+
+            {/* Membres manuels (extra) pour nobles aussi */}
+            {detailFam.type === "noble" && extraIds.length > 0 && (
+              <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
+                <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-1">
+                  <Users size={10} /> Membres manuels ({extraIds.length})
+                </div>
+                <div className="space-y-1.5">
+                  {extraIds.map((id) => {
+                    const c = safeCitizens.find((x) => x.id === id);
+                    if (!c) return null;
                     return (
                       <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
                         <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
@@ -277,21 +500,16 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                         <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                           {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                         </span>
-                        <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
-                        {isExtra ? (
-                          <button onClick={() => removeExtraMember(detailFam.id, c.id)}
-                            className="text-red-500/50 hover:text-red-400 transition-colors shrink-0 ml-1" title="Retirer">
-                            <X size={12} />
-                          </button>
-                        ) : (
-                          <span className="text-[8px] text-stone-600 shrink-0">auto</span>
-                        )}
+                        <button onClick={() => removeExtraMember(detailFam.id, c.id)}
+                          className="text-red-500/50 hover:text-red-400 transition-colors shrink-0 ml-1" title="Retirer">
+                          <X size={12} />
+                        </button>
                       </div>
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
               <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">
@@ -310,8 +528,10 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                 <BtnPrimary onClick={() => addExtraMember(detailFam.id)} className="px-3"><Plus size={14} /></BtnPrimary>
               </div>
               <div className="text-[9px] text-stone-500 mt-1.5">
-                Les citoyens portant le nom « {detailFam.lastName} » sont liés automatiquement.
-                Utilisez ce champ pour ajouter un membre avec un nom différent.
+                {detailFam.type === "noble"
+                  ? `Les citoyens sont liés automatiquement par le nom de famille de chaque branche. Utilisez ce champ pour ajouter un membre avec un nom différent.`
+                  : `Les citoyens portant le nom « ${detailFam.lastName} » sont liés automatiquement. Utilisez ce champ pour ajouter un membre avec un nom différent.`
+                }
               </div>
             </div>
           </div>
@@ -326,7 +546,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-black uppercase tracking-widest text-stone-200 flex items-center gap-2">
-            <HeartHandshake size={16} className="text-amber-400" /> Familles & Maisons Nobles
+            <HeartHandshake size={16} className="text-amber-400" /> Familles & Dynasties Nobles
           </h2>
           <p className="text-[9px] text-stone-500 mt-0.5 uppercase tracking-widest">Gestion HRP — non visible des personnages</p>
         </div>
@@ -335,7 +555,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
 
       <div className="relative">
         <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher une famille ou un nom…"
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher une famille, dynastie ou nom…"
           className="w-full bg-stone-800 border border-stone-700 rounded-lg pl-8 pr-3 py-2 text-xs text-stone-200 outline-none focus:border-amber-500/50" />
       </div>
 
@@ -349,6 +569,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((fam) => {
             const members = getFamilyMembers(fam, safeCitizens);
+            const branches = normalizeBranches(fam);
             return (
               <div key={fam.id} className={`bg-stone-800/40 border rounded-xl p-4 flex flex-col gap-3 hover:border-stone-600 transition-all ${
                 fam.type === "noble" ? "border-yellow-900/60" : "border-stone-700"
@@ -361,6 +582,11 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-black text-stone-200 truncate">{getFamilyDisplayName(fam)}</div>
+                    {fam.type === "noble" && branches.length > 1 && (
+                      <div className="text-[9px] text-stone-500 mt-0.5 truncate">
+                        {branches.filter((b) => !b.isMain).map((b) => `Maison ${b.name}`).join(", ")}
+                      </div>
+                    )}
                     {fam.motto && <div className="text-[9px] text-stone-500 italic truncate mt-0.5">« {fam.motto} »</div>}
                     <div className="flex items-center gap-2 mt-1.5">
                       <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${
@@ -368,8 +594,13 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                           ? "bg-yellow-900/30 text-yellow-400 border-yellow-800/40"
                           : "bg-stone-700 text-stone-400 border-stone-600"
                       }`}>
-                        {fam.type === "noble" ? "Noble" : "Commune"}
+                        {fam.type === "noble" ? "Dynastie" : "Commune"}
                       </span>
+                      {fam.type === "noble" && (
+                        <span className="text-[9px] text-stone-500">
+                          {branches.length} branche{branches.length > 1 ? "s" : ""}
+                        </span>
+                      )}
                       <span className="text-[9px] text-stone-500">
                         {members.length} membre{members.length > 1 ? "s" : ""}
                       </span>

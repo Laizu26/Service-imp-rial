@@ -33,20 +33,41 @@ const getRoleTheme = (role) => {
   }
 };
 
+const normalizeBranches = (fam) => {
+  if (Array.isArray(fam.branches) && fam.branches.length > 0) return fam.branches;
+  if (fam.type === "noble") {
+    const dynName = fam.dynastyName || fam.lastName;
+    const main = { name: dynName, lastName: dynName, isMain: true };
+    if (fam.houseName && fam.houseName.toLowerCase() !== dynName.toLowerCase()) {
+      return [main, { name: fam.houseName, lastName: fam.lastName || fam.houseName, isMain: false }];
+    }
+    return [main];
+  }
+  return [];
+};
+
 const getFamilyForCitizen = (citizen, families) => {
   if (!Array.isArray(families)) return null;
   return families.find((f) => {
+    if (f.type === "noble") {
+      const branches = normalizeBranches(f);
+      const byBranch = branches.some((b) => citizen.lastName && b.lastName && citizen.lastName.toLowerCase() === b.lastName.toLowerCase());
+      return byBranch || (f.extraMemberIds || []).includes(citizen.id);
+    }
     const byName = citizen.lastName && f.lastName && citizen.lastName.toLowerCase() === f.lastName.toLowerCase();
-    const byExtra = (f.extraMemberIds || []).includes(citizen.id);
-    return byName || byExtra;
+    return byName || (f.extraMemberIds || []).includes(citizen.id);
   }) || null;
+};
+
+const getBranchForCitizen = (citizen, fam) => {
+  if (!fam || fam.type !== "noble") return null;
+  const branches = normalizeBranches(fam);
+  return branches.find((b) => citizen.lastName && b.lastName && citizen.lastName.toLowerCase() === b.lastName.toLowerCase()) || null;
 };
 
 const getFamilyDisplayName = (fam) => {
   if (fam.type === "noble") {
-    const house = fam.houseName || fam.lastName;
-    const dyn   = fam.dynastyName;
-    return dyn ? `Maison ${house} — Dynastie ${dyn}` : `Maison ${house}`;
+    return `Dynastie ${fam.dynastyName || fam.lastName}`;
   }
   return `Famille ${fam.lastName}`;
 };
@@ -121,13 +142,24 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
                   {citizen.status || "Actif"}
                 </span>
                 {citizenFamily && (
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${
-                    citizenFamily.type === "noble"
-                      ? "bg-yellow-50 text-yellow-900 border border-yellow-400"
-                      : "bg-stone-100 text-stone-700 border border-stone-300"
-                  }`} title={getFamilyDisplayName(citizenFamily)}>
-                    {citizenFamily.coat || (citizenFamily.type === "noble" ? "⚜️" : "🏠")} {getFamilyDisplayName(citizenFamily)}
-                  </span>
+                  <>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${
+                      citizenFamily.type === "noble"
+                        ? "bg-yellow-50 text-yellow-900 border border-yellow-400"
+                        : "bg-stone-100 text-stone-700 border border-stone-300"
+                    }`} title={getFamilyDisplayName(citizenFamily)}>
+                      {citizenFamily.coat || (citizenFamily.type === "noble" ? "⚜️" : "🏠")} {getFamilyDisplayName(citizenFamily)}
+                    </span>
+                    {(() => {
+                      const branch = getBranchForCitizen(citizen, citizenFamily);
+                      if (!branch) return null;
+                      return (
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1">
+                          {branch.isMain ? "👑 Principale" : `⚜️ Maison ${branch.name}`}
+                        </span>
+                      );
+                    })()}
+                  </>
                 )}
                 {citizen.bagueImperiale && (
                   <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-yellow-50 text-yellow-900 border border-yellow-500 flex items-center gap-1" title="Porteur de la Bague Impériale">
