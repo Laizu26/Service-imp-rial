@@ -1,18 +1,21 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 
 /**
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
  * Chaque notification a : { id, type, category, title, description, timestamp, route, icon }
  */
 export const useNotifications = (user, users, state) => {
-  const [dismissed, setDismissed] = useState(() => {
+  const [dismissed, setDismissed] = useState([]);
+
+  // Charger depuis localStorage à chaque changement d'utilisateur
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(`notif_dismissed_${user?.id}`);
-      return stored ? JSON.parse(stored) : [];
+      setDismissed(stored ? JSON.parse(stored) : []);
     } catch {
-      return [];
+      setDismissed([]);
     }
-  });
+  }, [user?.id]);
 
   const saveDismissed = useCallback(
     (ids) => {
