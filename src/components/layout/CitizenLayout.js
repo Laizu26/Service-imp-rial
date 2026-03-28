@@ -602,6 +602,7 @@ const CitizenLayout = (props) => {
                 user={user}
                 users={safeUsers}
                 companies={companies}
+                countries={countries}
                 globalLedger={globalLedger}
                 debtRegistry={debtRegistry}
                 onTransfer={onTransfer}

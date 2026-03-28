@@ -18,6 +18,7 @@ import {
   Filter,
   CreditCard,
   Banknote,
+  Landmark,
   Clock,
   CheckCircle2,
   XCircle,
@@ -91,6 +92,7 @@ const CitizenBankView = ({
   user,
   users,
   companies = [],
+  countries = [],
   globalLedger,
   debtRegistry,
   onTransfer,
@@ -110,6 +112,7 @@ const CitizenBankView = ({
   const [transferReason, setTransferReason] = useState("");
   const [showBalance, setShowBalance] = useState(true);
   const safeCompanies = Array.isArray(companies) ? companies : [];
+  const safeCountries = Array.isArray(countries) ? countries : [];
 
   // Proposition de Prêt
   const [loanTarget, setLoanTarget] = useState("");
@@ -220,6 +223,8 @@ const CitizenBankView = ({
     const tgtRaw =
       transferTargetType === "COMPANY"
         ? `E-${transferTarget}`
+        : transferTargetType === "COUNTRY"
+        ? `C-${transferTarget}`
         : `U-${transferTarget}`;
     onTransfer(`U-${user.id}`, tgtRaw, parseInt(transferAmount));
     setTransferAmount("");
@@ -481,6 +486,22 @@ const CitizenBankView = ({
                         Entreprise
                       </button>
                     )}
+                    {safeCountries.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setTransferTargetType("COUNTRY");
+                          setTransferTarget(safeCountries[0]?.id || "");
+                        }}
+                        className={`flex-1 px-3 py-2.5 rounded-lg text-[10px] font-bold uppercase border-2 transition-all flex items-center justify-center gap-2 ${
+                          transferTargetType === "COUNTRY"
+                            ? "bg-stone-800 text-white border-stone-800 shadow-md"
+                            : "bg-white text-stone-400 border-stone-200 hover:border-stone-300 hover:text-stone-600"
+                        }`}
+                      >
+                        <Landmark size={12} />
+                        Pays
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -497,7 +518,7 @@ const CitizenBankView = ({
                       excludeIds={[user.id]}
                       value={transferTarget}
                     />
-                  ) : (
+                  ) : transferTargetType === "COMPANY" ? (
                     <select
                       className="w-full p-3 border-2 border-stone-200 rounded-lg font-bold text-sm bg-white focus:border-stone-400 outline-none transition-colors"
                       value={transferTarget}
@@ -505,6 +526,19 @@ const CitizenBankView = ({
                     >
                       <option value="">-- Choisir une entreprise --</option>
                       {safeCompanies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      className="w-full p-3 border-2 border-stone-200 rounded-lg font-bold text-sm bg-white focus:border-stone-400 outline-none transition-colors"
+                      value={transferTarget}
+                      onChange={(e) => setTransferTarget(e.target.value)}
+                    >
+                      <option value="">-- Choisir un pays --</option>
+                      {safeCountries.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
                         </option>
