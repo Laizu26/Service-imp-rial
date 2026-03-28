@@ -2,18 +2,9 @@ import { useMemo, useState, useCallback } from "react";
 
 /**
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
- * Chaque notification a : { id, type, category, title, description, timestamp, route }
- *
- * Categories :
- *   - message    → messages non lus
- *   - job_offer  → offres d'emploi reçues
- *   - marriage   → demandes en mariage
- *   - slave      → alertes esclaves
- *   - debt       → dettes en attente
- *   - gazette    → nouveaux articles
+ * Chaque notification a : { id, type, category, title, description, timestamp, route, icon }
  */
 export const useNotifications = (user, users, state) => {
-  // IDs déjà lus/supprimés, stockés en mémoire (reset au rechargement volontairement)
   const [dismissed, setDismissed] = useState(() => {
     try {
       const stored = localStorage.getItem(`notif_dismissed_${user?.id}`);
@@ -23,36 +14,74 @@ export const useNotifications = (user, users, state) => {
     }
   });
 
+  const saveDismissed = useCallback(
+    (ids) => {
+      try {
+        localStorage.setItem(
+          `notif_dismissed_${user?.id}`,
+          JSON.stringify(ids.slice(-500))
+        );
+      } catch {}
+    },
+    [user?.id]
+  );
+
   const dismiss = useCallback(
     (id) => {
       setDismissed((prev) => {
         const next = [...prev, id];
-        try {
-          localStorage.setItem(
-            `notif_dismissed_${user?.id}`,
-            JSON.stringify(next.slice(-200))
-          );
-        } catch {}
+        saveDismissed(next);
         return next;
       });
     },
-    [user?.id]
+    [saveDismissed]
   );
 
   const dismissAll = useCallback(() => {
     setDismissed((prev) => {
       const allIds = notifications.map((n) => n.id);
       const next = [...new Set([...prev, ...allIds])];
-      try {
-        localStorage.setItem(
-          `notif_dismissed_${user?.id}`,
-          JSON.stringify(next.slice(-500))
-        );
-      } catch {}
+      saveDismissed(next);
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, saveDismissed]);
+
+  const dismissCategory = useCallback(
+    (category) => {
+      setDismissed((prev) => {
+        const catIds = notifications
+          .filter((n) => n.category === category)
+          .map((n) => n.id);
+        const next = [...new Set([...prev, ...catIds])];
+        saveDismissed(next);
+        return next;
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.id, saveDismissed]
+  );
+
+  const undismiss = useCallback(
+    (id) => {
+      setDismissed((prev) => {
+        const next = prev.filter((x) => x !== id);
+        saveDismissed(next);
+        return next;
+      });
+    },
+    [saveDismissed]
+  );
+
+  const clearAll = useCallback(() => {
+    setDismissed((prev) => {
+      const allIds = notifications.map((n) => n.id);
+      const next = [...new Set([...prev, ...allIds])];
+      saveDismissed(next);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, saveDismissed]);
 
   const notifications = useMemo(() => {
     if (!user) return [];
@@ -166,7 +195,7 @@ export const useNotifications = (user, users, state) => {
 
   const unreadCount = unreadNotifications.length;
 
-  // Grouper par catégorie
+  // Grouper par catégorie (toutes les notifs, avec isRead)
   const grouped = useMemo(() => {
     const groups = {};
     notifications.forEach((n) => {
@@ -176,12 +205,33 @@ export const useNotifications = (user, users, state) => {
     return groups;
   }, [notifications, dismissed]);
 
+  // Liste plate avec isRead
+  const allWithStatus = useMemo(
+    () =>
+      notifications.map((n) => ({
+        ...n,
+        isRead: dismissed.includes(n.id),
+      })),
+    [notifications, dismissed]
+  );
+
+  // Catégories disponibles
+  const categories = useMemo(
+    () => [...new Set(notifications.map((n) => n.category))],
+    [notifications]
+  );
+
   return {
     notifications,
+    allWithStatus,
     unreadNotifications,
     unreadCount,
     grouped,
+    categories,
     dismiss,
     dismissAll,
+    dismissCategory,
+    undismiss,
+    clearAll,
   };
 };

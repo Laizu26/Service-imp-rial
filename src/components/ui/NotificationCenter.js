@@ -30,7 +30,7 @@ const CATEGORY_COLORS = {
   Gazette: { bg: "bg-emerald-500/10", text: "text-emerald-400", dot: "bg-emerald-500" },
 };
 
-const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDismissAll }) => {
+const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDismissAll, onOpenFull }) => {
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
 
@@ -199,6 +199,20 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
               })
             )}
           </div>
+
+          {/* Voir tout */}
+          {onOpenFull && (
+            <button
+              onClick={() => {
+                onOpenFull();
+                setOpen(false);
+              }}
+              className="w-full px-4 py-3 border-t border-stone-800 text-[9px] font-black uppercase tracking-widest text-stone-500 hover:text-yellow-400 hover:bg-stone-800/50 transition-all flex items-center justify-center gap-2"
+            >
+              <Bell size={10} /> Centre de notifications
+              <ChevronRight size={10} />
+            </button>
+          )}
         </div>
       )}
     </div>

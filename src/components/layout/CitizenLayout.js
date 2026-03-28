@@ -28,6 +28,7 @@ import {
   Eye,
   Heart,
   Zap,
+  Bell,
 } from "lucide-react";
 
 import SettingsPanel from "../ui/SettingsPanel";
@@ -44,6 +45,7 @@ import CitizenInventoryView from "../views/CitizenInventoryView";
 import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
 import MyCompanyView from "../views/MyCompanyView";
 import SlavePersonalView from "../views/SlavePersonalView";
+import NotificationCenterView from "../views/NotificationCenterView";
 import LibraryView from "../views/LibraryView";
 import CitizenProfileCard from "../views/CitizenProfileCard";
 import MarriageView from "../views/MarriageView";
@@ -192,7 +194,16 @@ const CitizenLayout = (props) => {
   }, [user]);
 
   // --- CENTRE DE NOTIFICATIONS ---
-  const { grouped, unreadCount, dismiss, dismissAll } = useNotifications(
+  const {
+    grouped,
+    allWithStatus,
+    categories: notifCategories,
+    unreadCount,
+    dismiss,
+    dismissAll,
+    dismissCategory,
+    undismiss,
+  } = useNotifications(
     user,
     users,
     { debtRegistry: debtRegistry || [], gazette: gazette || [] }
@@ -286,6 +297,7 @@ const CitizenLayout = (props) => {
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
     { id: "annuaire", label: "Annuaire", icon: Eye },
     { id: "physique_magie", label: "Physique & Magie", icon: Zap },
+    { id: "notifications", label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ""}`, icon: Bell },
   ].filter(Boolean);
 
   // --- 4. RENDU ---
@@ -430,6 +442,7 @@ const CitizenLayout = (props) => {
               onNavigate={(route) => setActive(route)}
               onDismiss={dismiss}
               onDismissAll={dismissAll}
+              onOpenFull={() => setActive("notifications")}
             />
             <div className="relative">
               <button
@@ -1261,6 +1274,19 @@ const CitizenLayout = (props) => {
               <CitizenPhysicsMagicView
                 user={user}
                 onUpdateUser={onUpdateUser}
+              />
+            )}
+            {active === "notifications" && (
+              <NotificationCenterView
+                allWithStatus={allWithStatus}
+                grouped={grouped}
+                categories={notifCategories}
+                unreadCount={unreadCount}
+                onNavigate={(route) => setActive(route)}
+                onDismiss={dismiss}
+                onDismissAll={dismissAll}
+                onDismissCategory={dismissCategory}
+                onUndismiss={undismiss}
               />
             )}
             {/* ----------------------------- */}
