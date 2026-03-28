@@ -27,6 +27,8 @@
   --bg-app: #1c1917;
   --bg-sidebar: #0c0a09;
   --bg-header: #292524;
+  --bg-header-trans: rgba(41, 37, 36, 0.95);
+  --sidebar-active: #44403c;
   --bg-card: #292524;
   --bg-card-alt: #1c1917;
   --bg-input: #1c1917;
@@ -51,11 +53,17 @@
 .dark .bg-\[\#e6e2d6\] {
   background-color: var(--bg-app) !important;
 }
+.dark .bg-\[\#fdf6e3\] {
+  background-color: var(--bg-card) !important;
+}
 .dark .bg-\[\#fdf6e3\]\/95 {
   background-color: var(--bg-header) !important;
 }
 .dark .bg-\[\#e6dcc3\] {
   background-color: #44403c !important;
+}
+.dark .bg-\[\#f5f0dc\] {
+  background-color: var(--bg-card-alt) !important;
 }
 
 /* Text colors */
@@ -71,6 +79,31 @@
 .dark .text-stone-600 {
   color: #a8a29e !important;
 }
+.dark .text-stone-500 {
+  color: #a8a29e !important;
+}
+
+/* Accent text — keep readable in dark */
+.dark .text-yellow-800 {
+  color: #fbbf24 !important;
+}
+.dark .text-green-800 {
+  color: #4ade80 !important;
+}
+.dark .text-red-800 {
+  color: #f87171 !important;
+}
+.dark .text-blue-800 {
+  color: #60a5fa !important;
+}
+.dark .text-purple-800 {
+  color: #c084fc !important;
+}
+
+/* Placeholder text */
+.dark .placeholder-stone-400::placeholder {
+  color: #78716c !important;
+}
 
 /* Borders */
 .dark .border-stone-200 {
@@ -79,11 +112,34 @@
 .dark .border-stone-300 {
   border-color: var(--border-main) !important;
 }
+.dark .border-stone-400 {
+  border-color: #57534e !important;
+}
+.dark .border-stone-500 {
+  border-color: #57534e !important;
+}
 .dark .border-stone-100 {
   border-color: #44403c !important;
 }
 .dark .divide-stone-100 > :not([hidden]) ~ :not([hidden]) {
   border-color: #44403c !important;
+}
+.dark .divide-stone-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #44403c !important;
+}
+.dark .border-t-8.border-stone-500 {
+  border-top-color: #78716c !important;
+}
+
+/* Shadow adjustments */
+.dark .shadow-2xl {
+  --tw-shadow-color: rgba(0,0,0,0.5) !important;
+}
+.dark .shadow-xl {
+  --tw-shadow-color: rgba(0,0,0,0.4) !important;
+}
+.dark .shadow-lg {
+  --tw-shadow-color: rgba(0,0,0,0.35) !important;
 }
 
 /* Inputs */
@@ -101,6 +157,55 @@
 }
 .dark .bg-stone-200 {
   background-color: #44403c !important;
+}
+.dark .bg-stone-300 {
+  background-color: #57534e !important;
+}
+
+/* Common accent backgrounds — dark mode */
+.dark .bg-amber-50 {
+  background-color: rgba(113, 53, 6, 0.2) !important;
+}
+.dark .bg-amber-100 {
+  background-color: rgba(113, 53, 6, 0.35) !important;
+}
+.dark .bg-purple-50 {
+  background-color: rgba(88, 28, 135, 0.2) !important;
+}
+.dark .bg-purple-100 {
+  background-color: rgba(88, 28, 135, 0.35) !important;
+}
+.dark .bg-emerald-50 {
+  background-color: rgba(6, 78, 59, 0.2) !important;
+}
+.dark .bg-emerald-100 {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+}
+.dark .bg-sky-50 {
+  background-color: rgba(12, 74, 110, 0.2) !important;
+}
+.dark .bg-sky-100 {
+  background-color: rgba(12, 74, 110, 0.35) !important;
+}
+
+/* Accent borders dark mode */
+.dark .border-yellow-200 {
+  border-color: #71350680 !important;
+}
+.dark .border-yellow-300 {
+  border-color: #854d0e80 !important;
+}
+.dark .border-green-200 {
+  border-color: #14532d80 !important;
+}
+.dark .border-red-200 {
+  border-color: #7f1d1d80 !important;
+}
+.dark .border-blue-200 {
+  border-color: #1e3a5f80 !important;
+}
+.dark .border-purple-200 {
+  border-color: #581c8780 !important;
 }
 
 /* Accent backgrounds keep their meaning but get darker */

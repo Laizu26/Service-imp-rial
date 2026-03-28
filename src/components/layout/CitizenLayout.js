@@ -1301,6 +1301,7 @@ const CitizenLayout = (props) => {
                 onDismissAll={dismissAll}
                 onDismissCategory={dismissCategory}
                 onUndismiss={undismiss}
+                isDark={isDark}
               />
             )}
             {active === "settings" && (
