@@ -447,7 +447,22 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify(`Dividendes retirés : ${val} écus.`, "success");
         }
 
-        saveState({ ...state, companies: newCompanies, citizens: newCitizens });
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: type === "DEPOSIT" ? user.name : company.name,
+          toName: type === "DEPOSIT" ? company.name : user.name,
+          amount: val,
+          timestamp: Date.now(),
+          reason: type === "DEPOSIT" ? "Injection de capital" : "Retrait de dividendes",
+          type: "COMPANY_TREASURY",
+        };
+
+        saveState({
+          ...state,
+          companies: newCompanies,
+          citizens: newCitizens,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
       },
 
       // --- PAYER SALAIRES (individuel ou uniforme, employés + esclaves) ---
@@ -1131,7 +1146,21 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
-        saveState({ ...state, citizens: newCitizens });
+        const hideLedger = {
+          id: Date.now(),
+          fromName: citizen.name,
+          toName: `${citizen.name} (caché)`,
+          amount: amt,
+          timestamp: Date.now(),
+          reason: "Dissimulation de fonds",
+          type: "HIDE_MONEY",
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          globalLedger: [hideLedger, ...(state.globalLedger || [])],
+        });
 
         if (detected) {
           notify(
@@ -1167,7 +1196,21 @@ export const useGameActions = (session, state, saveState, notify) => {
           hiddenBalance: (citizen.hiddenBalance || 0) - amt,
         };
 
-        saveState({ ...state, citizens: newCitizens });
+        const withdrawLedger = {
+          id: Date.now(),
+          fromName: `${citizen.name} (caché)`,
+          toName: citizen.name,
+          amount: amt,
+          timestamp: Date.now(),
+          reason: "Retrait du compte caché",
+          type: "WITHDRAW_HIDDEN",
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          globalLedger: [withdrawLedger, ...(state.globalLedger || [])],
+        });
         notify(
           `${amt} Écus retirés du compte caché. Attention, ils sont maintenant visibles !`,
           "info"
@@ -1222,6 +1265,17 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
+        const hiddenLedger = {
+          id: Date.now(),
+          fromName: `${sender.name} (caché)`,
+          toName: targetName,
+          amount: amt,
+          timestamp: Date.now(),
+          reason: "Transfert secret",
+          type: "HIDDEN_TRANSFER",
+        };
+        s.globalLedger = [hiddenLedger, ...(s.globalLedger || [])];
+
         saveState(s);
         notify(
           `${amt} Écus transférés discrètement à ${targetName}.`,
@@ -1273,7 +1327,21 @@ export const useGameActions = (session, state, saveState, notify) => {
           slaveAlerts: (master.slaveAlerts || []).filter((a) => a.id !== alertId),
         };
 
-        saveState({ ...state, citizens: newCitizens });
+        const restoreLedger = {
+          id: Date.now(),
+          fromName: `${slave.name} (caché)`,
+          toName: master.name,
+          amount: toRestore,
+          timestamp: Date.now(),
+          reason: "Restitution — fonds cachés découverts",
+          type: "CONFISCATION",
+        };
+
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          globalLedger: [restoreLedger, ...(state.globalLedger || [])],
+        });
         notify(
           `${toRestore} Écus restitués depuis le compte caché de ${slave.name}.`,
           "success"

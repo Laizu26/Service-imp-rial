@@ -179,6 +179,10 @@ const BankView = ({
     SALARY: "Salaire",
     MANUMISSION: "Affranchissement",
     DEBT_PAYMENT: "Remb. dette",
+    HIDDEN_TRANSFER: "Transfert secret",
+    HIDE_MONEY: "Dissimulation",
+    WITHDRAW_HIDDEN: "Retrait caché",
+    COMPANY_TREASURY: "Trésorerie",
   };
   const typeColors = {
     TRANSFER: "bg-blue-100 text-blue-700 border-blue-200",
@@ -189,6 +193,10 @@ const BankView = ({
     SALARY: "bg-green-100 text-green-700 border-green-200",
     MANUMISSION: "bg-purple-100 text-purple-700 border-purple-200",
     DEBT_PAYMENT: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    HIDDEN_TRANSFER: "bg-amber-100 text-amber-700 border-amber-200",
+    HIDE_MONEY: "bg-stone-100 text-stone-600 border-stone-200",
+    WITHDRAW_HIDDEN: "bg-stone-100 text-stone-600 border-stone-200",
+    COMPANY_TREASURY: "bg-indigo-100 text-indigo-700 border-indigo-200",
   };
 
   const filteredLedger = useMemo(() => {

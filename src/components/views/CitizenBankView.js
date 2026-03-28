@@ -259,6 +259,10 @@ const CitizenBankView = ({
     SALARY: "Salaire",
     MANUMISSION: "Affranchissement",
     DEBT_PAYMENT: "Remb. dette",
+    HIDDEN_TRANSFER: "Transfert secret",
+    HIDE_MONEY: "Dissimulation",
+    WITHDRAW_HIDDEN: "Retrait caché",
+    COMPANY_TREASURY: "Trésorerie",
   };
 
   const typeColors = {
@@ -270,6 +274,10 @@ const CitizenBankView = ({
     SALARY: "bg-green-50 text-green-700 border-green-100",
     MANUMISSION: "bg-purple-50 text-purple-700 border-purple-100",
     DEBT_PAYMENT: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    HIDDEN_TRANSFER: "bg-amber-50 text-amber-700 border-amber-100",
+    HIDE_MONEY: "bg-stone-50 text-stone-600 border-stone-100",
+    WITHDRAW_HIDDEN: "bg-stone-50 text-stone-600 border-stone-100",
+    COMPANY_TREASURY: "bg-indigo-50 text-indigo-700 border-indigo-100",
   };
 
   // --- INTERDIT ---
