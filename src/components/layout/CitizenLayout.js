@@ -775,6 +775,8 @@ const CitizenLayout = (props) => {
               <SlavePersonalView
                 user={user}
                 users={safeUsers}
+                companies={companies}
+                countries={countries}
                 owner={safeUsers.find((u) => u.id === user.ownerId)}
                 onHideMoney={onHideMoney}
                 onWithdrawHiddenMoney={onWithdrawHiddenMoney}

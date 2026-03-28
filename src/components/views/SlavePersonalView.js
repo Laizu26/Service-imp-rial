@@ -9,6 +9,9 @@ import {
   Coins,
   AlertTriangle,
   User,
+  Banknote,
+  Landmark,
+  CreditCard,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -16,6 +19,8 @@ import UserSearchSelect from "../ui/UserSearchSelect";
 const SlavePersonalView = ({
   user,
   users = [],
+  companies = [],
+  countries = [],
   owner,
   onHideMoney,
   onWithdrawHiddenMoney,
@@ -23,8 +28,12 @@ const SlavePersonalView = ({
 }) => {
   const [hideAmount, setHideAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [transferTargetType, setTransferTargetType] = useState("CITIZEN");
   const [transferTarget, setTransferTarget] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
+
+  const safeCompanies = Array.isArray(companies) ? companies : [];
+  const safeCountries = Array.isArray(countries) ? countries : [];
 
   const hiddenBalance = user.hiddenBalance || 0;
   const visibleBalance = user.balance || 0;
@@ -51,7 +60,13 @@ const SlavePersonalView = ({
     if (!transferTarget || !transferAmount) return;
     const amt = parseInt(transferAmount);
     if (amt <= 0 || amt > hiddenBalance) return;
-    onHiddenTransfer(transferTarget, amt);
+    const tgtRaw =
+      transferTargetType === "COMPANY"
+        ? `E-${transferTarget}`
+        : transferTargetType === "COUNTRY"
+        ? `C-${transferTarget}`
+        : transferTarget;
+    onHiddenTransfer(tgtRaw, amt);
     setTransferAmount("");
     setTransferTarget("");
   };
@@ -229,20 +244,84 @@ const SlavePersonalView = ({
         <Card title="Banque Secrète" icon={Coins}>
           <div className="bg-amber-50/50 p-4 rounded-lg border border-amber-200 space-y-4">
             <p className="text-[10px] text-stone-500">
-              Envoyez de l'argent depuis votre compte caché vers un autre
-              citoyen. Ce transfert sera discret.
+              Envoyez de l'argent depuis votre compte caché. Ce transfert sera discret.
             </p>
+            <div>
+              <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
+                Type de bénéficiaire
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setTransferTargetType("CITIZEN"); setTransferTarget(""); }}
+                  className={`flex-1 px-2 py-2 rounded text-[9px] font-bold uppercase border transition-all flex items-center justify-center gap-1.5 ${
+                    transferTargetType === "CITIZEN"
+                      ? "bg-stone-800 text-white border-stone-800"
+                      : "bg-white text-stone-400 border-stone-200 hover:text-stone-600"
+                  }`}
+                >
+                  <CreditCard size={10} /> Citoyen
+                </button>
+                {safeCompanies.length > 0 && (
+                  <button
+                    onClick={() => { setTransferTargetType("COMPANY"); setTransferTarget(safeCompanies[0]?.id || ""); }}
+                    className={`flex-1 px-2 py-2 rounded text-[9px] font-bold uppercase border transition-all flex items-center justify-center gap-1.5 ${
+                      transferTargetType === "COMPANY"
+                        ? "bg-stone-800 text-white border-stone-800"
+                        : "bg-white text-stone-400 border-stone-200 hover:text-stone-600"
+                    }`}
+                  >
+                    <Banknote size={10} /> Entreprise
+                  </button>
+                )}
+                {safeCountries.length > 0 && (
+                  <button
+                    onClick={() => { setTransferTargetType("COUNTRY"); setTransferTarget(safeCountries[0]?.id || ""); }}
+                    className={`flex-1 px-2 py-2 rounded text-[9px] font-bold uppercase border transition-all flex items-center justify-center gap-1.5 ${
+                      transferTargetType === "COUNTRY"
+                        ? "bg-stone-800 text-white border-stone-800"
+                        : "bg-white text-stone-400 border-stone-200 hover:text-stone-600"
+                    }`}
+                  >
+                    <Landmark size={10} /> Pays
+                  </button>
+                )}
+              </div>
+            </div>
             <div>
               <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">
                 Bénéficiaire
               </label>
-              <UserSearchSelect
-                users={users}
-                onSelect={setTransferTarget}
-                placeholder="Rechercher un citoyen..."
-                excludeIds={[user.id]}
-                value={transferTarget}
-              />
+              {transferTargetType === "CITIZEN" ? (
+                <UserSearchSelect
+                  users={users}
+                  onSelect={setTransferTarget}
+                  placeholder="Rechercher un citoyen..."
+                  excludeIds={[user.id]}
+                  value={transferTarget}
+                />
+              ) : transferTargetType === "COMPANY" ? (
+                <select
+                  className="w-full p-3 bg-white border border-stone-300 rounded font-bold text-sm outline-none focus:border-amber-500 transition-colors"
+                  value={transferTarget}
+                  onChange={(e) => setTransferTarget(e.target.value)}
+                >
+                  <option value="">-- Choisir une entreprise --</option>
+                  {safeCompanies.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  className="w-full p-3 bg-white border border-stone-300 rounded font-bold text-sm outline-none focus:border-amber-500 transition-colors"
+                  value={transferTarget}
+                  onChange={(e) => setTransferTarget(e.target.value)}
+                >
+                  <option value="">-- Choisir un pays --</option>
+                  {safeCountries.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block ml-1">

@@ -1175,34 +1175,56 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- TRANSFERT DEPUIS LE COMPTE CACHÉ ---
-      onHiddenTransfer: (targetId, amount) => {
+      onHiddenTransfer: (targetRaw, amount) => {
         if (!session) return;
         const amt = parseInt(amount);
-        if (!amt || amt <= 0 || !targetId) return;
+        if (!amt || amt <= 0 || !targetRaw) return;
 
-        const newCitizens = [...state.citizens];
-        const senderIdx = newCitizens.findIndex((c) => c.id === session.id);
-        const targetIdx = newCitizens.findIndex((c) => c.id === targetId);
-        if (senderIdx === -1 || targetIdx === -1) return;
+        let s = structuredClone(state);
+        const senderIdx = s.citizens.findIndex((c) => c.id === session.id);
+        if (senderIdx === -1) return;
 
-        const sender = newCitizens[senderIdx];
+        const sender = s.citizens[senderIdx];
         if ((sender.hiddenBalance || 0) < amt) {
           notify("Fonds cachés insuffisants.", "error");
           return;
         }
 
-        newCitizens[senderIdx] = {
+        s.citizens[senderIdx] = {
           ...sender,
           hiddenBalance: (sender.hiddenBalance || 0) - amt,
         };
-        newCitizens[targetIdx] = {
-          ...newCitizens[targetIdx],
-          balance: (newCitizens[targetIdx].balance || 0) + amt,
-        };
 
-        saveState({ ...state, citizens: newCitizens });
+        let targetName = "Autre";
+        // Support prefixed targets (E- for company, C- for country) or plain citizen ID
+        if (targetRaw.startsWith("E-")) {
+          const compIdx = (s.companies || []).findIndex((x) => x.id === targetRaw.slice(2));
+          if (compIdx !== -1) {
+            s.companies[compIdx].balance = (s.companies[compIdx].balance || 0) + amt;
+            targetName = s.companies[compIdx].name;
+          }
+        } else if (targetRaw.startsWith("C-")) {
+          const countryIdx = s.countries.findIndex((x) => x.id === targetRaw.slice(2));
+          if (countryIdx !== -1) {
+            s.countries[countryIdx].treasury += amt;
+            targetName = s.countries[countryIdx].name;
+          }
+        } else {
+          // Plain citizen ID (backward compat)
+          const targetId = targetRaw.startsWith("U-") ? targetRaw.slice(2) : targetRaw;
+          const targetIdx = s.citizens.findIndex((c) => c.id === targetId);
+          if (targetIdx !== -1) {
+            s.citizens[targetIdx] = {
+              ...s.citizens[targetIdx],
+              balance: (s.citizens[targetIdx].balance || 0) + amt,
+            };
+            targetName = s.citizens[targetIdx].name;
+          }
+        }
+
+        saveState(s);
         notify(
-          `${amt} Écus transférés discrètement à ${newCitizens[targetIdx].name}.`,
+          `${amt} Écus transférés discrètement à ${targetName}.`,
           "success"
         );
       },
