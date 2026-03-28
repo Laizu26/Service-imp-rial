@@ -31,7 +31,7 @@ import {
   Bell,
 } from "lucide-react";
 
-import SettingsPanel from "../ui/SettingsPanel";
+
 import NotificationCenter from "../ui/NotificationCenter";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
@@ -50,6 +50,7 @@ import LibraryView from "../views/LibraryView";
 import CitizenProfileCard from "../views/CitizenProfileCard";
 import MarriageView from "../views/MarriageView";
 import CitizenPhysicsMagicView from "../views/CitizenPhysicsMagicView";
+import SettingsView from "../views/SettingsView";
 
 const BoostCountdown = ({ expiresAt }) => {
   const [remaining, setRemaining] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
@@ -162,7 +163,7 @@ const CitizenLayout = (props) => {
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
   const [active, setActive] = useState("gazette");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+
 
   // Formulaires (avec valeurs par défaut vides)
   const [editOccupation, setEditOccupation] = useState("");
@@ -206,7 +207,8 @@ const CitizenLayout = (props) => {
   } = useNotifications(
     user,
     users,
-    { debtRegistry: debtRegistry || [], gazette: gazette || [] }
+    { debtRegistry: debtRegistry || [], gazette: gazette || [] },
+    settings.notifPrefs
   );
 
   // --- 2. SÉCURITÉ CRITIQUE ---
@@ -307,12 +309,12 @@ const CitizenLayout = (props) => {
         isSlave ? "bg-stone-950" : "bg-stone-950"
       }`}
     >
-      <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative">
-        <div className="p-8 pb-4 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
+      <aside className={`hidden md:flex flex-col ${settings.sidebarCollapsed ? "w-20" : "w-72"} bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative transition-all duration-300`}>
+        <div className={`${settings.sidebarCollapsed ? "p-3 pb-3" : "p-8 pb-4"} flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50 transition-all duration-300`}>
           {/* Avatar = bouton GM caché */}
           <button
             onClick={() => onGmTrigger && onGmTrigger()}
-            className={`relative w-16 h-16 bg-stone-800 rounded-full flex items-center justify-center border-2 mb-4 overflow-hidden cursor-default focus:outline-none group transition-all duration-300 ${
+            className={`relative ${settings.sidebarCollapsed ? "w-10 h-10 mb-1" : "w-16 h-16 mb-4"} bg-stone-800 rounded-full flex items-center justify-center border-2 overflow-hidden cursor-default focus:outline-none group transition-all duration-300 ${
               gmBoostActive
                 ? "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse"
                 : "border-yellow-600/30 shadow-[0_0_15px_rgba(202,138,4,0.1)] hover:border-yellow-600/60 hover:shadow-[0_0_20px_rgba(202,138,4,0.2)]"
@@ -340,29 +342,33 @@ const CitizenLayout = (props) => {
               </div>
             )}
           </button>
-          <h2 className="text-lg font-black uppercase tracking-widest text-stone-100 text-center leading-tight">
-            {user.name}
-          </h2>
-          <div className="text-[10px] text-stone-500 font-mono mt-1 tracking-widest uppercase">
-            Matricule: {user.id}
-          </div>
-          {isSlave && (
-            <span className="mt-2 bg-red-900/50 text-red-200 text-[9px] px-2 py-0.5 rounded border border-red-900 uppercase tracking-widest">
-              Esclave
-            </span>
-          )}
-          {/* Bandeau boost actif avec countdown */}
-          {gmBoostActive && gmTempBoost && (
-            <BoostCountdown expiresAt={gmTempBoost.expiresAt} />
+          {!settings.sidebarCollapsed && (
+            <>
+              <h2 className="text-lg font-black uppercase tracking-widest text-stone-100 text-center leading-tight">
+                {user.name}
+              </h2>
+              <div className="text-[10px] text-stone-500 font-mono mt-1 tracking-widest uppercase">
+                Matricule: {user.id}
+              </div>
+              {isSlave && (
+                <span className="mt-2 bg-red-900/50 text-red-200 text-[9px] px-2 py-0.5 rounded border border-red-900 uppercase tracking-widest">
+                  Esclave
+                </span>
+              )}
+              {gmBoostActive && gmTempBoost && (
+                <BoostCountdown expiresAt={gmTempBoost.expiresAt} />
+              )}
+            </>
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        <nav className={`flex-1 overflow-y-auto ${settings.sidebarCollapsed ? "p-2 space-y-1" : "p-4 space-y-1"}`}>
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActive(item.id)}
-              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+              title={settings.sidebarCollapsed ? item.label : undefined}
+              className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-4 px-4 py-3.5"} rounded-xl transition-all duration-300 group ${
                 active === item.id
                   ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
                   : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
@@ -370,25 +376,33 @@ const CitizenLayout = (props) => {
             >
               <item.icon
                 size={18}
-                className={`transition-colors ${
+                className={`shrink-0 transition-colors ${
                   active === item.id
                     ? "text-stone-900"
                     : "text-stone-500 group-hover:text-stone-300"
                 }`}
               />
-              <span className="text-xs font-black uppercase tracking-widest">
-                {item.label}
-              </span>
+              {!settings.sidebarCollapsed && (
+                <span className="text-xs font-black uppercase tracking-widest">
+                  {item.label}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-stone-800 space-y-2">
+        <div className={`${settings.sidebarCollapsed ? "p-2" : "p-4"} border-t border-stone-800 space-y-2`}>
           <button
-            onClick={() => setSettingsOpen(true)}
-            className="w-full p-2 text-[10px] font-black uppercase text-stone-500 hover:text-yellow-400 flex items-center gap-2 justify-center transition-all hover:bg-stone-800 rounded-lg tracking-widest"
+            onClick={() => setActive("settings")}
+            title={settings.sidebarCollapsed ? "Paramètres" : undefined}
+            className={`w-full p-2 text-[10px] font-black uppercase flex items-center ${settings.sidebarCollapsed ? "justify-center" : "gap-2 justify-center"} transition-all rounded-lg tracking-widest ${
+              active === "settings"
+                ? "text-yellow-400 bg-stone-800"
+                : "text-stone-500 hover:text-yellow-400 hover:bg-stone-800"
+            }`}
           >
-            <Settings size={14} /> Paramètres
+            <Settings size={14} />
+            {!settings.sidebarCollapsed && " Paramètres"}
           </button>
         </div>
       </aside>
@@ -1289,20 +1303,19 @@ const CitizenLayout = (props) => {
                 onUndismiss={undismiss}
               />
             )}
+            {active === "settings" && (
+              <SettingsView
+                settings={settings}
+                isDark={isDark}
+                updateSetting={updateSetting}
+                resetSettings={resetSettings}
+                user={user}
+              />
+            )}
             {/* ----------------------------- */}
           </div>
         </main>
       </div>
-
-      {settingsOpen && (
-        <SettingsPanel
-          settings={settings}
-          isDark={isDark}
-          updateSetting={updateSetting}
-          resetSettings={resetSettings}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
     </div>
   );
 };

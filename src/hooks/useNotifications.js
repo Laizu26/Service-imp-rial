@@ -4,7 +4,8 @@ import { useMemo, useState, useCallback, useEffect } from "react";
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
  * Chaque notification a : { id, type, category, title, description, timestamp, route, icon }
  */
-export const useNotifications = (user, users, state) => {
+export const useNotifications = (user, users, state, notifPrefs) => {
+  const prefs = notifPrefs || {};
   const [dismissed, setDismissed] = useState([]);
 
   // Charger depuis localStorage à chaque changement d'utilisateur
@@ -91,105 +92,113 @@ export const useNotifications = (user, users, state) => {
     const notifs = [];
 
     // --- Messages non lus ---
-    const messages = user.messages || [];
-    messages.forEach((msg) => {
-      if (!msg.read) {
-        notifs.push({
-          id: `msg_${msg.id || msg.date}`,
-          type: "message",
-          category: "Messages",
-          title: msg.subject || "Nouveau message",
-          description: `De ${msg.from || msg.fromName || "Inconnu"}`,
-          timestamp: msg.id || Date.now(),
-          route: "msg",
-          icon: "Mail",
-        });
-      }
-    });
+    if (prefs.messages !== false) {
+      (user.messages || []).forEach((msg) => {
+        if (!msg.read) {
+          notifs.push({
+            id: `msg_${msg.id || msg.date}`,
+            type: "message",
+            category: "Messages",
+            title: msg.subject || "Nouveau message",
+            description: `De ${msg.from || msg.fromName || "Inconnu"}`,
+            timestamp: msg.id || Date.now(),
+            route: "msg",
+            icon: "Mail",
+          });
+        }
+      });
+    }
 
     // --- Offres d'emploi ---
-    const jobOffers = user.jobOffers || [];
-    jobOffers.forEach((offer) => {
-      notifs.push({
-        id: `job_${offer.id}`,
-        type: "job_offer",
-        category: "Emploi",
-        title: "Offre d'embauche",
-        description: offer.companyName || "Entreprise inconnue",
-        timestamp: offer.date || Date.now(),
-        route: "my_company",
-        icon: "Briefcase",
-      });
-    });
-
-    // --- Propositions d'union ---
-    const proposals = user.marriageProposals || [];
-    proposals.forEach((p) => {
-      notifs.push({
-        id: `marry_${p.fromId}`,
-        type: "marriage",
-        category: "Liens & Unions",
-        title: "Proposition d'union",
-        description: `De ${p.fromName || "Inconnu"}`,
-        timestamp: p.timestamp || Date.now(),
-        route: "profil",
-        icon: "Heart",
-      });
-    });
-
-    // --- Alertes esclaves ---
-    const slaveAlerts = user.slaveAlerts || [];
-    slaveAlerts.forEach((alert) => {
-      notifs.push({
-        id: `slave_${alert.id}`,
-        type: "slave_alert",
-        category: "Main d'Oeuvre",
-        title: "Activité suspecte",
-        description: `${alert.slaveName || "Esclave"} — ${alert.amount || 0} Écus dissimulés`,
-        timestamp: alert.timestamp || Date.now(),
-        route: "slaves",
-        icon: "ShieldAlert",
-      });
-    });
-
-    // --- Dettes en attente (où l'user est débiteur) ---
-    const debts = state?.debtRegistry || [];
-    debts
-      .filter((d) => d.debtorId === user.id && d.status === "PENDING")
-      .forEach((d) => {
-        const creditor = (users || []).find((u) => u.id === d.creditorId);
+    if (prefs.emploi !== false) {
+      (user.jobOffers || []).forEach((offer) => {
         notifs.push({
-          id: `debt_${d.id}`,
-          type: "debt",
-          category: "Finances",
-          title: "Contrat de dette",
-          description: `${d.total || d.amount} Écus — ${creditor?.name || "Créancier"}`,
-          timestamp: d.createdAt || Date.now(),
-          route: "bank",
-          icon: "Coins",
+          id: `job_${offer.id}`,
+          type: "job_offer",
+          category: "Emploi",
+          title: "Offre d'embauche",
+          description: offer.companyName || "Entreprise inconnue",
+          timestamp: offer.date || Date.now(),
+          route: "my_company",
+          icon: "Briefcase",
         });
       });
+    }
+
+    // --- Propositions d'union ---
+    if (prefs.unions !== false) {
+      (user.marriageProposals || []).forEach((p) => {
+        notifs.push({
+          id: `marry_${p.fromId}`,
+          type: "marriage",
+          category: "Liens & Unions",
+          title: "Proposition d'union",
+          description: `De ${p.fromName || "Inconnu"}`,
+          timestamp: p.timestamp || Date.now(),
+          route: "profil",
+          icon: "Heart",
+        });
+      });
+    }
+
+    // --- Alertes esclaves ---
+    if (prefs.esclaves !== false) {
+      (user.slaveAlerts || []).forEach((alert) => {
+        notifs.push({
+          id: `slave_${alert.id}`,
+          type: "slave_alert",
+          category: "Main d'Oeuvre",
+          title: "Activité suspecte",
+          description: `${alert.slaveName || "Esclave"} — ${alert.amount || 0} Écus dissimulés`,
+          timestamp: alert.timestamp || Date.now(),
+          route: "slaves",
+          icon: "ShieldAlert",
+        });
+      });
+    }
+
+    // --- Dettes en attente (où l'user est débiteur) ---
+    if (prefs.finances !== false) {
+      (state?.debtRegistry || [])
+        .filter((d) => d.debtorId === user.id && d.status === "PENDING")
+        .forEach((d) => {
+          const creditor = (users || []).find((u) => u.id === d.creditorId);
+          notifs.push({
+            id: `debt_${d.id}`,
+            type: "debt",
+            category: "Finances",
+            title: "Contrat de dette",
+            description: `${d.total || d.amount} Écus — ${creditor?.name || "Créancier"}`,
+            timestamp: d.createdAt || Date.now(),
+            route: "bank",
+            icon: "Coins",
+          });
+        });
+    }
 
     // --- Gazette récente (dernières 24h de jeu, max 3) ---
-    const gazette = state?.gazette || [];
-    gazette.slice(0, 3).forEach((g) => {
-      notifs.push({
-        id: `gaz_${g.id}`,
-        type: "gazette",
-        category: "Gazette",
-        title: g.title || "Nouvelle publication",
-        description: g.author || "Chancellerie",
-        timestamp: g.id || Date.now(),
-        route: "gazette",
-        icon: "Scroll",
+    if (prefs.gazette !== false) {
+      const gazette = state?.gazette || [];
+      gazette.slice(0, 3).forEach((g) => {
+        notifs.push({
+          id: `gaz_${g.id}`,
+          type: "gazette",
+          category: "Gazette",
+          title: g.title || "Nouvelle publication",
+          description: g.author || "Chancellerie",
+          timestamp: g.id || Date.now(),
+          route: "gazette",
+          icon: "Scroll",
+        });
       });
-    });
+    }
 
     // Trier par timestamp desc
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     return notifs;
-  }, [user, users, state?.debtRegistry, state?.gazette]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, users, state?.debtRegistry, state?.gazette, prefs]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),
