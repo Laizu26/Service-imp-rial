@@ -263,6 +263,8 @@ const CitizenBankView = ({
     HIDE_MONEY: "Dissimulation",
     WITHDRAW_HIDDEN: "Retrait caché",
     COMPANY_TREASURY: "Trésorerie",
+    SALARY_WITHDRAW: "Retrait salaire",
+    COMPANY_LEVEL: "Expansion",
   };
 
   const typeColors = {
@@ -278,6 +280,8 @@ const CitizenBankView = ({
     HIDE_MONEY: "bg-stone-50 text-stone-600 border-stone-100",
     WITHDRAW_HIDDEN: "bg-stone-50 text-stone-600 border-stone-100",
     COMPANY_TREASURY: "bg-indigo-50 text-indigo-700 border-indigo-100",
+    SALARY_WITHDRAW: "bg-teal-50 text-teal-700 border-teal-100",
+    COMPANY_LEVEL: "bg-violet-50 text-violet-700 border-violet-100",
   };
 
   // --- INTERDIT ---

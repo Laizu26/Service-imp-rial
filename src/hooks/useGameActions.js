@@ -121,6 +121,14 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.companies[compIdx] = {
             ...ns.companies[compIdx],
             balance: (ns.companies[compIdx].balance || 0) + net,
+            lastProduction: {
+              date: `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`,
+              gross: revenue,
+              tax,
+              net,
+              employees: empCount,
+              slaves: slaveCount,
+            },
           };
 
           const countryIdx = (ns.countries || []).findIndex(
@@ -136,23 +144,37 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         });
 
-        // --- Progression de niveau (mensuelle) ---
+        // --- Progression de niveau (mensuelle, 1er du mois) ---
         if (ns.gameDate.day === 1) {
           (ns.companies || []).forEach((company, compIdx) => {
             if (company.frozen) return;
+            const currentLevel = company.level || 1;
             const totalWorkers =
               (company.employees || []).length +
               (company.slaves || []).length;
-            const requiredWorkers = (company.level || 1) * 2;
-            const requiredFunds = (company.level || 1) * 500;
+            const requiredWorkers = currentLevel * 2;
+            const requiredFunds = currentLevel * 500;
             if (
               totalWorkers >= requiredWorkers &&
               (company.balance || 0) >= requiredFunds
             ) {
+              const newLevel = currentLevel + 1;
+              // Coût de la montée : prélever les fonds requis
               ns.companies[compIdx] = {
                 ...ns.companies[compIdx],
-                level: (ns.companies[compIdx].level || 1) + 1,
+                level: newLevel,
+                balance: (ns.companies[compIdx].balance || 0) - requiredFunds,
               };
+              // Log dans le ledger
+              ns.globalLedger = [{
+                id: Date.now() + Math.random(),
+                fromName: company.name,
+                toName: "Expansion",
+                amount: requiredFunds,
+                timestamp: Date.now(),
+                reason: `Passage au niveau ${newLevel}`,
+                type: "COMPANY_LEVEL",
+              }, ...(ns.globalLedger || [])];
             }
           });
         }
@@ -189,14 +211,35 @@ export const useGameActions = (session, state, saveState, notify) => {
             return;
           }
 
-          // Distribution aux bénéficiaires (citoyen, pays, entreprise, trésor impérial)
+          // Distribution aux bénéficiaires
+          // Si source = COMPANY, les citoyens employés/esclaves reçoivent sur workerBalances
+          const sourceCompany = job.source?.type === "COMPANY"
+            ? (ns.companies || []).find((c) => c.id === job.source.id)
+            : null;
           (job.recipients || []).forEach((recipient) => {
             const share = Math.floor(totalAmount * (recipient.percent || 0) / 100);
             if (share <= 0) return;
             const type = recipient.type || "CITIZEN";
             if (type === "CITIZEN") {
-              const idx = (ns.citizens || []).findIndex((c) => c.id === recipient.id);
-              if (idx !== -1) ns.citizens[idx] = { ...ns.citizens[idx], balance: (ns.citizens[idx].balance || 0) + share };
+              // Si c'est un employé/esclave de la source company → workerBalances
+              if (sourceCompany) {
+                const isWorker = [...(sourceCompany.employees || []), ...(sourceCompany.slaves || [])].includes(recipient.id);
+                if (isWorker) {
+                  const scIdx = (ns.companies || []).findIndex((c) => c.id === job.source.id);
+                  if (scIdx !== -1) {
+                    const wb = { ...(ns.companies[scIdx].workerBalances || {}) };
+                    wb[recipient.id] = (wb[recipient.id] || 0) + share;
+                    ns.companies[scIdx] = { ...ns.companies[scIdx], workerBalances: wb };
+                  }
+                } else {
+                  // Dirigeant ou citoyen externe → directement sur son solde
+                  const idx = (ns.citizens || []).findIndex((c) => c.id === recipient.id);
+                  if (idx !== -1) ns.citizens[idx] = { ...ns.citizens[idx], balance: (ns.citizens[idx].balance || 0) + share };
+                }
+              } else {
+                const idx = (ns.citizens || []).findIndex((c) => c.id === recipient.id);
+                if (idx !== -1) ns.citizens[idx] = { ...ns.citizens[idx], balance: (ns.citizens[idx].balance || 0) + share };
+              }
             } else if (type === "COUNTRY") {
               const idx = (ns.countries || []).findIndex((c) => c.id === recipient.id);
               if (idx !== -1) ns.countries[idx] = { ...ns.countries[idx], treasury: (ns.countries[idx].treasury || 0) + share };
@@ -479,7 +522,6 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
-        // salaryData peut être un nombre (uniforme) ou un objet { workerId: montant }
         const isMap =
           typeof salaryData === "object" && !Array.isArray(salaryData);
         let totalCost = 0;
@@ -505,33 +547,28 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
 
         const newCompanies = [...state.companies];
-        const newCitizens = [...state.citizens];
+
+        // Salaire crédité sur le compte interne de l'entreprise (workerBalances)
+        const wb = { ...(company.workerBalances || {}) };
+        Object.entries(payments).forEach(([empId, val]) => {
+          wb[empId] = (wb[empId] || 0) + val;
+        });
 
         newCompanies[compIdx] = {
           ...company,
           balance: company.balance - totalCost,
+          workerBalances: wb,
         };
 
-        Object.entries(payments).forEach(([empId, val]) => {
-          const empIdx = newCitizens.findIndex((c) => c.id === empId);
-          if (empIdx !== -1) {
-            newCitizens[empIdx] = {
-              ...newCitizens[empIdx],
-              balance: (newCitizens[empIdx].balance || 0) + val,
-            };
-          }
-        });
-
-        // Entrée ledger pour chaque paiement de salaire
         const salaryLedger = Object.entries(payments).map(([empId, val]) => {
-          const emp = newCitizens.find((c) => c.id === empId);
+          const emp = (state.citizens || []).find((c) => c.id === empId);
           return {
             id: Date.now() + Math.random(),
             fromName: company.name,
             toName: emp?.name || empId,
             amount: val,
             timestamp: Date.now(),
-            reason: "Salaire",
+            reason: "Salaire (compte entreprise)",
             type: "SALARY",
           };
         });
@@ -539,13 +576,62 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({
           ...state,
           companies: newCompanies,
-          citizens: newCitizens,
           globalLedger: [...salaryLedger, ...(state.globalLedger || [])],
         });
         notify(
-          `Salaires versés : ${totalCost.toLocaleString()} écus au total.`,
+          `Salaires versés : ${totalCost.toLocaleString()} écus crédités sur les comptes internes.`,
           "success"
         );
+      },
+
+      // --- RETRAIT SALAIRE EMPLOYÉ ---
+      onWithdrawCompanySalary: (companyId, amount) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (compIdx === -1 || userIdx === -1) return;
+
+        const company = state.companies[compIdx];
+        const user = state.citizens[userIdx];
+        const val = parseInt(amount);
+        if (!val || val <= 0) {
+          notify("Montant invalide.", "error");
+          return;
+        }
+
+        const wb = { ...(company.workerBalances || {}) };
+        const available = wb[session.id] || 0;
+        if (val > available) {
+          notify(`Solde insuffisant. Disponible : ${available} écus.`, "error");
+          return;
+        }
+
+        wb[session.id] = available - val;
+        if (wb[session.id] <= 0) delete wb[session.id];
+
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...company, workerBalances: wb };
+
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...user, balance: (user.balance || 0) + val };
+
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: company.name,
+          toName: user.name,
+          amount: val,
+          timestamp: Date.now(),
+          reason: "Retrait de salaire",
+          type: "SALARY_WITHDRAW",
+        };
+
+        saveState({
+          ...state,
+          companies: newCompanies,
+          citizens: newCitizens,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`${val.toLocaleString()} écus retirés de votre compte entreprise.`, "success");
       },
 
       // --- NOUVEAU : OFFRES D'EMPLOI ---

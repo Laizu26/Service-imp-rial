@@ -489,6 +489,7 @@ export default function App() {
             updateSetting={updateSetting}
             resetSettings={resetSettings}
             onCompanyTreasury={actions.onCompanyTreasury}
+            onWithdrawCompanySalary={actions.onWithdrawCompanySalary}
             onSendJobOffer={actions.onSendJobOffer}
             onRespondJobOffer={actions.onRespondJobOffer}
             onPaySalaries={actions.onPaySalaries}

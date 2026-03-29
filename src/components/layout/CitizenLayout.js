@@ -115,6 +115,7 @@ const CitizenLayout = (props) => {
     onLogoutAccount,
     companies = [],
     onCompanyTreasury,
+    onWithdrawCompanySalary,
     onSendJobOffer,
     onRespondJobOffer,
     onPaySalaries,
@@ -660,6 +661,7 @@ const CitizenLayout = (props) => {
                 companies={companies}
                 citizens={safeUsers}
                 onCompanyTreasury={onCompanyTreasury}
+                onWithdrawCompanySalary={onWithdrawCompanySalary}
                 onSendJobOffer={onSendJobOffer}
                 onRespondJobOffer={onRespondJobOffer}
                 onPaySalaries={onPaySalaries}

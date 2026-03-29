@@ -183,6 +183,8 @@ const BankView = ({
     HIDE_MONEY: "Dissimulation",
     WITHDRAW_HIDDEN: "Retrait caché",
     COMPANY_TREASURY: "Trésorerie",
+    SALARY_WITHDRAW: "Retrait salaire",
+    COMPANY_LEVEL: "Expansion",
   };
   const typeColors = {
     TRANSFER: "bg-blue-100 text-blue-700 border-blue-200",
@@ -197,6 +199,8 @@ const BankView = ({
     HIDE_MONEY: "bg-stone-100 text-stone-600 border-stone-200",
     WITHDRAW_HIDDEN: "bg-stone-100 text-stone-600 border-stone-200",
     COMPANY_TREASURY: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    SALARY_WITHDRAW: "bg-teal-100 text-teal-700 border-teal-200",
+    COMPANY_LEVEL: "bg-violet-100 text-violet-700 border-violet-200",
   };
 
   const filteredLedger = useMemo(() => {

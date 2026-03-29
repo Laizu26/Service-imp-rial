@@ -66,6 +66,7 @@ const MyCompanyView = ({
   onSaveJobContract,
   onDeleteJobContract,
   onToggleJobContract,
+  onWithdrawCompanySalary,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -98,6 +99,7 @@ const MyCompanyView = ({
   const [editMotto, setEditMotto] = useState("");
   const [editColor, setEditColor] = useState("#8B5CF6");
   const [editHiring, setEditHiring] = useState(true);
+  const [empWithdrawAmount, setEmpWithdrawAmount] = useState("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const mySlaves = (citizens || []).filter(
@@ -179,7 +181,7 @@ const MyCompanyView = ({
                           ? "bg-green-100 text-green-600"
                           : "bg-stone-200 text-stone-500"
                       }`}>
-                        {isEmployee ? "Salarié" : "Esclave"}
+                        {isEmployee ? "Salarié" : "Esclave affecté"}
                       </span>
                       {workerCompany.frozen && (
                         <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded text-[10px] font-bold uppercase">
@@ -198,13 +200,24 @@ const MyCompanyView = ({
                       </div>
                     )}
                   </div>
-                  <div className="text-right bg-stone-50 p-4 rounded-xl border border-stone-200 min-w-[160px]">
-                    <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
-                      Votre solde
+                  <div className="flex flex-col gap-2 min-w-[180px]">
+                    <div className="text-right bg-stone-50 p-3 rounded-xl border border-stone-200">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">
+                        Solde personnel
+                      </div>
+                      <div className="text-2xl font-mono font-black text-stone-800">
+                        {(user.balance || 0).toLocaleString()}{" "}
+                        <span className="text-sm">Écus</span>
+                      </div>
                     </div>
-                    <div className="text-3xl font-mono font-black text-stone-800">
-                      {(user.balance || 0).toLocaleString()}{" "}
-                      <span className="text-sm">Écus</span>
+                    <div className="text-right bg-yellow-50 p-3 rounded-xl border border-yellow-200">
+                      <div className="text-[10px] font-black uppercase text-yellow-700 tracking-widest mb-1">
+                        Compte entreprise
+                      </div>
+                      <div className="text-2xl font-mono font-black text-yellow-800">
+                        {((workerCompany.workerBalances || {})[user.id] || 0).toLocaleString()}{" "}
+                        <span className="text-sm">Écus</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -243,25 +256,84 @@ const MyCompanyView = ({
                   </div>
                 </Card>
 
-                <Card title="Collègues" icon={Users}>
-                  {colleagues.length === 0 ? (
-                    <div className="text-center text-stone-400 italic py-4 text-xs">
-                      Aucun autre employé.
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
-                      {colleagues.map((c) => (
-                        <div key={c.id} className="py-2.5 flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0">
-                            {(c.name || "?")[0]}
-                          </div>
-                          <span className="text-sm font-bold text-stone-700">{c.name}</span>
+                <Card title="Membres" icon={Users}>
+                  <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
+                    {/* Dirigeant */}
+                    {owner && (
+                      <div className="py-2.5 flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center text-[10px] font-bold text-yellow-700 flex-shrink-0 border border-yellow-300">
+                          {(owner.name || "?")[0]}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <span className="text-sm font-bold text-stone-700">{owner.name}</span>
+                        <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-yellow-200">
+                          Dirigeant
+                        </span>
+                      </div>
+                    )}
+                    {/* Collègues */}
+                    {colleagues.map((c) => (
+                      <div key={c.id} className="py-2.5 flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0">
+                          {(c.name || "?")[0]}
+                        </div>
+                        <span className="text-sm font-bold text-stone-700">{c.name}</span>
+                        <span className="bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">
+                          Employé
+                        </span>
+                      </div>
+                    ))}
+                    {colleagues.length === 0 && !owner && (
+                      <div className="text-center text-stone-400 italic py-4 text-xs">
+                        Aucun autre membre.
+                      </div>
+                    )}
+                  </div>
                 </Card>
               </div>
+
+              {/* Retrait de salaire (employé) */}
+              {isEmployee && onWithdrawCompanySalary && (() => {
+                const myCompanyBalance = (workerCompany.workerBalances || {})[user.id] || 0;
+                return myCompanyBalance > 0 ? (
+                  <Card title="Retrait de Salaire" icon={Wallet}>
+                    <div className="space-y-3">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-stone-600">
+                        Vous avez <span className="font-black text-yellow-800">{myCompanyBalance.toLocaleString()} Écus</span> disponibles
+                        sur votre compte interne. Retirez-les pour les transférer sur votre solde personnel.
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          className="flex-1 p-2 border rounded font-mono text-sm"
+                          placeholder="Montant..."
+                          value={empWithdrawAmount}
+                          onChange={(e) => setEmpWithdrawAmount(e.target.value)}
+                          max={myCompanyBalance}
+                        />
+                        <button
+                          onClick={() => {
+                            onWithdrawCompanySalary(workerCompany.id, empWithdrawAmount);
+                            setEmpWithdrawAmount("");
+                          }}
+                          disabled={!empWithdrawAmount || parseInt(empWithdrawAmount) <= 0}
+                          className="bg-yellow-500 text-stone-900 px-4 py-2 rounded font-bold uppercase text-xs hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Wallet size={14} /> Retirer
+                        </button>
+                        <button
+                          onClick={() => {
+                            onWithdrawCompanySalary(workerCompany.id, myCompanyBalance);
+                            setEmpWithdrawAmount("");
+                          }}
+                          className="bg-stone-800 text-white px-3 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700"
+                        >
+                          Tout
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                ) : null;
+              })()}
 
               {/* Démission (seulement employé, pas esclave) */}
               {isEmployee && onQuitCompany && (
@@ -377,8 +449,11 @@ const MyCompanyView = ({
         style={{ borderColor: myCompany.color || "#8B5CF6" }}
       >
         <div className="flex-1">
-          <div className="text-xs font-black uppercase text-stone-400 tracking-widest mb-1">
+          <div className="flex items-center gap-2 text-xs font-black uppercase text-stone-400 tracking-widest mb-1">
             Société Privée
+            <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded text-[9px] font-black border border-yellow-300">
+              👔 Dirigeant
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <span
@@ -493,14 +568,18 @@ const MyCompanyView = ({
 
               <div className="border-t border-stone-100 pt-2">
                 <div className="text-[10px] font-black uppercase text-stone-400 mb-2">
-                  Effectifs Actuels ({empCount})
+                  Effectifs ({empCount + 1})
                 </div>
                 <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
-                  {empCount === 0 && (
-                    <div className="py-4 text-center text-stone-400 italic text-xs">
-                      Aucun salarié.
+                  {/* Dirigeant */}
+                  <div className="py-3 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-stone-700 text-sm">{user.name}</span>
+                      <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-yellow-200">
+                        Dirigeant
+                      </span>
                     </div>
-                  )}
+                  </div>
                   {(myCompany.employees || []).map((empId) => {
                     const emp = citizens.find((c) => c.id === empId);
                     return (
@@ -584,6 +663,31 @@ const MyCompanyView = ({
       {/* ONGLET FINANCE */}
       {activeTab === "finance" && (
         <div className="space-y-6">
+          {/* Dernière production */}
+          {myCompany.lastProduction && (
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1.5">
+                  <TrendingUp size={12} /> Dernière production ({myCompany.lastProduction.date})
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <div className="text-lg font-black font-mono text-stone-700">{myCompany.lastProduction.gross?.toLocaleString()}</div>
+                  <div className="text-[9px] uppercase text-stone-400 font-bold">Brut</div>
+                </div>
+                <div>
+                  <div className="text-lg font-black font-mono text-red-500">-{myCompany.lastProduction.tax?.toLocaleString()}</div>
+                  <div className="text-[9px] uppercase text-stone-400 font-bold">Taxe</div>
+                </div>
+                <div>
+                  <div className="text-lg font-black font-mono text-green-600">+{myCompany.lastProduction.net?.toLocaleString()}</div>
+                  <div className="text-[9px] uppercase text-stone-400 font-bold">Net (→ trésorerie)</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card title="Injection Capital" icon={ArrowDownLeft}>
               <div className="flex gap-2">
@@ -681,27 +785,55 @@ const MyCompanyView = ({
                 const totalWorkers = empCount + slaveCount;
                 const requiredWorkers = level * 2;
                 const requiredFunds = level * 500;
+                const workerPct = Math.min(100, Math.round((totalWorkers / requiredWorkers) * 100));
+                const fundsPct = Math.min(100, Math.round(((myCompany.balance || 0) / requiredFunds) * 100));
+                const canLevelUp = totalWorkers >= requiredWorkers && (myCompany.balance || 0) >= requiredFunds;
                 return (
-                  <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-500">
-                    <div className="text-[9px] uppercase font-bold tracking-widest mb-2">
-                      Progression niveau {level} &rarr; {level + 1}
+                  <div className={`rounded-lg p-4 border text-xs ${canLevelUp ? "bg-green-50 border-green-300" : "bg-stone-50 border-stone-200"}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-[10px] uppercase font-black tracking-widest text-stone-600">
+                        Progression niveau {level} → {level + 1}
+                      </div>
+                      {canLevelUp && (
+                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-green-300 animate-pulse">
+                          Prêt !
+                        </span>
+                      )}
                     </div>
-                    <div className="flex justify-between mb-1">
-                      <span>Travailleurs</span>
-                      <span
-                        className={`font-bold ${totalWorkers >= requiredWorkers ? "text-green-600" : "text-red-500"}`}
-                      >
-                        {totalWorkers} / {requiredWorkers}
-                      </span>
+                    {/* Barre travailleurs */}
+                    <div className="mb-3">
+                      <div className="flex justify-between mb-1 text-stone-600">
+                        <span className="flex items-center gap-1"><Users size={10} /> Travailleurs</span>
+                        <span className={`font-bold ${totalWorkers >= requiredWorkers ? "text-green-600" : "text-red-500"}`}>
+                          {totalWorkers} / {requiredWorkers}
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${totalWorkers >= requiredWorkers ? "bg-green-500" : "bg-amber-500"}`}
+                          style={{ width: `${workerPct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Trésorerie requise</span>
-                      <span
-                        className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}
-                      >
-                        {(myCompany.balance || 0).toLocaleString()} /{" "}
-                        {requiredFunds.toLocaleString()}
-                      </span>
+                    {/* Barre fonds */}
+                    <div className="mb-3">
+                      <div className="flex justify-between mb-1 text-stone-600">
+                        <span className="flex items-center gap-1"><Wallet size={10} /> Trésorerie requise</span>
+                        <span className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}>
+                          {(myCompany.balance || 0).toLocaleString()} / {requiredFunds.toLocaleString()} Écus
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${(myCompany.balance || 0) >= requiredFunds ? "bg-green-500" : "bg-amber-500"}`}
+                          style={{ width: `${fundsPct}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-[9px] text-stone-400 italic">
+                      {canLevelUp
+                        ? `La montée de niveau aura lieu au prochain 1er du mois RP. ${requiredFunds.toLocaleString()} Écus seront prélevés de la trésorerie.`
+                        : "La montée de niveau est vérifiée automatiquement le 1er de chaque mois RP."}
                     </div>
                   </div>
                 );
@@ -726,14 +858,22 @@ const MyCompanyView = ({
                     <div className="divide-y divide-stone-100">
                       {(myCompany.employees || []).map((empId) => {
                         const emp = citizens.find((c) => c.id === empId);
+                        const empCompBal = (myCompany.workerBalances || {})[empId] || 0;
                         return (
                           <div
                             key={empId}
                             className="py-3 flex justify-between items-center gap-3"
                           >
-                            <span className="font-bold text-stone-700 text-sm flex-1 truncate">
-                              {emp ? emp.name : empId}
-                            </span>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-bold text-stone-700 text-sm truncate block">
+                                {emp ? emp.name : empId}
+                              </span>
+                              {empCompBal > 0 && (
+                                <span className="text-[9px] font-mono text-yellow-600">
+                                  Compte interne : {empCompBal.toLocaleString()} Écus
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"
@@ -841,11 +981,13 @@ const MyCompanyView = ({
           (c) => c.source?.id === myCompany.id
         );
 
-        // Pool des destinataires disponibles : employés + esclaves de l'entreprise
+        // Pool des destinataires disponibles : dirigeant + employés + esclaves + trésorerie
+        const ownerCitizen = citizens.find((x) => x.id === myCompany.ownerId);
         const workerPool = [
+          { id: myCompany.ownerId, type: "CITIZEN", name: (ownerCitizen ? ownerCitizen.name : myCompany.ownerId) + " (dirigeant)" },
           ...(myCompany.employees || []).map((id) => {
             const c = citizens.find((x) => x.id === id);
-            return { id, type: "CITIZEN", name: c ? c.name : id };
+            return { id, type: "CITIZEN", name: (c ? c.name : id) + " (employé)" };
           }),
           ...(myCompany.slaves || []).map((id) => {
             const c = citizens.find((x) => x.id === id);
