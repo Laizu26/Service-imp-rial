@@ -504,6 +504,14 @@ export default function App() {
             onPostBulletin={actions.onPostBulletin}
             onDeleteBulletin={actions.onDeleteBulletin}
             onSetEmployeeRank={actions.onSetEmployeeRank}
+            onApplyToCompany={actions.onApplyToCompany}
+            onRespondApplication={actions.onRespondApplication}
+            onUpdateEmployeeProfile={actions.onUpdateEmployeeProfile}
+            onCompanyInventoryAdd={actions.onCompanyInventoryAdd}
+            onCompanyInventoryRemove={actions.onCompanyInventoryRemove}
+            onCreateCompanyEvent={actions.onCreateCompanyEvent}
+            onDeleteCompanyEvent={actions.onDeleteCompanyEvent}
+            onCreateSubcontract={actions.onCreateSubcontract}
             onHideMoney={actions.onHideMoney}
             onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
             onHiddenTransfer={actions.onHiddenTransfer}

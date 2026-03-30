@@ -144,6 +144,16 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         });
 
+        // --- Ancienneté des employés (chaque jour RP) ---
+        (ns.companies || []).forEach((company, compIdx) => {
+          if (company.frozen) return;
+          const seniority = { ...(company.employeeSeniority || {}) };
+          [...(company.employees || []), ...(company.slaves || [])].forEach((wId) => {
+            seniority[wId] = (seniority[wId] || 0) + 1;
+          });
+          ns.companies[compIdx] = { ...ns.companies[compIdx], employeeSeniority: seniority };
+        });
+
         // --- Progression de niveau (mensuelle, 1er du mois) ---
         if (ns.gameDate.day === 1) {
           (ns.companies || []).forEach((company, compIdx) => {
@@ -702,9 +712,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           if (compIdx !== -1) {
             const company = newCompanies[compIdx];
             // Ajout à l'entreprise
+            const seniorityData = { ...(company.employeeSeniority || {}) };
+            seniorityData[user.id] = 0;
             newCompanies[compIdx] = {
               ...company,
               employees: [...(company.employees || []), user.id],
+              employeeSeniority: seniorityData,
             };
             notify(`Vous avez rejoint ${company.name}.`, "success");
           } else {
@@ -2503,6 +2516,243 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCompanies[compIdx] = { ...company, employeeRanks: ranks };
         saveState({ ...state, companies: newCompanies });
         notify(rankData?.title ? `Grade "${rankData.title}" attribué.` : "Grade retiré.", "success");
+      },
+
+      // --- CANDIDATURE SPONTANÉE ---
+      onApplyToCompany: (companyId) => {
+        if (!session) return;
+        const company = state.companies.find((c) => c.id === companyId);
+        if (!company) return;
+        if (company.hiringOpen === false) {
+          notify("Cette entreprise ne recrute pas.", "error");
+          return;
+        }
+        const isEmployed = state.companies.some((c) =>
+          (c.employees || []).includes(session.id)
+        );
+        if (isEmployed) {
+          notify("Vous avez déjà un emploi.", "error");
+          return;
+        }
+        if (company.ownerId === session.id) {
+          notify("Vous êtes le dirigeant de cette entreprise.", "error");
+          return;
+        }
+        const existingApps = company.applications || [];
+        if (existingApps.some((a) => a.citizenId === session.id)) {
+          notify("Candidature déjà envoyée.", "info");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        const compIdx = newCompanies.findIndex((c) => c.id === companyId);
+        newCompanies[compIdx] = {
+          ...company,
+          applications: [...existingApps, {
+            id: "APP-" + Date.now(),
+            citizenId: session.id,
+            citizenName: (state.citizens.find((c) => c.id === session.id))?.name || session.id,
+            date: Date.now(),
+          }],
+        };
+        saveState({ ...state, companies: newCompanies });
+        notify("Candidature envoyée.", "success");
+      },
+
+      onRespondApplication: (companyId, applicationId, accept) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) return;
+
+        const app = (company.applications || []).find((a) => a.id === applicationId);
+        if (!app) return;
+
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = {
+          ...company,
+          applications: (company.applications || []).filter((a) => a.id !== applicationId),
+        };
+
+        if (accept) {
+          const isEmployed = state.companies.some((c) =>
+            (c.employees || []).includes(app.citizenId)
+          );
+          if (isEmployed) {
+            notify("Ce citoyen a déjà trouvé un emploi.", "error");
+            saveState({ ...state, companies: newCompanies });
+            return;
+          }
+          const seniorityData = { ...(company.employeeSeniority || {}) };
+          seniorityData[app.citizenId] = 0;
+          newCompanies[compIdx] = {
+            ...newCompanies[compIdx],
+            employees: [...(newCompanies[compIdx].employees || []), app.citizenId],
+            employeeSeniority: seniorityData,
+          };
+          notify(`${app.citizenName} a été embauché.`, "success");
+        } else {
+          notify("Candidature refusée.", "info");
+        }
+        saveState({ ...state, companies: newCompanies });
+      },
+
+      // --- PROFIL EMPLOYÉ (CV) ---
+      onUpdateEmployeeProfile: (profileData) => {
+        if (!session) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = {
+          ...newCitizens[userIdx],
+          employeeProfile: {
+            skills: profileData.skills || "",
+            experience: profileData.experience || "",
+            seeking: profileData.seeking || false,
+          },
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Profil employé mis à jour.", "success");
+      },
+
+      // --- INVENTAIRE D'ENTREPRISE ---
+      onCompanyInventoryAdd: (companyId, itemName, quantity) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          notify("Seul le dirigeant peut gérer le stock.", "error");
+          return;
+        }
+        if (!itemName?.trim() || !quantity || quantity <= 0) {
+          notify("Données invalides.", "error");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        const inv = [...(company.companyInventory || [])];
+        const existing = inv.findIndex((i) => i.name.toLowerCase() === itemName.trim().toLowerCase());
+        if (existing !== -1) {
+          inv[existing] = { ...inv[existing], quantity: inv[existing].quantity + parseInt(quantity) };
+        } else {
+          inv.push({ id: "INV-" + Date.now(), name: itemName.trim(), quantity: parseInt(quantity) });
+        }
+        newCompanies[compIdx] = { ...company, companyInventory: inv };
+        saveState({ ...state, companies: newCompanies });
+        notify(`${quantity}x ${itemName.trim()} ajouté au stock.`, "success");
+      },
+
+      onCompanyInventoryRemove: (companyId, itemId, quantity) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          const rank = (company.employeeRanks || {})[session.id];
+          if (!rank?.permissions?.inventory) {
+            notify("Vous n'avez pas la permission.", "error");
+            return;
+          }
+        }
+        const newCompanies = [...state.companies];
+        let inv = [...(company.companyInventory || [])];
+        const itemIdx = inv.findIndex((i) => i.id === itemId);
+        if (itemIdx === -1) return;
+        const item = inv[itemIdx];
+        const qty = parseInt(quantity) || 1;
+        if (qty >= item.quantity) {
+          inv = inv.filter((i) => i.id !== itemId);
+        } else {
+          inv[itemIdx] = { ...item, quantity: item.quantity - qty };
+        }
+        newCompanies[compIdx] = { ...company, companyInventory: inv };
+        saveState({ ...state, companies: newCompanies });
+        notify(`Stock mis à jour.`, "info");
+      },
+
+      // --- ÉVÉNEMENTS D'ENTREPRISE ---
+      onCreateCompanyEvent: (companyId, eventData) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          notify("Seul le dirigeant peut créer un événement.", "error");
+          return;
+        }
+        if (!eventData.title?.trim()) {
+          notify("L'événement doit avoir un titre.", "error");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        const events = [...(company.companyEvents || [])];
+        events.push({
+          id: "EVT-" + Date.now(),
+          title: eventData.title.trim(),
+          description: eventData.description?.trim() || "",
+          date: eventData.date || "",
+          createdAt: Date.now(),
+        });
+        newCompanies[compIdx] = { ...company, companyEvents: events };
+        saveState({ ...state, companies: newCompanies });
+        notify("Événement créé.", "success");
+      },
+
+      onDeleteCompanyEvent: (companyId, eventId) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) return;
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = {
+          ...company,
+          companyEvents: (company.companyEvents || []).filter((e) => e.id !== eventId),
+        };
+        saveState({ ...state, companies: newCompanies });
+        notify("Événement supprimé.", "info");
+      },
+
+      // --- SOUS-TRAITANCE (contrat entre entreprises) ---
+      onCreateSubcontract: (fromCompanyId, toCompanyId, amount, description) => {
+        if (!session) return;
+        const fromIdx = state.companies.findIndex((c) => c.id === fromCompanyId);
+        const toIdx = state.companies.findIndex((c) => c.id === toCompanyId);
+        if (fromIdx === -1 || toIdx === -1) return;
+        const fromCompany = state.companies[fromIdx];
+        if (fromCompany.ownerId !== session.id) {
+          notify("Seul le dirigeant peut créer un contrat de sous-traitance.", "error");
+          return;
+        }
+        const val = parseInt(amount);
+        if (!val || val <= 0) {
+          notify("Montant invalide.", "error");
+          return;
+        }
+        if ((fromCompany.balance || 0) < val) {
+          notify("Trésorerie insuffisante.", "error");
+          return;
+        }
+        const toCompany = state.companies[toIdx];
+        const newCompanies = [...state.companies];
+        newCompanies[fromIdx] = { ...fromCompany, balance: fromCompany.balance - val };
+        newCompanies[toIdx] = { ...toCompany, balance: (toCompany.balance || 0) + val };
+
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: fromCompany.name,
+          toName: toCompany.name,
+          amount: val,
+          timestamp: Date.now(),
+          reason: description?.trim() || "Sous-traitance",
+          type: "SUBCONTRACT",
+        };
+        saveState({
+          ...state,
+          companies: newCompanies,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`${val.toLocaleString()} écus transférés à ${toCompany.name}.`, "success");
       },
     }, notify);
   }, [session, state, saveState, notify]);

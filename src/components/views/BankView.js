@@ -185,6 +185,7 @@ const BankView = ({
     COMPANY_TREASURY: "Trésorerie",
     SALARY_WITHDRAW: "Retrait salaire",
     COMPANY_LEVEL: "Expansion",
+    SUBCONTRACT: "Sous-traitance",
   };
   const typeColors = {
     TRANSFER: "bg-blue-100 text-blue-700 border-blue-200",
@@ -201,6 +202,7 @@ const BankView = ({
     COMPANY_TREASURY: "bg-indigo-100 text-indigo-700 border-indigo-200",
     SALARY_WITHDRAW: "bg-teal-100 text-teal-700 border-teal-200",
     COMPANY_LEVEL: "bg-violet-100 text-violet-700 border-violet-200",
+    SUBCONTRACT: "bg-orange-100 text-orange-700 border-orange-200",
   };
 
   const filteredLedger = useMemo(() => {

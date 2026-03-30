@@ -26,6 +26,11 @@ import {
   History,
   FileText,
   Star,
+  Package,
+  Calendar,
+  Handshake,
+  UserPlus,
+  Clock,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -76,6 +81,14 @@ const MyCompanyView = ({
   onPostBulletin,
   onDeleteBulletin,
   onSetEmployeeRank,
+  onApplyToCompany,
+  onRespondApplication,
+  onUpdateEmployeeProfile,
+  onCompanyInventoryAdd,
+  onCompanyInventoryRemove,
+  onCreateCompanyEvent,
+  onDeleteCompanyEvent,
+  onCreateSubcontract,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -118,6 +131,25 @@ const MyCompanyView = ({
   const [rankEditTarget, setRankEditTarget] = useState(null);
   const [rankTitle, setRankTitle] = useState("");
   const [rankPerms, setRankPerms] = useState({});
+
+  // Profil employé
+  const [profileSkills, setProfileSkills] = useState(user.employeeProfile?.skills || "");
+  const [profileExp, setProfileExp] = useState(user.employeeProfile?.experience || "");
+  const [profileSeeking, setProfileSeeking] = useState(user.employeeProfile?.seeking || false);
+
+  // Inventaire entreprise
+  const [invItemName, setInvItemName] = useState("");
+  const [invItemQty, setInvItemQty] = useState("");
+
+  // Événements
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventDesc, setEventDesc] = useState("");
+  const [eventDate, setEventDate] = useState("");
+
+  // Sous-traitance
+  const [subTargetCompany, setSubTargetCompany] = useState("");
+  const [subAmount, setSubAmount] = useState("");
+  const [subDesc, setSubDesc] = useState("");
 
   const mySlaves = (citizens || []).filter(
     (c) => c.ownerId === user.id && !c.isForSale
@@ -480,6 +512,105 @@ const MyCompanyView = ({
                 ) : null;
               })()}
 
+              {/* Ancienneté */}
+              {(() => {
+                const days = (workerCompany.employeeSeniority || {})[user.id] || 0;
+                return days > 0 ? (
+                  <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex items-center gap-3">
+                    <Clock size={20} className="text-stone-400 flex-shrink-0" />
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Ancienneté</div>
+                      <div className="text-lg font-black text-stone-700">
+                        {days} jour{days > 1 ? "s" : ""} RP
+                        {days >= 30 && <span className="text-xs font-normal text-stone-400 ml-2">({Math.floor(days / 30)} mois)</span>}
+                      </div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {/* Événements d'entreprise */}
+              {(() => {
+                const events = workerCompany.companyEvents || [];
+                return events.length > 0 ? (
+                  <Card title="Événements" icon={Calendar}>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {events.map((evt) => (
+                        <div key={evt.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="flex justify-between items-start">
+                            <div className="font-bold text-sm text-stone-800">{evt.title}</div>
+                            {evt.date && <span className="text-[10px] font-mono text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded">{evt.date}</span>}
+                          </div>
+                          {evt.description && <div className="text-xs text-stone-500 mt-1">{evt.description}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                ) : null;
+              })()}
+
+              {/* Inventaire d'entreprise (lecture seule pour employé) */}
+              {(() => {
+                const inv = workerCompany.companyInventory || [];
+                return inv.length > 0 ? (
+                  <Card title="Stock de l'Entreprise" icon={Package}>
+                    <div className="divide-y divide-stone-100 max-h-48 overflow-y-auto">
+                      {inv.map((item) => (
+                        <div key={item.id} className="py-2 flex justify-between items-center">
+                          <span className="text-sm font-bold text-stone-700">{item.name}</span>
+                          <span className="font-mono text-sm font-bold text-stone-500">{item.quantity}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                ) : null;
+              })()}
+
+              {/* Profil employé / CV */}
+              {isEmployee && (
+                <Card title="Mon Profil Employé" icon={FileText}>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Compétences</label>
+                      <input
+                        className="w-full p-2 border rounded text-sm"
+                        value={profileSkills}
+                        onChange={(e) => setProfileSkills(e.target.value)}
+                        placeholder="Ex: Forgeron, Comptable, Maçon..."
+                        maxLength={100}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Expérience</label>
+                      <textarea
+                        className="w-full p-2 border rounded text-sm resize-none"
+                        rows={2}
+                        value={profileExp}
+                        onChange={(e) => setProfileExp(e.target.value)}
+                        placeholder="Décrivez votre parcours..."
+                        maxLength={200}
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setProfileSeeking(!profileSeeking)}
+                        className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border ${
+                          profileSeeking ? "bg-green-100 text-green-700 border-green-300" : "bg-stone-100 text-stone-500 border-stone-200"
+                        }`}
+                      >
+                        {profileSeeking ? "En recherche d'emploi" : "Pas en recherche"}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => onUpdateEmployeeProfile && onUpdateEmployeeProfile({ skills: profileSkills, experience: profileExp, seeking: profileSeeking })}
+                      className="bg-stone-800 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700 flex items-center gap-1"
+                    >
+                      <Check size={12} /> Enregistrer
+                    </button>
+                  </div>
+                </Card>
+              )}
+
               {/* Démission (seulement employé, pas esclave) */}
               {isEmployee && onQuitCompany && (
                 <Card title="Contrat de travail" icon={Briefcase}>
@@ -567,6 +698,90 @@ const MyCompanyView = ({
             </div>
           )}
         </Card>
+
+        {/* Candidature spontanée (si pas employé et pas propriétaire) */}
+        {!workerCompany && onApplyToCompany && (() => {
+          const hiringCompanies = (companies || []).filter(
+            (c) => c.hiringOpen !== false && c.ownerId !== user.id && !(c.employees || []).includes(user.id) && !(c.applications || []).some((a) => a.citizenId === user.id)
+          );
+          return hiringCompanies.length > 0 ? (
+            <Card title="Entreprises qui recrutent" icon={UserPlus}>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {hiringCompanies.map((c) => {
+                  const cOwner = citizens.find((ci) => ci.id === c.ownerId);
+                  return (
+                    <div key={c.id} className="bg-white border border-stone-200 p-3 rounded-lg flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: c.color || "#8B5CF6" }} />
+                          <span className="font-bold text-sm text-stone-800">{c.name}</span>
+                          <span className="text-[9px] text-stone-400">Niv. {c.level || 1}</span>
+                        </div>
+                        <div className="text-[10px] text-stone-400 mt-0.5 ml-5">
+                          Dirigeant : {cOwner?.name || "Inconnu"} · {(c.employees || []).length} employé(s)
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onApplyToCompany(c.id)}
+                        className="bg-green-600 text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500 flex items-center gap-1"
+                      >
+                        <Send size={12} /> Postuler
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          ) : null;
+        })()}
+
+        {/* Profil employé / CV (toujours accessible) */}
+        {!workerCompany && onUpdateEmployeeProfile && (
+          <Card title="Mon Profil Employé" icon={FileText}>
+            <div className="space-y-3">
+              <div className="text-xs text-stone-500 italic bg-stone-50 p-2 rounded">
+                Votre profil est visible par les dirigeants d'entreprise.
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Compétences</label>
+                <input
+                  className="w-full p-2 border rounded text-sm"
+                  value={profileSkills}
+                  onChange={(e) => setProfileSkills(e.target.value)}
+                  placeholder="Ex: Forgeron, Comptable, Maçon..."
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Expérience</label>
+                <textarea
+                  className="w-full p-2 border rounded text-sm resize-none"
+                  rows={2}
+                  value={profileExp}
+                  onChange={(e) => setProfileExp(e.target.value)}
+                  placeholder="Décrivez votre parcours..."
+                  maxLength={200}
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setProfileSeeking(!profileSeeking)}
+                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase border ${
+                    profileSeeking ? "bg-green-100 text-green-700 border-green-300" : "bg-stone-100 text-stone-500 border-stone-200"
+                  }`}
+                >
+                  {profileSeeking ? "En recherche d'emploi" : "Pas en recherche"}
+                </button>
+              </div>
+              <button
+                onClick={() => onUpdateEmployeeProfile({ skills: profileSkills, experience: profileExp, seeking: profileSeeking })}
+                className="bg-stone-800 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700 flex items-center gap-1"
+              >
+                <Check size={12} /> Enregistrer
+              </button>
+            </div>
+          </Card>
+        )}
       </div>
     );
   }
@@ -729,6 +944,7 @@ const MyCompanyView = ({
                   {(myCompany.employees || []).map((empId) => {
                     const emp = citizens.find((c) => c.id === empId);
                     const empRank = (myCompany.employeeRanks || {})[empId];
+                    const empDays = (myCompany.employeeSeniority || {})[empId] || 0;
                     return (
                       <div
                         key={empId}
@@ -742,6 +958,9 @@ const MyCompanyView = ({
                             <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">
                               {empRank.title}
                             </span>
+                          )}
+                          {empDays > 0 && (
+                            <span className="text-[9px] text-stone-400 font-mono">{empDays}j</span>
                           )}
                         </div>
                         <button
@@ -1639,6 +1858,256 @@ const MyCompanyView = ({
                     Aucun employé à qui attribuer un grade.
                   </div>
                 )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Candidatures reçues */}
+          <Card title={`Candidatures (${(myCompany.applications || []).length})`} icon={UserPlus}>
+            {(myCompany.applications || []).length === 0 ? (
+              <div className="text-center text-stone-400 italic py-4 text-xs">
+                Aucune candidature en attente.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {(myCompany.applications || []).map((app) => {
+                  const applicant = citizens.find((c) => c.id === app.citizenId);
+                  const profile = applicant?.employeeProfile;
+                  return (
+                    <div key={app.id} className="bg-white border border-stone-200 rounded-lg p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold text-sm text-stone-800">{app.citizenName}</div>
+                          <div className="text-[10px] text-stone-400">
+                            Reçu le {new Date(app.date).toLocaleDateString()}
+                          </div>
+                          {profile?.skills && (
+                            <div className="text-[10px] text-stone-500 mt-1">
+                              <span className="font-bold">Compétences :</span> {profile.skills}
+                            </div>
+                          )}
+                          {profile?.experience && (
+                            <div className="text-[10px] text-stone-500">
+                              <span className="font-bold">Expérience :</span> {profile.experience}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => onRespondApplication && onRespondApplication(myCompany.id, app.id, true)}
+                            className="bg-green-600 text-white px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500"
+                          >
+                            Embaucher
+                          </button>
+                          <button
+                            onClick={() => onRespondApplication && onRespondApplication(myCompany.id, app.id, false)}
+                            className="bg-red-100 text-red-600 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-red-200"
+                          >
+                            Refuser
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Inventaire d'entreprise */}
+          <Card title="Stock & Inventaire" icon={Package}>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 p-2 border rounded text-sm"
+                  value={invItemName}
+                  onChange={(e) => setInvItemName(e.target.value)}
+                  placeholder="Nom de l'article..."
+                  maxLength={50}
+                />
+                <input
+                  type="number"
+                  className="w-20 p-2 border rounded text-sm font-mono text-right"
+                  value={invItemQty}
+                  onChange={(e) => setInvItemQty(e.target.value)}
+                  placeholder="Qté"
+                  min={1}
+                />
+                <button
+                  onClick={() => {
+                    if (invItemName.trim() && invItemQty && onCompanyInventoryAdd) {
+                      onCompanyInventoryAdd(myCompany.id, invItemName, parseInt(invItemQty));
+                      setInvItemName("");
+                      setInvItemQty("");
+                    }
+                  }}
+                  disabled={!invItemName.trim() || !invItemQty || parseInt(invItemQty) <= 0}
+                  className="bg-stone-800 text-white px-3 rounded font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Plus size={12} /> Ajouter
+                </button>
+              </div>
+              <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
+                {(myCompany.companyInventory || []).length === 0 ? (
+                  <div className="text-center text-stone-400 italic py-4 text-xs">
+                    Stock vide.
+                  </div>
+                ) : (
+                  (myCompany.companyInventory || []).map((item) => (
+                    <div key={item.id} className="py-2.5 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Package size={14} className="text-stone-400" />
+                        <span className="text-sm font-bold text-stone-700">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-stone-500">{item.quantity}x</span>
+                        <button
+                          onClick={() => onCompanyInventoryRemove && onCompanyInventoryRemove(myCompany.id, item.id, 1)}
+                          className="text-red-400 hover:text-red-600 p-1"
+                          title="Retirer 1"
+                        >
+                          <X size={13} />
+                        </button>
+                        <button
+                          onClick={() => onCompanyInventoryRemove && onCompanyInventoryRemove(myCompany.id, item.id, item.quantity)}
+                          className="text-red-400 hover:text-red-600 p-1"
+                          title="Tout retirer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Événements d'entreprise */}
+          <Card title="Événements" icon={Calendar}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <input
+                  className="w-full p-2 border rounded text-sm font-bold"
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  placeholder="Titre de l'événement..."
+                  maxLength={60}
+                />
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 p-2 border rounded text-sm"
+                    value={eventDesc}
+                    onChange={(e) => setEventDesc(e.target.value)}
+                    placeholder="Description (optionnel)..."
+                    maxLength={200}
+                  />
+                  <input
+                    className="w-32 p-2 border rounded text-sm font-mono"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    placeholder="Date RP..."
+                    maxLength={20}
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (eventTitle.trim() && onCreateCompanyEvent) {
+                      onCreateCompanyEvent(myCompany.id, { title: eventTitle, description: eventDesc, date: eventDate });
+                      setEventTitle("");
+                      setEventDesc("");
+                      setEventDate("");
+                    }
+                  }}
+                  disabled={!eventTitle.trim()}
+                  className="bg-stone-800 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Plus size={12} /> Créer l'événement
+                </button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {(myCompany.companyEvents || []).length === 0 ? (
+                  <div className="text-center text-stone-400 italic py-4 text-xs">
+                    Aucun événement planifié.
+                  </div>
+                ) : (
+                  (myCompany.companyEvents || []).map((evt) => (
+                    <div key={evt.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex justify-between items-start">
+                      <div>
+                        <div className="font-bold text-sm text-stone-800">{evt.title}</div>
+                        {evt.date && <span className="text-[10px] font-mono text-blue-600">{evt.date}</span>}
+                        {evt.description && <div className="text-xs text-stone-500 mt-1">{evt.description}</div>}
+                      </div>
+                      <button
+                        onClick={() => onDeleteCompanyEvent && onDeleteCompanyEvent(myCompany.id, evt.id)}
+                        className="text-red-400 hover:text-red-600 p-1 flex-shrink-0"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Sous-traitance */}
+          <Card title="Sous-traitance" icon={Handshake}>
+            <div className="space-y-4">
+              <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
+                Transférez des fonds de votre trésorerie vers une autre entreprise pour un service ou un contrat de sous-traitance.
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Entreprise destinataire</label>
+                  <select
+                    className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold text-sm"
+                    value={subTargetCompany}
+                    onChange={(e) => setSubTargetCompany(e.target.value)}
+                  >
+                    <option value="">— Choisir —</option>
+                    {(companies || []).filter((c) => c.id !== myCompany.id).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Montant (Écus)</label>
+                    <input
+                      type="number"
+                      className="w-full p-2 border rounded font-mono text-sm"
+                      value={subAmount}
+                      onChange={(e) => setSubAmount(e.target.value)}
+                      placeholder="0"
+                      min={1}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Motif</label>
+                    <input
+                      className="w-full p-2 border rounded text-sm"
+                      value={subDesc}
+                      onChange={(e) => setSubDesc(e.target.value)}
+                      placeholder="Ex: Fourniture de matériaux..."
+                      maxLength={100}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (subTargetCompany && subAmount && onCreateSubcontract) {
+                      onCreateSubcontract(myCompany.id, subTargetCompany, parseInt(subAmount), subDesc);
+                      setSubTargetCompany("");
+                      setSubAmount("");
+                      setSubDesc("");
+                    }
+                  }}
+                  disabled={!subTargetCompany || !subAmount || parseInt(subAmount) <= 0}
+                  className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Send size={14} /> Transférer
+                </button>
               </div>
             </div>
           </Card>

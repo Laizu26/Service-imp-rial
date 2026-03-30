@@ -130,6 +130,14 @@ const CitizenLayout = (props) => {
     onPostBulletin,
     onDeleteBulletin,
     onSetEmployeeRank,
+    onApplyToCompany,
+    onRespondApplication,
+    onUpdateEmployeeProfile,
+    onCompanyInventoryAdd,
+    onCompanyInventoryRemove,
+    onCreateCompanyEvent,
+    onDeleteCompanyEvent,
+    onCreateSubcontract,
     onHideMoney,
     onWithdrawHiddenMoney,
     onHiddenTransfer,
@@ -686,6 +694,14 @@ const CitizenLayout = (props) => {
                 onPostBulletin={onPostBulletin}
                 onDeleteBulletin={onDeleteBulletin}
                 onSetEmployeeRank={onSetEmployeeRank}
+                onApplyToCompany={onApplyToCompany}
+                onRespondApplication={onRespondApplication}
+                onUpdateEmployeeProfile={onUpdateEmployeeProfile}
+                onCompanyInventoryAdd={onCompanyInventoryAdd}
+                onCompanyInventoryRemove={onCompanyInventoryRemove}
+                onCreateCompanyEvent={onCreateCompanyEvent}
+                onDeleteCompanyEvent={onDeleteCompanyEvent}
+                onCreateSubcontract={onCreateSubcontract}
               />
             )}
 

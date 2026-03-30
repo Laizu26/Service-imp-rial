@@ -265,6 +265,7 @@ const CitizenBankView = ({
     COMPANY_TREASURY: "Trésorerie",
     SALARY_WITHDRAW: "Retrait salaire",
     COMPANY_LEVEL: "Expansion",
+    SUBCONTRACT: "Sous-traitance",
   };
 
   const typeColors = {
@@ -282,6 +283,7 @@ const CitizenBankView = ({
     COMPANY_TREASURY: "bg-indigo-50 text-indigo-700 border-indigo-100",
     SALARY_WITHDRAW: "bg-teal-50 text-teal-700 border-teal-100",
     COMPANY_LEVEL: "bg-violet-50 text-violet-700 border-violet-100",
+    SUBCONTRACT: "bg-orange-50 text-orange-700 border-orange-100",
   };
 
   // --- INTERDIT ---
