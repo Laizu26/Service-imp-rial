@@ -295,7 +295,7 @@ const NotificationCenterView = ({
                       {notif.description}
                     </div>
                     <div className="text-[9px] mt-1" style={{ color: t.textMuted }}>
-                      {formatTimestamp(notif.timestamp)}
+                      {notif.rpDate || formatTimestamp(notif.timestamp)}
                     </div>
                   </div>
 

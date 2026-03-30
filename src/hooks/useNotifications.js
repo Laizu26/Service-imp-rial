@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
  * Chaque notification a : { id, type, category, title, description, timestamp, route, icon }
  */
-export const useNotifications = (user, users, state, notifPrefs) => {
+export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
   const prefs = notifPrefs || {};
   const [dismissed, setDismissed] = useState([]);
 
@@ -90,6 +90,8 @@ export const useNotifications = (user, users, state, notifPrefs) => {
   const notifications = useMemo(() => {
     if (!user) return [];
     const notifs = [];
+    const gd = gameDate || { day: 1, month: 1, year: 1200 };
+    const rpDateStr = `${gd.day}/${gd.month}/${gd.year}`;
 
     // --- Messages non lus ---
     if (prefs.messages !== false) {
@@ -104,6 +106,7 @@ export const useNotifications = (user, users, state, notifPrefs) => {
             timestamp: msg.id || Date.now(),
             route: "msg",
             icon: "Mail",
+            rpDate: rpDateStr,
           });
         }
       });
@@ -119,6 +122,7 @@ export const useNotifications = (user, users, state, notifPrefs) => {
           title: "Offre d'embauche",
           description: offer.companyName || "Entreprise inconnue",
           timestamp: offer.date || Date.now(),
+          rpDate: rpDateStr,
           route: "my_company",
           icon: "Briefcase",
         });
@@ -135,6 +139,7 @@ export const useNotifications = (user, users, state, notifPrefs) => {
           title: "Proposition d'union",
           description: `De ${p.fromName || "Inconnu"}`,
           timestamp: p.timestamp || Date.now(),
+          rpDate: rpDateStr,
           route: "profil",
           icon: "Heart",
         });
@@ -151,6 +156,7 @@ export const useNotifications = (user, users, state, notifPrefs) => {
           title: "Activité suspecte",
           description: `${alert.slaveName || "Esclave"} — ${alert.amount || 0} Écus dissimulés`,
           timestamp: alert.timestamp || Date.now(),
+          rpDate: rpDateStr,
           route: "slaves",
           icon: "ShieldAlert",
         });
@@ -170,13 +176,14 @@ export const useNotifications = (user, users, state, notifPrefs) => {
             title: "Contrat de dette",
             description: `${d.total || d.amount} Écus — ${creditor?.name || "Créancier"}`,
             timestamp: d.createdAt || Date.now(),
+            rpDate: rpDateStr,
             route: "bank",
             icon: "Coins",
           });
         });
     }
 
-    // --- Gazette récente (dernières 24h de jeu, max 3) ---
+    // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
       gazette.slice(0, 3).forEach((g) => {
@@ -187,6 +194,7 @@ export const useNotifications = (user, users, state, notifPrefs) => {
           title: g.title || "Nouvelle publication",
           description: g.author || "Chancellerie",
           timestamp: g.id || Date.now(),
+          rpDate: g.date || rpDateStr,
           route: "gazette",
           icon: "Scroll",
         });
@@ -198,7 +206,7 @@ export const useNotifications = (user, users, state, notifPrefs) => {
 
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, prefs]);
+  }, [user, users, state?.debtRegistry, state?.gazette, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

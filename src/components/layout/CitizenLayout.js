@@ -209,7 +209,8 @@ const CitizenLayout = (props) => {
     user,
     users,
     { debtRegistry: debtRegistry || [], gazette: gazette || [] },
-    settings.notifPrefs
+    settings.notifPrefs,
+    gd
   );
 
   // --- 2. SÉCURITÉ CRITIQUE ---
@@ -448,7 +449,12 @@ const CitizenLayout = (props) => {
             </div>
           </div>
 
-          <div className="hidden md:block"></div>
+          <div className="hidden md:flex items-center gap-2 text-stone-400">
+            <Scroll size={14} className="text-yellow-600/60" />
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              {formatRPDate(gd)}
+            </span>
+          </div>
 
           <div className="flex gap-3 items-center font-sans">
             <NotificationCenter
