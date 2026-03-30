@@ -15,6 +15,7 @@ import {
   Leaf, // Printemps
   Hammer, // Frappe monnaie
   ArrowRightCircle, // Pour le bouton jour suivant
+  Trash2,
 } from "lucide-react";
 import Card from "../ui/Card";
 
@@ -340,18 +341,34 @@ const DashboardView = ({
               {visibleNews.map((n) => (
                 <div
                   key={n.id}
-                  className="border-b border-stone-100 pb-4 last:border-0 relative pl-4"
+                  className="border-b border-stone-100 pb-4 last:border-0 relative pl-4 group"
                 >
                   <div
                     className={`absolute left-0 top-0 bottom-0 w-1 rounded-full ${
                       n.scope === "GLOBAL" ? "bg-yellow-500" : "bg-blue-500"
                     }`}
                   ></div>
-                  <div className="flex justify-between items-start mb-1">
-                    <h4 className="font-bold text-lg font-serif">{n.title}</h4>
-                    <span className="text-[10px] uppercase font-bold text-stone-400 bg-stone-100 px-2 py-1 rounded">
-                      {n.date}
-                    </span>
+                  <div className="flex justify-between items-start mb-1 gap-2">
+                    <h4 className="font-bold text-lg font-serif flex-1">{n.title}</h4>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-stone-400 bg-stone-100 px-2 py-1 rounded">
+                        {n.date}
+                      </span>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Supprimer « ${n.title} » ?`)) {
+                            onUpdateState({
+                              ...state,
+                              gazette: (state.gazette || []).filter((g) => g.id !== n.id),
+                            });
+                          }
+                        }}
+                        className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                        title="Supprimer cet article"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm text-stone-600 leading-relaxed italic">
                     {n.content}
