@@ -786,6 +786,9 @@ export default function App() {
                       }
                       session={session}
                       roleInfo={roleInfo}
+                      companies={state.companies || []}
+                      countries={state.countries || []}
+                      citizens={state.citizens || []}
                     />
                   )}
                   {activeTab === "registry" && (

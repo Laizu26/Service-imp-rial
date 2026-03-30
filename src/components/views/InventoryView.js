@@ -86,7 +86,7 @@ const CATEGORIES = [
 
 const getRarityStyle = (rarity) => RARITY_CONFIG[rarity] || RARITY_CONFIG.Commun;
 
-const InventoryView = ({ items, onUpdate, session, roleInfo }) => {
+const InventoryView = ({ items, onUpdate, session, roleInfo, companies = [], countries = [], citizens = [] }) => {
   const [selectedId, setSelectedId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -551,6 +551,52 @@ const InventoryView = ({ items, onUpdate, session, roleInfo }) => {
                         />
                       </div>
                     </div>
+                  </div>
+                  {/* Destination des revenus */}
+                  <div>
+                    <label className="text-[9px] uppercase font-black text-stone-400 tracking-widest block mb-1">
+                      Destination des revenus
+                      <span className="text-[7px] text-stone-300 normal-case ml-1">(où va l'argent des ventes)</span>
+                    </label>
+                    <select
+                      className="w-full p-2 bg-stone-50 border border-stone-200 rounded text-xs font-bold outline-none"
+                      value={editForm.revenueTarget ? `${editForm.revenueTarget.type}:${editForm.revenueTarget.id || ""}` : "GLOBAL:"}
+                      onChange={(e) => {
+                        const [type, id] = e.target.value.split(":");
+                        if (type === "GLOBAL") {
+                          setEditForm({ ...editForm, revenueTarget: null });
+                        } else {
+                          setEditForm({ ...editForm, revenueTarget: { type, id } });
+                        }
+                      }}
+                    >
+                      <option value="GLOBAL:">Trésor Impérial (par défaut)</option>
+                      <optgroup label="Entreprises">
+                        {companies.map((c) => (
+                          <option key={c.id} value={`COMPANY:${c.id}`}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Pays">
+                        {countries.map((c) => (
+                          <option key={c.id} value={`COUNTRY:${c.id}`}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Citoyens">
+                        {citizens.map((c) => (
+                          <option key={c.id} value={`CITIZEN:${c.id}`}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                    {editForm.revenueTarget && (
+                      <div className="mt-1 text-[9px] text-stone-400 italic">
+                        Les revenus des ventes iront à : {
+                          editForm.revenueTarget.type === "COMPANY" ? companies.find((c) => c.id === editForm.revenueTarget.id)?.name :
+                          editForm.revenueTarget.type === "COUNTRY" ? countries.find((c) => c.id === editForm.revenueTarget.id)?.name :
+                          editForm.revenueTarget.type === "CITIZEN" ? citizens.find((c) => c.id === editForm.revenueTarget.id)?.name :
+                          "Trésor Impérial"
+                        }
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-[9px] uppercase font-black text-stone-400 tracking-widest block mb-1">Image URL</label>

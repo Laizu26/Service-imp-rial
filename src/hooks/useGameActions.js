@@ -961,11 +961,47 @@ export const useGameActions = (session, state, saveState, notify) => {
           );
         }
 
+        // Déterminer la destination des revenus
+        let toName = "Trésor Impérial";
+        let newTreasury = (state.treasury || 0) + cost;
+        const newCompanies = [...(state.companies || [])];
+        const newCountries = [...(state.countries || [])];
+        const target = item.revenueTarget;
+
+        if (target && target.type !== "GLOBAL" && cost > 0) {
+          newTreasury = state.treasury || 0; // pas au trésor
+          if (target.type === "COMPANY") {
+            const cIdx = newCompanies.findIndex((c) => c.id === target.id);
+            if (cIdx !== -1) {
+              newCompanies[cIdx] = { ...newCompanies[cIdx], balance: (newCompanies[cIdx].balance || 0) + cost };
+              toName = newCompanies[cIdx].name;
+            } else {
+              newTreasury += cost; toName = "Trésor Impérial";
+            }
+          } else if (target.type === "CITIZEN") {
+            const cIdx = newCitizens.findIndex((c) => c.id === target.id);
+            if (cIdx !== -1) {
+              newCitizens[cIdx] = { ...newCitizens[cIdx], balance: (newCitizens[cIdx].balance || 0) + cost };
+              toName = newCitizens[cIdx].name;
+            } else {
+              newTreasury += cost; toName = "Trésor Impérial";
+            }
+          } else if (target.type === "COUNTRY") {
+            const cIdx = newCountries.findIndex((c) => c.id === target.id);
+            if (cIdx !== -1) {
+              newCountries[cIdx] = { ...newCountries[cIdx], treasury: (newCountries[cIdx].treasury || 0) + cost };
+              toName = newCountries[cIdx].name;
+            } else {
+              newTreasury += cost; toName = "Trésor Impérial";
+            }
+          }
+        }
+
         // Entrée ledger
         const ledgerEntry = {
           id: Date.now(),
           fromName: newCitizens[userIdx].name,
-          toName: "Trésor Impérial",
+          toName,
           amount: cost,
           timestamp: Date.now(),
           reason: `Achat: ${qty}x ${item.name}`,
@@ -975,8 +1011,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({
           ...state,
           citizens: newCitizens,
+          companies: newCompanies,
+          countries: newCountries,
           inventoryCatalog: newCatalog,
-          treasury: (state.treasury || 0) + cost,
+          treasury: newTreasury,
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
         notify(
