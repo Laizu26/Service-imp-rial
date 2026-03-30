@@ -1,8 +1,15 @@
 import React from "react";
 import { Newspaper, Calendar } from "lucide-react";
 
-const GazetteView = ({ gazette }) => {
+const MONTHS = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+const GazetteView = ({ gazette, gameDate }) => {
   const safeGazette = gazette || [];
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
+  const rpDateStr = `${gd.day} ${MONTHS[(gd.month - 1) % 12]} ${gd.year}`;
 
   return (
     <div className="h-full bg-[#fdf6e3] rounded-2xl border border-stone-300 p-6 overflow-auto font-sans shadow-inner">
@@ -19,6 +26,12 @@ const GazetteView = ({ gazette }) => {
               Informations Officielles & Décrets
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2 bg-stone-100 border border-stone-200 px-4 py-2 rounded-xl">
+          <Calendar size={14} className="text-stone-400" />
+          <span className="text-xs font-black uppercase tracking-widest text-stone-600">
+            {rpDateStr}
+          </span>
         </div>
       </div>
 
