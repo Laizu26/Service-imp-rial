@@ -2429,6 +2429,81 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: newCitizens });
         notify("Lien de filiation supprimé.", "info");
       },
+
+      // --- BABILLARD D'ENTREPRISE ---
+      onPostBulletin: (companyId, message) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          notify("Seul le dirigeant peut publier sur le babillard.", "error");
+          return;
+        }
+        if (!message || !message.trim()) {
+          notify("Le message ne peut pas être vide.", "error");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        const bulletin = [...(company.bulletinBoard || [])];
+        bulletin.unshift({
+          id: "BUL-" + Date.now(),
+          message: message.trim(),
+          date: Date.now(),
+          authorId: session.id,
+        });
+        newCompanies[compIdx] = { ...company, bulletinBoard: bulletin };
+        saveState({ ...state, companies: newCompanies });
+        notify("Annonce publiée sur le babillard.", "success");
+      },
+
+      onDeleteBulletin: (companyId, bulletinId) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          notify("Seul le dirigeant peut supprimer une annonce.", "error");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = {
+          ...company,
+          bulletinBoard: (company.bulletinBoard || []).filter((b) => b.id !== bulletinId),
+        };
+        saveState({ ...state, companies: newCompanies });
+        notify("Annonce supprimée.", "info");
+      },
+
+      // --- GRADES / RANGS PERSONNALISÉS ---
+      onSetEmployeeRank: (companyId, employeeId, rankData) => {
+        if (!session) return;
+        const compIdx = state.companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) {
+          notify("Seul le dirigeant peut attribuer des grades.", "error");
+          return;
+        }
+        const isWorker = (company.employees || []).includes(employeeId) || (company.slaves || []).includes(employeeId);
+        if (!isWorker) {
+          notify("Ce citoyen ne fait pas partie de l'entreprise.", "error");
+          return;
+        }
+        const newCompanies = [...state.companies];
+        const ranks = { ...(company.employeeRanks || {}) };
+        if (!rankData || (!rankData.title && !rankData.permissions)) {
+          delete ranks[employeeId];
+        } else {
+          ranks[employeeId] = {
+            title: rankData.title || "",
+            permissions: rankData.permissions || {},
+          };
+        }
+        newCompanies[compIdx] = { ...company, employeeRanks: ranks };
+        saveState({ ...state, companies: newCompanies });
+        notify(rankData?.title ? `Grade "${rankData.title}" attribué.` : "Grade retiré.", "success");
+      },
     }, notify);
   }, [session, state, saveState, notify]);
 };

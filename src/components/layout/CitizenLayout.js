@@ -127,6 +127,9 @@ const CitizenLayout = (props) => {
     onSaveJobContract,
     onDeleteJobContract,
     onToggleJobContract,
+    onPostBulletin,
+    onDeleteBulletin,
+    onSetEmployeeRank,
     onHideMoney,
     onWithdrawHiddenMoney,
     onHiddenTransfer,
@@ -679,6 +682,10 @@ const CitizenLayout = (props) => {
                 onSaveJobContract={onSaveJobContract}
                 onDeleteJobContract={onDeleteJobContract}
                 onToggleJobContract={onToggleJobContract}
+                globalLedger={globalLedger}
+                onPostBulletin={onPostBulletin}
+                onDeleteBulletin={onDeleteBulletin}
+                onSetEmployeeRank={onSetEmployeeRank}
               />
             )}
 

@@ -501,6 +501,9 @@ export default function App() {
             onSaveJobContract={actions.onSaveJobContract}
             onDeleteJobContract={actions.onDeleteJobContract}
             onToggleJobContract={actions.onToggleJobContract}
+            onPostBulletin={actions.onPostBulletin}
+            onDeleteBulletin={actions.onDeleteBulletin}
+            onSetEmployeeRank={actions.onSetEmployeeRank}
             onHideMoney={actions.onHideMoney}
             onWithdrawHiddenMoney={actions.onWithdrawHiddenMoney}
             onHiddenTransfer={actions.onHiddenTransfer}

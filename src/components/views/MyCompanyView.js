@@ -21,6 +21,11 @@ import {
   RefreshCw,
   AlertTriangle,
   ScrollText,
+  Megaphone,
+  Shield,
+  History,
+  FileText,
+  Star,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -67,6 +72,10 @@ const MyCompanyView = ({
   onDeleteJobContract,
   onToggleJobContract,
   onWithdrawCompanySalary,
+  globalLedger = [],
+  onPostBulletin,
+  onDeleteBulletin,
+  onSetEmployeeRank,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -101,6 +110,14 @@ const MyCompanyView = ({
   const [editHiring, setEditHiring] = useState(true);
   const [empWithdrawAmount, setEmpWithdrawAmount] = useState("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  // Babillard
+  const [bulletinMsg, setBulletinMsg] = useState("");
+
+  // Grades
+  const [rankEditTarget, setRankEditTarget] = useState(null);
+  const [rankTitle, setRankTitle] = useState("");
+  const [rankPerms, setRankPerms] = useState({});
 
   const mySlaves = (citizens || []).filter(
     (c) => c.ownerId === user.id && !c.isForSale
@@ -271,17 +288,26 @@ const MyCompanyView = ({
                       </div>
                     )}
                     {/* Collègues */}
-                    {colleagues.map((c) => (
-                      <div key={c.id} className="py-2.5 flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0">
-                          {(c.name || "?")[0]}
+                    {colleagues.map((c) => {
+                      const cRank = (workerCompany.employeeRanks || {})[c.id];
+                      return (
+                        <div key={c.id} className="py-2.5 flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0">
+                            {(c.name || "?")[0]}
+                          </div>
+                          <span className="text-sm font-bold text-stone-700">{c.name}</span>
+                          {cRank?.title ? (
+                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">
+                              {cRank.title}
+                            </span>
+                          ) : (
+                            <span className="bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">
+                              Employé
+                            </span>
+                          )}
                         </div>
-                        <span className="text-sm font-bold text-stone-700">{c.name}</span>
-                        <span className="bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">
-                          Employé
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {colleagues.length === 0 && !owner && (
                       <div className="text-center text-stone-400 italic py-4 text-xs">
                         Aucun autre membre.
@@ -332,6 +358,125 @@ const MyCompanyView = ({
                       </div>
                     </div>
                   </Card>
+                ) : null;
+              })()}
+
+              {/* Historique des paies */}
+              {isEmployee && (() => {
+                const salaryHistory = globalLedger.filter(
+                  (e) => (e.type === "SALARY" || e.type === "SALARY_WITHDRAW") && (e.toName === user.name || e.fromName === workerCompany.name && e.toName === user.name)
+                ).slice(0, 20);
+                return salaryHistory.length > 0 ? (
+                  <Card title="Historique des Paies" icon={History}>
+                    <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
+                      {salaryHistory.map((entry) => (
+                        <div key={entry.id} className="py-2.5 flex justify-between items-center">
+                          <div>
+                            <div className="text-xs font-bold text-stone-700">
+                              {entry.type === "SALARY" ? "Salaire reçu" : "Retrait vers solde perso."}
+                            </div>
+                            <div className="text-[10px] text-stone-400">
+                              {entry.reason || ""} — {new Date(entry.timestamp).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <span className={`font-mono font-bold text-sm ${entry.type === "SALARY" ? "text-green-600" : "text-teal-600"}`}>
+                            {entry.type === "SALARY" ? "+" : ""}{entry.amount?.toLocaleString()} Écus
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                ) : null;
+              })()}
+
+              {/* Contrats visibles (employé bénéficiaire) */}
+              {isEmployee && (() => {
+                const myContracts = jobContracts.filter(
+                  (c) => c.source?.id === workerCompany.id && (c.recipients || []).some((r) => r.id === user.id)
+                );
+                return myContracts.length > 0 ? (
+                  <Card title="Mes Contrats" icon={FileText}>
+                    <div className="space-y-3">
+                      {myContracts.map((c) => {
+                        const myShare = (c.recipients || []).find((r) => r.id === user.id);
+                        const freq = CONTRACT_FREQUENCIES.find((f) => f.value === c.frequency);
+                        return (
+                          <div key={c.id} className="bg-stone-50 border border-stone-200 rounded-lg p-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="font-bold text-sm text-stone-800">{c.name || "Sans nom"}</div>
+                                <div className="text-[10px] text-stone-500 mt-0.5">
+                                  {freq?.label || c.frequency}
+                                  {c.frequency !== "par_tache" && ` · ${c.amount?.toLocaleString()} Écus total`}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${c.active ? "bg-green-100 text-green-600" : "bg-stone-200 text-stone-500"}`}>
+                                  {c.active ? "Actif" : "Inactif"}
+                                </span>
+                              </div>
+                            </div>
+                            {myShare && (
+                              <div className="mt-2 bg-yellow-50 border border-yellow-200 rounded p-2 flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-yellow-700 uppercase">Ma part</span>
+                                <span className="font-mono font-bold text-sm text-yellow-800">
+                                  {myShare.percent}%
+                                  {c.frequency !== "par_tache" && ` = ${Math.floor((c.amount || 0) * myShare.percent / 100).toLocaleString()} Écus`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                ) : null;
+              })()}
+
+              {/* Babillard d'entreprise */}
+              {(() => {
+                const bulletin = workerCompany.bulletinBoard || [];
+                return bulletin.length > 0 ? (
+                  <Card title="Babillard" icon={Megaphone}>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {bulletin.map((b) => {
+                        const author = citizens.find((c) => c.id === b.authorId);
+                        return (
+                          <div key={b.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="text-sm text-stone-800 whitespace-pre-wrap">{b.message}</div>
+                            <div className="text-[10px] text-stone-400 mt-1.5 flex items-center gap-2">
+                              <span className="font-bold">{author?.name || "Dirigeant"}</span>
+                              <span>·</span>
+                              <span>{new Date(b.date).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                ) : null;
+              })()}
+
+              {/* Grade affiché */}
+              {(() => {
+                const myRank = (workerCompany.employeeRanks || {})[user.id];
+                return myRank?.title ? (
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center gap-3">
+                    <Star size={20} className="text-purple-500 flex-shrink-0" />
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-purple-400 tracking-widest">Mon Grade</div>
+                      <div className="text-lg font-black text-purple-800">{myRank.title}</div>
+                      {myRank.permissions && Object.keys(myRank.permissions).filter((k) => myRank.permissions[k]).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Object.entries(myRank.permissions).filter(([, v]) => v).map(([perm]) => (
+                            <span key={perm} className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">
+                              {perm === "payroll" ? "Paie" : perm === "hire" ? "Recrutement" : perm === "bulletin" ? "Babillard" : perm === "contracts" ? "Contrats" : perm}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ) : null;
               })()}
 
@@ -519,6 +664,7 @@ const MyCompanyView = ({
           { id: "hr", label: "Personnel" },
           { id: "finance", label: "Banque & Salaires" },
           { id: "contracts", label: "Contrats", icon: ScrollText },
+          { id: "management", label: "Gestion" },
           { id: "customize", label: "Personnalisation" },
         ].map((tab) => (
           <button
@@ -582,14 +728,22 @@ const MyCompanyView = ({
                   </div>
                   {(myCompany.employees || []).map((empId) => {
                     const emp = citizens.find((c) => c.id === empId);
+                    const empRank = (myCompany.employeeRanks || {})[empId];
                     return (
                       <div
                         key={empId}
                         className="py-3 flex justify-between items-center"
                       >
-                        <span className="font-bold text-stone-700 text-sm">
-                          {emp ? emp.name : "Inconnu"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-stone-700 text-sm">
+                            {emp ? emp.name : "Inconnu"}
+                          </span>
+                          {empRank?.title && (
+                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">
+                              {empRank.title}
+                            </span>
+                          )}
+                        </div>
                         <button
                           onClick={() =>
                             onCompanyFire(myCompany.id, empId, "FIRE")
@@ -1322,6 +1476,174 @@ const MyCompanyView = ({
           </div>
         );
       })()}
+
+      {/* ONGLET GESTION (Babillard + Grades) */}
+      {activeTab === "management" && (
+        <div className="space-y-6">
+          {/* Babillard d'entreprise */}
+          <Card title="Babillard d'Entreprise" icon={Megaphone}>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <textarea
+                  className="flex-1 p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-800 text-sm resize-none"
+                  rows={2}
+                  value={bulletinMsg}
+                  onChange={(e) => setBulletinMsg(e.target.value)}
+                  placeholder="Publier une annonce pour vos employés..."
+                  maxLength={500}
+                />
+                <button
+                  onClick={() => {
+                    if (bulletinMsg.trim() && onPostBulletin) {
+                      onPostBulletin(myCompany.id, bulletinMsg);
+                      setBulletinMsg("");
+                    }
+                  }}
+                  disabled={!bulletinMsg.trim()}
+                  className="bg-stone-800 text-white px-4 rounded-xl font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 flex items-center gap-1 self-end"
+                >
+                  <Send size={14} /> Publier
+                </button>
+              </div>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {(myCompany.bulletinBoard || []).length === 0 ? (
+                  <div className="text-center text-stone-400 italic py-4 text-xs">
+                    Aucune annonce publiée.
+                  </div>
+                ) : (
+                  (myCompany.bulletinBoard || []).map((b) => (
+                    <div key={b.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex justify-between items-start gap-2">
+                      <div className="flex-1">
+                        <div className="text-sm text-stone-800 whitespace-pre-wrap">{b.message}</div>
+                        <div className="text-[10px] text-stone-400 mt-1">
+                          {new Date(b.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onDeleteBulletin && onDeleteBulletin(myCompany.id, b.id)}
+                        className="text-red-400 hover:text-red-600 p-1 flex-shrink-0"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Grades personnalisés */}
+          <Card title="Grades & Rangs" icon={Shield}>
+            <div className="space-y-4">
+              <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
+                Attribuez des grades personnalisés à vos employés. Les grades peuvent inclure des permissions spéciales.
+              </div>
+              <div className="divide-y divide-stone-100">
+                {(myCompany.employees || []).map((empId) => {
+                  const emp = citizens.find((c) => c.id === empId);
+                  const currentRank = (myCompany.employeeRanks || {})[empId];
+                  const isEditing = rankEditTarget === empId;
+                  return (
+                    <div key={empId} className="py-3 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-stone-700">{emp?.name || empId}</span>
+                          {currentRank?.title && (
+                            <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase border border-purple-200">
+                              {currentRank.title}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (isEditing) {
+                              setRankEditTarget(null);
+                            } else {
+                              setRankEditTarget(empId);
+                              setRankTitle(currentRank?.title || "");
+                              setRankPerms(currentRank?.permissions || {});
+                            }
+                          }}
+                          className="text-[10px] font-bold uppercase text-stone-500 hover:text-stone-800 border border-stone-200 px-2 py-1 rounded hover:bg-stone-50"
+                        >
+                          {isEditing ? "Annuler" : currentRank?.title ? "Modifier" : "Attribuer"}
+                        </button>
+                      </div>
+                      {isEditing && (
+                        <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-3">
+                          <div>
+                            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Titre du grade</label>
+                            <input
+                              className="w-full p-2 border rounded text-sm font-bold"
+                              value={rankTitle}
+                              onChange={(e) => setRankTitle(e.target.value)}
+                              placeholder="Ex: Contremaître, Intendant, Apprenti..."
+                              maxLength={30}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Permissions</label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { key: "payroll", label: "Paie", desc: "Verser les salaires" },
+                                { key: "hire", label: "Recrutement", desc: "Envoyer des offres" },
+                                { key: "bulletin", label: "Babillard", desc: "Publier des annonces" },
+                                { key: "contracts", label: "Contrats", desc: "Voir les contrats" },
+                              ].map((p) => (
+                                <button
+                                  key={p.key}
+                                  onClick={() => setRankPerms((prev) => ({ ...prev, [p.key]: !prev[p.key] }))}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase border transition-colors ${
+                                    rankPerms[p.key]
+                                      ? "bg-purple-100 text-purple-700 border-purple-300"
+                                      : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
+                                  }`}
+                                  title={p.desc}
+                                >
+                                  {p.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => {
+                                if (onSetEmployeeRank) {
+                                  onSetEmployeeRank(myCompany.id, empId, rankTitle.trim() ? { title: rankTitle.trim(), permissions: rankPerms } : null);
+                                }
+                                setRankEditTarget(null);
+                              }}
+                              className="bg-stone-800 text-white px-4 py-2 rounded text-[10px] font-bold uppercase hover:bg-stone-700 flex items-center gap-1"
+                            >
+                              <Check size={12} /> Enregistrer
+                            </button>
+                            {currentRank?.title && (
+                              <button
+                                onClick={() => {
+                                  if (onSetEmployeeRank) onSetEmployeeRank(myCompany.id, empId, null);
+                                  setRankEditTarget(null);
+                                }}
+                                className="text-red-500 hover:text-red-700 px-3 py-2 rounded text-[10px] font-bold uppercase border border-red-200 hover:bg-red-50"
+                              >
+                                Retirer le grade
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {(myCompany.employees || []).length === 0 && (
+                  <div className="text-center text-stone-400 italic py-4 text-xs">
+                    Aucun employé à qui attribuer un grade.
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* ONGLET PERSONNALISATION */}
       {activeTab === "customize" && (
