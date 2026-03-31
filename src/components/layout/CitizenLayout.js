@@ -1644,11 +1644,13 @@ const CitizenLayout = (props) => {
                     return r ? `${r.name}, ${c.name}` : c.name;
                   };
 
-                  const myProps = properties.filter((p) => p.ownerId === user.id);
+                  const myCompanyIds = (companies || []).filter((c) => c.ownerId === user.id).map((c) => c.id);
+                  const isMine = (p) => p.ownerId === user.id || (p.ownerType === "COMPANY" && myCompanyIds.includes(p.ownerId));
+                  const myProps = properties.filter(isMine);
                   const available = properties.filter((p) => !p.ownerId);
-                  const forSale = properties.filter((p) => p.forSale && p.ownerId && p.ownerId !== user.id);
+                  const forSale = properties.filter((p) => p.forSale && p.ownerId && !isMine(p));
                   const myRentals = properties.filter((p) => p.rental && p.rental.tenantId === user.id);
-                  const forRent = properties.filter((p) => p.rental && !p.rental.tenantId && p.ownerId && p.ownerId !== user.id);
+                  const forRent = properties.filter((p) => p.rental && !p.rental.tenantId && p.ownerId && !isMine(p));
                   const totalValue = myProps.reduce((s, p) => s + (p.price || 0), 0);
                   const totalIncome = myProps.reduce((s, p) => s + (p.income || 0), 0);
 
@@ -1746,8 +1748,15 @@ const CitizenLayout = (props) => {
                         <div>
                           <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mes propriétés</div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {myProps.map((prop) => (
+                            {myProps.map((prop) => {
+                              const ownerCompany = prop.ownerType === "COMPANY" ? (companies || []).find((c) => c.id === prop.ownerId) : null;
+                              return (
                               <PropertyCard key={prop.id} prop={prop} variant="owned">
+                                {ownerCompany && (
+                                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5 text-xs text-indigo-700 font-bold flex items-center gap-1.5">
+                                    <Building2 size={12} /> Via entreprise : {ownerCompany.name}
+                                  </div>
+                                )}
                                 {/* Locataire actuel */}
                                 {prop.rental && prop.rental.tenantId && (
                                   <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
@@ -1809,7 +1818,7 @@ const CitizenLayout = (props) => {
                                   </button>
                                 )}
                               </PropertyCard>
-                            ))}
+                            );})}
                           </div>
                         </div>
                       )}
@@ -1938,7 +1947,9 @@ const CitizenLayout = (props) => {
 
                       {/* Lieux à visiter (auberges, châteaux, commerces publics) */}
                       {(() => {
-                        const visitable = properties.filter((p) => p.ownerId && p.ownerId !== user.id && ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type));
+                        const myCompanyIds2 = (companies || []).filter((c) => c.ownerId === user.id).map((c) => c.id);
+                        const isMine2 = (p) => p.ownerId === user.id || (p.ownerType === "COMPANY" && myCompanyIds2.includes(p.ownerId));
+                        const visitable = properties.filter((p) => p.ownerId && !isMine2(p) && ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type));
                         return visitable.length > 0 ? (
                           <div>
                             <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
