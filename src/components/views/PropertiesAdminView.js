@@ -1,179 +1,429 @@
-import React, { useState } from "react";
-import { Plus, Trash2, Edit3, MapPin, Check, X } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Plus, MapPin, Pencil, X, Save, Home, User, Globe } from "lucide-react";
+import Card from "../ui/Card";
+import SecureDeleteButton from "../ui/SecureDeleteButton";
 
-export default function PropertiesAdminView({
+const PROPERTY_TYPES = {
+  MAISON: "Maison",
+  DOMAINE: "Domaine",
+  TERRAIN: "Terrain",
+  COMMERCE: "Local Commercial",
+  FERME: "Ferme",
+  MANOIR: "Manoir / Château",
+  ATELIER: "Atelier",
+};
+
+const PropertiesAdminView = ({
   properties = [],
+  countries = [],
+  citizens = [],
   onCreateProperty,
   onDeleteProperty,
   onEditProperty,
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [location, setLocation] = useState("");
+}) => {
+  // Création
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("MAISON");
+  const [newCountryId, setNewCountryId] = useState("");
+  const [newRegionId, setNewRegionId] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newIncome, setNewIncome] = useState("0");
+  const [newDescription, setNewDescription] = useState("");
+
+  // Édition
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
+  // Régions du pays sélectionné (création)
+  const newRegions = useMemo(() => {
+    const c = countries.find((c) => c.id === newCountryId);
+    return c?.regions || [];
+  }, [countries, newCountryId]);
+
+  // Régions du pays sélectionné (édition)
+  const editRegions = useMemo(() => {
+    if (!editForm.countryId) return [];
+    const c = countries.find((c) => c.id === editForm.countryId);
+    return c?.regions || [];
+  }, [countries, editForm.countryId]);
+
+  // Helper pour obtenir le nom de localisation
+  const getLocationLabel = (prop) => {
+    const country = countries.find((c) => c.id === prop.countryId);
+    if (!country) return prop.location || "—";
+    const region = (country.regions || []).find((r) => r.id === prop.regionId);
+    return region ? `${region.name}, ${country.name}` : country.name;
+  };
+
   const handleCreate = () => {
-    if (!name.trim()) return;
-    onCreateProperty({ name: name.trim(), description: description.trim(), price, location: location.trim() });
-    setName("");
-    setDescription("");
-    setPrice("");
-    setLocation("");
+    if (!newName.trim()) return;
+    onCreateProperty({
+      name: newName.trim(),
+      type: newType,
+      description: newDescription.trim(),
+      price: parseInt(newPrice) || 0,
+      income: parseInt(newIncome) || 0,
+      countryId: newCountryId || null,
+      regionId: newRegionId || null,
+      location: (() => {
+        const c = countries.find((c) => c.id === newCountryId);
+        if (!c) return "";
+        const r = (c.regions || []).find((r) => r.id === newRegionId);
+        return r ? `${r.name}, ${c.name}` : c.name;
+      })(),
+    });
+    setNewName("");
+    setNewType("MAISON");
+    setNewCountryId("");
+    setNewRegionId("");
+    setNewPrice("");
+    setNewIncome("0");
+    setNewDescription("");
   };
 
   const startEdit = (prop) => {
     setEditingId(prop.id);
-    setEditForm({ name: prop.name, description: prop.description || "", price: prop.price, location: prop.location || "" });
+    setEditForm({
+      name: prop.name || "",
+      type: prop.type || "MAISON",
+      description: prop.description || "",
+      price: prop.price || 0,
+      income: prop.income || 0,
+      countryId: prop.countryId || "",
+      regionId: prop.regionId || "",
+    });
   };
 
   const saveEdit = () => {
+    const country = countries.find((c) => c.id === editForm.countryId);
+    const region = country ? (country.regions || []).find((r) => r.id === editForm.regionId) : null;
     onEditProperty(editingId, {
-      name: editForm.name,
-      description: editForm.description,
+      ...editForm,
       price: parseInt(editForm.price) || 0,
-      location: editForm.location,
+      income: parseInt(editForm.income) || 0,
+      location: country ? (region ? `${region.name}, ${country.name}` : country.name) : "",
     });
     setEditingId(null);
+    setEditForm({});
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
   };
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-bold flex items-center gap-2">
-        <MapPin size={20} /> Gestion Immobilière
-      </h2>
-
-      {/* Formulaire de création */}
-      <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold text-sm text-amber-300">Nouvelle propriété</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-sm"
-            placeholder="Nom de la propriété"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-sm"
-            placeholder="Localisation"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-          <input
-            className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-sm"
-            placeholder="Prix (Écus)"
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-          />
-        </div>
-        <textarea
-          className="w-full bg-white/10 border border-white/20 rounded px-3 py-1.5 text-sm"
-          placeholder="Description (optionnel)"
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <button
-          onClick={handleCreate}
-          disabled={!name.trim()}
-          className="flex items-center gap-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded"
-        >
-          <Plus size={14} /> Créer la propriété
-        </button>
-      </div>
-
-      {/* Liste des propriétés */}
-      <div className="space-y-2">
-        <h3 className="font-semibold text-sm text-amber-300">
-          Propriétés existantes ({properties.length})
-        </h3>
-        {properties.length === 0 && (
-          <p className="text-white/40 text-sm italic">Aucune propriété créée.</p>
-        )}
-        {properties.map((prop) => (
-          <div
-            key={prop.id}
-            className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-start justify-between gap-3"
-          >
-            {editingId === prop.id ? (
-              <div className="flex-1 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    className="bg-white/10 border border-white/20 rounded px-2 py-1 text-sm"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  />
-                  <input
-                    className="bg-white/10 border border-white/20 rounded px-2 py-1 text-sm"
-                    value={editForm.location}
-                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                  />
-                  <input
-                    className="bg-white/10 border border-white/20 rounded px-2 py-1 text-sm"
-                    type="number"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                  />
-                </div>
-                <textarea
-                  className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-sm"
-                  rows={2}
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+    <div className="space-y-6 animate-fadeIn">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Formulaire de création */}
+        <div className="lg:col-span-1">
+          <Card title="Enregistrer un Bien" icon={Home}>
+            <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                  Nom du bien
+                </label>
+                <input
+                  className="w-full p-2 border rounded font-bold text-stone-800"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Ex: Villa des Orangers..."
                 />
-                <div className="flex gap-2">
-                  <button onClick={saveEdit} className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1">
-                    <Check size={14} /> Sauvegarder
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="text-red-400 hover:text-red-300 text-sm flex items-center gap-1">
-                    <X size={14} /> Annuler
-                  </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                    Type de bien
+                  </label>
+                  <select
+                    className="w-full p-2 border rounded text-sm bg-white"
+                    value={newType}
+                    onChange={(e) => setNewType(e.target.value)}
+                  >
+                    {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                    Prix d'achat (Écus)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full p-2 border rounded font-mono"
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    placeholder="0"
+                  />
                 </div>
               </div>
-            ) : (
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">{prop.name}</span>
-                  {prop.location && (
-                    <span className="text-xs text-white/50">({prop.location})</span>
-                  )}
-                  <span className="text-xs bg-amber-600/30 text-amber-300 px-1.5 py-0.5 rounded">
-                    {prop.price} Écus
-                  </span>
-                </div>
-                {prop.description && (
-                  <p className="text-xs text-white/60 mt-1">{prop.description}</p>
-                )}
-                <p className="text-xs text-white/40 mt-1">
-                  {prop.ownerId
-                    ? `Propriétaire : ${prop.ownerName}${prop.forSale ? ` (en vente : ${prop.salePrice} Écus)` : ""}`
-                    : "Disponible à l'achat"}
-                </p>
-              </div>
-            )}
-            <div className="flex gap-1">
-              {editingId !== prop.id && (
-                <button
-                  onClick={() => startEdit(prop)}
-                  className="text-blue-400 hover:text-blue-300 p-1"
-                  title="Modifier"
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                  Pays
+                </label>
+                <select
+                  className="w-full p-2 border rounded text-sm bg-white"
+                  value={newCountryId}
+                  onChange={(e) => { setNewCountryId(e.target.value); setNewRegionId(""); }}
                 >
-                  <Edit3 size={14} />
-                </button>
+                  <option value="">-- Sélectionner un pays --</option>
+                  {countries.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {newRegions.length > 0 && (
+                <div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                    Région
+                  </label>
+                  <select
+                    className="w-full p-2 border rounded text-sm bg-white"
+                    value={newRegionId}
+                    onChange={(e) => setNewRegionId(e.target.value)}
+                  >
+                    <option value="">-- Toute la juridiction --</option>
+                    {newRegions.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
               )}
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                  Revenu journalier (Écus / jour RP)
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-2 border rounded font-mono"
+                  value={newIncome}
+                  onChange={(e) => setNewIncome(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                  Description
+                </label>
+                <textarea
+                  className="w-full p-2 border rounded text-sm text-stone-800"
+                  rows={3}
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Description du bien immobilier..."
+                />
+              </div>
+
               <button
-                onClick={() => onDeleteProperty(prop.id)}
-                className="text-red-400 hover:text-red-300 p-1"
-                title="Supprimer"
+                onClick={handleCreate}
+                disabled={!newName.trim()}
+                className="w-full bg-stone-900 text-yellow-500 py-3 rounded font-black uppercase text-xs tracking-widest hover:bg-stone-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Trash2 size={14} />
+                <Plus size={14} /> Enregistrer le Bien
               </button>
             </div>
-          </div>
-        ))}
+          </Card>
+        </div>
+
+        {/* Liste des propriétés */}
+        <div className="lg:col-span-2">
+          <Card title="Registre Foncier" icon={MapPin}>
+            <div className="space-y-3">
+              {properties.length === 0 && (
+                <div className="p-6 text-center text-stone-400 italic">
+                  Aucun bien immobilier enregistré.
+                </div>
+              )}
+              {properties.map((prop) => {
+                const owner = citizens.find((c) => c.id === prop.ownerId);
+                const isEditing = editingId === prop.id;
+
+                if (isEditing) {
+                  return (
+                    <div
+                      key={prop.id}
+                      className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-5 space-y-4"
+                    >
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-black text-stone-800 uppercase text-xs tracking-widest">
+                          Modifier le bien
+                        </h3>
+                        <button onClick={cancelEdit} className="text-stone-400 hover:text-stone-600">
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Nom</label>
+                          <input
+                            className="w-full p-2 border rounded text-sm"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Type</label>
+                          <select
+                            className="w-full p-2 border rounded text-sm bg-white"
+                            value={editForm.type}
+                            onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                          >
+                            {Object.entries(PROPERTY_TYPES).map(([k, v]) => (
+                              <option key={k} value={k}>{v}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prix</label>
+                          <input
+                            type="number"
+                            className="w-full p-2 border rounded font-mono text-sm"
+                            value={editForm.price}
+                            onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Revenu / jour</label>
+                          <input
+                            type="number"
+                            className="w-full p-2 border rounded font-mono text-sm"
+                            value={editForm.income}
+                            onChange={(e) => setEditForm({ ...editForm, income: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Pays</label>
+                          <select
+                            className="w-full p-2 border rounded text-sm bg-white"
+                            value={editForm.countryId}
+                            onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value, regionId: "" })}
+                          >
+                            <option value="">-- Aucun --</option>
+                            {countries.map((c) => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {editRegions.length > 0 && (
+                          <div>
+                            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Région</label>
+                            <select
+                              className="w-full p-2 border rounded text-sm bg-white"
+                              value={editForm.regionId}
+                              onChange={(e) => setEditForm({ ...editForm, regionId: e.target.value })}
+                            >
+                              <option value="">-- Toute la juridiction --</option>
+                              {editRegions.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Description</label>
+                        <textarea
+                          className="w-full p-2 border rounded text-sm"
+                          rows={2}
+                          value={editForm.description}
+                          onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEdit}
+                          className="bg-stone-900 text-yellow-500 px-4 py-2 rounded font-bold text-xs uppercase flex items-center gap-1 hover:bg-stone-700"
+                        >
+                          <Save size={14} /> Sauvegarder
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="bg-stone-200 text-stone-600 px-4 py-2 rounded font-bold text-xs uppercase hover:bg-stone-300"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={prop.id}
+                    className="bg-white border border-stone-200 rounded-xl p-4 flex items-start justify-between gap-3 hover:border-stone-400 transition-all"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-black text-stone-800">{prop.name}</span>
+                        <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                          {PROPERTY_TYPES[prop.type] || prop.type || "Bien"}
+                        </span>
+                        <span className="font-mono text-yellow-700 text-sm font-bold">
+                          {prop.price} Écus
+                        </span>
+                      </div>
+
+                      {prop.description && (
+                        <p className="text-xs text-stone-500 mt-1">{prop.description}</p>
+                      )}
+
+                      <div className="flex items-center gap-4 mt-2 text-[10px] text-stone-400">
+                        <span className="flex items-center gap-1">
+                          <Globe size={10} /> {getLocationLabel(prop)}
+                        </span>
+                        {(prop.income || 0) > 0 && (
+                          <span className="text-green-600 font-mono font-bold">
+                            +{prop.income} Écus/jour
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1">
+                          <User size={10} />
+                          {owner ? (
+                            <span className="text-stone-600 font-bold">{owner.name}</span>
+                          ) : prop.ownerId ? (
+                            <span className="text-stone-400">{prop.ownerName}</span>
+                          ) : (
+                            <span className="italic">Disponible</span>
+                          )}
+                        </span>
+                        {prop.forSale && (
+                          <span className="text-amber-600 font-bold">
+                            En vente : {prop.salePrice} Écus
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => startEdit(prop)}
+                        className="text-stone-400 hover:text-stone-700 p-1.5 rounded hover:bg-stone-100"
+                        title="Modifier"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <SecureDeleteButton
+                        onClick={() => onDeleteProperty(prop.id)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default PropertiesAdminView;

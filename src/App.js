@@ -956,6 +956,8 @@ export default function App() {
                   {activeTab === "properties_admin" && (
                     <PropertiesAdminView
                       properties={state.properties || []}
+                      countries={state.countries || []}
+                      citizens={state.citizens || []}
                       onCreateProperty={actions.onCreateProperty}
                       onDeleteProperty={actions.onDeleteProperty}
                       onEditProperty={actions.onEditProperty}

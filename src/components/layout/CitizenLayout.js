@@ -1442,7 +1442,12 @@ const CitizenLayout = (props) => {
                             {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
                             <div className="flex flex-wrap gap-2 mt-2">
                               {prop.type && <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{prop.type}</span>}
-                              {prop.location && <span className="text-[10px] text-stone-400">{prop.location}</span>}
+                              {(() => {
+                                const c = safeCountries.find((c) => c.id === prop.countryId);
+                                const r = c ? (c.regions || []).find((r) => r.id === prop.regionId) : null;
+                                const loc = c ? (r ? `${r.name}, ${c.name}` : c.name) : prop.location;
+                                return loc ? <span className="text-[10px] text-stone-400 flex items-center gap-1"><MapPin size={10} />{loc}</span> : null;
+                              })()}
                             </div>
                             {prop.income > 0 && (
                               <div className="mt-2 text-xs font-mono text-green-600">+{prop.income} Écus / jour RP</div>

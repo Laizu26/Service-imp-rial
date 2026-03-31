@@ -3064,13 +3064,17 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- PROPRIÉTÉS IMMOBILIÈRES (ADMIN) ---
-      onCreateProperty: ({ name, description, price, location }) => {
+      onCreateProperty: ({ name, type, description, price, income, countryId, regionId, location }) => {
         const properties = [...(state.properties || [])];
         properties.push({
           id: `prop-${Date.now()}`,
           name: name || "Propriété sans nom",
+          type: type || "MAISON",
           description: description || "",
           price: parseInt(price) || 0,
+          income: parseInt(income) || 0,
+          countryId: countryId || null,
+          regionId: regionId || null,
           location: location || "",
           ownerId: null,
           ownerName: null,
