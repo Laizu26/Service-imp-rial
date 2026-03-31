@@ -266,6 +266,9 @@ const CitizenBankView = ({
     SALARY_WITHDRAW: "Retrait salaire",
     COMPANY_LEVEL: "Expansion",
     SUBCONTRACT: "Sous-traitance",
+    PLAYER_MARKET: "Marché joueur",
+    TRADE: "Échange",
+    PROPERTY_PURCHASE: "Propriété",
   };
 
   const typeColors = {
@@ -284,6 +287,9 @@ const CitizenBankView = ({
     SALARY_WITHDRAW: "bg-teal-50 text-teal-700 border-teal-100",
     COMPANY_LEVEL: "bg-violet-50 text-violet-700 border-violet-100",
     SUBCONTRACT: "bg-orange-50 text-orange-700 border-orange-100",
+    PLAYER_MARKET: "bg-cyan-50 text-cyan-700 border-cyan-100",
+    TRADE: "bg-lime-50 text-lime-700 border-lime-100",
+    PROPERTY_PURCHASE: "bg-rose-50 text-rose-700 border-rose-100",
   };
 
   // --- INTERDIT ---

@@ -186,6 +186,9 @@ const BankView = ({
     SALARY_WITHDRAW: "Retrait salaire",
     COMPANY_LEVEL: "Expansion",
     SUBCONTRACT: "Sous-traitance",
+    PLAYER_MARKET: "Marché joueur",
+    TRADE: "Échange",
+    PROPERTY_PURCHASE: "Propriété",
   };
   const typeColors = {
     TRANSFER: "bg-blue-100 text-blue-700 border-blue-200",
@@ -203,6 +206,9 @@ const BankView = ({
     SALARY_WITHDRAW: "bg-teal-100 text-teal-700 border-teal-200",
     COMPANY_LEVEL: "bg-violet-100 text-violet-700 border-violet-200",
     SUBCONTRACT: "bg-orange-100 text-orange-700 border-orange-200",
+    PLAYER_MARKET: "bg-cyan-100 text-cyan-700 border-cyan-200",
+    TRADE: "bg-lime-100 text-lime-700 border-lime-200",
+    PROPERTY_PURCHASE: "bg-rose-100 text-rose-700 border-rose-200",
   };
 
   const filteredLedger = useMemo(() => {

@@ -2792,6 +2792,389 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
         notify(`${val.toLocaleString()} écus transférés à ${toCompany.name}.`, "success");
       },
+
+      // --- JOURNAL INTIME RP ---
+      onAddJournalEntry: (content) => {
+        if (!session) return;
+        if (!content?.trim()) { notify("Le contenu ne peut pas être vide.", "error"); return; }
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        const journal = [...(newCitizens[userIdx].journal || [])];
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        journal.unshift({
+          id: "J-" + Date.now(),
+          content: content.trim(),
+          rpDate: `${gd.day}/${gd.month}/${gd.year}`,
+          timestamp: Date.now(),
+        });
+        newCitizens[userIdx] = { ...newCitizens[userIdx], journal };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Entrée ajoutée au journal.", "success");
+      },
+
+      onDeleteJournalEntry: (entryId) => {
+        if (!session) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = {
+          ...newCitizens[userIdx],
+          journal: (newCitizens[userIdx].journal || []).filter((j) => j.id !== entryId),
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Entrée supprimée.", "info");
+      },
+
+      // --- MARCHÉ ENTRE JOUEURS ---
+      onListItemForSale: (itemId, price, quantity) => {
+        if (!session) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = state.citizens[userIdx];
+        const inv = user.inventory || [];
+        const slot = inv.find((e) => e.itemId === itemId);
+        const qty = parseInt(quantity) || 1;
+        const pr = parseInt(price);
+        if (!slot || slot.quantity < qty) { notify("Quantité insuffisante.", "error"); return; }
+        if (!pr || pr <= 0) { notify("Prix invalide.", "error"); return; }
+        const catalog = state.inventoryCatalog || [];
+        const itemInfo = catalog.find((i) => i.id === itemId);
+        const listings = [...(state.playerMarket || [])];
+        listings.push({
+          id: "MKT-" + Date.now(),
+          sellerId: session.id,
+          sellerName: user.name,
+          itemId,
+          itemName: itemInfo?.name || itemId,
+          price: pr,
+          quantity: qty,
+          date: Date.now(),
+        });
+        // Retirer de l'inventaire du vendeur
+        const newCitizens = [...state.citizens];
+        const newInv = [...inv];
+        const slotIdx = newInv.findIndex((e) => e.itemId === itemId);
+        if (newInv[slotIdx].quantity === qty) {
+          newInv.splice(slotIdx, 1);
+        } else {
+          newInv[slotIdx] = { ...newInv[slotIdx], quantity: newInv[slotIdx].quantity - qty };
+        }
+        newCitizens[userIdx] = { ...user, inventory: newInv };
+        saveState({ ...state, citizens: newCitizens, playerMarket: listings });
+        notify(`${qty}x ${itemInfo?.name || "objet"} mis en vente pour ${pr} Écus.`, "success");
+      },
+
+      onCancelListing: (listingId) => {
+        if (!session) return;
+        const listings = state.playerMarket || [];
+        const listing = listings.find((l) => l.id === listingId);
+        if (!listing || listing.sellerId !== session.id) return;
+        // Rendre l'objet au vendeur
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        const inv = [...(newCitizens[userIdx].inventory || [])];
+        const existing = inv.findIndex((e) => e.itemId === listing.itemId);
+        if (existing !== -1) {
+          inv[existing] = { ...inv[existing], quantity: inv[existing].quantity + listing.quantity };
+        } else {
+          inv.push({ itemId: listing.itemId, quantity: listing.quantity });
+        }
+        newCitizens[userIdx] = { ...newCitizens[userIdx], inventory: inv };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          playerMarket: listings.filter((l) => l.id !== listingId),
+        });
+        notify("Annonce retirée.", "info");
+      },
+
+      onBuyFromPlayer: (listingId) => {
+        if (!session) return;
+        const listings = state.playerMarket || [];
+        const listing = listings.find((l) => l.id === listingId);
+        if (!listing) { notify("Annonce introuvable.", "error"); return; }
+        if (listing.sellerId === session.id) { notify("Vous ne pouvez pas acheter votre propre annonce.", "error"); return; }
+        const buyerIdx = state.citizens.findIndex((c) => c.id === session.id);
+        const sellerIdx = state.citizens.findIndex((c) => c.id === listing.sellerId);
+        if (buyerIdx === -1) return;
+        const buyer = state.citizens[buyerIdx];
+        if ((buyer.balance || 0) < listing.price) { notify("Fonds insuffisants.", "error"); return; }
+        const newCitizens = [...state.citizens];
+        // Débit acheteur
+        newCitizens[buyerIdx] = { ...buyer, balance: buyer.balance - listing.price };
+        // Crédit vendeur
+        if (sellerIdx !== -1) {
+          newCitizens[sellerIdx] = { ...newCitizens[sellerIdx], balance: (newCitizens[sellerIdx].balance || 0) + listing.price };
+        }
+        // Ajouter à l'inventaire de l'acheteur
+        const inv = [...(newCitizens[buyerIdx].inventory || [])];
+        const existing = inv.findIndex((e) => e.itemId === listing.itemId);
+        if (existing !== -1) {
+          inv[existing] = { ...inv[existing], quantity: inv[existing].quantity + listing.quantity };
+        } else {
+          inv.push({ itemId: listing.itemId, quantity: listing.quantity });
+        }
+        newCitizens[buyerIdx] = { ...newCitizens[buyerIdx], inventory: inv };
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: buyer.name,
+          toName: sellerIdx !== -1 ? newCitizens[sellerIdx].name : listing.sellerName,
+          amount: listing.price,
+          timestamp: Date.now(),
+          reason: `Achat marché: ${listing.quantity}x ${listing.itemName}`,
+          type: "PLAYER_MARKET",
+        };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          playerMarket: listings.filter((l) => l.id !== listingId),
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`${listing.quantity}x ${listing.itemName} acheté(s) pour ${listing.price} Écus.`, "success");
+      },
+
+      // --- PROPOSITIONS D'ÉCHANGE ---
+      onProposeTrade: (targetId, offer, request) => {
+        if (!session) return;
+        if (targetId === session.id) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        const targetIdx = state.citizens.findIndex((c) => c.id === targetId);
+        if (userIdx === -1 || targetIdx === -1) return;
+        const user = state.citizens[userIdx];
+        const target = state.citizens[targetIdx];
+        // offer = { items: [{itemId, quantity}], money: number }
+        // request = { items: [{itemId, quantity}], money: number }
+        // Vérifier que l'offrant a les objets/argent
+        if (offer.money && offer.money > 0 && (user.balance || 0) < offer.money) {
+          notify("Fonds insuffisants pour cette offre.", "error"); return;
+        }
+        for (const item of (offer.items || [])) {
+          const slot = (user.inventory || []).find((e) => e.itemId === item.itemId);
+          if (!slot || slot.quantity < item.quantity) {
+            notify("Vous n'avez pas assez d'objets pour cette offre.", "error"); return;
+          }
+        }
+        const catalog = state.inventoryCatalog || [];
+        const trades = [...(state.tradeProposals || [])];
+        trades.push({
+          id: "TRD-" + Date.now(),
+          fromId: session.id,
+          fromName: user.name,
+          toId: targetId,
+          toName: target.name,
+          offer: {
+            items: (offer.items || []).map((i) => ({ ...i, name: catalog.find((c) => c.id === i.itemId)?.name || i.itemId })),
+            money: offer.money || 0,
+          },
+          request: {
+            items: (request.items || []).map((i) => ({ ...i, name: catalog.find((c) => c.id === i.itemId)?.name || i.itemId })),
+            money: request.money || 0,
+          },
+          status: "PENDING",
+          date: Date.now(),
+        });
+        saveState({ ...state, tradeProposals: trades });
+        notify(`Proposition d'échange envoyée à ${target.name}.`, "success");
+      },
+
+      onRespondTrade: (tradeId, accept) => {
+        if (!session) return;
+        const trades = [...(state.tradeProposals || [])];
+        const tIdx = trades.findIndex((t) => t.id === tradeId);
+        if (tIdx === -1) return;
+        const trade = trades[tIdx];
+        if (trade.toId !== session.id) return;
+        if (!accept) {
+          trades[tIdx] = { ...trade, status: "REFUSED" };
+          saveState({ ...state, tradeProposals: trades.filter((t) => t.status !== "REFUSED") });
+          notify("Échange refusé.", "info");
+          return;
+        }
+        // Vérifier que les deux parties ont toujours les ressources
+        const newCitizens = [...state.citizens];
+        const fromIdx = newCitizens.findIndex((c) => c.id === trade.fromId);
+        const toIdx = newCitizens.findIndex((c) => c.id === trade.toId);
+        if (fromIdx === -1 || toIdx === -1) { notify("Citoyen introuvable.", "error"); return; }
+        const from = newCitizens[fromIdx];
+        const to = newCitizens[toIdx];
+        // Vérif offrant
+        if (trade.offer.money > 0 && (from.balance || 0) < trade.offer.money) { notify("L'offrant n'a plus les fonds.", "error"); return; }
+        for (const item of (trade.offer.items || [])) {
+          const slot = (from.inventory || []).find((e) => e.itemId === item.itemId);
+          if (!slot || slot.quantity < item.quantity) { notify("L'offrant n'a plus les objets.", "error"); return; }
+        }
+        // Vérif destinataire
+        if (trade.request.money > 0 && (to.balance || 0) < trade.request.money) { notify("Vous n'avez pas les fonds demandés.", "error"); return; }
+        for (const item of (trade.request.items || [])) {
+          const slot = (to.inventory || []).find((e) => e.itemId === item.itemId);
+          if (!slot || slot.quantity < item.quantity) { notify("Vous n'avez pas les objets demandés.", "error"); return; }
+        }
+        // Exécuter l'échange
+        let fromInv = [...(from.inventory || [])];
+        let toInv = [...(to.inventory || [])];
+        let fromBal = from.balance || 0;
+        let toBal = to.balance || 0;
+        // Transférer offre (from -> to)
+        for (const item of (trade.offer.items || [])) {
+          const si = fromInv.findIndex((e) => e.itemId === item.itemId);
+          if (fromInv[si].quantity === item.quantity) fromInv.splice(si, 1);
+          else fromInv[si] = { ...fromInv[si], quantity: fromInv[si].quantity - item.quantity };
+          const ti = toInv.findIndex((e) => e.itemId === item.itemId);
+          if (ti !== -1) toInv[ti] = { ...toInv[ti], quantity: toInv[ti].quantity + item.quantity };
+          else toInv.push({ itemId: item.itemId, quantity: item.quantity });
+        }
+        if (trade.offer.money > 0) { fromBal -= trade.offer.money; toBal += trade.offer.money; }
+        // Transférer demande (to -> from)
+        for (const item of (trade.request.items || [])) {
+          const si = toInv.findIndex((e) => e.itemId === item.itemId);
+          if (toInv[si].quantity === item.quantity) toInv.splice(si, 1);
+          else toInv[si] = { ...toInv[si], quantity: toInv[si].quantity - item.quantity };
+          const ti = fromInv.findIndex((e) => e.itemId === item.itemId);
+          if (ti !== -1) fromInv[ti] = { ...fromInv[ti], quantity: fromInv[ti].quantity + item.quantity };
+          else fromInv.push({ itemId: item.itemId, quantity: item.quantity });
+        }
+        if (trade.request.money > 0) { toBal -= trade.request.money; fromBal += trade.request.money; }
+        newCitizens[fromIdx] = { ...from, inventory: fromInv, balance: fromBal };
+        newCitizens[toIdx] = { ...to, inventory: toInv, balance: toBal };
+        const ledger = [];
+        if (trade.offer.money > 0) {
+          ledger.push({ id: Date.now(), fromName: from.name, toName: to.name, amount: trade.offer.money, timestamp: Date.now(), reason: "Échange accepté", type: "TRADE" });
+        }
+        if (trade.request.money > 0) {
+          ledger.push({ id: Date.now() + 1, fromName: to.name, toName: from.name, amount: trade.request.money, timestamp: Date.now(), reason: "Échange accepté", type: "TRADE" });
+        }
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          tradeProposals: trades.filter((t) => t.id !== tradeId),
+          globalLedger: [...ledger, ...(state.globalLedger || [])],
+        });
+        notify("Échange effectué !", "success");
+      },
+
+      onCancelTrade: (tradeId) => {
+        if (!session) return;
+        const trades = state.tradeProposals || [];
+        const trade = trades.find((t) => t.id === tradeId);
+        if (!trade || trade.fromId !== session.id) return;
+        saveState({ ...state, tradeProposals: trades.filter((t) => t.id !== tradeId) });
+        notify("Proposition d'échange annulée.", "info");
+      },
+
+      // --- PROPRIÉTÉS IMMOBILIÈRES ---
+      onBuyProperty: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) { notify("Propriété introuvable.", "error"); return; }
+        const prop = properties[pIdx];
+        if (prop.ownerId) { notify("Cette propriété a déjà un propriétaire.", "error"); return; }
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = state.citizens[userIdx];
+        if ((user.balance || 0) < prop.price) { notify("Fonds insuffisants.", "error"); return; }
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...user, balance: user.balance - prop.price };
+        properties[pIdx] = { ...prop, ownerId: session.id, ownerName: user.name };
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: user.name,
+          toName: "Registre Foncier",
+          amount: prop.price,
+          timestamp: Date.now(),
+          reason: `Achat propriété: ${prop.name}`,
+          type: "PROPERTY_PURCHASE",
+        };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          properties,
+          treasury: (state.treasury || 0) + prop.price,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`Propriété "${prop.name}" acquise !`, "success");
+      },
+
+      onSellProperty: (propertyId, price) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
+        const pr = parseInt(price);
+        if (!pr || pr <= 0) { notify("Prix invalide.", "error"); return; }
+        properties[pIdx] = { ...prop, forSale: true, salePrice: pr };
+        saveState({ ...state, properties });
+        notify(`"${prop.name}" mise en vente pour ${pr} Écus.`, "success");
+      },
+
+      onCancelPropertySale: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (properties[pIdx].ownerId !== session.id) return;
+        properties[pIdx] = { ...properties[pIdx], forSale: false, salePrice: 0 };
+        saveState({ ...state, properties });
+        notify("Vente annulée.", "info");
+      },
+
+      onBuyPropertyFromPlayer: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        if (!prop.forSale || !prop.salePrice) { notify("Cette propriété n'est pas en vente.", "error"); return; }
+        if (prop.ownerId === session.id) { notify("Vous possédez déjà cette propriété.", "error"); return; }
+        const buyerIdx = state.citizens.findIndex((c) => c.id === session.id);
+        const sellerIdx = state.citizens.findIndex((c) => c.id === prop.ownerId);
+        if (buyerIdx === -1) return;
+        const buyer = state.citizens[buyerIdx];
+        if ((buyer.balance || 0) < prop.salePrice) { notify("Fonds insuffisants.", "error"); return; }
+        const newCitizens = [...state.citizens];
+        newCitizens[buyerIdx] = { ...buyer, balance: buyer.balance - prop.salePrice };
+        if (sellerIdx !== -1) {
+          newCitizens[sellerIdx] = { ...newCitizens[sellerIdx], balance: (newCitizens[sellerIdx].balance || 0) + prop.salePrice };
+        }
+        properties[pIdx] = { ...prop, ownerId: session.id, ownerName: buyer.name, forSale: false, salePrice: 0 };
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: buyer.name,
+          toName: sellerIdx !== -1 ? newCitizens[sellerIdx].name : prop.ownerName,
+          amount: prop.salePrice,
+          timestamp: Date.now(),
+          reason: `Achat propriété: ${prop.name}`,
+          type: "PROPERTY_PURCHASE",
+        };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          properties,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`Propriété "${prop.name}" acquise !`, "success");
+      },
+
+      // --- FAVORIS / RACCOURCIS ---
+      onToggleFavorite: (favoriteData) => {
+        if (!session) return;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        const favs = [...(newCitizens[userIdx].favorites || [])];
+        const existingIdx = favs.findIndex((f) => f.type === favoriteData.type && f.id === favoriteData.id);
+        if (existingIdx !== -1) {
+          favs.splice(existingIdx, 1);
+        } else {
+          favs.push({ type: favoriteData.type, id: favoriteData.id, label: favoriteData.label });
+        }
+        newCitizens[userIdx] = { ...newCitizens[userIdx], favorites: favs };
+        saveState({ ...state, citizens: newCitizens });
+      },
     }, notify);
   }, [session, state, saveState, notify]);
 };

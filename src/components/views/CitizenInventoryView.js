@@ -17,6 +17,11 @@ import {
   Zap,
   Archive,
   Eye,
+  Store,
+  ArrowLeftRight,
+  Trash2,
+  Send,
+  Plus,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 
@@ -40,6 +45,14 @@ const CitizenInventoryView = ({
   onGiveItem,
   onBuySlave,
   gameDate,
+  onListItemForSale,
+  onCancelListing,
+  onBuyFromPlayer,
+  playerMarket = [],
+  onProposeTrade,
+  onRespondTrade,
+  onCancelTrade,
+  tradeProposals = [],
 }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const [activeTab, setActiveTab] = useState("bag");
@@ -51,6 +64,18 @@ const CitizenInventoryView = ({
   const [quantity, setQuantity] = useState(1);
   const [targetUserId, setTargetUserId] = useState("");
   const [filterCategory, setFilterCategory] = useState("ALL");
+
+  // Sell / Player market
+  const [sellItem, setSellItem] = useState(null);
+  const [sellPrice, setSellPrice] = useState("");
+  const [sellQty, setSellQty] = useState(1);
+
+  // Trade
+  const [tradeTarget, setTradeTarget] = useState("");
+  const [tradeOfferItems, setTradeOfferItems] = useState([]);
+  const [tradeOfferMoney, setTradeOfferMoney] = useState("");
+  const [tradeRequestItems, setTradeRequestItems] = useState([]);
+  const [tradeRequestMoney, setTradeRequestMoney] = useState("");
 
   // Inventaire Personnel
   const myInventory = useMemo(() => {
@@ -284,6 +309,34 @@ const CitizenInventoryView = ({
             >
               <ShoppingCart size={14} /> Marché
             </button>
+            <button
+              onClick={() => { setActiveTab("bazar"); setFilterCategory("ALL"); }}
+              className={`px-4 py-2 rounded-md text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                activeTab === "bazar"
+                  ? "bg-white text-cyan-700 shadow-sm"
+                  : "text-stone-500 hover:text-stone-700"
+              }`}
+            >
+              <Store size={14} /> Bazar
+              {playerMarket.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-cyan-100 text-cyan-700">{playerMarket.length}</span>
+              )}
+            </button>
+            <button
+              onClick={() => { setActiveTab("trades"); setFilterCategory("ALL"); }}
+              className={`px-4 py-2 rounded-md text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                activeTab === "trades"
+                  ? "bg-white text-lime-700 shadow-sm"
+                  : "text-stone-500 hover:text-stone-700"
+              }`}
+            >
+              <ArrowLeftRight size={14} /> Échanges
+              {tradeProposals.filter((t) => t.toId === user.id && t.status === "PENDING").length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-red-100 text-red-600">
+                  {tradeProposals.filter((t) => t.toId === user.id && t.status === "PENDING").length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -487,6 +540,314 @@ const CitizenInventoryView = ({
                 Le marché est vide pour le moment.
               </div>
             )}
+          </div>
+        )}
+
+        {/* === TAB BAZAR (Marché entre joueurs) === */}
+        {activeTab === "bazar" && (
+          <div className="space-y-4">
+            {/* Vendre un objet */}
+            <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4">
+              <div className="text-[10px] font-black uppercase text-cyan-700 tracking-widest mb-3">Mettre en vente</div>
+              <div className="flex gap-2 flex-wrap">
+                <select
+                  className="flex-1 p-2 border rounded text-sm min-w-[150px]"
+                  value={sellItem || ""}
+                  onChange={(e) => { setSellItem(e.target.value); setSellQty(1); }}
+                >
+                  <option value="">— Choisir un objet —</option>
+                  {myInventory.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name} (x{item.qty})</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  className="w-16 p-2 border rounded text-sm font-mono text-center"
+                  value={sellQty}
+                  onChange={(e) => setSellQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  min={1}
+                  max={sellItem ? (myInventory.find((i) => i.id === sellItem)?.qty || 1) : 1}
+                  placeholder="Qté"
+                />
+                <input
+                  type="number"
+                  className="w-24 p-2 border rounded text-sm font-mono"
+                  value={sellPrice}
+                  onChange={(e) => setSellPrice(e.target.value)}
+                  placeholder="Prix"
+                  min={1}
+                />
+                <button
+                  onClick={() => {
+                    if (sellItem && sellPrice && onListItemForSale) {
+                      onListItemForSale(sellItem, parseInt(sellPrice), sellQty);
+                      setSellItem(null);
+                      setSellPrice("");
+                      setSellQty(1);
+                    }
+                  }}
+                  disabled={!sellItem || !sellPrice || parseInt(sellPrice) <= 0}
+                  className="bg-cyan-600 text-white px-4 py-2 rounded font-bold text-xs uppercase hover:bg-cyan-500 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Store size={12} /> Vendre
+                </button>
+              </div>
+            </div>
+
+            {/* Mes annonces */}
+            {playerMarket.filter((l) => l.sellerId === user.id).length > 0 && (
+              <div>
+                <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">Mes annonces</div>
+                <div className="space-y-2">
+                  {playerMarket.filter((l) => l.sellerId === user.id).map((listing) => (
+                    <div key={listing.id} className="bg-white border border-stone-200 rounded-lg p-3 flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-sm text-stone-800">{listing.quantity}x {listing.itemName}</span>
+                        <span className="ml-2 font-mono text-sm text-yellow-700">{listing.price} Écus</span>
+                      </div>
+                      <button
+                        onClick={() => onCancelListing && onCancelListing(listing.id)}
+                        className="text-red-400 hover:text-red-600 text-[10px] font-bold uppercase border border-red-200 px-2 py-1 rounded"
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Annonces des autres */}
+            <div>
+              <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">Annonces disponibles</div>
+              {playerMarket.filter((l) => l.sellerId !== user.id).length === 0 ? (
+                <div className="text-center text-stone-400 italic py-8 text-xs">
+                  <Store size={32} className="mx-auto mb-2 opacity-30" />
+                  Aucune annonce pour le moment.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {playerMarket.filter((l) => l.sellerId !== user.id).map((listing) => {
+                    const itemDef = catalog.find((i) => i.id === listing.itemId);
+                    const rs = RARITY_COLORS[itemDef?.rarity] || RARITY_COLORS.Commun;
+                    const canBuy = (user.balance || 0) >= listing.price;
+                    return (
+                      <div key={listing.id} className={`bg-white border-2 ${rs.border} rounded-xl p-4 flex justify-between items-center`}>
+                        <div>
+                          <div className="font-bold text-sm text-stone-800">{listing.quantity}x {listing.itemName}</div>
+                          <div className="text-[10px] text-stone-400 mt-0.5">
+                            Vendeur : {listing.sellerName}
+                          </div>
+                          <div className="font-mono font-bold text-yellow-700 mt-1">{listing.price} Écus</div>
+                        </div>
+                        <button
+                          onClick={() => onBuyFromPlayer && onBuyFromPlayer(listing.id)}
+                          disabled={!canBuy}
+                          className="bg-cyan-600 text-white px-3 py-2 rounded font-bold text-[10px] uppercase hover:bg-cyan-500 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Coins size={12} /> Acheter
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* === TAB ÉCHANGES === */}
+        {activeTab === "trades" && (
+          <div className="space-y-4">
+            {/* Propositions reçues */}
+            {tradeProposals.filter((t) => t.toId === user.id && t.status === "PENDING").length > 0 && (
+              <div>
+                <div className="text-[10px] font-black uppercase text-red-500 tracking-widest mb-2">Propositions reçues</div>
+                <div className="space-y-3">
+                  {tradeProposals.filter((t) => t.toId === user.id && t.status === "PENDING").map((trade) => (
+                    <div key={trade.id} className="bg-white border-2 border-lime-300 rounded-xl p-4">
+                      <div className="text-xs font-bold text-stone-500 mb-2">De : <span className="text-stone-800">{trade.fromName}</span></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-green-50 rounded-lg p-2">
+                          <div className="text-[9px] font-black uppercase text-green-600 mb-1">Vous recevez</div>
+                          {(trade.offer.items || []).map((item, i) => (
+                            <div key={i} className="text-xs text-stone-700">{item.quantity}x {item.name}</div>
+                          ))}
+                          {trade.offer.money > 0 && <div className="text-xs font-mono text-yellow-700">{trade.offer.money} Écus</div>}
+                          {(trade.offer.items || []).length === 0 && !trade.offer.money && <div className="text-xs text-stone-400 italic">Rien</div>}
+                        </div>
+                        <div className="bg-red-50 rounded-lg p-2">
+                          <div className="text-[9px] font-black uppercase text-red-600 mb-1">Vous donnez</div>
+                          {(trade.request.items || []).map((item, i) => (
+                            <div key={i} className="text-xs text-stone-700">{item.quantity}x {item.name}</div>
+                          ))}
+                          {trade.request.money > 0 && <div className="text-xs font-mono text-yellow-700">{trade.request.money} Écus</div>}
+                          {(trade.request.items || []).length === 0 && !trade.request.money && <div className="text-xs text-stone-400 italic">Rien</div>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => onRespondTrade && onRespondTrade(trade.id, true)}
+                          className="flex-1 bg-green-600 text-white py-2 rounded font-bold text-xs uppercase hover:bg-green-500"
+                        >
+                          Accepter
+                        </button>
+                        <button
+                          onClick={() => onRespondTrade && onRespondTrade(trade.id, false)}
+                          className="flex-1 bg-red-100 text-red-600 py-2 rounded font-bold text-xs uppercase hover:bg-red-200"
+                        >
+                          Refuser
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mes propositions envoyées */}
+            {tradeProposals.filter((t) => t.fromId === user.id && t.status === "PENDING").length > 0 && (
+              <div>
+                <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">Mes propositions</div>
+                <div className="space-y-2">
+                  {tradeProposals.filter((t) => t.fromId === user.id && t.status === "PENDING").map((trade) => (
+                    <div key={trade.id} className="bg-stone-50 border border-stone-200 rounded-lg p-3 flex justify-between items-center">
+                      <div>
+                        <span className="text-xs font-bold text-stone-700">→ {trade.toName}</span>
+                        <div className="text-[10px] text-stone-400 mt-0.5">
+                          Offre : {(trade.offer.items || []).map((i) => `${i.quantity}x ${i.name}`).join(", ")}
+                          {trade.offer.money > 0 && ` + ${trade.offer.money} Écus`}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onCancelTrade && onCancelTrade(trade.id)}
+                        className="text-red-400 hover:text-red-600 p-1"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Formulaire nouvelle proposition */}
+            <div className="bg-lime-50 border border-lime-200 rounded-xl p-4 space-y-3">
+              <div className="text-[10px] font-black uppercase text-lime-700 tracking-widest">Proposer un échange</div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">Destinataire</label>
+                <UserSearchSelect
+                  users={users}
+                  excludeIds={[user.id]}
+                  onSelect={setTradeTarget}
+                  placeholder="Choisir un citoyen..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <div className="text-[9px] font-black uppercase text-green-600">Vous offrez</div>
+                  <select
+                    className="w-full p-1.5 border rounded text-xs"
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const item = myInventory.find((i) => i.id === e.target.value);
+                        if (item && !tradeOfferItems.some((i) => i.itemId === item.id)) {
+                          setTradeOfferItems([...tradeOfferItems, { itemId: item.id, quantity: 1 }]);
+                        }
+                      }
+                    }}
+                  >
+                    <option value="">+ Ajouter objet</option>
+                    {myInventory.filter((i) => !tradeOfferItems.some((o) => o.itemId === i.id)).map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} (x{item.qty})</option>
+                    ))}
+                  </select>
+                  {tradeOfferItems.map((item, idx) => {
+                    const def = catalog.find((c) => c.id === item.itemId);
+                    return (
+                      <div key={idx} className="flex items-center gap-1 text-xs">
+                        <input type="number" className="w-12 p-1 border rounded text-center font-mono" min={1}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const items = [...tradeOfferItems];
+                            items[idx] = { ...items[idx], quantity: parseInt(e.target.value) || 1 };
+                            setTradeOfferItems(items);
+                          }}
+                        />
+                        <span className="flex-1 truncate">{def?.name || item.itemId}</span>
+                        <button onClick={() => setTradeOfferItems(tradeOfferItems.filter((_, i) => i !== idx))} className="text-red-400"><X size={12} /></button>
+                      </div>
+                    );
+                  })}
+                  <input type="number" className="w-full p-1.5 border rounded text-xs font-mono" placeholder="+ Écus"
+                    value={tradeOfferMoney} onChange={(e) => setTradeOfferMoney(e.target.value)} min={0}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-[9px] font-black uppercase text-red-600">Vous demandez</div>
+                  <select
+                    className="w-full p-1.5 border rounded text-xs"
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const item = catalog.find((i) => i.id === e.target.value);
+                        if (item && !tradeRequestItems.some((i) => i.itemId === item.id)) {
+                          setTradeRequestItems([...tradeRequestItems, { itemId: item.id, quantity: 1 }]);
+                        }
+                      }
+                    }}
+                  >
+                    <option value="">+ Ajouter objet</option>
+                    {catalog.filter((i) => !i.hidden && !tradeRequestItems.some((o) => o.itemId === i.id)).map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                  {tradeRequestItems.map((item, idx) => {
+                    const def = catalog.find((c) => c.id === item.itemId);
+                    return (
+                      <div key={idx} className="flex items-center gap-1 text-xs">
+                        <input type="number" className="w-12 p-1 border rounded text-center font-mono" min={1}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const items = [...tradeRequestItems];
+                            items[idx] = { ...items[idx], quantity: parseInt(e.target.value) || 1 };
+                            setTradeRequestItems(items);
+                          }}
+                        />
+                        <span className="flex-1 truncate">{def?.name || item.itemId}</span>
+                        <button onClick={() => setTradeRequestItems(tradeRequestItems.filter((_, i) => i !== idx))} className="text-red-400"><X size={12} /></button>
+                      </div>
+                    );
+                  })}
+                  <input type="number" className="w-full p-1.5 border rounded text-xs font-mono" placeholder="+ Écus"
+                    value={tradeRequestMoney} onChange={(e) => setTradeRequestMoney(e.target.value)} min={0}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (tradeTarget && onProposeTrade) {
+                    onProposeTrade(tradeTarget, {
+                      items: tradeOfferItems,
+                      money: parseInt(tradeOfferMoney) || 0,
+                    }, {
+                      items: tradeRequestItems,
+                      money: parseInt(tradeRequestMoney) || 0,
+                    });
+                    setTradeTarget("");
+                    setTradeOfferItems([]);
+                    setTradeOfferMoney("");
+                    setTradeRequestItems([]);
+                    setTradeRequestMoney("");
+                  }
+                }}
+                disabled={!tradeTarget || (tradeOfferItems.length === 0 && !parseInt(tradeOfferMoney) && tradeRequestItems.length === 0 && !parseInt(tradeRequestMoney))}
+                className="w-full bg-lime-600 text-white py-2.5 rounded-lg font-bold text-xs uppercase hover:bg-lime-500 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Send size={14} /> Envoyer la proposition
+              </button>
+            </div>
           </div>
         )}
       </div>

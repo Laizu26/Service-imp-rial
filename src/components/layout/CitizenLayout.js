@@ -138,6 +138,38 @@ const CitizenLayout = (props) => {
     onCreateCompanyEvent,
     onDeleteCompanyEvent,
     onCreateSubcontract,
+    onAddJournalEntry,
+    onDeleteJournalEntry,
+    onListItemForSale,
+    onCancelListing,
+    onBuyFromPlayer,
+    onProposeTrade,
+    onRespondTrade,
+    onCancelTrade,
+    onBuyProperty,
+    onSellProperty,
+    onCancelPropertySale,
+    onBuyPropertyFromPlayer,
+    onToggleFavorite,
+    playerMarket = [],
+    tradeProposals = [],
+    properties = [],
+    onAddJournalEntry,
+    onDeleteJournalEntry,
+    onListItemForSale,
+    onCancelListing,
+    onBuyFromPlayer,
+    onProposeTrade,
+    onRespondTrade,
+    onCancelTrade,
+    onBuyProperty,
+    onSellProperty,
+    onCancelPropertySale,
+    onBuyPropertyFromPlayer,
+    onToggleFavorite,
+    playerMarket = [],
+    tradeProposals = [],
+    properties = [],
     onHideMoney,
     onWithdrawHiddenMoney,
     onHiddenTransfer,
@@ -186,6 +218,7 @@ const CitizenLayout = (props) => {
   const [editReligion, setEditReligion] = useState("");
   const [editOrigin, setEditOrigin] = useState("");
   const [np, setNp] = useState("");
+  const [journalEntry, setJournalEntry] = useState("");
   const [annuaireSearch, setAnnuaireSearch] = useState("");
   const [annuaireFilter, setAnnuaireFilter] = useState("ALL");
   const [selectedCitizen, setSelectedCitizen] = useState(null);
@@ -310,6 +343,7 @@ const CitizenLayout = (props) => {
     isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
+    properties.length > 0 && { id: "properties", label: "Propriétés", icon: MapPin },
     { id: "annuaire", label: "Annuaire", icon: Eye },
     { id: "physique_magie", label: "Physique & Magie", icon: Zap },
     { id: "notifications", label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ""}`, icon: Bell },
@@ -669,6 +703,14 @@ const CitizenLayout = (props) => {
                 onGiveItem={onGiveItem}
                 onBuySlave={onBuySlave}
                 gameDate={gd}
+                onListItemForSale={onListItemForSale}
+                onCancelListing={onCancelListing}
+                onBuyFromPlayer={onBuyFromPlayer}
+                playerMarket={playerMarket}
+                onProposeTrade={onProposeTrade}
+                onRespondTrade={onRespondTrade}
+                onCancelTrade={onCancelTrade}
+                tradeProposals={tradeProposals}
               />
             )}
 
@@ -1128,6 +1170,84 @@ const CitizenLayout = (props) => {
                   </button>
                 </div>
 
+                {/* === JOURNAL INTIME RP === */}
+                <div className="p-6 md:p-8 border-t border-stone-200">
+                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
+                    <Book size={16} /> Journal Intime
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <textarea
+                        className="flex-1 p-3 bg-white border border-stone-200 rounded text-sm resize-none outline-none"
+                        rows={2}
+                        value={journalEntry}
+                        onChange={(e) => setJournalEntry(e.target.value)}
+                        placeholder="Écrire une entrée dans votre journal..."
+                        maxLength={500}
+                      />
+                      <button
+                        onClick={() => {
+                          if (journalEntry.trim() && onAddJournalEntry) {
+                            onAddJournalEntry(journalEntry);
+                            setJournalEntry("");
+                          }
+                        }}
+                        disabled={!journalEntry.trim()}
+                        className="bg-stone-800 text-white px-4 rounded font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 self-end"
+                      >
+                        Écrire
+                      </button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {(user.journal || []).length === 0 ? (
+                        <div className="text-center text-stone-400 italic py-3 text-xs">
+                          Votre journal est vide. Commencez à écrire vos aventures !
+                        </div>
+                      ) : (
+                        (user.journal || []).map((entry) => (
+                          <div key={entry.id} className="bg-white border border-stone-200 rounded-lg p-3 group">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="text-sm text-stone-800 whitespace-pre-wrap">{entry.content}</div>
+                                <div className="text-[10px] text-stone-400 mt-1 font-mono">{entry.rpDate}</div>
+                              </div>
+                              <button
+                                onClick={() => onDeleteJournalEntry && onDeleteJournalEntry(entry.id)}
+                                className="text-red-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* === FAVORIS === */}
+                {(user.favorites || []).length > 0 && (
+                  <div className="p-6 md:p-8 border-t border-stone-200">
+                    <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
+                      <Heart size={16} /> Favoris
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {(user.favorites || []).map((fav, i) => (
+                        <div key={i} className="bg-white border border-stone-200 rounded-lg px-3 py-2 flex items-center gap-2 text-sm">
+                          <span className="font-bold text-stone-700">{fav.label}</span>
+                          <span className="text-[9px] text-stone-400 uppercase">{fav.type}</span>
+                          <button
+                            onClick={() => onToggleFavorite && onToggleFavorite(fav)}
+                            className="text-red-300 hover:text-red-500"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* === SCEAU DE SÉCURITÉ === */}
                 <div className="p-6 md:p-8 bg-stone-100/50">
                   <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
@@ -1309,7 +1429,125 @@ const CitizenLayout = (props) => {
                     families={families}
                     gameDate={gd}
                     onClose={() => setSelectedCitizen(null)}
+                    onAddJournalEntry={onAddJournalEntry}
+                    onDeleteJournalEntry={onDeleteJournalEntry}
+                    onToggleFavorite={onToggleFavorite}
                   />
+                )}
+              </div>
+            )}
+
+            {/* --- PROPRIÉTÉS --- */}
+            {active === "properties" && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="flex items-center gap-3 mb-2">
+                  <MapPin size={24} className="text-stone-400" />
+                  <h2 className="text-2xl font-black font-serif text-stone-800">Registre Foncier</h2>
+                </div>
+
+                {/* Mes propriétés */}
+                {(() => {
+                  const myProps = properties.filter((p) => p.ownerId === user.id);
+                  return myProps.length > 0 ? (
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mes propriétés</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {myProps.map((prop) => (
+                          <div key={prop.id} className="bg-white border-2 border-stone-300 rounded-xl p-4 shadow-sm">
+                            <div className="font-bold text-lg text-stone-800">{prop.name}</div>
+                            {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {prop.type && <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{prop.type}</span>}
+                              {prop.location && <span className="text-[10px] text-stone-400">{prop.location}</span>}
+                            </div>
+                            {prop.income > 0 && (
+                              <div className="mt-2 text-xs font-mono text-green-600">+{prop.income} Écus / jour RP</div>
+                            )}
+                            <div className="flex gap-2 mt-3">
+                              {prop.forSale ? (
+                                <button
+                                  onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
+                                  className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50"
+                                >
+                                  Annuler vente ({prop.salePrice} Écus)
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    const price = window.prompt("Prix de vente (Écus) :");
+                                    if (price && parseInt(price) > 0) onSellProperty && onSellProperty(prop.id, parseInt(price));
+                                  }}
+                                  className="text-stone-500 text-[10px] font-bold uppercase border border-stone-200 px-3 py-1.5 rounded hover:bg-stone-50"
+                                >
+                                  Mettre en vente
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Propriétés disponibles */}
+                {(() => {
+                  const available = properties.filter((p) => !p.ownerId);
+                  return available.length > 0 ? (
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">À vendre (Administration)</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {available.map((prop) => (
+                          <div key={prop.id} className="bg-white border-2 border-green-200 rounded-xl p-4">
+                            <div className="font-bold text-lg text-stone-800">{prop.name}</div>
+                            {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
+                            <div className="font-mono font-bold text-yellow-700 mt-2">{prop.price} Écus</div>
+                            <button
+                              onClick={() => onBuyProperty && onBuyProperty(prop.id)}
+                              disabled={(user.balance || 0) < prop.price}
+                              className="mt-2 bg-green-600 text-white px-4 py-2 rounded font-bold text-xs uppercase hover:bg-green-500 disabled:opacity-50"
+                            >
+                              Acheter
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {/* Propriétés en vente par des joueurs */}
+                {(() => {
+                  const forSale = properties.filter((p) => p.forSale && p.ownerId && p.ownerId !== user.id);
+                  return forSale.length > 0 ? (
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">En vente par des citoyens</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {forSale.map((prop) => (
+                          <div key={prop.id} className="bg-white border-2 border-yellow-200 rounded-xl p-4">
+                            <div className="font-bold text-lg text-stone-800">{prop.name}</div>
+                            {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
+                            <div className="text-[10px] text-stone-400">Propriétaire : {prop.ownerName}</div>
+                            <div className="font-mono font-bold text-yellow-700 mt-2">{prop.salePrice} Écus</div>
+                            <button
+                              onClick={() => onBuyPropertyFromPlayer && onBuyPropertyFromPlayer(prop.id)}
+                              disabled={(user.balance || 0) < prop.salePrice}
+                              className="mt-2 bg-yellow-500 text-stone-900 px-4 py-2 rounded font-bold text-xs uppercase hover:bg-yellow-400 disabled:opacity-50"
+                            >
+                              Acheter
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                {properties.length === 0 && (
+                  <div className="text-center text-stone-400 italic py-16">
+                    <MapPin size={48} className="mx-auto mb-3 opacity-30" />
+                    Aucune propriété disponible.
+                  </div>
                 )}
               </div>
             )}
