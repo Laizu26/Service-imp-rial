@@ -24,6 +24,7 @@ import {
   Key,
   HeartHandshake,
   MapPin,
+  Scale,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -58,6 +59,7 @@ import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. I
 import JobsAdminView from "./components/views/JobsAdminView";
 import FamiliesAdminView from "./components/views/FamiliesAdminView";
 import PropertiesAdminView from "./components/views/PropertiesAdminView";
+import TribunalAdminView from "./components/views/TribunalAdminView";
 import GameMasterView from "./components/views/GameMasterView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
@@ -274,6 +276,8 @@ export default function App() {
 
     if (effectiveLevel >= 40)
       tabs.push({ id: "properties_admin", label: "Immobilier", icon: MapPin });
+    if (effectiveLevel >= 30)
+      tabs.push({ id: "tribunal_admin", label: "Tribunal", icon: Scale });
 
     if (effectiveLevel >= 50 || (session && session.role === "TENANCIER")) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
@@ -559,6 +563,25 @@ export default function App() {
             onJoinMaisonQueue={actions.onJoinMaisonQueue}
             onLeaveMaisonQueue={actions.onLeaveMaisonQueue}
             onSubmitMaisonReview={actions.onSubmitMaisonReview}
+            guilds={state.guilds || []}
+            onCreateGuild={actions.onCreateGuild}
+            onEditGuild={actions.onEditGuild}
+            onJoinGuild={actions.onJoinGuild}
+            onLeaveGuild={actions.onLeaveGuild}
+            onKickGuildMember={actions.onKickGuildMember}
+            onSetGuildMemberRole={actions.onSetGuildMemberRole}
+            onTransferGuildLeadership={actions.onTransferGuildLeadership}
+            onGuildDeposit={actions.onGuildDeposit}
+            onGuildWithdraw={actions.onGuildWithdraw}
+            onDissolveGuild={actions.onDissolveGuild}
+            contracts={state.contracts || []}
+            onCreateContract={actions.onCreateContract}
+            onSignContract={actions.onSignContract}
+            onCancelContract={actions.onCancelContract}
+            onCompleteContract={actions.onCompleteContract}
+            onBreachContract={actions.onBreachContract}
+            onDeleteContract={actions.onDeleteContract}
+            trials={state.trials || []}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -966,6 +989,18 @@ export default function App() {
                       onCreateProperty={actions.onCreateProperty}
                       onDeleteProperty={actions.onDeleteProperty}
                       onEditProperty={actions.onEditProperty}
+                    />
+                  )}
+
+                  {activeTab === "tribunal_admin" && (
+                    <TribunalAdminView
+                      trials={state.trials || []}
+                      citizens={state.citizens || []}
+                      onCreateTrial={actions.onCreateTrial}
+                      onAssignTrialRole={actions.onAssignTrialRole}
+                      onAddTrialArgument={actions.onAddTrialArgument}
+                      onRenderVerdict={actions.onRenderVerdict}
+                      onDeleteTrial={actions.onDeleteTrial}
                     />
                   )}
 

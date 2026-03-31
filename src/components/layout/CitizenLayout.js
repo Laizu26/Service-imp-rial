@@ -50,6 +50,8 @@ import LibraryView from "../views/LibraryView";
 import CitizenProfileCard from "../views/CitizenProfileCard";
 import MarriageView from "../views/MarriageView";
 import CitizenPhysicsMagicView from "../views/CitizenPhysicsMagicView";
+import GuildsView from "../views/GuildsView";
+import ContractsView from "../views/ContractsView";
 import SettingsView from "../views/SettingsView";
 
 // Mini-composant pour la mise en vente avec champ de prix intégré
@@ -278,6 +280,25 @@ const CitizenLayout = (props) => {
     onJoinMaisonQueue,
     onLeaveMaisonQueue,
     onSubmitMaisonReview,
+    guilds = [],
+    onCreateGuild,
+    onEditGuild,
+    onJoinGuild,
+    onLeaveGuild,
+    onKickGuildMember,
+    onSetGuildMemberRole,
+    onTransferGuildLeadership,
+    onGuildDeposit,
+    onGuildWithdraw,
+    onDissolveGuild,
+    contracts = [],
+    onCreateContract,
+    onSignContract,
+    onCancelContract,
+    onCompleteContract,
+    onBreachContract,
+    onDeleteContract,
+    trials = [],
     settings,
     isDark,
     updateSetting,
@@ -431,6 +452,8 @@ const CitizenLayout = (props) => {
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
     { id: "properties", label: "Propriétés", icon: MapPin },
+    { id: "guilds", label: "Guildes", icon: Users },
+    { id: "contracts", label: "Contrats", icon: Scroll },
     { id: "annuaire", label: "Annuaire", icon: Eye },
     { id: "physique_magie", label: "Physique & Magie", icon: Zap },
     { id: "notifications", label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ""}`, icon: Bell },
@@ -1312,6 +1335,33 @@ const CitizenLayout = (props) => {
                   </div>
                 </div>
 
+                {/* === CASIER JUDICIAIRE === */}
+                {(user.criminalRecord || []).length > 0 && (
+                  <div className="p-6 md:p-8 border-t border-stone-200">
+                    <h3 className="text-xs font-black uppercase text-red-500 tracking-widest mb-4 flex items-center gap-2">
+                      <Shield size={16} /> Casier Judiciaire
+                    </h3>
+                    <div className="space-y-2">
+                      {(user.criminalRecord || []).map((entry, i) => (
+                        <div key={i} className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-red-700">{entry.charge}</span>
+                            <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
+                              {entry.verdict === "GUILTY" ? "Coupable" : entry.verdict}
+                            </span>
+                          </div>
+                          {entry.sentence && (
+                            <div className="text-red-600 mt-1">
+                              Peine : {entry.sentence.type === "FINE" ? `Amende de ${entry.sentence.amount} Écus` : entry.sentence.type === "PRISON" ? `Emprisonnement${entry.sentence.text ? ` — ${entry.sentence.text}` : ""}` : entry.sentence.type === "EXILE" ? "Exil" : entry.sentence.text || "Autre"}
+                            </div>
+                          )}
+                          <div className="text-red-400 mt-1">Juge : {entry.judgeName || "Inconnu"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* === FAVORIS === */}
                 {(user.favorites || []).length > 0 && (
                   <div className="p-6 md:p-8 border-t border-stone-200">
@@ -1849,6 +1899,39 @@ const CitizenLayout = (props) => {
                   );
                 })()}
               </div>
+            )}
+
+            {/* --- BLOC GUILDES --- */}
+            {active === "guilds" && (
+              <GuildsView
+                guilds={guilds}
+                user={user}
+                onCreateGuild={onCreateGuild}
+                onEditGuild={onEditGuild}
+                onJoinGuild={onJoinGuild}
+                onLeaveGuild={onLeaveGuild}
+                onKickGuildMember={onKickGuildMember}
+                onSetGuildMemberRole={onSetGuildMemberRole}
+                onTransferGuildLeadership={onTransferGuildLeadership}
+                onGuildDeposit={onGuildDeposit}
+                onGuildWithdraw={onGuildWithdraw}
+                onDissolveGuild={onDissolveGuild}
+              />
+            )}
+
+            {/* --- BLOC CONTRATS --- */}
+            {active === "contracts" && (
+              <ContractsView
+                contracts={contracts}
+                citizens={safeUsers}
+                user={user}
+                onCreateContract={onCreateContract}
+                onSignContract={onSignContract}
+                onCancelContract={onCancelContract}
+                onCompleteContract={onCompleteContract}
+                onBreachContract={onBreachContract}
+                onDeleteContract={onDeleteContract}
+              />
             )}
 
             {/* --- BLOC PHYSIQUE & MAGIE --- */}

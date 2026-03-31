@@ -270,6 +270,8 @@ const CitizenBankView = ({
     TRADE: "Échange",
     PROPERTY_PURCHASE: "Propriété",
     RENT: "Loyer",
+    TRIAL_FINE: "Amende",
+    GUILD: "Guilde",
   };
 
   const typeColors = {
@@ -292,6 +294,8 @@ const CitizenBankView = ({
     TRADE: "bg-lime-50 text-lime-700 border-lime-100",
     PROPERTY_PURCHASE: "bg-rose-50 text-rose-700 border-rose-100",
     RENT: "bg-sky-50 text-sky-700 border-sky-100",
+    TRIAL_FINE: "bg-red-50 text-red-700 border-red-100",
+    GUILD: "bg-purple-50 text-purple-700 border-purple-100",
   };
 
   // --- INTERDIT ---

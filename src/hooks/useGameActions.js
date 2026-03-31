@@ -3334,6 +3334,347 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCitizens[userIdx] = { ...newCitizens[userIdx], favorites: favs };
         saveState({ ...state, citizens: newCitizens });
       },
+
+      // ========== TRIBUNAL ==========
+      onCreateTrial: ({ accusedId, plaintiff, charge, description }) => {
+        const accused = (state.citizens || []).find((c) => c.id === accusedId);
+        if (!accused) { notify("Accusé introuvable.", "error"); return; }
+        const trial = {
+          id: `trial-${Date.now()}`,
+          accusedId,
+          accusedName: accused.name,
+          plaintiff: plaintiff || "Le Ministère Public",
+          charge: charge || "Infraction non précisée",
+          description: description || "",
+          status: "PENDING", // PENDING, IN_PROGRESS, VERDICT
+          judgeId: null, judgeName: null,
+          lawyerDefenseId: null, lawyerDefenseName: null,
+          lawyerProsecutionId: null, lawyerProsecutionName: null,
+          arguments: [],
+          verdict: null, // GUILTY, NOT_GUILTY, DISMISSED
+          sentence: null, // { type: "FINE"|"PRISON"|"EXILE"|"CUSTOM", amount, duration, text }
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        saveState({ ...state, trials: [trial, ...(state.trials || [])] });
+        notify(`Procès ouvert contre ${accused.name}.`, "success");
+      },
+
+      onAssignTrialRole: (trialId, role, citizenId) => {
+        const trials = [...(state.trials || [])];
+        const idx = trials.findIndex((t) => t.id === trialId);
+        if (idx === -1) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) { notify("Citoyen introuvable.", "error"); return; }
+        const update = {};
+        if (role === "judge") { update.judgeId = citizenId; update.judgeName = citizen.name; }
+        else if (role === "defense") { update.lawyerDefenseId = citizenId; update.lawyerDefenseName = citizen.name; }
+        else if (role === "prosecution") { update.lawyerProsecutionId = citizenId; update.lawyerProsecutionName = citizen.name; }
+        trials[idx] = { ...trials[idx], ...update, status: "IN_PROGRESS", updatedAt: Date.now() };
+        saveState({ ...state, trials });
+        notify(`${citizen.name} assigné(e) comme ${role === "judge" ? "juge" : role === "defense" ? "avocat de la défense" : "procureur"}.`, "success");
+      },
+
+      onAddTrialArgument: (trialId, { authorName, side, text }) => {
+        const trials = [...(state.trials || [])];
+        const idx = trials.findIndex((t) => t.id === trialId);
+        if (idx === -1) return;
+        const args = [...(trials[idx].arguments || [])];
+        args.push({ id: Date.now(), authorName, side, text, timestamp: Date.now() });
+        trials[idx] = { ...trials[idx], arguments: args, updatedAt: Date.now() };
+        saveState({ ...state, trials });
+        notify("Argument ajouté au dossier.", "success");
+      },
+
+      onRenderVerdict: (trialId, { verdict, sentence }) => {
+        const trials = [...(state.trials || [])];
+        const idx = trials.findIndex((t) => t.id === trialId);
+        if (idx === -1) return;
+        const trial = trials[idx];
+        trials[idx] = { ...trial, status: "VERDICT", verdict, sentence, updatedAt: Date.now() };
+        // Appliquer l'amende si GUILTY + FINE
+        const newCitizens = [...(state.citizens || [])];
+        let newTreasury = state.treasury || 0;
+        const newLedger = [...(state.globalLedger || [])];
+        if (verdict === "GUILTY" && sentence?.type === "FINE" && sentence.amount > 0) {
+          const accIdx = newCitizens.findIndex((c) => c.id === trial.accusedId);
+          if (accIdx !== -1) {
+            newCitizens[accIdx] = { ...newCitizens[accIdx], balance: (newCitizens[accIdx].balance || 0) - sentence.amount };
+            newTreasury += sentence.amount;
+            newLedger.unshift({
+              id: Date.now(), fromName: trial.accusedName, toName: "Trésor (Amende)",
+              amount: sentence.amount, timestamp: Date.now(),
+              reason: `Amende : ${trial.charge}`, type: "TRIAL_FINE",
+            });
+          }
+        }
+        // Casier judiciaire
+        if (verdict === "GUILTY") {
+          const accIdx = newCitizens.findIndex((c) => c.id === trial.accusedId);
+          if (accIdx !== -1) {
+            const record = [...(newCitizens[accIdx].criminalRecord || [])];
+            record.push({
+              trialId, charge: trial.charge, verdict, sentence,
+              date: Date.now(), judgeName: trial.judgeName,
+            });
+            newCitizens[accIdx] = { ...newCitizens[accIdx], criminalRecord: record };
+          }
+        }
+        saveState({ ...state, trials, citizens: newCitizens, treasury: newTreasury, globalLedger: newLedger });
+        notify(`Verdict rendu : ${verdict === "GUILTY" ? "Coupable" : verdict === "NOT_GUILTY" ? "Non coupable" : "Affaire classée"}.`, verdict === "GUILTY" ? "error" : "success");
+      },
+
+      onDeleteTrial: (trialId) => {
+        saveState({ ...state, trials: (state.trials || []).filter((t) => t.id !== trialId) });
+        notify("Procès supprimé.", "info");
+      },
+
+      // ========== GUILDES / ASSOCIATIONS ==========
+      onCreateGuild: ({ name, description, type }) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const guild = {
+          id: `guild-${Date.now()}`,
+          name: name || "Guilde sans nom",
+          description: description || "",
+          type: type || "GENERAL", // GENERAL, COMMERCE, MILITAIRE, RELIGIEUX, ARTISAN
+          leaderId: session.id,
+          leaderName: user.name,
+          members: [{ id: session.id, name: user.name, role: "Chef", joinedAt: Date.now() }],
+          balance: 0,
+          createdAt: Date.now(),
+          motto: "",
+          isRecruiting: true,
+        };
+        saveState({ ...state, guilds: [guild, ...(state.guilds || [])] });
+        notify(`Guilde "${name}" fondée !`, "success");
+      },
+
+      onEditGuild: (guildId, updates) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (guilds[idx].leaderId !== session.id) { notify("Seul le chef peut modifier la guilde.", "error"); return; }
+        guilds[idx] = { ...guilds[idx], ...updates };
+        saveState({ ...state, guilds });
+        notify("Guilde mise à jour.", "success");
+      },
+
+      onJoinGuild: (guildId) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (!guilds[idx].isRecruiting) { notify("Cette guilde ne recrute pas.", "error"); return; }
+        const members = [...(guilds[idx].members || [])];
+        if (members.find((m) => m.id === session.id)) { notify("Vous êtes déjà membre.", "error"); return; }
+        members.push({ id: session.id, name: user.name, role: "Membre", joinedAt: Date.now() });
+        guilds[idx] = { ...guilds[idx], members };
+        saveState({ ...state, guilds });
+        notify(`Vous avez rejoint "${guilds[idx].name}".`, "success");
+      },
+
+      onLeaveGuild: (guildId) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (guilds[idx].leaderId === session.id) { notify("Le chef ne peut pas quitter. Transférez d'abord le rôle ou dissolvez la guilde.", "error"); return; }
+        guilds[idx] = { ...guilds[idx], members: (guilds[idx].members || []).filter((m) => m.id !== session.id) };
+        saveState({ ...state, guilds });
+        notify("Vous avez quitté la guilde.", "info");
+      },
+
+      onKickGuildMember: (guildId, memberId) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (guilds[idx].leaderId !== session.id) { notify("Seul le chef peut exclure.", "error"); return; }
+        if (memberId === session.id) return;
+        const kicked = (guilds[idx].members || []).find((m) => m.id === memberId);
+        guilds[idx] = { ...guilds[idx], members: (guilds[idx].members || []).filter((m) => m.id !== memberId) };
+        saveState({ ...state, guilds });
+        notify(`${kicked?.name || "Membre"} exclu de la guilde.`, "info");
+      },
+
+      onSetGuildMemberRole: (guildId, memberId, role) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (guilds[idx].leaderId !== session.id) return;
+        const members = (guilds[idx].members || []).map((m) => m.id === memberId ? { ...m, role } : m);
+        guilds[idx] = { ...guilds[idx], members };
+        saveState({ ...state, guilds });
+        notify("Rôle mis à jour.", "success");
+      },
+
+      onTransferGuildLeadership: (guildId, newLeaderId) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (guilds[idx].leaderId !== session.id) return;
+        const newLeader = (guilds[idx].members || []).find((m) => m.id === newLeaderId);
+        if (!newLeader) { notify("Ce citoyen n'est pas membre.", "error"); return; }
+        const members = (guilds[idx].members || []).map((m) => {
+          if (m.id === newLeaderId) return { ...m, role: "Chef" };
+          if (m.id === session.id) return { ...m, role: "Membre" };
+          return m;
+        });
+        guilds[idx] = { ...guilds[idx], leaderId: newLeaderId, leaderName: newLeader.name, members };
+        saveState({ ...state, guilds });
+        notify(`Direction transférée à ${newLeader.name}.`, "success");
+      },
+
+      onGuildDeposit: (guildId, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        if ((state.citizens[userIdx].balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        const guilds = [...(state.guilds || [])];
+        const gIdx = guilds.findIndex((g) => g.id === guildId);
+        if (gIdx === -1) return;
+        if (!(guilds[gIdx].members || []).find((m) => m.id === session.id)) { notify("Vous n'êtes pas membre.", "error"); return; }
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: newCitizens[userIdx].balance - amt };
+        guilds[gIdx] = { ...guilds[gIdx], balance: (guilds[gIdx].balance || 0) + amt };
+        const ledgerEntry = {
+          id: Date.now(), fromName: newCitizens[userIdx].name, toName: `Guilde: ${guilds[gIdx].name}`,
+          amount: amt, timestamp: Date.now(), reason: "Cotisation guilde", type: "GUILD",
+        };
+        saveState({ ...state, citizens: newCitizens, guilds, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${amt} Écus déposés dans la caisse de la guilde.`, "success");
+      },
+
+      onGuildWithdraw: (guildId, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+        const guilds = [...(state.guilds || [])];
+        const gIdx = guilds.findIndex((g) => g.id === guildId);
+        if (gIdx === -1) return;
+        if (guilds[gIdx].leaderId !== session.id) { notify("Seul le chef peut retirer des fonds.", "error"); return; }
+        if ((guilds[gIdx].balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
+        guilds[gIdx] = { ...guilds[gIdx], balance: guilds[gIdx].balance - amt };
+        const ledgerEntry = {
+          id: Date.now(), fromName: `Guilde: ${guilds[gIdx].name}`, toName: newCitizens[userIdx].name,
+          amount: amt, timestamp: Date.now(), reason: "Retrait guilde", type: "GUILD",
+        };
+        saveState({ ...state, citizens: newCitizens, guilds, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${amt} Écus retirés de la caisse.`, "success");
+      },
+
+      onDissolveGuild: (guildId) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const gIdx = guilds.findIndex((g) => g.id === guildId);
+        if (gIdx === -1) return;
+        if (guilds[gIdx].leaderId !== session.id) { notify("Seul le chef peut dissoudre.", "error"); return; }
+        // Rendre le solde au chef
+        const remaining = guilds[gIdx].balance || 0;
+        const newCitizens = [...(state.citizens || [])];
+        if (remaining > 0) {
+          const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+          if (userIdx !== -1) newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + remaining };
+        }
+        const name = guilds[gIdx].name;
+        saveState({ ...state, guilds: guilds.filter((g) => g.id !== guildId), citizens: newCitizens });
+        notify(`Guilde "${name}" dissoute.${remaining > 0 ? ` ${remaining} Écus restitués.` : ""}`, "info");
+      },
+
+      // ========== CONTRATS NOTARIÉS ==========
+      onCreateContract: ({ title, parties, clauses, expiresAt }) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const partyList = (parties || []).map((pId) => {
+          const c = (state.citizens || []).find((c) => c.id === pId);
+          return { id: pId, name: c ? c.name : "Inconnu", signed: pId === session.id, signedAt: pId === session.id ? Date.now() : null };
+        });
+        // S'assurer que le créateur est dans les parties
+        if (!partyList.find((p) => p.id === session.id)) {
+          partyList.unshift({ id: session.id, name: user.name, signed: true, signedAt: Date.now() });
+        }
+        const contract = {
+          id: `contract-${Date.now()}`,
+          title: title || "Contrat sans titre",
+          creatorId: session.id,
+          creatorName: user.name,
+          parties: partyList,
+          clauses: clauses || [],
+          status: "PENDING", // PENDING, ACTIVE, COMPLETED, CANCELLED, BREACHED
+          createdAt: Date.now(),
+          expiresAt: expiresAt || null,
+        };
+        saveState({ ...state, contracts: [contract, ...(state.contracts || [])] });
+        notify(`Contrat "${title}" créé. En attente de signatures.`, "success");
+      },
+
+      onSignContract: (contractId) => {
+        if (!session) return;
+        const contracts = [...(state.contracts || [])];
+        const idx = contracts.findIndex((c) => c.id === contractId);
+        if (idx === -1) return;
+        const contract = contracts[idx];
+        if (contract.status !== "PENDING") { notify("Ce contrat n'est plus en attente.", "error"); return; }
+        const parties = (contract.parties || []).map((p) =>
+          p.id === session.id ? { ...p, signed: true, signedAt: Date.now() } : p
+        );
+        const allSigned = parties.every((p) => p.signed);
+        contracts[idx] = { ...contract, parties, status: allSigned ? "ACTIVE" : "PENDING" };
+        saveState({ ...state, contracts });
+        notify(allSigned ? "Toutes les parties ont signé. Contrat actif !" : "Signature enregistrée.", "success");
+      },
+
+      onCancelContract: (contractId) => {
+        if (!session) return;
+        const contracts = [...(state.contracts || [])];
+        const idx = contracts.findIndex((c) => c.id === contractId);
+        if (idx === -1) return;
+        const contract = contracts[idx];
+        if (!contract.parties.find((p) => p.id === session.id)) { notify("Vous n'êtes pas partie prenante.", "error"); return; }
+        contracts[idx] = { ...contract, status: "CANCELLED" };
+        saveState({ ...state, contracts });
+        notify("Contrat résilié.", "info");
+      },
+
+      onCompleteContract: (contractId) => {
+        if (!session) return;
+        const contracts = [...(state.contracts || [])];
+        const idx = contracts.findIndex((c) => c.id === contractId);
+        if (idx === -1) return;
+        if (contracts[idx].creatorId !== session.id) { notify("Seul le créateur peut clore le contrat.", "error"); return; }
+        contracts[idx] = { ...contracts[idx], status: "COMPLETED" };
+        saveState({ ...state, contracts });
+        notify("Contrat marqué comme accompli.", "success");
+      },
+
+      onBreachContract: (contractId, reason) => {
+        const contracts = [...(state.contracts || [])];
+        const idx = contracts.findIndex((c) => c.id === contractId);
+        if (idx === -1) return;
+        contracts[idx] = { ...contracts[idx], status: "BREACHED", breachReason: reason || "Non précisé" };
+        saveState({ ...state, contracts });
+        notify("Rupture de contrat enregistrée.", "error");
+      },
+
+      onDeleteContract: (contractId) => {
+        saveState({ ...state, contracts: (state.contracts || []).filter((c) => c.id !== contractId) });
+        notify("Contrat supprimé.", "info");
+      },
+
     }, notify);
   }, [session, state, saveState, notify]);
 };

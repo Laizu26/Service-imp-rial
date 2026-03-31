@@ -190,6 +190,8 @@ const BankView = ({
     TRADE: "Échange",
     PROPERTY_PURCHASE: "Propriété",
     RENT: "Loyer",
+    TRIAL_FINE: "Amende",
+    GUILD: "Guilde",
   };
   const typeColors = {
     TRANSFER: "bg-blue-100 text-blue-700 border-blue-200",
@@ -211,6 +213,8 @@ const BankView = ({
     TRADE: "bg-lime-100 text-lime-700 border-lime-200",
     PROPERTY_PURCHASE: "bg-rose-100 text-rose-700 border-rose-200",
     RENT: "bg-sky-100 text-sky-700 border-sky-200",
+    TRIAL_FINE: "bg-red-100 text-red-700 border-red-200",
+    GUILD: "bg-purple-100 text-purple-700 border-purple-200",
   };
 
   const filteredLedger = useMemo(() => {
