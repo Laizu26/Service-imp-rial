@@ -529,6 +529,11 @@ export default function App() {
             onSellProperty={actions.onSellProperty}
             onCancelPropertySale={actions.onCancelPropertySale}
             onBuyPropertyFromPlayer={actions.onBuyPropertyFromPlayer}
+            onListPropertyForRent={actions.onListPropertyForRent}
+            onCancelPropertyRental={actions.onCancelPropertyRental}
+            onRentProperty={actions.onRentProperty}
+            onEvictTenant={actions.onEvictTenant}
+            onLeaveTenancy={actions.onLeaveTenancy}
             onToggleFavorite={actions.onToggleFavorite}
             playerMarket={state.playerMarket || []}
             tradeProposals={state.tradeProposals || []}

@@ -274,6 +274,32 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.globalLedger = [ledgerEntry, ...(ns.globalLedger || [])];
         });
 
+        // --- Loyers immobiliers (chaque jour RP) ---
+        (ns.properties || []).forEach((prop, propIdx) => {
+          if (!prop.rental || !prop.rental.tenantId || !prop.rental.dailyRate) return;
+          const tenantIdx = (ns.citizens || []).findIndex((c) => c.id === prop.rental.tenantId);
+          const ownerIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
+          if (tenantIdx === -1 || ownerIdx === -1) return;
+          const tenant = ns.citizens[tenantIdx];
+          const dailyRate = prop.rental.dailyRate;
+          if ((tenant.balance || 0) < dailyRate) {
+            // Locataire ne peut plus payer → expulsion automatique
+            ns.properties[propIdx] = { ...ns.properties[propIdx], rental: null };
+            return;
+          }
+          ns.citizens[tenantIdx] = { ...ns.citizens[tenantIdx], balance: (ns.citizens[tenantIdx].balance || 0) - dailyRate };
+          ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + dailyRate };
+          ns.globalLedger = [{
+            id: Date.now() + Math.random(),
+            fromName: tenant.name,
+            toName: ns.citizens[ownerIdx].name,
+            amount: dailyRate,
+            timestamp: Date.now(),
+            reason: `Loyer : ${prop.name}`,
+            type: "RENT",
+          }, ...(ns.globalLedger || [])];
+        });
+
         saveState(ns);
         notify(
           `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
@@ -3194,6 +3220,102 @@ export const useGameActions = (session, state, saveState, notify) => {
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
         notify(`Propriété "${prop.name}" acquise !`, "success");
+      },
+
+      // --- LOCATION IMMOBILIÈRE ---
+      onListPropertyForRent: (propertyId, dailyRate) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
+        const rate = parseInt(dailyRate);
+        if (!rate || rate <= 0) { notify("Tarif invalide.", "error"); return; }
+        if (prop.rental && prop.rental.tenantId) { notify("Un locataire occupe déjà ce bien.", "error"); return; }
+        properties[pIdx] = { ...prop, rental: { dailyRate: rate, tenantId: null, tenantName: null, startDate: null } };
+        saveState({ ...state, properties });
+        notify(`"${prop.name}" proposée à la location pour ${rate} Écus/jour.`, "success");
+      },
+
+      onCancelPropertyRental: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (properties[pIdx].ownerId !== session.id) return;
+        properties[pIdx] = { ...properties[pIdx], rental: null };
+        saveState({ ...state, properties });
+        notify("Annonce de location retirée.", "info");
+      },
+
+      onRentProperty: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) { notify("Propriété introuvable.", "error"); return; }
+        const prop = properties[pIdx];
+        if (!prop.rental || !prop.rental.dailyRate) { notify("Ce bien n'est pas à louer.", "error"); return; }
+        if (prop.rental.tenantId) { notify("Ce bien est déjà loué.", "error"); return; }
+        if (prop.ownerId === session.id) { notify("Vous ne pouvez pas louer votre propre bien.", "error"); return; }
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = state.citizens[userIdx];
+        if ((user.balance || 0) < prop.rental.dailyRate) { notify("Fonds insuffisants pour le premier jour de loyer.", "error"); return; }
+        // Prélever le premier jour
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...user, balance: user.balance - prop.rental.dailyRate };
+        const ownerIdx = newCitizens.findIndex((c) => c.id === prop.ownerId);
+        if (ownerIdx !== -1) {
+          newCitizens[ownerIdx] = { ...newCitizens[ownerIdx], balance: (newCitizens[ownerIdx].balance || 0) + prop.rental.dailyRate };
+        }
+        const gameDate = state.gameDate || { day: 1, month: 1, year: 1200 };
+        properties[pIdx] = {
+          ...prop,
+          rental: { ...prop.rental, tenantId: session.id, tenantName: user.name, startDate: `${gameDate.day}/${gameDate.month}/${gameDate.year}` },
+        };
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: user.name,
+          toName: ownerIdx !== -1 ? newCitizens[ownerIdx].name : prop.ownerName,
+          amount: prop.rental.dailyRate,
+          timestamp: Date.now(),
+          reason: `Loyer (1er jour) : ${prop.name}`,
+          type: "RENT",
+        };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          properties,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`Vous louez "${prop.name}" pour ${prop.rental.dailyRate} Écus/jour.`, "success");
+      },
+
+      onEvictTenant: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
+        if (!prop.rental || !prop.rental.tenantId) { notify("Aucun locataire.", "error"); return; }
+        const tenantName = prop.rental.tenantName;
+        properties[pIdx] = { ...prop, rental: { ...prop.rental, tenantId: null, tenantName: null, startDate: null } };
+        saveState({ ...state, properties });
+        notify(`${tenantName} a été expulsé(e) de "${prop.name}".`, "info");
+      },
+
+      onLeaveTenancy: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        if (!prop.rental || prop.rental.tenantId !== session.id) { notify("Vous n'êtes pas locataire de ce bien.", "error"); return; }
+        properties[pIdx] = { ...prop, rental: { ...prop.rental, tenantId: null, tenantName: null, startDate: null } };
+        saveState({ ...state, properties });
+        notify(`Vous avez quitté "${prop.name}".`, "info");
       },
 
       // --- FAVORIS / RACCOURCIS ---

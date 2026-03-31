@@ -269,6 +269,7 @@ const CitizenBankView = ({
     PLAYER_MARKET: "Marché joueur",
     TRADE: "Échange",
     PROPERTY_PURCHASE: "Propriété",
+    RENT: "Loyer",
   };
 
   const typeColors = {
@@ -290,6 +291,7 @@ const CitizenBankView = ({
     PLAYER_MARKET: "bg-cyan-50 text-cyan-700 border-cyan-100",
     TRADE: "bg-lime-50 text-lime-700 border-lime-100",
     PROPERTY_PURCHASE: "bg-rose-50 text-rose-700 border-rose-100",
+    RENT: "bg-sky-50 text-sky-700 border-sky-100",
   };
 
   // --- INTERDIT ---

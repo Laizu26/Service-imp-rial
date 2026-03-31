@@ -101,6 +101,55 @@ const SellPropertyButton = ({ propId, onSellProperty }) => {
   );
 };
 
+// Mini-composant pour proposer un bien à la location
+const RentPropertyButton = ({ propId, onListPropertyForRent }) => {
+  const [open, setOpen] = useState(false);
+  const [rate, setRate] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-blue-600 text-[10px] font-bold uppercase border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-50 transition-colors"
+      >
+        Proposer en location
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        className="w-24 p-1.5 border border-blue-300 rounded text-sm font-mono text-center"
+        placeholder="Écus/jour"
+        value={rate}
+        onChange={(e) => setRate(e.target.value)}
+        autoFocus
+      />
+      <button
+        onClick={() => {
+          if (rate && parseInt(rate) > 0) {
+            onListPropertyForRent(propId, parseInt(rate));
+            setOpen(false);
+            setRate("");
+          }
+        }}
+        disabled={!rate || parseInt(rate) <= 0}
+        className="bg-blue-500 text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-blue-400 disabled:opacity-40 transition-colors"
+      >
+        Confirmer
+      </button>
+      <button
+        onClick={() => { setOpen(false); setRate(""); }}
+        className="text-stone-400 hover:text-stone-600 text-[10px] font-bold uppercase px-2 py-1.5"
+      >
+        Annuler
+      </button>
+    </div>
+  );
+};
+
 const BoostCountdown = ({ expiresAt }) => {
   const [remaining, setRemaining] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
 
@@ -199,6 +248,11 @@ const CitizenLayout = (props) => {
     onSellProperty,
     onCancelPropertySale,
     onBuyPropertyFromPlayer,
+    onListPropertyForRent,
+    onCancelPropertyRental,
+    onRentProperty,
+    onEvictTenant,
+    onLeaveTenancy,
     onToggleFavorite,
     playerMarket = [],
     tradeProposals = [],
@@ -1496,6 +1550,8 @@ const CitizenLayout = (props) => {
                   const myProps = properties.filter((p) => p.ownerId === user.id);
                   const available = properties.filter((p) => !p.ownerId);
                   const forSale = properties.filter((p) => p.forSale && p.ownerId && p.ownerId !== user.id);
+                  const myRentals = properties.filter((p) => p.rental && p.rental.tenantId === user.id);
+                  const forRent = properties.filter((p) => p.rental && !p.rental.tenantId && p.ownerId && p.ownerId !== user.id);
                   const totalValue = myProps.reduce((s, p) => s + (p.price || 0), 0);
                   const totalIncome = myProps.reduce((s, p) => s + (p.income || 0), 0);
 
@@ -1519,6 +1575,16 @@ const CitizenLayout = (props) => {
                           {variant === "owned" && prop.forSale && (
                             <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
                               En vente
+                            </span>
+                          )}
+                          {variant === "owned" && prop.rental && prop.rental.tenantId && (
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                              Loué
+                            </span>
+                          )}
+                          {variant === "owned" && prop.rental && !prop.rental.tenantId && (
+                            <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                              En location
                             </span>
                           )}
                         </div>
@@ -1585,21 +1651,57 @@ const CitizenLayout = (props) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {myProps.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="owned">
-                                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-sm font-bold text-stone-500">Estimé : {prop.price} Écus</div>
-                                  {prop.forSale ? (
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono text-sm font-bold text-yellow-700">{prop.salePrice} Écus</span>
-                                      <button
-                                        onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
-                                        className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors"
-                                      >
-                                        Retirer de la vente
-                                      </button>
+                                {/* Locataire actuel */}
+                                {prop.rental && prop.rental.tenantId && (
+                                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                    <div className="text-xs">
+                                      <span className="text-blue-700 font-bold">Loué à {prop.rental.tenantName}</span>
+                                      <span className="text-blue-500 ml-2 font-mono">{prop.rental.dailyRate} Écus/jour</span>
+                                      {prop.rental.startDate && <span className="text-blue-400 ml-2">depuis le {prop.rental.startDate}</span>}
                                     </div>
-                                  ) : (
-                                    <SellPropertyButton propId={prop.id} onSellProperty={onSellProperty} />
-                                  )}
+                                    <button
+                                      onClick={() => onEvictTenant && onEvictTenant(prop.id)}
+                                      className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                    >
+                                      Expulser
+                                    </button>
+                                  </div>
+                                )}
+                                {/* En attente de locataire */}
+                                {prop.rental && !prop.rental.tenantId && (
+                                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                    <div className="text-xs text-blue-600">
+                                      En location : <span className="font-mono font-bold">{prop.rental.dailyRate} Écus/jour</span>
+                                    </div>
+                                    <button
+                                      onClick={() => onCancelPropertyRental && onCancelPropertyRental(prop.id)}
+                                      className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                    >
+                                      Retirer
+                                    </button>
+                                  </div>
+                                )}
+                                {/* Actions vente / location */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-100">
+                                  <div className="font-mono text-sm font-bold text-stone-500">Estimé : {prop.price} Écus</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {prop.forSale ? (
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-sm font-bold text-yellow-700">{prop.salePrice} Écus</span>
+                                        <button
+                                          onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
+                                          className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors"
+                                        >
+                                          Retirer de la vente
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <SellPropertyButton propId={prop.id} onSellProperty={onSellProperty} />
+                                    )}
+                                    {!prop.forSale && (!prop.rental || !prop.rental.tenantId) && !prop.rental && (
+                                      <RentPropertyButton propId={prop.id} onListPropertyForRent={onListPropertyForRent} />
+                                    )}
+                                  </div>
                                 </div>
                               </PropertyCard>
                             ))}
@@ -1667,8 +1769,70 @@ const CitizenLayout = (props) => {
                         </div>
                       )}
 
+                      {/* Mes locations (en tant que locataire) */}
+                      {myRentals.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
+                            Mes locations
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {myRentals.map((prop) => (
+                              <PropertyCard key={prop.id} prop={prop} variant="owned">
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                  <div className="text-xs">
+                                    <span className="text-blue-700 font-bold">Locataire</span>
+                                    <span className="text-blue-500 ml-2 font-mono">{prop.rental.dailyRate} Écus/jour</span>
+                                    {prop.rental.startDate && <span className="text-blue-400 ml-2">depuis le {prop.rental.startDate}</span>}
+                                    <div className="text-stone-400 mt-0.5">Propriétaire : {prop.ownerName}</div>
+                                  </div>
+                                  <button
+                                    onClick={() => onLeaveTenancy && onLeaveTenancy(prop.id)}
+                                    className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors shrink-0"
+                                  >
+                                    Quitter
+                                  </button>
+                                </div>
+                              </PropertyCard>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Biens à louer */}
+                      {forRent.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
+                            Biens à louer
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {forRent.map((prop) => (
+                              <PropertyCard key={prop.id} prop={prop} variant="admin">
+                                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                                  <div>
+                                    <div className="font-mono text-lg font-black text-blue-700">{prop.rental.dailyRate} Écus/jour</div>
+                                    <div className="text-[10px] text-stone-400">Propriétaire : {prop.ownerName}</div>
+                                  </div>
+                                  <button
+                                    onClick={() => onRentProperty && onRentProperty(prop.id)}
+                                    disabled={(user.balance || 0) < prop.rental.dailyRate}
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                  >
+                                    <Coins size={12} /> Louer
+                                  </button>
+                                </div>
+                                {(user.balance || 0) < prop.rental.dailyRate && (
+                                  <div className="text-[10px] text-red-400 text-right">
+                                    Fonds insuffisants pour le premier jour de loyer
+                                  </div>
+                                )}
+                              </PropertyCard>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* État vide */}
-                      {myProps.length === 0 && available.length === 0 && forSale.length === 0 && (
+                      {myProps.length === 0 && available.length === 0 && forSale.length === 0 && forRent.length === 0 && myRentals.length === 0 && (
                         <div className="text-center py-16">
                           <MapPin size={48} className="mx-auto mb-3 text-stone-300" />
                           <div className="text-stone-400 italic">Aucune propriété disponible pour le moment.</div>
