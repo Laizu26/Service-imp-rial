@@ -52,6 +52,55 @@ import MarriageView from "../views/MarriageView";
 import CitizenPhysicsMagicView from "../views/CitizenPhysicsMagicView";
 import SettingsView from "../views/SettingsView";
 
+// Mini-composant pour la mise en vente avec champ de prix intégré
+const SellPropertyButton = ({ propId, onSellProperty }) => {
+  const [open, setOpen] = useState(false);
+  const [price, setPrice] = useState("");
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-stone-500 text-[10px] font-bold uppercase border border-stone-200 px-3 py-1.5 rounded hover:bg-stone-50 transition-colors"
+      >
+        Mettre en vente
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        className="w-24 p-1.5 border border-stone-300 rounded text-sm font-mono text-center"
+        placeholder="Prix"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        autoFocus
+      />
+      <button
+        onClick={() => {
+          if (price && parseInt(price) > 0) {
+            onSellProperty(propId, parseInt(price));
+            setOpen(false);
+            setPrice("");
+          }
+        }}
+        disabled={!price || parseInt(price) <= 0}
+        className="bg-yellow-500 text-stone-900 text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-yellow-400 disabled:opacity-40 transition-colors"
+      >
+        Confirmer
+      </button>
+      <button
+        onClick={() => { setOpen(false); setPrice(""); }}
+        className="text-stone-400 hover:text-stone-600 text-[10px] font-bold uppercase px-2 py-1.5"
+      >
+        Annuler
+      </button>
+    </div>
+  );
+};
+
 const BoostCountdown = ({ expiresAt }) => {
   const [remaining, setRemaining] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
 
@@ -1429,115 +1478,212 @@ const CitizenLayout = (props) => {
                   <h2 className="text-2xl font-black font-serif text-stone-800">Registre Foncier</h2>
                 </div>
 
-                {/* Mes propriétés */}
+                {/* Helper pour le nom de localisation */}
                 {(() => {
+                  const PROP_TYPES = {
+                    MAISON: "Maison", DOMAINE: "Domaine", TERRAIN: "Terrain",
+                    COMMERCE: "Local Commercial", FERME: "Ferme",
+                    MANOIR: "Manoir / Château", ATELIER: "Atelier",
+                  };
+
+                  const getLocation = (prop) => {
+                    const c = safeCountries.find((x) => x.id === prop.countryId);
+                    if (!c) return prop.location || null;
+                    const r = (c.regions || []).find((x) => x.id === prop.regionId);
+                    return r ? `${r.name}, ${c.name}` : c.name;
+                  };
+
                   const myProps = properties.filter((p) => p.ownerId === user.id);
-                  return myProps.length > 0 ? (
-                    <div>
-                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mes propriétés</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {myProps.map((prop) => (
-                          <div key={prop.id} className="bg-white border-2 border-stone-300 rounded-xl p-4 shadow-sm">
-                            <div className="font-bold text-lg text-stone-800">{prop.name}</div>
-                            {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {prop.type && <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{prop.type}</span>}
-                              {(() => {
-                                const c = safeCountries.find((c) => c.id === prop.countryId);
-                                const r = c ? (c.regions || []).find((r) => r.id === prop.regionId) : null;
-                                const loc = c ? (r ? `${r.name}, ${c.name}` : c.name) : prop.location;
-                                return loc ? <span className="text-[10px] text-stone-400 flex items-center gap-1"><MapPin size={10} />{loc}</span> : null;
-                              })()}
-                            </div>
-                            {prop.income > 0 && (
-                              <div className="mt-2 text-xs font-mono text-green-600">+{prop.income} Écus / jour RP</div>
-                            )}
-                            <div className="flex gap-2 mt-3">
-                              {prop.forSale ? (
-                                <button
-                                  onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
-                                  className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50"
-                                >
-                                  Annuler vente ({prop.salePrice} Écus)
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    const price = window.prompt("Prix de vente (Écus) :");
-                                    if (price && parseInt(price) > 0) onSellProperty && onSellProperty(prop.id, parseInt(price));
-                                  }}
-                                  className="text-stone-500 text-[10px] font-bold uppercase border border-stone-200 px-3 py-1.5 rounded hover:bg-stone-50"
-                                >
-                                  Mettre en vente
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Propriétés disponibles */}
-                {(() => {
                   const available = properties.filter((p) => !p.ownerId);
-                  return available.length > 0 ? (
-                    <div>
-                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">À vendre (Administration)</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {available.map((prop) => (
-                          <div key={prop.id} className="bg-white border-2 border-green-200 rounded-xl p-4">
-                            <div className="font-bold text-lg text-stone-800">{prop.name}</div>
-                            {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
-                            <div className="font-mono font-bold text-yellow-700 mt-2">{prop.price} Écus</div>
-                            <button
-                              onClick={() => onBuyProperty && onBuyProperty(prop.id)}
-                              disabled={(user.balance || 0) < prop.price}
-                              className="mt-2 bg-green-600 text-white px-4 py-2 rounded font-bold text-xs uppercase hover:bg-green-500 disabled:opacity-50"
-                            >
-                              Acheter
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
-
-                {/* Propriétés en vente par des joueurs */}
-                {(() => {
                   const forSale = properties.filter((p) => p.forSale && p.ownerId && p.ownerId !== user.id);
-                  return forSale.length > 0 ? (
-                    <div>
-                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">En vente par des citoyens</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {forSale.map((prop) => (
-                          <div key={prop.id} className="bg-white border-2 border-yellow-200 rounded-xl p-4">
-                            <div className="font-bold text-lg text-stone-800">{prop.name}</div>
-                            {prop.description && <div className="text-xs text-stone-500 mt-1">{prop.description}</div>}
-                            <div className="text-[10px] text-stone-400">Propriétaire : {prop.ownerName}</div>
-                            <div className="font-mono font-bold text-yellow-700 mt-2">{prop.salePrice} Écus</div>
-                            <button
-                              onClick={() => onBuyPropertyFromPlayer && onBuyPropertyFromPlayer(prop.id)}
-                              disabled={(user.balance || 0) < prop.salePrice}
-                              className="mt-2 bg-yellow-500 text-stone-900 px-4 py-2 rounded font-bold text-xs uppercase hover:bg-yellow-400 disabled:opacity-50"
-                            >
-                              Acheter
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null;
-                })()}
+                  const totalValue = myProps.reduce((s, p) => s + (p.price || 0), 0);
+                  const totalIncome = myProps.reduce((s, p) => s + (p.income || 0), 0);
 
-                {properties.length === 0 && (
-                  <div className="text-center text-stone-400 italic py-16">
-                    <MapPin size={48} className="mx-auto mb-3 opacity-30" />
-                    Aucune propriété disponible.
-                  </div>
-                )}
+                  // Carte propriété réutilisable
+                  const PropertyCard = ({ prop, variant, children }) => {
+                    const loc = getLocation(prop);
+                    const borderColor = variant === "owned" ? "border-stone-300" : variant === "admin" ? "border-green-200" : "border-yellow-200";
+                    const bgAccent = variant === "owned" ? "bg-stone-50" : variant === "admin" ? "bg-green-50/30" : "bg-yellow-50/30";
+                    return (
+                      <div className={`bg-white border-2 ${borderColor} rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow`}>
+                        {/* En-tête coloré */}
+                        <div className={`${bgAccent} px-4 py-2.5 border-b border-stone-100 flex items-center justify-between`}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-stone-800">{prop.name}</span>
+                            {prop.type && (
+                              <span className="bg-stone-200/60 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                                {PROP_TYPES[prop.type] || prop.type}
+                              </span>
+                            )}
+                          </div>
+                          {variant === "owned" && prop.forSale && (
+                            <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                              En vente
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="p-4 space-y-3">
+                          {/* Description */}
+                          {prop.description && (
+                            <p className="text-sm text-stone-600 leading-relaxed">{prop.description}</p>
+                          )}
+
+                          {/* Infos */}
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-400">
+                            {loc && (
+                              <span className="flex items-center gap-1">
+                                <MapPin size={11} className="text-stone-400" /> {loc}
+                              </span>
+                            )}
+                            {(prop.income || 0) > 0 && (
+                              <span className="flex items-center gap-1 text-green-600 font-bold font-mono">
+                                <Coins size={11} /> +{prop.income} Écus/jour
+                              </span>
+                            )}
+                            {variant !== "owned" && prop.ownerId && (
+                              <span className="flex items-center gap-1">
+                                <User size={11} /> {prop.ownerName}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Prix + Actions */}
+                          {children}
+                        </div>
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <>
+                      {/* Résumé patrimoine */}
+                      {myProps.length > 0 && (
+                        <div className="bg-gradient-to-r from-stone-100 to-stone-50 border border-stone-200 rounded-xl p-4">
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mon patrimoine immobilier</div>
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center">
+                              <div className="text-2xl font-black text-stone-800">{myProps.length}</div>
+                              <div className="text-[10px] text-stone-400 uppercase font-bold">Bien{myProps.length > 1 ? "s" : ""}</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-black text-yellow-700 font-mono">{totalValue.toLocaleString()}</div>
+                              <div className="text-[10px] text-stone-400 uppercase font-bold">Valeur (Écus)</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-black text-green-600 font-mono">+{totalIncome}</div>
+                              <div className="text-[10px] text-stone-400 uppercase font-bold">Écus / jour</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mes propriétés */}
+                      {myProps.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mes propriétés</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {myProps.map((prop) => (
+                              <PropertyCard key={prop.id} prop={prop} variant="owned">
+                                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                                  <div className="font-mono text-sm font-bold text-stone-500">Estimé : {prop.price} Écus</div>
+                                  {prop.forSale ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-sm font-bold text-yellow-700">{prop.salePrice} Écus</span>
+                                      <button
+                                        onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
+                                        className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors"
+                                      >
+                                        Retirer de la vente
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <SellPropertyButton propId={prop.id} onSellProperty={onSellProperty} />
+                                  )}
+                                </div>
+                              </PropertyCard>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Propriétés disponibles (admin) */}
+                      {available.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
+                            Biens disponibles — Registre Impérial
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {available.map((prop) => (
+                              <PropertyCard key={prop.id} prop={prop} variant="admin">
+                                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                                  <div className="font-mono text-lg font-black text-yellow-700">{prop.price.toLocaleString()} Écus</div>
+                                  <button
+                                    onClick={() => onBuyProperty && onBuyProperty(prop.id)}
+                                    disabled={(user.balance || 0) < prop.price}
+                                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                  >
+                                    <Coins size={12} /> Acheter
+                                  </button>
+                                </div>
+                                {(user.balance || 0) < prop.price && (
+                                  <div className="text-[10px] text-red-400 text-right">
+                                    Il vous manque {(prop.price - (user.balance || 0)).toLocaleString()} Écus
+                                  </div>
+                                )}
+                              </PropertyCard>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Propriétés en vente par des joueurs */}
+                      {forSale.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
+                            En vente par des citoyens
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {forSale.map((prop) => (
+                              <PropertyCard key={prop.id} prop={prop} variant="player">
+                                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                                  <div className="font-mono text-lg font-black text-yellow-700">{prop.salePrice.toLocaleString()} Écus</div>
+                                  <button
+                                    onClick={() => onBuyPropertyFromPlayer && onBuyPropertyFromPlayer(prop.id)}
+                                    disabled={(user.balance || 0) < prop.salePrice}
+                                    className="bg-yellow-500 text-stone-900 px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-yellow-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                  >
+                                    <Coins size={12} /> Acheter
+                                  </button>
+                                </div>
+                                {(user.balance || 0) < prop.salePrice && (
+                                  <div className="text-[10px] text-red-400 text-right">
+                                    Il vous manque {(prop.salePrice - (user.balance || 0)).toLocaleString()} Écus
+                                  </div>
+                                )}
+                              </PropertyCard>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* État vide */}
+                      {myProps.length === 0 && available.length === 0 && forSale.length === 0 && (
+                        <div className="text-center py-16">
+                          <MapPin size={48} className="mx-auto mb-3 text-stone-300" />
+                          <div className="text-stone-400 italic">Aucune propriété disponible pour le moment.</div>
+                          <div className="text-[10px] text-stone-300 mt-1">Les biens immobiliers apparaîtront ici lorsqu'ils seront mis en vente.</div>
+                        </div>
+                      )}
+
+                      {myProps.length === 0 && (available.length > 0 || forSale.length > 0) && (
+                        <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 text-center text-xs text-stone-400 italic">
+                          Vous ne possédez aucun bien immobilier. Consultez les offres ci-dessus pour acquérir votre première propriété.
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
