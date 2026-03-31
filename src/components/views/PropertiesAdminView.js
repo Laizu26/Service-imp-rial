@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { Plus, MapPin, Pencil, X, Save, Home, User, Globe } from "lucide-react";
+import { Plus, MapPin, Pencil, X, Save, Home, User, Globe, Key, UserX } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import UserSearchSelect from "../ui/UserSearchSelect";
 
 const PROPERTY_TYPES = {
   MAISON: "Maison",
@@ -91,16 +92,20 @@ const PropertiesAdminView = ({
       income: prop.income || 0,
       countryId: prop.countryId || "",
       regionId: prop.regionId || "",
+      ownerId: prop.ownerId || "",
     });
   };
 
   const saveEdit = () => {
     const country = countries.find((c) => c.id === editForm.countryId);
     const region = country ? (country.regions || []).find((r) => r.id === editForm.regionId) : null;
+    const newOwner = editForm.ownerId ? citizens.find((c) => c.id === editForm.ownerId) : null;
     onEditProperty(editingId, {
       ...editForm,
       price: parseInt(editForm.price) || 0,
       income: parseInt(editForm.income) || 0,
+      ownerId: editForm.ownerId || null,
+      ownerName: newOwner ? newOwner.name : null,
       location: country ? (region ? `${region.name}, ${country.name}` : country.name) : "",
     });
     setEditingId(null);
@@ -329,6 +334,29 @@ const PropertiesAdminView = ({
                       </div>
 
                       <div>
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Propriétaire</label>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <UserSearchSelect
+                              users={citizens}
+                              onSelect={(id) => setEditForm({ ...editForm, ownerId: id })}
+                              value={editForm.ownerId}
+                              placeholder="Aucun (disponible à l'achat)"
+                            />
+                          </div>
+                          {editForm.ownerId && (
+                            <button
+                              onClick={() => setEditForm({ ...editForm, ownerId: "" })}
+                              className="text-red-400 hover:text-red-600 p-1"
+                              title="Retirer le propriétaire"
+                            >
+                              <UserX size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
                         <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Description</label>
                         <textarea
                           className="w-full p-2 border rounded text-sm"
@@ -385,22 +413,46 @@ const PropertiesAdminView = ({
                             +{prop.income} Écus/jour
                           </span>
                         )}
-                        <span className="flex items-center gap-1">
-                          <User size={10} />
-                          {owner ? (
-                            <span className="text-stone-600 font-bold">{owner.name}</span>
-                          ) : prop.ownerId ? (
-                            <span className="text-stone-400">{prop.ownerName}</span>
-                          ) : (
-                            <span className="italic">Disponible</span>
-                          )}
-                        </span>
+                      </div>
+
+                      {/* Propriétaire */}
+                      <div className="flex items-center gap-2 mt-2 text-xs">
+                        <Key size={11} className="text-stone-400" />
+                        {owner ? (
+                          <span className="font-bold text-stone-700">{owner.name}</span>
+                        ) : prop.ownerId ? (
+                          <span className="text-stone-400">{prop.ownerName}</span>
+                        ) : (
+                          <span className="italic text-stone-400">Aucun propriétaire — Disponible</span>
+                        )}
                         {prop.forSale && (
-                          <span className="text-amber-600 font-bold">
-                            En vente : {prop.salePrice} Écus
+                          <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
+                            En vente {prop.salePrice} Écus
+                          </span>
+                        )}
+                        {prop.rental && !prop.rental.tenantId && (
+                          <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
+                            En location {prop.rental.dailyRate} Écus/jour
                           </span>
                         )}
                       </div>
+
+                      {/* Locataire */}
+                      {prop.rental && prop.rental.tenantId && (() => {
+                        const tenant = citizens.find((c) => c.id === prop.rental.tenantId);
+                        return (
+                          <div className="flex items-center gap-2 mt-1 text-xs">
+                            <User size={11} className="text-blue-500" />
+                            <span className="text-blue-700 font-bold">
+                              Locataire : {tenant ? tenant.name : prop.rental.tenantName}
+                            </span>
+                            <span className="font-mono text-blue-500">{prop.rental.dailyRate} Écus/jour</span>
+                            {prop.rental.startDate && (
+                              <span className="text-stone-400">depuis le {prop.rental.startDate}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
