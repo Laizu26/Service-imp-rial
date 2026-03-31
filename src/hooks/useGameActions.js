@@ -3063,7 +3063,40 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Proposition d'échange annulée.", "info");
       },
 
-      // --- PROPRIÉTÉS IMMOBILIÈRES ---
+      // --- PROPRIÉTÉS IMMOBILIÈRES (ADMIN) ---
+      onCreateProperty: ({ name, description, price, location }) => {
+        const properties = [...(state.properties || [])];
+        properties.push({
+          id: `prop-${Date.now()}`,
+          name: name || "Propriété sans nom",
+          description: description || "",
+          price: parseInt(price) || 0,
+          location: location || "",
+          ownerId: null,
+          ownerName: null,
+          forSale: false,
+          salePrice: 0,
+        });
+        saveState({ ...state, properties });
+        notify(`Propriété "${name}" créée.`, "success");
+      },
+
+      onDeleteProperty: (propertyId) => {
+        const properties = (state.properties || []).filter((p) => p.id !== propertyId);
+        saveState({ ...state, properties });
+        notify("Propriété supprimée.", "info");
+      },
+
+      onEditProperty: (propertyId, updates) => {
+        const properties = [...(state.properties || [])];
+        const idx = properties.findIndex((p) => p.id === propertyId);
+        if (idx === -1) return;
+        properties[idx] = { ...properties[idx], ...updates };
+        saveState({ ...state, properties });
+        notify("Propriété modifiée.", "success");
+      },
+
+      // --- PROPRIÉTÉS IMMOBILIÈRES (CITOYEN) ---
       onBuyProperty: (propertyId) => {
         if (!session) return;
         const properties = [...(state.properties || [])];

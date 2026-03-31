@@ -23,6 +23,7 @@ import {
   Settings,
   Key,
   HeartHandshake,
+  MapPin,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -56,6 +57,7 @@ import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
 import JobsAdminView from "./components/views/JobsAdminView";
 import FamiliesAdminView from "./components/views/FamiliesAdminView";
+import PropertiesAdminView from "./components/views/PropertiesAdminView";
 import GameMasterView from "./components/views/GameMasterView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 
@@ -269,6 +271,9 @@ export default function App() {
         icon: Briefcase,
       });
     }
+
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "properties_admin", label: "Immobilier", icon: MapPin });
 
     if (effectiveLevel >= 50 || (session && session.role === "TENANCIER")) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
@@ -945,6 +950,15 @@ export default function App() {
                       state={state}
                       onUpdateState={saveState}
                       notify={notify}
+                    />
+                  )}
+
+                  {activeTab === "properties_admin" && (
+                    <PropertiesAdminView
+                      properties={state.properties || []}
+                      onCreateProperty={actions.onCreateProperty}
+                      onDeleteProperty={actions.onDeleteProperty}
+                      onEditProperty={actions.onEditProperty}
                     />
                   )}
 

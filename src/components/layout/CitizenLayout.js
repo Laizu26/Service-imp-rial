@@ -327,7 +327,7 @@ const CitizenLayout = (props) => {
     isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
-    properties.length > 0 && { id: "properties", label: "Propriétés", icon: MapPin },
+    { id: "properties", label: "Propriétés", icon: MapPin },
     { id: "annuaire", label: "Annuaire", icon: Eye },
     { id: "physique_magie", label: "Physique & Magie", icon: Zap },
     { id: "notifications", label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ""}`, icon: Bell },
