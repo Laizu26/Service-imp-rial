@@ -52,6 +52,7 @@ import MarriageView from "../views/MarriageView";
 import CitizenPhysicsMagicView from "../views/CitizenPhysicsMagicView";
 import GuildsView from "../views/GuildsView";
 import ContractsView from "../views/ContractsView";
+import PropertyDetailView from "../views/PropertyDetailView";
 import SettingsView from "../views/SettingsView";
 
 // Mini-composant pour la mise en vente avec champ de prix intégré
@@ -256,6 +257,16 @@ const CitizenLayout = (props) => {
     onEvictTenant,
     onLeaveTenancy,
     onToggleFavorite,
+    onCompanyBuyProperty,
+    onUpdatePropertyFeature,
+    onAddGarrison, onRemoveGarrison,
+    onImprison, onReleasePrisoner,
+    onRequestAudience, onRespondAudience,
+    onSetupRooms, onBookRoom, onCheckoutRoom,
+    onPostTavernMessage, onPostRumor, onDeleteRumor,
+    onBuyFromMenu, onBuyFromShop,
+    onAddPropertyStaff, onRemovePropertyStaff,
+    onAddPropertyEvent, onRemovePropertyEvent,
     playerMarket = [],
     tradeProposals = [],
     properties = [],
@@ -327,6 +338,7 @@ const CitizenLayout = (props) => {
   const [editOrigin, setEditOrigin] = useState("");
   const [np, setNp] = useState("");
   const [journalEntry, setJournalEntry] = useState("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState(null);
   const [annuaireSearch, setAnnuaireSearch] = useState("");
   const [annuaireFilter, setAnnuaireFilter] = useState("ALL");
   const [selectedCitizen, setSelectedCitizen] = useState(null);
@@ -1575,7 +1587,42 @@ const CitizenLayout = (props) => {
             )}
 
             {/* --- PROPRIÉTÉS --- */}
-            {active === "properties" && (
+            {active === "properties" && selectedPropertyId && (() => {
+              const selProp = properties.find((p) => p.id === selectedPropertyId);
+              if (!selProp) { setSelectedPropertyId(null); return null; }
+              const isPropertyOwner = selProp.ownerId === user.id || (selProp.ownerType === "COMPANY" && (companies || []).some((c) => c.id === selProp.ownerId && c.ownerId === user.id));
+              return (
+                <PropertyDetailView
+                  property={selProp}
+                  citizens={safeUsers}
+                  user={user}
+                  session={user}
+                  isOwner={isPropertyOwner}
+                  onUpdatePropertyFeature={onUpdatePropertyFeature}
+                  onAddGarrison={onAddGarrison}
+                  onRemoveGarrison={onRemoveGarrison}
+                  onImprison={onImprison}
+                  onReleasePrisoner={onReleasePrisoner}
+                  onRequestAudience={onRequestAudience}
+                  onRespondAudience={onRespondAudience}
+                  onSetupRooms={onSetupRooms}
+                  onBookRoom={onBookRoom}
+                  onCheckoutRoom={onCheckoutRoom}
+                  onPostTavernMessage={onPostTavernMessage}
+                  onPostRumor={onPostRumor}
+                  onDeleteRumor={onDeleteRumor}
+                  onBuyFromMenu={onBuyFromMenu}
+                  onBuyFromShop={onBuyFromShop}
+                  onAddPropertyStaff={onAddPropertyStaff}
+                  onRemovePropertyStaff={onRemovePropertyStaff}
+                  onAddPropertyEvent={onAddPropertyEvent}
+                  onRemovePropertyEvent={onRemovePropertyEvent}
+                  onBack={() => setSelectedPropertyId(null)}
+                />
+              );
+            })()}
+
+            {active === "properties" && !selectedPropertyId && (
               <div className="space-y-6 animate-fadeIn">
                 <div className="flex items-center gap-3 mb-2">
                   <MapPin size={24} className="text-stone-400" />
@@ -1753,6 +1800,14 @@ const CitizenLayout = (props) => {
                                     )}
                                   </div>
                                 </div>
+                                {(prop.type === "MANOIR" || prop.type === "AUBERGE" || prop.type === "FERME" || prop.type === "ATELIER" || prop.type === "COMMERCE" || (prop.staff || []).length > 0 || (prop.propertyEvents || []).length > 0) && (
+                                  <button
+                                    onClick={() => setSelectedPropertyId(prop.id)}
+                                    className="w-full text-center bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-bold uppercase py-2 rounded-b-lg border-t border-stone-200 transition-colors"
+                                  >
+                                    Gérer cette propriété
+                                  </button>
+                                )}
                               </PropertyCard>
                             ))}
                           </div>
@@ -1880,6 +1935,30 @@ const CitizenLayout = (props) => {
                           </div>
                         </div>
                       )}
+
+                      {/* Lieux à visiter (auberges, châteaux, commerces publics) */}
+                      {(() => {
+                        const visitable = properties.filter((p) => p.ownerId && p.ownerId !== user.id && ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type));
+                        return visitable.length > 0 ? (
+                          <div>
+                            <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
+                              Lieux à visiter
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {visitable.map((prop) => (
+                                <PropertyCard key={prop.id} prop={prop} variant="admin">
+                                  <button
+                                    onClick={() => setSelectedPropertyId(prop.id)}
+                                    className="w-full bg-stone-800 text-yellow-500 py-2 rounded font-bold text-xs uppercase hover:bg-stone-700 transition-colors mt-2"
+                                  >
+                                    Visiter
+                                  </button>
+                                </PropertyCard>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
 
                       {/* État vide */}
                       {myProps.length === 0 && available.length === 0 && forSale.length === 0 && forRent.length === 0 && myRentals.length === 0 && (

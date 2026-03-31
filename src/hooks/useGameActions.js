@@ -278,26 +278,79 @@ export const useGameActions = (session, state, saveState, notify) => {
         (ns.properties || []).forEach((prop, propIdx) => {
           if (!prop.rental || !prop.rental.tenantId || !prop.rental.dailyRate) return;
           const tenantIdx = (ns.citizens || []).findIndex((c) => c.id === prop.rental.tenantId);
-          const ownerIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
-          if (tenantIdx === -1 || ownerIdx === -1) return;
+          if (tenantIdx === -1) return;
           const tenant = ns.citizens[tenantIdx];
           const dailyRate = prop.rental.dailyRate;
           if ((tenant.balance || 0) < dailyRate) {
-            // Locataire ne peut plus payer → expulsion automatique
             ns.properties[propIdx] = { ...ns.properties[propIdx], rental: null };
             return;
           }
           ns.citizens[tenantIdx] = { ...ns.citizens[tenantIdx], balance: (ns.citizens[tenantIdx].balance || 0) - dailyRate };
-          ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + dailyRate };
-          ns.globalLedger = [{
-            id: Date.now() + Math.random(),
-            fromName: tenant.name,
-            toName: ns.citizens[ownerIdx].name,
-            amount: dailyRate,
-            timestamp: Date.now(),
-            reason: `Loyer : ${prop.name}`,
-            type: "RENT",
-          }, ...(ns.globalLedger || [])];
+          // Verser au propriétaire (citoyen ou entreprise)
+          let ownerName = prop.ownerName;
+          if (prop.ownerType === "COMPANY") {
+            const cIdx = (ns.companies || []).findIndex((c) => c.id === prop.ownerId);
+            if (cIdx !== -1) { ns.companies[cIdx] = { ...ns.companies[cIdx], balance: (ns.companies[cIdx].balance || 0) + dailyRate }; ownerName = ns.companies[cIdx].name; }
+          } else {
+            const ownerIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
+            if (ownerIdx !== -1) ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + dailyRate };
+          }
+          ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: tenant.name, toName: ownerName, amount: dailyRate, timestamp: Date.now(), reason: `Loyer : ${prop.name}`, type: "RENT" }, ...(ns.globalLedger || [])];
+        });
+
+        // --- Production journalière (Ferme) ---
+        (ns.properties || []).forEach((prop, propIdx) => {
+          if (!prop.production || !prop.production.itemName || !prop.production.qtyPerDay) return;
+          if (!prop.ownerId) return;
+          const qty = prop.production.qtyPerDay;
+          if (prop.ownerType === "COMPANY") {
+            const cIdx = (ns.companies || []).findIndex((c) => c.id === prop.ownerId);
+            if (cIdx !== -1) {
+              const inv = [...(ns.companies[cIdx].companyInventory || [])];
+              const iIdx = inv.findIndex((i) => i.name === prop.production.itemName);
+              if (iIdx !== -1) inv[iIdx] = { ...inv[iIdx], quantity: inv[iIdx].quantity + qty };
+              else inv.push({ name: prop.production.itemName, quantity: qty });
+              ns.companies[cIdx] = { ...ns.companies[cIdx], companyInventory: inv };
+            }
+          } else {
+            const oIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
+            if (oIdx !== -1) {
+              const inv = [...(ns.citizens[oIdx].inventory || [])];
+              const iIdx = inv.findIndex((i) => i.name === prop.production.itemName);
+              if (iIdx !== -1) inv[iIdx] = { ...inv[iIdx], quantity: inv[iIdx].quantity + qty };
+              else inv.push({ name: prop.production.itemName, quantity: qty });
+              ns.citizens[oIdx] = { ...ns.citizens[oIdx], inventory: inv };
+            }
+          }
+          ns.properties[propIdx] = { ...ns.properties[propIdx], production: { ...prop.production, lastProduced: `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}` } };
+        });
+
+        // --- Salaires du personnel de propriété ---
+        (ns.properties || []).forEach((prop) => {
+          if (!prop.ownerId || !(prop.staff || []).length) return;
+          (prop.staff || []).forEach((s) => {
+            if (!s.salary || s.salary <= 0) return;
+            // Prélever du propriétaire
+            let paid = false;
+            if (prop.ownerType === "COMPANY") {
+              const cIdx = (ns.companies || []).findIndex((c) => c.id === prop.ownerId);
+              if (cIdx !== -1 && (ns.companies[cIdx].balance || 0) >= s.salary) {
+                ns.companies[cIdx] = { ...ns.companies[cIdx], balance: ns.companies[cIdx].balance - s.salary };
+                paid = true;
+              }
+            } else {
+              const oIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
+              if (oIdx !== -1 && (ns.citizens[oIdx].balance || 0) >= s.salary) {
+                ns.citizens[oIdx] = { ...ns.citizens[oIdx], balance: ns.citizens[oIdx].balance - s.salary };
+                paid = true;
+              }
+            }
+            if (paid) {
+              const sIdx = (ns.citizens || []).findIndex((c) => c.id === s.id);
+              if (sIdx !== -1) ns.citizens[sIdx] = { ...ns.citizens[sIdx], balance: (ns.citizens[sIdx].balance || 0) + s.salary };
+              ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: prop.ownerName, toName: s.name, amount: s.salary, timestamp: Date.now(), reason: `Salaire (${s.role}) — ${prop.name}`, type: "PROPERTY_STAFF" }, ...(ns.globalLedger || [])];
+            }
+          });
         });
 
         saveState(ns);
@@ -3104,8 +3157,24 @@ export const useGameActions = (session, state, saveState, notify) => {
           location: location || "",
           ownerId: null,
           ownerName: null,
+          ownerType: null, // "CITIZEN" | "COMPANY"
           forSale: false,
           salePrice: 0,
+          // Fonctionnalités spéciales
+          garrison: [], // Château: [{id, name}]
+          audiences: [], // Château: [{id, from, subject, text, date, status}]
+          dungeon: [], // Château: [{citizenId, citizenName, reason, since}]
+          rooms: [], // Auberge: [{id, name, pricePerNight, tenantId, tenantName}]
+          tavernMessages: [], // Auberge: [{id, authorName, text, timestamp}]
+          rumors: [], // Auberge: [{id, text, timestamp}]
+          menu: [], // Auberge: [{itemName, price, stock}]
+          production: null, // Ferme: {itemName, qtyPerDay, lastProduced}
+          farmWorkers: [], // Ferme: [{id, name, salary}]
+          craftRecipes: [], // Atelier: [{id, inputItem, inputQty, outputItem, outputQty}]
+          commissions: [], // Atelier: [{id, clientId, clientName, recipe, status, date}]
+          shopStock: [], // Commerce: [{itemName, qty, price}]
+          staff: [], // Commun: [{id, name, role, salary}]
+          propertyEvents: [], // Commun: [{id, title, desc, date}]
         });
         saveState({ ...state, properties });
         notify(`Propriété "${name}" créée.`, "success");
@@ -3220,6 +3289,326 @@ export const useGameActions = (session, state, saveState, notify) => {
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
         notify(`Propriété "${prop.name}" acquise !`, "success");
+      },
+
+      // --- ACHAT PROPRIÉTÉ PAR ENTREPRISE ---
+      onCompanyBuyProperty: (companyId, propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) { notify("Propriété introuvable.", "error"); return; }
+        const prop = properties[pIdx];
+        if (prop.ownerId) { notify("Propriété déjà possédée.", "error"); return; }
+        const companies = [...(state.companies || [])];
+        const cIdx = companies.findIndex((c) => c.id === companyId);
+        if (cIdx === -1) return;
+        if (companies[cIdx].ownerId !== session.id) { notify("Vous n'êtes pas le dirigeant.", "error"); return; }
+        if ((companies[cIdx].balance || 0) < prop.price) { notify("L'entreprise n'a pas assez de fonds.", "error"); return; }
+        companies[cIdx] = { ...companies[cIdx], balance: companies[cIdx].balance - prop.price };
+        properties[pIdx] = { ...prop, ownerId: companyId, ownerName: companies[cIdx].name, ownerType: "COMPANY" };
+        const ledgerEntry = { id: Date.now(), fromName: companies[cIdx].name, toName: "Registre Foncier", amount: prop.price, timestamp: Date.now(), reason: `Achat propriété: ${prop.name}`, type: "PROPERTY_PURCHASE" };
+        saveState({ ...state, properties, companies, treasury: (state.treasury || 0) + prop.price, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${companies[cIdx].name} a acquis "${prop.name}" !`, "success");
+      },
+
+      // --- FONCTIONNALITÉS SPÉCIALES PROPRIÉTÉS ---
+      onUpdatePropertyFeature: (propertyId, featureKey, featureValue) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        // Vérifier que le joueur ou son entreprise possède la propriété
+        const isOwner = prop.ownerId === session.id || (prop.ownerType === "COMPANY" && (state.companies || []).find((c) => c.id === prop.ownerId && c.ownerId === session.id));
+        if (!isOwner) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
+        properties[pIdx] = { ...prop, [featureKey]: featureValue };
+        saveState({ ...state, properties });
+      },
+
+      // Château: garnison
+      onAddGarrison: (propertyId, citizenId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) return;
+        const garrison = [...(properties[pIdx].garrison || [])];
+        if (garrison.find((g) => g.id === citizenId)) { notify("Déjà dans la garnison.", "error"); return; }
+        garrison.push({ id: citizenId, name: citizen.name });
+        properties[pIdx] = { ...properties[pIdx], garrison };
+        saveState({ ...state, properties });
+        notify(`${citizen.name} ajouté(e) à la garnison.`, "success");
+      },
+
+      onRemoveGarrison: (propertyId, citizenId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        properties[pIdx] = { ...properties[pIdx], garrison: (properties[pIdx].garrison || []).filter((g) => g.id !== citizenId) };
+        saveState({ ...state, properties });
+        notify("Retiré de la garnison.", "info");
+      },
+
+      // Château: cachot
+      onImprison: (propertyId, citizenId, reason) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) return;
+        const dungeon = [...(properties[pIdx].dungeon || [])];
+        dungeon.push({ citizenId, citizenName: citizen.name, reason: reason || "Non précisé", since: Date.now() });
+        properties[pIdx] = { ...properties[pIdx], dungeon };
+        saveState({ ...state, properties });
+        notify(`${citizen.name} emprisonné(e) dans le cachot.`, "info");
+      },
+
+      onReleasePrisoner: (propertyId, citizenId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        properties[pIdx] = { ...properties[pIdx], dungeon: (properties[pIdx].dungeon || []).filter((d) => d.citizenId !== citizenId) };
+        saveState({ ...state, properties });
+        notify("Prisonnier libéré.", "success");
+      },
+
+      // Château: audiences
+      onRequestAudience: (propertyId, subject, text) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const audiences = [...(properties[pIdx].audiences || [])];
+        audiences.push({ id: Date.now(), fromId: session.id, from: user.name, subject: subject || "", text: text || "", date: Date.now(), status: "PENDING" });
+        properties[pIdx] = { ...properties[pIdx], audiences };
+        saveState({ ...state, properties });
+        notify("Demande d'audience envoyée.", "success");
+      },
+
+      onRespondAudience: (propertyId, audienceId, status) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const audiences = (properties[pIdx].audiences || []).map((a) => a.id === audienceId ? { ...a, status } : a);
+        properties[pIdx] = { ...properties[pIdx], audiences };
+        saveState({ ...state, properties });
+        notify(`Audience ${status === "ACCEPTED" ? "acceptée" : "refusée"}.`, "info");
+      },
+
+      // Auberge: chambres
+      onSetupRooms: (propertyId, rooms) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        properties[pIdx] = { ...properties[pIdx], rooms };
+        saveState({ ...state, properties });
+        notify("Chambres mises à jour.", "success");
+      },
+
+      onBookRoom: (propertyId, roomId) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const rooms = [...(properties[pIdx].rooms || [])];
+        const rIdx = rooms.findIndex((r) => r.id === roomId);
+        if (rIdx === -1) return;
+        if (rooms[rIdx].tenantId) { notify("Cette chambre est occupée.", "error"); return; }
+        if ((user.balance || 0) < rooms[rIdx].pricePerNight) { notify("Fonds insuffisants.", "error"); return; }
+        const newCitizens = [...state.citizens];
+        const uIdx = newCitizens.findIndex((c) => c.id === session.id);
+        newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - rooms[rIdx].pricePerNight };
+        rooms[rIdx] = { ...rooms[rIdx], tenantId: session.id, tenantName: user.name };
+        properties[pIdx] = { ...properties[pIdx], rooms };
+        // Verser au propriétaire
+        let newState = { ...state, citizens: newCitizens, properties };
+        if (properties[pIdx].ownerType === "COMPANY") {
+          const companies = [...(state.companies || [])];
+          const cIdx = companies.findIndex((c) => c.id === properties[pIdx].ownerId);
+          if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + rooms[rIdx].pricePerNight }; newState.companies = companies; }
+        } else if (properties[pIdx].ownerId) {
+          const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
+          if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + rooms[rIdx].pricePerNight };
+        }
+        newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: rooms[rIdx].pricePerNight, timestamp: Date.now(), reason: `Chambre: ${rooms[rIdx].name}`, type: "RENT" }, ...(state.globalLedger || [])];
+        saveState(newState);
+        notify(`Chambre "${rooms[rIdx].name}" réservée.`, "success");
+      },
+
+      onCheckoutRoom: (propertyId, roomId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const rooms = (properties[pIdx].rooms || []).map((r) => r.id === roomId ? { ...r, tenantId: null, tenantName: null } : r);
+        properties[pIdx] = { ...properties[pIdx], rooms };
+        saveState({ ...state, properties });
+        notify("Chambre libérée.", "info");
+      },
+
+      // Auberge: taverne (messages)
+      onPostTavernMessage: (propertyId, text) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const msgs = [...(properties[pIdx].tavernMessages || [])];
+        msgs.push({ id: Date.now(), authorName: user.name, text, timestamp: Date.now() });
+        if (msgs.length > 50) msgs.shift();
+        properties[pIdx] = { ...properties[pIdx], tavernMessages: msgs };
+        saveState({ ...state, properties });
+      },
+
+      // Auberge: rumeurs
+      onPostRumor: (propertyId, text) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const rumors = [...(properties[pIdx].rumors || [])];
+        rumors.push({ id: Date.now(), text, timestamp: Date.now() });
+        properties[pIdx] = { ...properties[pIdx], rumors };
+        saveState({ ...state, properties });
+        notify("Rumeur affichée anonymement.", "success");
+      },
+
+      onDeleteRumor: (propertyId, rumorId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        properties[pIdx] = { ...properties[pIdx], rumors: (properties[pIdx].rumors || []).filter((r) => r.id !== rumorId) };
+        saveState({ ...state, properties });
+      },
+
+      // Auberge: menu (vente nourriture)
+      onBuyFromMenu: (propertyId, itemName) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const menu = [...(properties[pIdx].menu || [])];
+        const mIdx = menu.findIndex((m) => m.itemName === itemName);
+        if (mIdx === -1 || menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
+        if ((user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
+        menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
+        const newCitizens = [...state.citizens];
+        const uIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const inv = [...(newCitizens[uIdx].inventory || [])];
+        const existingItem = inv.findIndex((i) => i.name === itemName);
+        if (existingItem !== -1) inv[existingItem] = { ...inv[existingItem], quantity: inv[existingItem].quantity + 1 };
+        else inv.push({ name: itemName, quantity: 1 });
+        newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - menu[mIdx].price, inventory: inv };
+        properties[pIdx] = { ...properties[pIdx], menu };
+        let newState = { ...state, citizens: newCitizens, properties };
+        if (properties[pIdx].ownerType === "COMPANY") {
+          const companies = [...(state.companies || [])];
+          const cIdx = companies.findIndex((c) => c.id === properties[pIdx].ownerId);
+          if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + menu[mIdx].price }; newState.companies = companies; }
+        } else if (properties[pIdx].ownerId) {
+          const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
+          if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + menu[mIdx].price };
+        }
+        newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: menu[mIdx].price, timestamp: Date.now(), reason: `Menu: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])];
+        saveState(newState);
+        notify(`${itemName} acheté(e) !`, "success");
+      },
+
+      // Commerce: acheter au shop
+      onBuyFromShop: (propertyId, itemName) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const stock = [...(properties[pIdx].shopStock || [])];
+        const sIdx = stock.findIndex((s) => s.itemName === itemName);
+        if (sIdx === -1 || stock[sIdx].qty <= 0) { notify("Article indisponible.", "error"); return; }
+        if ((user.balance || 0) < stock[sIdx].price) { notify("Fonds insuffisants.", "error"); return; }
+        stock[sIdx] = { ...stock[sIdx], qty: stock[sIdx].qty - 1 };
+        const newCitizens = [...state.citizens];
+        const uIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const inv = [...(newCitizens[uIdx].inventory || [])];
+        const existingItem = inv.findIndex((i) => i.name === itemName);
+        if (existingItem !== -1) inv[existingItem] = { ...inv[existingItem], quantity: inv[existingItem].quantity + 1 };
+        else inv.push({ name: itemName, quantity: 1 });
+        newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - stock[sIdx].price, inventory: inv };
+        properties[pIdx] = { ...properties[pIdx], shopStock: stock };
+        let newState = { ...state, citizens: newCitizens, properties };
+        if (properties[pIdx].ownerType === "COMPANY") {
+          const companies = [...(state.companies || [])];
+          const cIdx = companies.findIndex((c) => c.id === properties[pIdx].ownerId);
+          if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + stock[sIdx].price }; newState.companies = companies; }
+        } else if (properties[pIdx].ownerId) {
+          const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
+          if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + stock[sIdx].price };
+        }
+        newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: stock[sIdx].price, timestamp: Date.now(), reason: `Boutique: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])];
+        saveState(newState);
+        notify(`${itemName} acheté(e) !`, "success");
+      },
+
+      // Staff commun
+      onAddPropertyStaff: (propertyId, citizenId, role, salary) => {
+        if (!session) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const staff = [...(properties[pIdx].staff || [])];
+        if (staff.find((s) => s.id === citizenId)) { notify("Déjà employé.", "error"); return; }
+        staff.push({ id: citizenId, name: citizen.name, role: role || "Employé", salary: parseInt(salary) || 0 });
+        properties[pIdx] = { ...properties[pIdx], staff };
+        saveState({ ...state, properties });
+        notify(`${citizen.name} embauché(e) comme ${role || "employé"}.`, "success");
+      },
+
+      onRemovePropertyStaff: (propertyId, citizenId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        properties[pIdx] = { ...properties[pIdx], staff: (properties[pIdx].staff || []).filter((s) => s.id !== citizenId) };
+        saveState({ ...state, properties });
+        notify("Employé retiré.", "info");
+      },
+
+      // Événements propriété
+      onAddPropertyEvent: (propertyId, { title, desc, date }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const events = [...(properties[pIdx].propertyEvents || [])];
+        events.push({ id: Date.now(), title, desc: desc || "", date: date || "" });
+        properties[pIdx] = { ...properties[pIdx], propertyEvents: events };
+        saveState({ ...state, properties });
+        notify("Événement ajouté.", "success");
+      },
+
+      onRemovePropertyEvent: (propertyId, eventId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        properties[pIdx] = { ...properties[pIdx], propertyEvents: (properties[pIdx].propertyEvents || []).filter((e) => e.id !== eventId) };
+        saveState({ ...state, properties });
       },
 
       // --- LOCATION IMMOBILIÈRE ---

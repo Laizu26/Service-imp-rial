@@ -192,6 +192,8 @@ const BankView = ({
     RENT: "Loyer",
     TRIAL_FINE: "Amende",
     GUILD: "Guilde",
+    PROPERTY_SALE: "Vente propriété",
+    PROPERTY_STAFF: "Salaire propriété",
   };
   const typeColors = {
     TRANSFER: "bg-blue-100 text-blue-700 border-blue-200",
@@ -215,6 +217,8 @@ const BankView = ({
     RENT: "bg-sky-100 text-sky-700 border-sky-200",
     TRIAL_FINE: "bg-red-100 text-red-700 border-red-200",
     GUILD: "bg-purple-100 text-purple-700 border-purple-200",
+    PROPERTY_SALE: "bg-rose-100 text-rose-700 border-rose-200",
+    PROPERTY_STAFF: "bg-teal-100 text-teal-700 border-teal-200",
   };
 
   const filteredLedger = useMemo(() => {

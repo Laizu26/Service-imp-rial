@@ -272,6 +272,8 @@ const CitizenBankView = ({
     RENT: "Loyer",
     TRIAL_FINE: "Amende",
     GUILD: "Guilde",
+    PROPERTY_SALE: "Vente propriété",
+    PROPERTY_STAFF: "Salaire propriété",
   };
 
   const typeColors = {
@@ -296,6 +298,8 @@ const CitizenBankView = ({
     RENT: "bg-sky-50 text-sky-700 border-sky-100",
     TRIAL_FINE: "bg-red-50 text-red-700 border-red-100",
     GUILD: "bg-purple-50 text-purple-700 border-purple-100",
+    PROPERTY_SALE: "bg-rose-50 text-rose-700 border-rose-100",
+    PROPERTY_STAFF: "bg-teal-50 text-teal-700 border-teal-100",
   };
 
   // --- INTERDIT ---

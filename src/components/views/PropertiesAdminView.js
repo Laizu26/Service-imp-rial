@@ -12,12 +12,14 @@ const PROPERTY_TYPES = {
   FERME: "Ferme",
   MANOIR: "Manoir / Château",
   ATELIER: "Atelier",
+  AUBERGE: "Auberge / Taverne",
 };
 
 const PropertiesAdminView = ({
   properties = [],
   countries = [],
   citizens = [],
+  companies = [],
   onCreateProperty,
   onDeleteProperty,
   onEditProperty,
@@ -93,19 +95,33 @@ const PropertiesAdminView = ({
       countryId: prop.countryId || "",
       regionId: prop.regionId || "",
       ownerId: prop.ownerId || "",
+      ownerType: prop.ownerType || "CITIZEN",
     });
   };
 
   const saveEdit = () => {
     const country = countries.find((c) => c.id === editForm.countryId);
     const region = country ? (country.regions || []).find((r) => r.id === editForm.regionId) : null;
-    const newOwner = editForm.ownerId ? citizens.find((c) => c.id === editForm.ownerId) : null;
+    let ownerName = null;
+    let ownerType = null;
+    if (editForm.ownerId) {
+      if (editForm.ownerType === "COMPANY") {
+        const comp = companies.find((c) => c.id === editForm.ownerId);
+        ownerName = comp ? comp.name : null;
+        ownerType = "COMPANY";
+      } else {
+        const cit = citizens.find((c) => c.id === editForm.ownerId);
+        ownerName = cit ? cit.name : null;
+        ownerType = "CITIZEN";
+      }
+    }
     onEditProperty(editingId, {
       ...editForm,
       price: parseInt(editForm.price) || 0,
       income: parseInt(editForm.income) || 0,
       ownerId: editForm.ownerId || null,
-      ownerName: newOwner ? newOwner.name : null,
+      ownerName,
+      ownerType,
       location: country ? (region ? `${region.name}, ${country.name}` : country.name) : "",
     });
     setEditingId(null);
@@ -335,15 +351,28 @@ const PropertiesAdminView = ({
 
                       <div>
                         <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Propriétaire</label>
+                        <div className="flex items-center gap-2 mb-2">
+                          <select className="p-1.5 border rounded text-xs bg-white" value={editForm.ownerType || "CITIZEN"} onChange={(e) => setEditForm({ ...editForm, ownerType: e.target.value, ownerId: "" })}>
+                            <option value="CITIZEN">Citoyen</option>
+                            <option value="COMPANY">Entreprise</option>
+                          </select>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <UserSearchSelect
-                              users={citizens}
-                              onSelect={(id) => setEditForm({ ...editForm, ownerId: id })}
-                              value={editForm.ownerId}
-                              placeholder="Aucun (disponible à l'achat)"
-                            />
-                          </div>
+                          {editForm.ownerType === "COMPANY" ? (
+                            <select className="flex-1 p-2 border rounded text-sm bg-white" value={editForm.ownerId || ""} onChange={(e) => setEditForm({ ...editForm, ownerId: e.target.value })}>
+                              <option value="">-- Aucune entreprise --</option>
+                              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                          ) : (
+                            <div className="flex-1">
+                              <UserSearchSelect
+                                users={citizens}
+                                onSelect={(id) => setEditForm({ ...editForm, ownerId: id })}
+                                value={editForm.ownerId}
+                                placeholder="Aucun (disponible à l'achat)"
+                              />
+                            </div>
+                          )}
                           {editForm.ownerId && (
                             <button
                               onClick={() => setEditForm({ ...editForm, ownerId: "" })}
@@ -418,13 +447,15 @@ const PropertiesAdminView = ({
                       {/* Propriétaire */}
                       <div className="flex items-center gap-2 mt-2 text-xs">
                         <Key size={11} className="text-stone-400" />
-                        {owner ? (
-                          <span className="font-bold text-stone-700">{owner.name}</span>
-                        ) : prop.ownerId ? (
-                          <span className="text-stone-400">{prop.ownerName}</span>
-                        ) : (
-                          <span className="italic text-stone-400">Aucun propriétaire — Disponible</span>
-                        )}
+                        {(() => {
+                          if (prop.ownerType === "COMPANY") {
+                            const comp = companies.find((c) => c.id === prop.ownerId);
+                            return <><span className="font-bold text-indigo-700">{comp ? comp.name : prop.ownerName}</span><span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ml-1">Entreprise</span></>;
+                          }
+                          if (owner) return <span className="font-bold text-stone-700">{owner.name}</span>;
+                          if (prop.ownerId) return <span className="text-stone-400">{prop.ownerName}</span>;
+                          return <span className="italic text-stone-400">Aucun propriétaire — Disponible</span>;
+                        })()}
                         {prop.forSale && (
                           <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
                             En vente {prop.salePrice} Écus
