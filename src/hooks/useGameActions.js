@@ -3999,19 +3999,19 @@ export const useGameActions = (session, state, saveState, notify) => {
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
         if (fIdx === -1) return;
-        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut nommer un régent.", "error"); return; }
+        const fam = families[fIdx];
+        if (fam.headId !== session.id && fam.regentId !== session.id) { notify("Seul le chef ou le régent peut nommer un régent.", "error"); return; }
         const citizen = (state.citizens || []).find((c) => c.id === citizenId);
-        families[fIdx] = { ...families[fIdx], regentId: citizenId, regentName: citizen ? citizen.name : null };
+        families[fIdx] = { ...fam, regentId: citizenId, regentName: citizen ? citizen.name : null };
         saveState({ ...state, families });
         notify(`${citizen ? citizen.name : "Citoyen"} est désormais régent de la famille.`, "success");
       },
 
       onRemoveFamilyRegent: (familyId) => {
-        if (!session) return;
+        // Admin uniquement — pas de check session/headId
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
         if (fIdx === -1) return;
-        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut révoquer le régent.", "error"); return; }
         families[fIdx] = { ...families[fIdx], regentId: null, regentName: null };
         saveState({ ...state, families });
         notify("Le régent a été révoqué.", "info");
@@ -4078,9 +4078,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
         if (fIdx === -1) return;
-        if (families[fIdx].headId !== session.id) { notify("Seul le chef actuel peut transférer.", "error"); return; }
+        const fam = families[fIdx];
+        if (fam.headId !== session.id && fam.regentId !== session.id) { notify("Seul le chef ou le régent peut transférer le titre.", "error"); return; }
         const newHead = (state.citizens || []).find((c) => c.id === newHeadId);
-        families[fIdx] = { ...families[fIdx], headId: newHeadId, headName: newHead ? newHead.name : null, regentId: null, regentName: null };
+        families[fIdx] = { ...fam, headId: newHeadId, headName: newHead ? newHead.name : null, regentId: null, regentName: null };
         saveState({ ...state, families });
         notify(`Le titre de chef de famille a été transféré à ${newHead ? newHead.name : "un autre membre"}.`, "success");
       },

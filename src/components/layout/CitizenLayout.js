@@ -92,7 +92,7 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
         </div>
       )}
       {!isHead && (
-        <div className="text-[9px] text-stone-400 italic border-t border-stone-100 pt-2">Seul le chef de famille peut retirer des fonds.</div>
+        <div className="text-[9px] text-stone-400 italic border-t border-stone-100 pt-2">Seul le chef (ou le régent s'il est en exercice) peut retirer des fonds.</div>
       )}
     </div>
   );
@@ -126,20 +126,16 @@ const FamilyHeadActions = ({ family, members, user, isHead, isRegent, onEditFami
         className={`w-full ${isHead ? "bg-amber-700 hover:bg-amber-600" : "bg-purple-700 hover:bg-purple-600"} text-white py-2 rounded text-[10px] font-bold uppercase transition-colors`}
       >Sauvegarder</button>
 
-      {/* Gestion du régent — chef uniquement */}
-      {isHead && family.type === "noble" && (
-        <div className="border-t border-amber-200 pt-3 space-y-2">
-          <div className="text-[9px] text-amber-600 font-bold uppercase">Régent</div>
+      {/* Gestion du régent — chef et régent */}
+      {(isHead || isRegent) && family.type === "noble" && (
+        <div className={`border-t pt-3 space-y-2 ${isHead ? "border-amber-200" : "border-purple-200"}`}>
+          <div className={`text-[9px] font-bold uppercase ${labelColor}`}>Régent</div>
           {family.regentId ? (
             <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
               <div className="text-sm">
                 <span className="font-bold text-purple-700">{family.regentName || "Régent"}</span>
-                <span className="text-[9px] text-purple-400 uppercase font-bold ml-2">Régent actuel</span>
+                <span className="text-[9px] text-purple-400 uppercase font-bold ml-2">Régent en exercice</span>
               </div>
-              <button
-                onClick={() => onRemoveFamilyRegent(family.id)}
-                className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
-              >Révoquer</button>
             </div>
           ) : !showRegent ? (
             <button onClick={() => setShowRegent(true)} className="text-purple-600 text-[10px] font-bold uppercase underline hover:text-purple-500">
@@ -163,38 +159,36 @@ const FamilyHeadActions = ({ family, members, user, isHead, isRegent, onEditFami
               </div>
             </div>
           )}
-          <div className="text-[9px] text-stone-400 italic">Le régent possède les mêmes pouvoirs que le chef : gestion de la trésorerie, édition des informations familiales.</div>
+          <div className="text-[9px] text-stone-400 italic">Le régent exerce tous les pouvoirs à la place du chef. Seul un administrateur peut révoquer un régent.</div>
         </div>
       )}
 
-      {/* Transfert de titre — chef uniquement */}
-      {isHead && (
-        <div className="border-t border-amber-200 pt-3">
-          {!showTransfer ? (
-            <button onClick={() => setShowTransfer(true)} className="text-amber-600 text-[10px] font-bold uppercase underline hover:text-amber-500">
-              Transférer le titre de chef
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-[9px] text-amber-600 font-bold uppercase">Transférer à :</div>
-              <select className="w-full p-2 border border-amber-200 rounded text-sm bg-white" value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
-                <option value="">-- Choisir un membre --</option>
-                {otherMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { if (transferTo) { onTransferFamilyHead(family.id, transferTo); setShowTransfer(false); } }}
-                  disabled={!transferTo}
-                  className="flex-1 bg-red-600 text-white py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-red-500"
-                >Confirmer le transfert</button>
-                <button onClick={() => setShowTransfer(false)} className="px-3 py-2 bg-stone-200 text-stone-600 rounded text-[10px] font-bold uppercase">Annuler</button>
-              </div>
+      {/* Transfert de titre — chef et régent */}
+      <div className={`border-t pt-3 ${isHead ? "border-amber-200" : "border-purple-200"}`}>
+        {!showTransfer ? (
+          <button onClick={() => setShowTransfer(true)} className={`text-[10px] font-bold uppercase underline ${isHead ? "text-amber-600 hover:text-amber-500" : "text-purple-600 hover:text-purple-500"}`}>
+            Transférer le titre de chef
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className={`text-[9px] font-bold uppercase ${labelColor}`}>Transférer à :</div>
+            <select className={`w-full p-2 border rounded text-sm bg-white ${borderColor}`} value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
+              <option value="">-- Choisir un membre --</option>
+              {otherMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { if (transferTo) { onTransferFamilyHead(family.id, transferTo); setShowTransfer(false); } }}
+                disabled={!transferTo}
+                className="flex-1 bg-red-600 text-white py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-red-500"
+              >Confirmer le transfert</button>
+              <button onClick={() => setShowTransfer(false)} className="px-3 py-2 bg-stone-200 text-stone-600 rounded text-[10px] font-bold uppercase">Annuler</button>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -1617,7 +1611,9 @@ const CitizenLayout = (props) => {
 
               const isHead = myFamily.headId === user.id;
               const isRegent = myFamily.regentId === user.id;
-              const canManage = isHead || isRegent;
+              // Si un régent est en place, seul le régent peut gérer (il remplace le chef)
+              const hasRegent = !!myFamily.regentId;
+              const canManage = hasRegent ? isRegent : isHead;
               const members = getFamilyMembers(myFamily, safeUsers);
               const branches = normalizeBranches(myFamily);
               const myBranch = getBranchForCitizen(user, myFamily);
