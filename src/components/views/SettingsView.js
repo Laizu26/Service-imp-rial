@@ -128,7 +128,7 @@ const SettingsView = ({ settings, isDark, updateSetting, resetSettings, user }) 
   ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6" style={{ color: isDark ? "#e7e5e4" : "#1c1917" }}>
       {/* EN-TÊTE */}
       <div>
         <h2 className="text-lg font-black uppercase tracking-widest" style={{ color: isDark ? "#e7e5e4" : "#1c1917" }}>
