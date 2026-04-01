@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   MapPin, Shield, Users, MessageSquare, Lock, Home, Utensils, Eye,
   Package, Hammer, ShoppingBag, Calendar, Plus, Trash2, X, ArrowLeft,
-  Coins, Crown, UserPlus,
+  Coins, Crown, UserPlus, Pencil, Save,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -50,6 +50,9 @@ const PropertyDetailView = ({
   // Rooms
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomPrice, setNewRoomPrice] = useState("");
+  const [editingRoomId, setEditingRoomId] = useState(null);
+  const [editRoomName, setEditRoomName] = useState("");
+  const [editRoomPrice, setEditRoomPrice] = useState("");
   // Production
   const [prodItem, setProdItem] = useState(prop?.production?.itemName || "");
   const [prodQty, setProdQty] = useState(prop?.production?.qtyPerDay || "");
@@ -165,30 +168,57 @@ const PropertyDetailView = ({
           <Card title="Chambres" icon={Home}>
             <div className="space-y-2">
               {(prop.rooms || []).map((r) => (
-                <div key={r.id} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm border border-stone-100">
-                  <div>
-                    <span className="font-bold text-stone-700">{r.name}</span>
-                    <span className="ml-2 font-mono text-yellow-700 text-xs">{r.pricePerNight} Écus/nuit</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {r.tenantId ? (
-                      <>
-                        <span className="text-xs text-blue-600 font-bold">{r.tenantName}</span>
-                        {(isOwner || r.tenantId === user?.id) && <button onClick={() => onCheckoutRoom(prop.id, r.id)} className="text-red-400 text-[10px] font-bold uppercase">Libérer</button>}
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xs text-green-600 italic">Libre</span>
-                        {!isOwner && <button onClick={() => onBookRoom(prop.id, r.id)} disabled={(user?.balance || 0) < r.pricePerNight} className="bg-green-600 text-white px-2 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-50">Réserver</button>}
-                      </>
-                    )}
-                  </div>
+                <div key={r.id} className="bg-stone-50 rounded-lg border border-stone-100 px-3 py-2">
+                  {editingRoomId === r.id ? (
+                    /* Mode édition */
+                    <div className="flex items-center gap-2">
+                      <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editRoomName} onChange={(e) => setEditRoomName(e.target.value)} />
+                      <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" value={editRoomPrice} onChange={(e) => setEditRoomPrice(e.target.value)} />
+                      <button onClick={() => {
+                        const rooms = (prop.rooms || []).map((rm) => rm.id === r.id ? { ...rm, name: editRoomName.trim() || rm.name, pricePerNight: parseInt(editRoomPrice) || 0 } : rm);
+                        onSetupRooms(prop.id, rooms);
+                        setEditingRoomId(null);
+                      }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
+                      <button onClick={() => setEditingRoomId(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
+                    </div>
+                  ) : (
+                    /* Mode affichage */
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-stone-700 text-sm">{r.name}</span>
+                        <span className="ml-2 font-mono text-yellow-700 text-xs">{r.pricePerNight} Écus/nuit</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {r.tenantId ? (
+                          <>
+                            <span className="text-xs text-blue-600 font-bold">{r.tenantName}</span>
+                            {(isOwner || r.tenantId === user?.id) && <button onClick={() => onCheckoutRoom(prop.id, r.id)} className="text-red-400 text-[10px] font-bold uppercase">Libérer</button>}
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs text-green-600 italic">Libre</span>
+                            {!isOwner && <button onClick={() => onBookRoom(prop.id, r.id)} disabled={(user?.balance || 0) < r.pricePerNight} className="bg-green-600 text-white px-2 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-50">Réserver</button>}
+                          </>
+                        )}
+                        {isOwner && (
+                          <>
+                            <button onClick={() => { setEditingRoomId(r.id); setEditRoomName(r.name); setEditRoomPrice(String(r.pricePerNight || 0)); }} className="text-stone-400 hover:text-stone-600 p-1" title="Modifier"><Pencil size={12} /></button>
+                            <button onClick={() => {
+                              if (r.tenantId) return;
+                              const rooms = (prop.rooms || []).filter((rm) => rm.id !== r.id);
+                              onSetupRooms(prop.id, rooms);
+                            }} className={`p-1 ${r.tenantId ? "text-stone-200 cursor-not-allowed" : "text-red-400 hover:text-red-600"}`} title={r.tenantId ? "Chambre occupée" : "Supprimer"}><Trash2 size={12} /></button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {isOwner && (
                 <div className="flex gap-2 mt-2">
                   <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Nom de la chambre" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} />
-                  <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Prix" value={newRoomPrice} onChange={(e) => setNewRoomPrice(e.target.value)} />
+                  <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Prix/nuit" value={newRoomPrice} onChange={(e) => setNewRoomPrice(e.target.value)} />
                   <button onClick={() => { if (newRoomName.trim()) { const rooms = [...(prop.rooms || []), { id: Date.now(), name: newRoomName.trim(), pricePerNight: parseInt(newRoomPrice) || 0, tenantId: null, tenantName: null }]; onSetupRooms(prop.id, rooms); setNewRoomName(""); setNewRoomPrice(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
                 </div>
               )}
