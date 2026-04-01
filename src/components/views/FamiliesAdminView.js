@@ -348,6 +348,23 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           <div className="text-[9px] text-stone-500">Le chef peut gérer la trésorerie et les informations familiales depuis son espace citoyen.</div>
         </div>
 
+        {/* Régent (nobles uniquement) */}
+        {form.type === "noble" && (
+          <div className="p-3 bg-purple-900/10 border border-purple-900/30 rounded-lg space-y-2">
+            <Label>Régent (optionnel)</Label>
+            <select value={form.regentId || ""} onChange={(e) => setForm({ ...form, regentId: e.target.value || "" })}
+              className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-purple-500/50">
+              <option value="">— Aucun régent —</option>
+              {safeCitizens.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
+                </option>
+              ))}
+            </select>
+            <div className="text-[9px] text-stone-500">Le régent possède les mêmes pouvoirs que le chef : trésorerie, édition des informations. Seul le chef peut le nommer ou le révoquer.</div>
+          </div>
+        )}
+
         {/* Trésorerie initiale */}
         <div>
           <Label>Trésorerie familiale (Écus)</Label>
@@ -435,6 +452,15 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                 <span className="text-stone-500">Trésorerie</span>
                 <span className="text-amber-400 font-bold font-mono">{(detailFam.treasury || 0).toLocaleString()} Écus</span>
               </div>
+              {detailFam.regentId && (() => {
+                const rg = safeCitizens.find((c) => c.id === detailFam.regentId);
+                return (
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Régent</span>
+                    <span className="text-purple-400 font-bold">{rg ? (rg.firstName ? `${rg.firstName} ${rg.lastName || ""}`.trim() : rg.name) : "Inconnu"}</span>
+                  </div>
+                );
+              })()}
               <div className="flex justify-between">
                 <span className="text-stone-500">Membres totaux</span>
                 <span className="text-stone-300 font-bold">{allMembers.length}</span>

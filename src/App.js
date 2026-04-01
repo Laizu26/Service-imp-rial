@@ -599,6 +599,8 @@ export default function App() {
             onFamilyWithdraw={actions.onFamilyWithdraw}
             onEditFamilyInfo={actions.onEditFamilyInfo}
             onTransferFamilyHead={actions.onTransferFamilyHead}
+            onSetFamilyRegent={actions.onSetFamilyRegent}
+            onRemoveFamilyRegent={actions.onRemoveFamilyRegent}
             contracts={state.contracts || []}
             onCreateContract={actions.onCreateContract}
             onSignContract={actions.onSignContract}

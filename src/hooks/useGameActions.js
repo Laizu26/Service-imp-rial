@@ -3994,6 +3994,29 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`${citizen ? citizen.name : "Citoyen"} est désormais chef de famille.`, "success");
       },
 
+      onSetFamilyRegent: (familyId, citizenId) => {
+        if (!session) return;
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut nommer un régent.", "error"); return; }
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        families[fIdx] = { ...families[fIdx], regentId: citizenId, regentName: citizen ? citizen.name : null };
+        saveState({ ...state, families });
+        notify(`${citizen ? citizen.name : "Citoyen"} est désormais régent de la famille.`, "success");
+      },
+
+      onRemoveFamilyRegent: (familyId) => {
+        if (!session) return;
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut révoquer le régent.", "error"); return; }
+        families[fIdx] = { ...families[fIdx], regentId: null, regentName: null };
+        saveState({ ...state, families });
+        notify("Le régent a été révoqué.", "info");
+      },
+
       onFamilyDeposit: (familyId, amount) => {
         if (!session) return;
         const amt = parseInt(amount);
@@ -4022,15 +4045,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
         if (fIdx === -1) return;
-        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut retirer des fonds.", "error"); return; }
-        if ((families[fIdx].treasury || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        const fam = families[fIdx];
+        if (fam.headId !== session.id && fam.regentId !== session.id) { notify("Seul le chef ou le régent peut retirer des fonds.", "error"); return; }
+        if ((fam.treasury || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
         const newCitizens = [...(state.citizens || [])];
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
-        families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) - amt };
+        families[fIdx] = { ...fam, treasury: (fam.treasury || 0) - amt };
         const ledgerEntry = {
-          id: Date.now(), fromName: `Famille: ${families[fIdx].dynastyName || families[fIdx].lastName}`, toName: newCitizens[userIdx].name,
+          id: Date.now(), fromName: `Famille: ${fam.dynastyName || fam.lastName}`, toName: newCitizens[userIdx].name,
           amount: amt, timestamp: Date.now(), reason: "Retrait trésorerie familiale", type: "FAMILY",
         };
         saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
@@ -4042,8 +4066,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
         if (fIdx === -1) return;
-        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut modifier ces informations.", "error"); return; }
-        families[fIdx] = { ...families[fIdx], ...updates };
+        const fam = families[fIdx];
+        if (fam.headId !== session.id && fam.regentId !== session.id) { notify("Seul le chef ou le régent peut modifier ces informations.", "error"); return; }
+        families[fIdx] = { ...fam, ...updates };
         saveState({ ...state, families });
         notify("Informations familiales mises à jour.", "success");
       },
@@ -4055,7 +4080,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (fIdx === -1) return;
         if (families[fIdx].headId !== session.id) { notify("Seul le chef actuel peut transférer.", "error"); return; }
         const newHead = (state.citizens || []).find((c) => c.id === newHeadId);
-        families[fIdx] = { ...families[fIdx], headId: newHeadId, headName: newHead ? newHead.name : null };
+        families[fIdx] = { ...families[fIdx], headId: newHeadId, headName: newHead ? newHead.name : null, regentId: null, regentName: null };
         saveState({ ...state, families });
         notify(`Le titre de chef de famille a été transféré à ${newHead ? newHead.name : "un autre membre"}.`, "success");
       },
