@@ -43,6 +43,8 @@ const EMPTY_FORM = {
   branches: [],
   coat: "", motto: "", description: "", foundedYear: "",
   extraMemberIds: [],
+  headId: "",
+  treasury: 0,
 };
 
 /* ── Normaliser les branches (rétrocompat anciennes données) ── */
@@ -331,6 +333,27 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           </>
         )}
 
+        {/* Chef de famille */}
+        <div className="p-3 bg-stone-800/60 border border-stone-600 rounded-lg space-y-2">
+          <Label>Chef de famille</Label>
+          <select value={form.headId || ""} onChange={(e) => setForm({ ...form, headId: e.target.value || "" })}
+            className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50">
+            <option value="">— Aucun chef désigné —</option>
+            {safeCitizens.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
+              </option>
+            ))}
+          </select>
+          <div className="text-[9px] text-stone-500">Le chef peut gérer la trésorerie et les informations familiales depuis son espace citoyen.</div>
+        </div>
+
+        {/* Trésorerie initiale */}
+        <div>
+          <Label>Trésorerie familiale (Écus)</Label>
+          <Input type="number" value={form.treasury || 0} onChange={(e) => setForm({ ...form, treasury: parseInt(e.target.value) || 0 })} placeholder="0" />
+        </div>
+
         <div>
           <Label>Devise / Motto</Label>
           <Input value={form.motto} onChange={(e) => setForm({ ...form, motto: e.target.value })} placeholder="ex: Toujours fidèle…" />
@@ -399,6 +422,19 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                   <span className="text-stone-300 font-bold">{detailFam.foundedYear}</span>
                 </div>
               )}
+              {detailFam.headId && (() => {
+                const head = safeCitizens.find((c) => c.id === detailFam.headId);
+                return (
+                  <div className="flex justify-between">
+                    <span className="text-stone-500">Chef</span>
+                    <span className="text-amber-400 font-bold">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Inconnu"}</span>
+                  </div>
+                );
+              })()}
+              <div className="flex justify-between">
+                <span className="text-stone-500">Trésorerie</span>
+                <span className="text-amber-400 font-bold font-mono">{(detailFam.treasury || 0).toLocaleString()} Écus</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-stone-500">Membres totaux</span>
                 <span className="text-stone-300 font-bold">{allMembers.length}</span>
@@ -607,7 +643,18 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                       {fam.foundedYear && (
                         <span className="text-[9px] text-stone-600">· {fam.foundedYear}</span>
                       )}
+                      {(fam.treasury || 0) > 0 && (
+                        <span className="text-[9px] text-amber-500 font-mono font-bold">{(fam.treasury || 0).toLocaleString()} Écus</span>
+                      )}
                     </div>
+                    {fam.headId && (() => {
+                      const head = safeCitizens.find((c) => c.id === fam.headId);
+                      return head ? (
+                        <div className="text-[9px] text-amber-400 mt-0.5 flex items-center gap-1">
+                          👑 Chef : {head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 <div className="flex gap-1.5 pt-1 border-t border-stone-700/60">

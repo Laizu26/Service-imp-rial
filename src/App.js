@@ -594,6 +594,11 @@ export default function App() {
             onGuildDeposit={actions.onGuildDeposit}
             onGuildWithdraw={actions.onGuildWithdraw}
             onDissolveGuild={actions.onDissolveGuild}
+            onSetFamilyHead={actions.onSetFamilyHead}
+            onFamilyDeposit={actions.onFamilyDeposit}
+            onFamilyWithdraw={actions.onFamilyWithdraw}
+            onEditFamilyInfo={actions.onEditFamilyInfo}
+            onTransferFamilyHead={actions.onTransferFamilyHead}
             contracts={state.contracts || []}
             onCreateContract={actions.onCreateContract}
             onSignContract={actions.onSignContract}

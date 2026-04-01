@@ -29,6 +29,8 @@ import {
   Heart,
   Zap,
   Bell,
+  Crown,
+  HeartHandshake,
 } from "lucide-react";
 
 
@@ -37,6 +39,7 @@ import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
+import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
 import PostView from "../views/PostView";
 import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";
@@ -54,6 +57,98 @@ import GuildsView from "../views/GuildsView";
 import ContractsView from "../views/ContractsView";
 import PropertyDetailView from "../views/PropertyDetailView";
 import SettingsView from "../views/SettingsView";
+
+// Mini-composant trésorerie famille
+const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw }) => {
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  return (
+    <div className="space-y-3">
+      {/* Dépôt - tout le monde */}
+      <div>
+        <div className="text-[9px] text-stone-500 font-bold uppercase mb-1">Déposer des fonds</div>
+        <div className="flex gap-2">
+          <input type="number" className="flex-1 p-2 border rounded text-sm font-mono" placeholder="Montant" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+          <button
+            onClick={() => { if (depositAmount) { onDeposit(familyId, depositAmount); setDepositAmount(""); } }}
+            disabled={!depositAmount || parseInt(depositAmount) <= 0 || parseInt(depositAmount) > userBalance}
+            className="bg-stone-800 text-yellow-500 px-3 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-stone-700 transition-colors"
+          >Déposer</button>
+        </div>
+        <div className="text-[9px] text-stone-400 mt-1">Votre solde : {userBalance.toLocaleString()} Écus</div>
+      </div>
+      {/* Retrait - chef uniquement */}
+      {isHead && (
+        <div className="border-t border-stone-100 pt-3">
+          <div className="text-[9px] text-amber-600 font-bold uppercase mb-1">Retirer des fonds (chef)</div>
+          <div className="flex gap-2">
+            <input type="number" className="flex-1 p-2 border rounded text-sm font-mono" placeholder="Montant" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
+            <button
+              onClick={() => { if (withdrawAmount) { onWithdraw(familyId, withdrawAmount); setWithdrawAmount(""); } }}
+              disabled={!withdrawAmount || parseInt(withdrawAmount) <= 0 || parseInt(withdrawAmount) > treasury}
+              className="bg-amber-700 text-white px-3 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-amber-600 transition-colors"
+            >Retirer</button>
+          </div>
+        </div>
+      )}
+      {!isHead && (
+        <div className="text-[9px] text-stone-400 italic border-t border-stone-100 pt-2">Seul le chef de famille peut retirer des fonds.</div>
+      )}
+    </div>
+  );
+};
+
+// Mini-composant gestion chef de famille
+const FamilyHeadActions = ({ family, members, user, onEditFamilyInfo, onTransferFamilyHead }) => {
+  const [editMotto, setEditMotto] = useState(family.motto || "");
+  const [editDesc, setEditDesc] = useState(family.description || "");
+  const [transferTo, setTransferTo] = useState("");
+  const [showTransfer, setShowTransfer] = useState(false);
+  const otherMembers = members.filter((m) => m.id !== user.id);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-[9px] text-amber-600 font-bold uppercase mb-1">Devise familiale</div>
+        <input className="w-full p-2 border border-amber-200 rounded text-sm bg-white" value={editMotto} onChange={(e) => setEditMotto(e.target.value)} placeholder="Devise..." />
+      </div>
+      <div>
+        <div className="text-[9px] text-amber-600 font-bold uppercase mb-1">Description</div>
+        <textarea className="w-full p-2 border border-amber-200 rounded text-sm bg-white" rows={2} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Histoire, réputation..." />
+      </div>
+      <button
+        onClick={() => onEditFamilyInfo(family.id, { motto: editMotto, description: editDesc })}
+        className="w-full bg-amber-700 text-white py-2 rounded text-[10px] font-bold uppercase hover:bg-amber-600 transition-colors"
+      >Sauvegarder</button>
+
+      <div className="border-t border-amber-200 pt-3">
+        {!showTransfer ? (
+          <button onClick={() => setShowTransfer(true)} className="text-amber-600 text-[10px] font-bold uppercase underline hover:text-amber-500">
+            Transférer le titre de chef
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-[9px] text-amber-600 font-bold uppercase">Transférer à :</div>
+            <select className="w-full p-2 border border-amber-200 rounded text-sm bg-white" value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
+              <option value="">-- Choisir un membre --</option>
+              {otherMembers.map((m) => (
+                <option key={m.id} value={m.id}>{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { if (transferTo) { onTransferFamilyHead(family.id, transferTo); setShowTransfer(false); } }}
+                disabled={!transferTo}
+                className="flex-1 bg-red-600 text-white py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-red-500"
+              >Confirmer le transfert</button>
+              <button onClick={() => setShowTransfer(false)} className="px-3 py-2 bg-stone-200 text-stone-600 rounded text-[10px] font-bold uppercase">Annuler</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // Mini-composant pour la mise en vente avec champ de prix intégré
 const SellPropertyButton = ({ propId, onSellProperty }) => {
@@ -302,6 +397,11 @@ const CitizenLayout = (props) => {
     onGuildDeposit,
     onGuildWithdraw,
     onDissolveGuild,
+    onSetFamilyHead,
+    onFamilyDeposit,
+    onFamilyWithdraw,
+    onEditFamilyInfo,
+    onTransferFamilyHead,
     contracts = [],
     onCreateContract,
     onSignContract,
@@ -463,6 +563,7 @@ const CitizenLayout = (props) => {
     isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
     !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
+    !isSlave && { id: "famille", label: "Ma Dynastie", icon: HeartHandshake },
     { id: "properties", label: "Propriétés", icon: MapPin },
     { id: "guilds", label: "Guildes", icon: Users },
     { id: "contracts", label: "Contrats", icon: Scroll },
@@ -1447,6 +1548,165 @@ const CitizenLayout = (props) => {
                 notify={notify}
               />
             )}
+
+            {/* === MA DYNASTIE / FAMILLE === */}
+            {active === "famille" && !isSlave && (() => {
+              const myFamily = getFamilyForCitizen(user, families);
+              if (!myFamily) {
+                return (
+                  <div className="space-y-4 animate-fadeIn">
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-8 text-center">
+                      <HeartHandshake size={40} className="mx-auto text-stone-300 mb-3" />
+                      <h3 className="text-lg font-black text-stone-600">Aucune famille</h3>
+                      <p className="text-sm text-stone-400 mt-1">Vous n'appartenez à aucune famille ou dynastie enregistrée.</p>
+                    </div>
+                  </div>
+                );
+              }
+
+              const isHead = myFamily.headId === user.id;
+              const members = getFamilyMembers(myFamily, safeUsers);
+              const branches = normalizeBranches(myFamily);
+              const myBranch = getBranchForCitizen(user, myFamily);
+              const head = myFamily.headId ? safeUsers.find((c) => c.id === myFamily.headId) : null;
+              const displayName = getFamilyDisplayName(myFamily);
+              const treasury = myFamily.treasury || 0;
+
+              return (
+                <div className="space-y-5 animate-fadeIn">
+                  {/* En-tête famille */}
+                  <div className="bg-gradient-to-r from-stone-100 to-amber-50/30 border border-stone-200 rounded-xl p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="text-5xl">{myFamily.coat || (myFamily.type === "noble" ? "⚜️" : "🏠")}</div>
+                      <div className="flex-1">
+                        <h2 className="text-2xl font-black font-serif text-stone-800">{displayName}</h2>
+                        {myFamily.motto && <p className="text-sm text-stone-500 italic mt-1">« {myFamily.motto} »</p>}
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
+                            myFamily.type === "noble" ? "bg-yellow-100 text-yellow-700 border-yellow-200" : "bg-stone-100 text-stone-600 border-stone-200"
+                          }`}>{myFamily.type === "noble" ? "Dynastie noble" : "Famille commune"}</span>
+                          {myBranch && (
+                            <span className="text-[10px] text-stone-500">{myBranch.isMain ? "👑 Branche principale" : `⚜️ Maison ${myBranch.name}`}</span>
+                          )}
+                          {isHead && (
+                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1"><Crown size={10} /> Chef de famille</span>
+                          )}
+                          {myFamily.foundedYear && <span className="text-[10px] text-stone-400">Fondée en {myFamily.foundedYear}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    {myFamily.description && <p className="text-sm text-stone-500 mt-3 leading-relaxed">{myFamily.description}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Stats */}
+                    <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Informations</div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-stone-500">Membres</span>
+                          <span className="font-bold text-stone-700">{members.length}</span>
+                        </div>
+                        {myFamily.type === "noble" && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-stone-500">Branches</span>
+                            <span className="font-bold text-stone-700">{branches.length}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-stone-500">Chef</span>
+                          <span className="font-bold text-amber-700">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Aucun"}</span>
+                        </div>
+                        <div className="flex justify-between text-sm border-t border-stone-100 pt-2">
+                          <span className="text-stone-500">Trésorerie</span>
+                          <span className="font-black font-mono text-yellow-700 text-lg">{treasury.toLocaleString()} Écus</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Trésorerie - actions */}
+                    <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1"><Coins size={11} /> Trésorerie familiale</div>
+                      <FamilyTreasuryActions
+                        familyId={myFamily.id}
+                        isHead={isHead}
+                        treasury={treasury}
+                        userBalance={user.balance || 0}
+                        onDeposit={onFamilyDeposit}
+                        onWithdraw={onFamilyWithdraw}
+                      />
+                    </div>
+
+                    {/* Actions chef */}
+                    {isHead && (
+                      <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 space-y-3">
+                        <div className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-1"><Crown size={11} /> Gestion du chef</div>
+                        <FamilyHeadActions
+                          family={myFamily}
+                          members={members}
+                          user={user}
+                          onEditFamilyInfo={onEditFamilyInfo}
+                          onTransferFamilyHead={onTransferFamilyHead}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Membres */}
+                  <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
+                    <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1">
+                      <Users size={11} /> Membres de la famille ({members.length})
+                    </div>
+                    {myFamily.type === "noble" ? (
+                      <div className="space-y-3">
+                        {branches.map((branch, bIdx) => {
+                          const branchMembers = safeUsers.filter(
+                            (c) => c.lastName && branch.lastName && c.lastName.toLowerCase() === branch.lastName.toLowerCase()
+                          );
+                          return (
+                            <div key={bIdx} className="bg-stone-50 rounded-lg border border-stone-100 p-3">
+                              <div className="text-[9px] font-black uppercase text-stone-500 mb-2">
+                                {branch.isMain ? `👑 Branche principale — ${branch.name}` : `⚜️ Maison ${branch.name}`}
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                {branchMembers.map((m) => (
+                                  <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded text-sm">
+                                    <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
+                                      {(m.firstName || m.name || "?")[0].toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="font-bold text-stone-700 truncate text-xs">{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</div>
+                                      <div className="text-[10px] text-stone-400">{m.occupation || "Citoyen"}</div>
+                                    </div>
+                                    {m.id === myFamily.headId && <Crown size={12} className="text-amber-500 shrink-0" />}
+                                  </div>
+                                ))}
+                                {branchMembers.length === 0 && <div className="text-xs text-stone-400 italic col-span-2 py-2">Aucun membre</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
+                        {members.map((m) => (
+                          <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded text-sm">
+                            <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
+                              {(m.firstName || m.name || "?")[0].toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-stone-700 truncate text-xs">{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</div>
+                              <div className="text-[10px] text-stone-400">{m.occupation || "Citoyen"}</div>
+                            </div>
+                            {m.id === myFamily.headId && <Crown size={12} className="text-amber-500 shrink-0" />}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* === ANNUAIRE DES CITOYENS === */}
             {active === "annuaire" && (

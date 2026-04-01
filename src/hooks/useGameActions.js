@@ -3983,6 +3983,83 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Guilde "${name}" dissoute.${remaining > 0 ? ` ${remaining} Écus restitués.` : ""}`, "info");
       },
 
+      // ========== GESTION FAMILLE / DYNASTIE (CITOYEN) ==========
+      onSetFamilyHead: (familyId, citizenId) => {
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        families[fIdx] = { ...families[fIdx], headId: citizenId, headName: citizen ? citizen.name : null };
+        saveState({ ...state, families });
+        notify(`${citizen ? citizen.name : "Citoyen"} est désormais chef de famille.`, "success");
+      },
+
+      onFamilyDeposit: (familyId, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        const newCitizens = [...(state.citizens || [])];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        if ((newCitizens[userIdx].balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) - amt };
+        families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) + amt };
+        const ledgerEntry = {
+          id: Date.now(), fromName: newCitizens[userIdx].name, toName: `Famille: ${families[fIdx].dynastyName || families[fIdx].lastName}`,
+          amount: amt, timestamp: Date.now(), reason: "Dépôt trésorerie familiale", type: "FAMILY",
+        };
+        saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${amt} Écus déposés dans la trésorerie familiale.`, "success");
+      },
+
+      onFamilyWithdraw: (familyId, amount) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut retirer des fonds.", "error"); return; }
+        if ((families[fIdx].treasury || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        const newCitizens = [...(state.citizens || [])];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
+        families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) - amt };
+        const ledgerEntry = {
+          id: Date.now(), fromName: `Famille: ${families[fIdx].dynastyName || families[fIdx].lastName}`, toName: newCitizens[userIdx].name,
+          amount: amt, timestamp: Date.now(), reason: "Retrait trésorerie familiale", type: "FAMILY",
+        };
+        saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${amt} Écus retirés de la trésorerie familiale.`, "success");
+      },
+
+      onEditFamilyInfo: (familyId, updates) => {
+        if (!session) return;
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        if (families[fIdx].headId !== session.id) { notify("Seul le chef de famille peut modifier ces informations.", "error"); return; }
+        families[fIdx] = { ...families[fIdx], ...updates };
+        saveState({ ...state, families });
+        notify("Informations familiales mises à jour.", "success");
+      },
+
+      onTransferFamilyHead: (familyId, newHeadId) => {
+        if (!session) return;
+        const families = [...(state.families || [])];
+        const fIdx = families.findIndex((f) => f.id === familyId);
+        if (fIdx === -1) return;
+        if (families[fIdx].headId !== session.id) { notify("Seul le chef actuel peut transférer.", "error"); return; }
+        const newHead = (state.citizens || []).find((c) => c.id === newHeadId);
+        families[fIdx] = { ...families[fIdx], headId: newHeadId, headName: newHead ? newHead.name : null };
+        saveState({ ...state, families });
+        notify(`Le titre de chef de famille a été transféré à ${newHead ? newHead.name : "un autre membre"}.`, "success");
+      },
+
       // ========== CONTRATS NOTARIÉS ==========
       onCreateContract: ({ title, parties, clauses, expiresAt }) => {
         if (!session) return;
