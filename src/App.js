@@ -25,6 +25,7 @@ import {
   HeartHandshake,
   MapPin,
   Scale,
+  TrendingUp,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -58,6 +59,7 @@ import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
 import JobsAdminView from "./components/views/JobsAdminView";
 import FamiliesAdminView from "./components/views/FamiliesAdminView";
+import BourseView from "./components/views/BourseView";
 import PropertiesAdminView from "./components/views/PropertiesAdminView";
 import TribunalAdminView from "./components/views/TribunalAdminView";
 import GameMasterView from "./components/views/GameMasterView";
@@ -263,6 +265,8 @@ export default function App() {
       tabs.push({ id: "jobs_admin", label: "Emplois", icon: Briefcase });
     if (effectiveLevel >= 40)
       tabs.push({ id: "families_admin", label: "Familles", icon: HeartHandshake });
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "bourse_admin", label: "Bourse", icon: TrendingUp });
     if (effectiveLevel >= 20 || roleInfo.role === "POSTIERE")
       tabs.push({ id: "postoffice", label: "Bureau Visas", icon: Stamp });
 
@@ -596,6 +600,9 @@ export default function App() {
             onGuildWithdraw={actions.onGuildWithdraw}
             onDissolveGuild={actions.onDissolveGuild}
             onSetFamilyHead={actions.onSetFamilyHead}
+            bourseListings={state.bourseListings || []}
+            onBourseBuyShares={actions.onBourseBuyShares}
+            onBourseSellShares={actions.onBourseSellShares}
             onFamilyDeposit={actions.onFamilyDeposit}
             onFamilyWithdraw={actions.onFamilyWithdraw}
             onFamilyTreasuryTransfer={actions.onFamilyTreasuryTransfer}
@@ -1007,6 +1014,21 @@ export default function App() {
                       state={state}
                       onUpdateState={saveState}
                       notify={notify}
+                    />
+                  )}
+
+                  {activeTab === "bourse_admin" && (
+                    <BourseView
+                      state={state}
+                      session={session}
+                      companies={state.companies || []}
+                      citizens={state.citizens || []}
+                      bourseListings={state.bourseListings || []}
+                      globalLedger={state.globalLedger || []}
+                      onBourseCreateListing={actions.onBourseCreateListing}
+                      onBourseEditListing={actions.onBourseEditListing}
+                      onBourseDeleteListing={actions.onBourseDeleteListing}
+                      onBoursePayDividends={actions.onBoursePayDividends}
                     />
                   )}
 

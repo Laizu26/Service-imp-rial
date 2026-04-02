@@ -4245,6 +4245,147 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Contrat supprimé.", "info");
       },
 
+      // ========== BOURSE ==========
+
+      onBourseCreateListing: ({ companyId, symbol, totalShares, sharesOnMarket, pricePerShare, description }) => {
+        const listings = [...(state.bourseListings || [])];
+        const company = (state.companies || []).find((c) => c.id === companyId);
+        if (!company) { notify("Entreprise introuvable.", "error"); return; }
+        const symUp = (symbol || "").toUpperCase().trim();
+        if (!symUp) { notify("Le symbole boursier est requis.", "error"); return; }
+        if (listings.some((l) => l.symbol === symUp)) { notify("Ce symbole est déjà utilisé.", "error"); return; }
+        const shares = parseInt(totalShares) || 0;
+        const onMarket = Math.min(parseInt(sharesOnMarket) || shares, shares);
+        const price = parseFloat(pricePerShare) || 0;
+        if (shares <= 0 || price <= 0) { notify("Actions et prix doivent être positifs.", "error"); return; }
+        const ts = Date.now();
+        const listing = {
+          id: `BOURSE-${ts}`,
+          companyId, companyName: company.name, symbol: symUp,
+          totalShares: shares, sharesOnMarket: onMarket, pricePerShare: price, initialPrice: price,
+          ownerId: company.ownerId,
+          isActive: true,
+          description: description || company.description || "",
+          launchedAt: ts,
+          priceHistory: [{ price, timestamp: ts }],
+          dividendHistory: [],
+        };
+        const ledgerEntry = { id: ts, fromName: company.name, toName: "Bourse Impériale", amount: 0, timestamp: ts, reason: `Introduction en bourse : ${symUp} (${shares} actions à ${price} Écus)`, type: "BOURSE_IPO" };
+        saveState({ ...state, bourseListings: [listing, ...listings], globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${company.name} est désormais cotée en bourse sous le symbole ${symUp}.`, "success");
+      },
+
+      onBourseEditListing: (listingId, updates) => {
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) return;
+        const listing = listings[idx];
+        // Si le prix change, l'enregistrer dans l'historique
+        const newPrice = updates.pricePerShare !== undefined ? parseFloat(updates.pricePerShare) : null;
+        let priceHistory = listing.priceHistory || [];
+        if (newPrice && newPrice !== listing.pricePerShare) {
+          priceHistory = [{ price: newPrice, timestamp: Date.now() }, ...priceHistory].slice(0, 30);
+        }
+        listings[idx] = { ...listing, ...updates, priceHistory };
+        saveState({ ...state, bourseListings: listings });
+        notify("Cotation mise à jour.", "success");
+      },
+
+      onBourseDeleteListing: (listingId) => {
+        // Rembourser les actionnaires au prix actuel
+        const listing = (state.bourseListings || []).find((l) => l.id === listingId);
+        if (!listing) return;
+        const newCitizens = [...(state.citizens || [])].map((c) => {
+          const held = (c.stockholdings || {})[listingId] || 0;
+          if (held <= 0) return c;
+          const refund = held * listing.pricePerShare;
+          const newHoldings = { ...(c.stockholdings || {}) };
+          delete newHoldings[listingId];
+          return { ...c, balance: (c.balance || 0) + refund, stockholdings: newHoldings };
+        });
+        saveState({ ...state, bourseListings: (state.bourseListings || []).filter((l) => l.id !== listingId), citizens: newCitizens });
+        notify(`Cotation ${listing.symbol} supprimée. Les actionnaires ont été remboursés.`, "info");
+      },
+
+      onBourseBuyShares: (listingId, quantity) => {
+        if (!session) return;
+        const qty = parseInt(quantity);
+        if (!qty || qty <= 0) { notify("Quantité invalide.", "error"); return; }
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
+        const listing = listings[idx];
+        if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
+        if (listing.sharesOnMarket < qty) { notify(`Seulement ${listing.sharesOnMarket} action(s) disponible(s).`, "error"); return; }
+        const total = qty * listing.pricePerShare;
+        const newCitizens = [...(state.citizens || [])];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        if ((newCitizens[userIdx].balance || 0) < total) { notify("Fonds insuffisants.", "error"); return; }
+        const currentHoldings = newCitizens[userIdx].stockholdings || {};
+        newCitizens[userIdx] = {
+          ...newCitizens[userIdx],
+          balance: (newCitizens[userIdx].balance || 0) - total,
+          stockholdings: { ...currentHoldings, [listingId]: (currentHoldings[listingId] || 0) + qty },
+        };
+        listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - qty };
+        const ts = Date.now();
+        const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `Bourse: ${listing.symbol}`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_BUY" };
+        saveState({ ...state, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${qty} action(s) ${listing.symbol} achetée(s) pour ${total.toLocaleString()} Écus.`, "success");
+      },
+
+      onBourseSellShares: (listingId, quantity) => {
+        if (!session) return;
+        const qty = parseInt(quantity);
+        if (!qty || qty <= 0) { notify("Quantité invalide.", "error"); return; }
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
+        const listing = listings[idx];
+        const newCitizens = [...(state.citizens || [])];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const held = (newCitizens[userIdx].stockholdings || {})[listingId] || 0;
+        if (held < qty) { notify(`Vous ne possédez que ${held} action(s) de cette valeur.`, "error"); return; }
+        const total = qty * listing.pricePerShare;
+        const newHoldings = { ...(newCitizens[userIdx].stockholdings || {}) };
+        const remaining = held - qty;
+        if (remaining === 0) delete newHoldings[listingId]; else newHoldings[listingId] = remaining;
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + total, stockholdings: newHoldings };
+        listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket + qty };
+        const ts = Date.now();
+        const ledgerEntry = { id: ts, fromName: `Bourse: ${listing.symbol}`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Vente ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_SELL" };
+        saveState({ ...state, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${qty} action(s) ${listing.symbol} vendues pour ${total.toLocaleString()} Écus.`, "success");
+      },
+
+      onBoursePayDividends: (listingId, dividendPerShare) => {
+        const dpS = parseFloat(dividendPerShare);
+        if (!dpS || dpS <= 0) { notify("Dividende invalide.", "error"); return; }
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) return;
+        const listing = listings[idx];
+        // Vérifier que l'appelant est le propriétaire ou un admin (pas de session check strict pour flexibilité admin)
+        const newCitizens = [...(state.citizens || [])];
+        let totalPaid = 0;
+        const ledgerEntries = [];
+        const ts = Date.now();
+        newCitizens.forEach((c, i) => {
+          const held = (c.stockholdings || {})[listingId] || 0;
+          if (held <= 0) return;
+          const payout = held * dpS;
+          totalPaid += payout;
+          newCitizens[i] = { ...c, balance: (c.balance || 0) + payout };
+          ledgerEntries.push({ id: ts + i, fromName: `Bourse: ${listing.symbol}`, toName: c.name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${dpS} Écus/action × ${held})`, type: "BOURSE_DIVIDEND" });
+        });
+        const divHistory = [{ amount: dpS, timestamp: ts, totalPaid }, ...(listing.dividendHistory || [])].slice(0, 20);
+        listings[idx] = { ...listing, dividendHistory: divHistory };
+        saveState({ ...state, citizens: newCitizens, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])] });
+        notify(`Dividendes versés : ${dpS} Écus/action. Total distribué : ${totalPaid.toLocaleString()} Écus.`, "success");
+      },
+
     }, notify);
   }, [session, state, saveState, notify]);
 };
