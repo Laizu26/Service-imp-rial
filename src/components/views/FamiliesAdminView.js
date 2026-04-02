@@ -9,6 +9,13 @@ import {
   Edit3,
   Users,
   GitBranch,
+  Coins,
+  ArrowRightLeft,
+  History,
+  TrendingUp,
+  TrendingDown,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 
 /* ── Helpers communs ── */
@@ -121,11 +128,18 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   const [view,        setView]        = useState("list");
   const [editingId,   setEditingId]   = useState(null);
   const [detailId,    setDetailId]    = useState(null);
+  const [detailTab,   setDetailTab]   = useState("members"); // "members" | "treasury"
   const [form,        setForm]        = useState(EMPTY_FORM);
   const [search,      setSearch]      = useState("");
   const [addMemberId, setAddMemberId] = useState("");
   const [newBranchName, setNewBranchName] = useState("");
   const [newBranchLastName, setNewBranchLastName] = useState("");
+  // Treasury admin controls
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [transferToFamId, setTransferToFamId] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferReason, setTransferReason] = useState("");
 
   const generateId = () => `FAM-${Date.now().toString(36).toUpperCase()}`;
   const openCreate = () => { setForm(EMPTY_FORM); setEditingId(null); setView("form"); };
@@ -206,6 +220,49 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   const removeExtraMember = (famId, citizenId) => {
     onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === famId ? { ...f, extraMemberIds: (f.extraMemberIds || []).filter((x) => x !== citizenId) } : f) });
     notify("Membre retiré.", "info");
+  };
+
+  const adminAdjustTreasury = (famId, delta, reason) => {
+    const amt = parseInt(delta);
+    if (!amt || amt === 0) { notify("Montant invalide.", "error"); return; }
+    const ts = Date.now();
+    const type = amt > 0 ? "admin_add" : "admin_remove";
+    const label = `${amt > 0 ? "Ajout admin" : "Prélèvement admin"} (${reason || "Correction GM"})`;
+    onUpdateState({
+      ...state,
+      families: safeFamilies.map((f) => {
+        if (f.id !== famId) return f;
+        const newTreasury = Math.max(0, (f.treasury || 0) + amt);
+        return { ...f, treasury: newTreasury, treasuryLog: [{ id: ts, type, amount: Math.abs(amt), label, timestamp: ts }, ...(f.treasuryLog || [])].slice(0, 60) };
+      }),
+    });
+    notify(`Trésorerie ajustée de ${amt > 0 ? "+" : ""}${amt} Écus.`, "success");
+    setAdjustAmount(""); setAdjustReason("");
+  };
+
+  const adminTransferTreasury = (fromFamId, toFamId, amount, reason) => {
+    const amt = parseInt(amount);
+    if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+    if (fromFamId === toFamId) { notify("Impossible de transférer vers la même famille.", "error"); return; }
+    const fromFam = safeFamilies.find((f) => f.id === fromFamId);
+    const toFam = safeFamilies.find((f) => f.id === toFamId);
+    if (!fromFam || !toFam) return;
+    if ((fromFam.treasury || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+    const ts = Date.now();
+    const fromName = fromFam.dynastyName || fromFam.lastName;
+    const toName = toFam.dynastyName || toFam.lastName;
+    const motif = reason || "Transfert admin";
+    onUpdateState({
+      ...state,
+      globalLedger: [{ id: ts, fromName: `Famille: ${fromName}`, toName: `Famille: ${toName}`, amount: amt, timestamp: ts, reason: motif, type: "FAMILY_TRANSFER" }, ...(state.globalLedger || [])],
+      families: safeFamilies.map((f) => {
+        if (f.id === fromFamId) return { ...f, treasury: (f.treasury || 0) - amt, treasuryLog: [{ id: ts, type: "transfer_out", amount: amt, label: `Virement vers ${toName} — ${motif}`, timestamp: ts }, ...(f.treasuryLog || [])].slice(0, 60) };
+        if (f.id === toFamId) return { ...f, treasury: (f.treasury || 0) + amt, treasuryLog: [{ id: ts, type: "transfer_in", amount: amt, label: `Virement reçu de ${fromName} — ${motif}`, timestamp: ts }, ...(f.treasuryLog || [])].slice(0, 60) };
+        return f;
+      }),
+    });
+    notify(`${amt} Écus transférés de ${fromName} vers ${toName}.`, "success");
+    setTransferToFamId(""); setTransferAmount(""); setTransferReason("");
   };
 
   const filtered = safeFamilies.filter((f) =>
@@ -400,81 +457,104 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
     const allMembers = getFamilyMembers(detailFam, safeCitizens);
     const extraIds = detailFam.extraMemberIds || [];
     const nonMembers = safeCitizens.filter((c) => !allMembers.find((m) => m.id === c.id));
+    const otherFamilies = safeFamilies.filter((f) => f.id !== detailFam.id);
+    const treasuryLog = detailFam.treasuryLog || [];
+
+    const logIcon = (type) => {
+      if (type === "deposit") return <ArrowDownLeft size={11} className="text-green-400" />;
+      if (type === "withdraw") return <ArrowUpRight size={11} className="text-amber-400" />;
+      if (type === "transfer_out") return <ArrowUpRight size={11} className="text-red-400" />;
+      if (type === "transfer_in") return <ArrowDownLeft size={11} className="text-blue-400" />;
+      if (type === "admin_add") return <TrendingUp size={11} className="text-emerald-400" />;
+      if (type === "admin_remove") return <TrendingDown size={11} className="text-rose-400" />;
+      return <Coins size={11} className="text-stone-400" />;
+    };
+    const logColor = (type) => {
+      if (type === "deposit" || type === "transfer_in" || type === "admin_add") return "text-green-400";
+      return "text-red-400";
+    };
+    const logSign = (type) => (type === "deposit" || type === "transfer_in" || type === "admin_add") ? "+" : "-";
 
     return (
       <div className="space-y-4 max-w-4xl">
         <div className="flex items-center gap-3 pb-2 border-b border-stone-700">
-          <button onClick={() => setView("list")} className="text-stone-500 hover:text-stone-300 transition-colors p-1"><X size={16} /></button>
-          <h2 className="text-sm font-black uppercase tracking-widest text-stone-200 flex items-center gap-2 flex-1">
-            <HeartHandshake size={16} className="text-amber-400" />
-            {getFamilyDisplayName(detailFam)}
-          </h2>
-          <button onClick={() => openEdit(detailFam)} className="text-stone-500 hover:text-stone-300 p-1.5 rounded hover:bg-stone-800 transition-all"><Edit3 size={14} /></button>
+          <button onClick={() => { setView("list"); setDetailTab("members"); }} className="text-stone-500 hover:text-stone-300 transition-colors p-1"><X size={16} /></button>
+          <div className="text-4xl">{detailFam.coat || (detailFam.type === "noble" ? "⚜️" : "🏠")}</div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-black uppercase tracking-widest text-stone-200 flex items-center gap-2">
+              <HeartHandshake size={16} className="text-amber-400" />
+              {getFamilyDisplayName(detailFam)}
+            </h2>
+            {detailFam.motto && <div className="text-[10px] text-stone-500 italic mt-0.5">« {detailFam.motto} »</div>}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="bg-amber-900/30 border border-amber-800/50 rounded-lg px-3 py-1.5 text-right">
+              <div className="text-[8px] text-amber-600 uppercase font-black tracking-widest">Trésorerie</div>
+              <div className="text-sm font-black font-mono text-amber-300">{(detailFam.treasury || 0).toLocaleString()} Écus</div>
+            </div>
+            <button onClick={() => openEdit(detailFam)} className="text-stone-500 hover:text-stone-300 p-1.5 rounded hover:bg-stone-800 transition-all"><Edit3 size={14} /></button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Fiche famille */}
-          <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4 space-y-3">
-            <div className="text-center">
-              <div className="text-5xl mb-3">{detailFam.coat || (detailFam.type === "noble" ? "⚜️" : "🏠")}</div>
-              <div className="text-xs font-black uppercase tracking-widest text-stone-200">{getFamilyDisplayName(detailFam)}</div>
-              {detailFam.motto && <div className="text-[10px] text-stone-500 italic mt-1.5">« {detailFam.motto} »</div>}
+        {/* Fiche synthèse */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {[
+            { label: "Type", value: detailFam.type === "noble" ? "Dynastie noble" : "Famille commune", color: detailFam.type === "noble" ? "text-yellow-400" : "text-stone-300" },
+            { label: "Membres", value: allMembers.length, color: "text-stone-200" },
+            detailFam.type === "noble" && { label: "Branches", value: branches.length, color: "text-stone-200" },
+            detailFam.foundedYear && { label: "Fondée en", value: detailFam.foundedYear, color: "text-stone-400" },
+          ].filter(Boolean).map((s, i) => (
+            <div key={i} className="bg-stone-800/40 border border-stone-700 rounded-lg px-3 py-2">
+              <div className="text-[8px] text-stone-500 uppercase font-black tracking-widest">{s.label}</div>
+              <div className={`text-sm font-black mt-0.5 ${s.color}`}>{s.value}</div>
             </div>
-            <div className="border-t border-stone-700 pt-3 space-y-1.5 text-[10px]">
-              <div className="flex justify-between">
-                <span className="text-stone-500">Type</span>
-                <span className={`font-bold ${detailFam.type === "noble" ? "text-yellow-400" : "text-stone-300"}`}>
-                  {detailFam.type === "noble" ? "Dynastie noble" : "Famille commune"}
-                </span>
-              </div>
-              {detailFam.type === "noble" && (
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Branches</span>
-                  <span className="text-stone-300 font-bold">{branches.length}</span>
-                </div>
-              )}
-              {detailFam.foundedYear && (
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Fondée en</span>
-                  <span className="text-stone-300 font-bold">{detailFam.foundedYear}</span>
-                </div>
-              )}
-              {detailFam.headId && (() => {
-                const head = safeCitizens.find((c) => c.id === detailFam.headId);
-                return (
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">Chef</span>
-                    <span className="text-amber-400 font-bold">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Inconnu"}</span>
-                  </div>
-                );
-              })()}
-              <div className="flex justify-between">
-                <span className="text-stone-500">Trésorerie</span>
-                <span className="text-amber-400 font-bold font-mono">{(detailFam.treasury || 0).toLocaleString()} Écus</span>
-              </div>
-              {detailFam.regentId && (() => {
-                const rg = safeCitizens.find((c) => c.id === detailFam.regentId);
-                return (
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">Régent</span>
-                    <span className="text-purple-400 font-bold">{rg ? (rg.firstName ? `${rg.firstName} ${rg.lastName || ""}`.trim() : rg.name) : "Inconnu"}</span>
-                  </div>
-                );
-              })()}
-              <div className="flex justify-between">
-                <span className="text-stone-500">Membres totaux</span>
-                <span className="text-stone-300 font-bold">{allMembers.length}</span>
-              </div>
-            </div>
-            {detailFam.description && (
-              <p className="text-[10px] text-stone-400 italic border-t border-stone-700 pt-3 leading-relaxed">{detailFam.description}</p>
-            )}
-          </div>
+          ))}
+        </div>
 
-          {/* Membres par branche */}
-          <div className="md:col-span-2 space-y-3">
+        {/* Chef / Régent */}
+        <div className="flex gap-2 flex-wrap">
+          {detailFam.headId && (() => {
+            const head = safeCitizens.find((c) => c.id === detailFam.headId);
+            return <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-amber-400 text-xs">👑</span>
+              <div>
+                <div className="text-[8px] text-amber-600 uppercase font-black">Chef de famille</div>
+                <div className="text-xs text-amber-300 font-bold">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Inconnu"}</div>
+              </div>
+            </div>;
+          })()}
+          {detailFam.regentId && (() => {
+            const rg = safeCitizens.find((c) => c.id === detailFam.regentId);
+            return <div className="bg-purple-900/20 border border-purple-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
+              <span className="text-purple-400 text-xs">🛡️</span>
+              <div>
+                <div className="text-[8px] text-purple-600 uppercase font-black">Régent</div>
+                <div className="text-xs text-purple-300 font-bold">{rg ? (rg.firstName ? `${rg.firstName} ${rg.lastName || ""}`.trim() : rg.name) : "Inconnu"}</div>
+              </div>
+            </div>;
+          })()}
+          {detailFam.description && <div className="text-[10px] text-stone-400 italic flex-1 min-w-0 self-center">{detailFam.description}</div>}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-stone-700 pb-0">
+          {[
+            { id: "members", label: "Membres", icon: <Users size={12} /> },
+            { id: "treasury", label: "Trésorerie", icon: <Coins size={12} /> },
+          ].map((tab) => (
+            <button key={tab.id} onClick={() => setDetailTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 -mb-px transition-all ${
+                detailTab === tab.id ? "border-amber-500 text-amber-300" : "border-transparent text-stone-500 hover:text-stone-300"
+              }`}>
+              {tab.icon}{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* === TAB MEMBRES === */}
+        {detailTab === "members" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {detailFam.type === "noble" ? (
-              /* Noble : afficher membres par branche */
               branches.map((branch, bIdx) => {
                 const branchMembers = safeCitizens.filter(
                   (c) => c.lastName && branch.lastName && c.lastName.toLowerCase() === branch.lastName.toLowerCase()
@@ -484,7 +564,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                     <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
                       {branch.isMain ? "👑" : "⚜️"}
                       {branch.isMain ? `Branche principale — ${branch.name}` : `Maison ${branch.name}`}
-                      <span className="text-stone-600 ml-auto">({branchMembers.length} membre{branchMembers.length > 1 ? "s" : ""})</span>
+                      <span className="text-stone-600 ml-auto">({branchMembers.length})</span>
                     </div>
                     {branchMembers.length === 0 ? (
                       <div className="text-xs text-stone-600 text-center py-3 italic">Aucun membre (nom: {branch.lastName})</div>
@@ -499,7 +579,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                               {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                             </span>
                             <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
-                            <span className="text-[8px] text-stone-600 shrink-0">auto</span>
+                            {c.id === detailFam.headId && <span className="text-amber-400 text-[9px]">👑</span>}
                           </div>
                         ))}
                       </div>
@@ -508,15 +588,14 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                 );
               })
             ) : (
-              /* Commune : liste plate */
-              <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
+              <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4 md:col-span-2">
                 <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-1">
                   <Users size={10} /> Membres ({allMembers.length})
                 </div>
                 {allMembers.length === 0 ? (
                   <div className="text-xs text-stone-600 text-center py-6 italic">Aucun membre actuellement</div>
                 ) : (
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 max-h-56 overflow-y-auto">
                     {allMembers.map((c) => {
                       const isExtra = extraIds.includes(c.id);
                       return (
@@ -529,10 +608,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                           </span>
                           <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
                           {isExtra ? (
-                            <button onClick={() => removeExtraMember(detailFam.id, c.id)}
-                              className="text-red-500/50 hover:text-red-400 transition-colors shrink-0 ml-1" title="Retirer">
-                              <X size={12} />
-                            </button>
+                            <button onClick={() => removeExtraMember(detailFam.id, c.id)} className="text-red-500/50 hover:text-red-400 transition-colors shrink-0"><X size={12} /></button>
                           ) : (
                             <span className="text-[8px] text-stone-600 shrink-0">auto</span>
                           )}
@@ -544,7 +620,6 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               </div>
             )}
 
-            {/* Membres manuels (extra) pour nobles aussi */}
             {detailFam.type === "noble" && extraIds.length > 0 && (
               <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
                 <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-1">
@@ -562,10 +637,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                         <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                           {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                         </span>
-                        <button onClick={() => removeExtraMember(detailFam.id, c.id)}
-                          className="text-red-500/50 hover:text-red-400 transition-colors shrink-0 ml-1" title="Retirer">
-                          <X size={12} />
-                        </button>
+                        <button onClick={() => removeExtraMember(detailFam.id, c.id)} className="text-red-500/50 hover:text-red-400 transition-colors shrink-0"><X size={12} /></button>
                       </div>
                     );
                   })}
@@ -573,31 +645,114 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               </div>
             )}
 
-            <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4">
-              <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">
-                Ajouter un membre manuellement
-              </div>
+            <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4 md:col-span-2">
+              <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Ajouter un membre manuellement</div>
               <div className="flex gap-2">
                 <select value={addMemberId} onChange={(e) => setAddMemberId(e.target.value)}
                   className="flex-1 bg-stone-800 border border-stone-700 rounded-lg p-2 text-xs text-stone-200 outline-none focus:border-amber-500/50">
                   <option value="">— Choisir un citoyen —</option>
                   {nonMembers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}</option>
                   ))}
                 </select>
                 <BtnPrimary onClick={() => addExtraMember(detailFam.id)} className="px-3"><Plus size={14} /></BtnPrimary>
               </div>
               <div className="text-[9px] text-stone-500 mt-1.5">
                 {detailFam.type === "noble"
-                  ? `Les citoyens sont liés automatiquement par le nom de famille de chaque branche. Utilisez ce champ pour ajouter un membre avec un nom différent.`
-                  : `Les citoyens portant le nom « ${detailFam.lastName} » sont liés automatiquement. Utilisez ce champ pour ajouter un membre avec un nom différent.`
-                }
+                  ? `Liés automatiquement par le nom de famille de chaque branche. Ce champ sert pour les membres à nom différent.`
+                  : `Les citoyens portant le nom « ${detailFam.lastName} » sont liés automatiquement.`}
               </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* === TAB TRÉSORERIE === */}
+        {detailTab === "treasury" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Ajustement direct */}
+            <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4 space-y-3">
+              <div className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+                <Coins size={11} /> Ajustement direct (GM)
+              </div>
+              <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2 flex items-center justify-between">
+                <span className="text-[10px] text-amber-600 uppercase font-black">Solde actuel</span>
+                <span className="font-black font-mono text-amber-300 text-sm">{(detailFam.treasury || 0).toLocaleString()} Écus</span>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <Label>Montant (positif = ajouter, négatif = retirer)</Label>
+                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} placeholder="ex: 500 ou -200" />
+                </div>
+                <div>
+                  <Label>Motif</Label>
+                  <Input value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="ex: Correction, tribut reçu…" />
+                </div>
+                <BtnPrimary onClick={() => adminAdjustTreasury(detailFam.id, adjustAmount, adjustReason)} disabled={!adjustAmount} className="w-full">
+                  <TrendingUp size={13} /> Appliquer l'ajustement
+                </BtnPrimary>
+              </div>
+            </div>
+
+            {/* Transfert vers une autre famille */}
+            <div className="bg-stone-800/40 border border-stone-700 rounded-xl p-4 space-y-3">
+              <div className="text-[9px] font-black uppercase tracking-widest text-blue-400 flex items-center gap-1.5">
+                <ArrowRightLeft size={11} /> Virement vers une autre famille
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <Label>Famille destinataire</Label>
+                  <select value={transferToFamId} onChange={(e) => setTransferToFamId(e.target.value)}
+                    className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-xs text-stone-200 outline-none focus:border-blue-500/50">
+                    <option value="">— Choisir une famille —</option>
+                    {otherFamilies.map((f) => (
+                      <option key={f.id} value={f.id}>{getFamilyDisplayName(f)} — {(f.treasury || 0).toLocaleString()} Écus</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label>Montant</Label>
+                  <Input type="number" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="Montant en Écus" />
+                </div>
+                <div>
+                  <Label>Motif du virement</Label>
+                  <Input value={transferReason} onChange={(e) => setTransferReason(e.target.value)} placeholder="ex: Tribut, dot, remboursement…" />
+                </div>
+                <BtnPrimary
+                  onClick={() => adminTransferTreasury(detailFam.id, transferToFamId, transferAmount, transferReason)}
+                  disabled={!transferToFamId || !transferAmount}
+                  className="w-full">
+                  <ArrowRightLeft size={13} /> Effectuer le virement
+                </BtnPrimary>
+              </div>
+            </div>
+
+            {/* Historique des transactions */}
+            <div className="md:col-span-2 bg-stone-800/40 border border-stone-700 rounded-xl p-4 space-y-3">
+              <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-1.5">
+                <History size={11} /> Historique des transactions ({treasuryLog.length})
+              </div>
+              {treasuryLog.length === 0 ? (
+                <div className="text-xs text-stone-600 text-center py-6 italic">Aucune transaction enregistrée</div>
+              ) : (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {treasuryLog.map((entry) => (
+                    <div key={entry.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-stone-800/50 hover:bg-stone-700/40 transition-colors">
+                      <div className="shrink-0">{logIcon(entry.type)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-stone-300 truncate">{entry.label}</div>
+                        <div className="text-[9px] text-stone-600">{new Date(entry.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
+                      </div>
+                      <div className={`font-black font-mono text-xs shrink-0 ${logColor(entry.type)}`}>
+                        {logSign(entry.type)}{entry.amount.toLocaleString()} Écus
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

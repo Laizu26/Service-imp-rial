@@ -4078,12 +4078,13 @@ export const useGameActions = (session, state, saveState, notify) => {
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
         if ((newCitizens[userIdx].balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        const ts = Date.now();
+        const userName = newCitizens[userIdx].name;
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) - amt };
-        families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) + amt };
-        const ledgerEntry = {
-          id: Date.now(), fromName: newCitizens[userIdx].name, toName: `Famille: ${families[fIdx].dynastyName || families[fIdx].lastName}`,
-          amount: amt, timestamp: Date.now(), reason: "Dépôt trésorerie familiale", type: "FAMILY",
-        };
+        const famName = families[fIdx].dynastyName || families[fIdx].lastName;
+        const logEntry = { id: ts, type: "deposit", amount: amt, actor: userName, label: `Dépôt par ${userName}`, timestamp: ts };
+        families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) + amt, treasuryLog: [logEntry, ...(families[fIdx].treasuryLog || [])].slice(0, 60) };
+        const ledgerEntry = { id: ts, fromName: userName, toName: `Famille: ${famName}`, amount: amt, timestamp: ts, reason: "Dépôt trésorerie familiale", type: "FAMILY" };
         saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
         notify(`${amt} Écus déposés dans la trésorerie familiale.`, "success");
       },
@@ -4101,14 +4102,41 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCitizens = [...(state.citizens || [])];
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
+        const ts = Date.now();
+        const userName = newCitizens[userIdx].name;
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
-        families[fIdx] = { ...fam, treasury: (fam.treasury || 0) - amt };
-        const ledgerEntry = {
-          id: Date.now(), fromName: `Famille: ${fam.dynastyName || fam.lastName}`, toName: newCitizens[userIdx].name,
-          amount: amt, timestamp: Date.now(), reason: "Retrait trésorerie familiale", type: "FAMILY",
-        };
+        const famName = fam.dynastyName || fam.lastName;
+        const logEntry = { id: ts, type: "withdraw", amount: amt, actor: userName, label: `Retrait par ${userName}`, timestamp: ts };
+        families[fIdx] = { ...fam, treasury: (fam.treasury || 0) - amt, treasuryLog: [logEntry, ...(fam.treasuryLog || [])].slice(0, 60) };
+        const ledgerEntry = { id: ts, fromName: `Famille: ${famName}`, toName: userName, amount: amt, timestamp: ts, reason: "Retrait trésorerie familiale", type: "FAMILY" };
         saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
         notify(`${amt} Écus retirés de la trésorerie familiale.`, "success");
+      },
+
+      onFamilyTreasuryTransfer: (fromFamilyId, toFamilyId, amount, reason) => {
+        if (!session) return;
+        const amt = parseInt(amount);
+        if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+        if (fromFamilyId === toFamilyId) { notify("Impossible de transférer vers la même famille.", "error"); return; }
+        const families = [...(state.families || [])];
+        const fromIdx = families.findIndex((f) => f.id === fromFamilyId);
+        const toIdx = families.findIndex((f) => f.id === toFamilyId);
+        if (fromIdx === -1 || toIdx === -1) return;
+        const fromFam = families[fromIdx];
+        const toFam = families[toIdx];
+        if (fromFam.headId !== session.id && fromFam.regentId !== session.id) { notify("Seul le chef ou le régent peut effectuer un virement.", "error"); return; }
+        if ((fromFam.treasury || 0) < amt) { notify("Fonds insuffisants dans la trésorerie.", "error"); return; }
+        const ts = Date.now();
+        const fromName = fromFam.dynastyName || fromFam.lastName;
+        const toName = toFam.dynastyName || toFam.lastName;
+        const motif = reason || "Virement inter-familles";
+        families[fromIdx] = { ...fromFam, treasury: (fromFam.treasury || 0) - amt,
+          treasuryLog: [{ id: ts, type: "transfer_out", amount: amt, label: `Virement vers famille ${toName} — ${motif}`, timestamp: ts }, ...(fromFam.treasuryLog || [])].slice(0, 60) };
+        families[toIdx] = { ...toFam, treasury: (toFam.treasury || 0) + amt,
+          treasuryLog: [{ id: ts, type: "transfer_in", amount: amt, label: `Virement reçu de famille ${fromName} — ${motif}`, timestamp: ts }, ...(toFam.treasuryLog || [])].slice(0, 60) };
+        const ledgerEntry = { id: ts, fromName: `Famille: ${fromName}`, toName: `Famille: ${toName}`, amount: amt, timestamp: ts, reason: motif, type: "FAMILY_TRANSFER" };
+        saveState({ ...state, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        notify(`${amt} Écus transférés vers la famille ${toName}.`, "success");
       },
 
       onEditFamilyInfo: (familyId, updates) => {

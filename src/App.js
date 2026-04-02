@@ -598,6 +598,7 @@ export default function App() {
             onSetFamilyHead={actions.onSetFamilyHead}
             onFamilyDeposit={actions.onFamilyDeposit}
             onFamilyWithdraw={actions.onFamilyWithdraw}
+            onFamilyTreasuryTransfer={actions.onFamilyTreasuryTransfer}
             onEditFamilyInfo={actions.onEditFamilyInfo}
             onTransferFamilyHead={actions.onTransferFamilyHead}
             onSetFamilyRegent={actions.onSetFamilyRegent}

@@ -59,40 +59,97 @@ import PropertyDetailView from "../views/PropertyDetailView";
 import SettingsView from "../views/SettingsView";
 
 // Mini-composant trésorerie famille
-const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw }) => {
+const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw, onTransfer, allFamilies }) => {
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [activeOp, setActiveOp] = useState("deposit"); // "deposit" | "withdraw" | "transfer"
+
+  const otherFamilies = (allFamilies || []).filter((f) => f.id !== familyId);
+
   return (
     <div className="space-y-3">
-      {/* Dépôt - tout le monde */}
-      <div>
-        <div className="text-[9px] text-stone-500 font-bold uppercase mb-1">Déposer des fonds</div>
-        <div className="flex gap-2">
-          <input type="number" className="flex-1 p-2 border rounded text-sm font-mono" placeholder="Montant" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
-          <button
-            onClick={() => { if (depositAmount) { onDeposit(familyId, depositAmount); setDepositAmount(""); } }}
-            disabled={!depositAmount || parseInt(depositAmount) <= 0 || parseInt(depositAmount) > userBalance}
-            className="bg-stone-800 text-yellow-500 px-3 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-stone-700 transition-colors"
-          >Déposer</button>
-        </div>
-        <div className="text-[9px] text-stone-400 mt-1">Votre solde : {userBalance.toLocaleString()} Écus</div>
+      {/* Onglets opérations */}
+      <div className="flex gap-1">
+        {[
+          { id: "deposit", label: "Déposer" },
+          isHead && { id: "withdraw", label: "Retirer" },
+          isHead && otherFamilies.length > 0 && { id: "transfer", label: "Virer" },
+        ].filter(Boolean).map((op) => (
+          <button key={op.id} onClick={() => setActiveOp(op.id)}
+            className={`flex-1 py-1.5 text-[9px] font-black uppercase rounded border transition-all ${
+              activeOp === op.id ? "bg-stone-800 border-stone-500 text-stone-200" : "border-stone-200 text-stone-400 hover:text-stone-600"
+            }`}>
+            {op.label}
+          </button>
+        ))}
       </div>
-      {/* Retrait - chef uniquement */}
-      {isHead && (
-        <div className="border-t border-stone-100 pt-3">
-          <div className="text-[9px] text-amber-600 font-bold uppercase mb-1">Retirer des fonds (chef)</div>
+
+      {/* Dépôt */}
+      {activeOp === "deposit" && (
+        <div className="space-y-2">
+          <div className="text-[9px] text-stone-400 mt-1">Votre solde : <span className="font-mono font-bold text-stone-600">{userBalance.toLocaleString()} Écus</span></div>
           <div className="flex gap-2">
-            <input type="number" className="flex-1 p-2 border rounded text-sm font-mono" placeholder="Montant" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
+            <input type="number" className="flex-1 p-2 border border-stone-200 rounded text-sm font-mono bg-white focus:border-stone-400 outline-none" placeholder="Montant" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+            <button
+              onClick={() => { if (depositAmount) { onDeposit(familyId, depositAmount); setDepositAmount(""); } }}
+              disabled={!depositAmount || parseInt(depositAmount) <= 0 || parseInt(depositAmount) > userBalance}
+              className="bg-stone-800 text-yellow-500 px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-stone-700 transition-colors"
+            >Déposer</button>
+          </div>
+        </div>
+      )}
+
+      {/* Retrait */}
+      {activeOp === "withdraw" && isHead && (
+        <div className="space-y-2">
+          <div className="text-[9px] text-amber-600 mt-1">Trésorerie disponible : <span className="font-mono font-bold">{treasury.toLocaleString()} Écus</span></div>
+          <div className="flex gap-2">
+            <input type="number" className="flex-1 p-2 border border-amber-200 rounded text-sm font-mono bg-white focus:border-amber-400 outline-none" placeholder="Montant" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
             <button
               onClick={() => { if (withdrawAmount) { onWithdraw(familyId, withdrawAmount); setWithdrawAmount(""); } }}
               disabled={!withdrawAmount || parseInt(withdrawAmount) <= 0 || parseInt(withdrawAmount) > treasury}
-              className="bg-amber-700 text-white px-3 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-amber-600 transition-colors"
+              className="bg-amber-700 text-white px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-amber-600 transition-colors"
             >Retirer</button>
           </div>
         </div>
       )}
-      {!isHead && (
-        <div className="text-[9px] text-stone-400 italic border-t border-stone-100 pt-2">Seul le chef (ou le régent s'il est en exercice) peut retirer des fonds.</div>
+
+      {/* Virement inter-familles */}
+      {activeOp === "transfer" && isHead && (
+        <div className="space-y-2">
+          <div className="text-[9px] text-blue-600 mt-1">Envoyer des fonds vers une autre famille/dynastie</div>
+          <select value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)}
+            className="w-full p-2 border border-blue-200 rounded text-xs bg-white focus:border-blue-400 outline-none">
+            <option value="">— Famille destinataire —</option>
+            {otherFamilies.map((f) => (
+              <option key={f.id} value={f.id}>{f.type === "noble" ? `Dynastie ${f.dynastyName || f.lastName}` : `Famille ${f.lastName}`}</option>
+            ))}
+          </select>
+          <input type="text" className="w-full p-2 border border-blue-200 rounded text-sm bg-white focus:border-blue-400 outline-none"
+            placeholder="Motif (tribut, dot, remboursement…)" value={transferReason} onChange={(e) => setTransferReason(e.target.value)} />
+          <div className="flex gap-2">
+            <input type="number" className="flex-1 p-2 border border-blue-200 rounded text-sm font-mono bg-white focus:border-blue-400 outline-none"
+              placeholder="Montant" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} />
+            <button
+              onClick={() => {
+                if (transferTarget && transferAmount) {
+                  onTransfer(familyId, transferTarget, transferAmount, transferReason);
+                  setTransferAmount(""); setTransferTarget(""); setTransferReason("");
+                }
+              }}
+              disabled={!transferTarget || !transferAmount || parseInt(transferAmount) <= 0 || parseInt(transferAmount) > treasury}
+              className="bg-blue-700 text-white px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-blue-600 transition-colors"
+            >Virer</button>
+          </div>
+          <div className="text-[9px] text-stone-400">Disponible : <span className="font-mono font-bold">{treasury.toLocaleString()} Écus</span></div>
+        </div>
+      )}
+
+      {!isHead && activeOp !== "deposit" && (
+        <div className="text-[9px] text-stone-400 italic border-t border-stone-100 pt-2">Seul le chef (ou le régent) peut retirer ou virer des fonds.</div>
       )}
     </div>
   );
@@ -444,6 +501,7 @@ const CitizenLayout = (props) => {
     onSetFamilyHead,
     onFamilyDeposit,
     onFamilyWithdraw,
+    onFamilyTreasuryTransfer,
     onEditFamilyInfo,
     onTransferFamilyHead,
     onSetFamilyRegent,
@@ -1623,70 +1681,83 @@ const CitizenLayout = (props) => {
               const displayName = getFamilyDisplayName(myFamily);
               const treasury = myFamily.treasury || 0;
 
+              const treasuryLog = myFamily.treasuryLog || [];
+              const logTypeColor = (t) => (t === "deposit" || t === "transfer_in" || t === "admin_add") ? "text-green-600" : "text-red-500";
+              const logSign = (t) => (t === "deposit" || t === "transfer_in" || t === "admin_add") ? "+" : "-";
+
               return (
-                <div className="space-y-5 animate-fadeIn">
-                  {/* En-tête famille */}
-                  <div className="bg-gradient-to-r from-stone-100 to-amber-50/30 border border-stone-200 rounded-xl p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="text-5xl">{myFamily.coat || (myFamily.type === "noble" ? "⚜️" : "🏠")}</div>
-                      <div className="flex-1">
-                        <h2 className="text-2xl font-black font-serif text-stone-800">{displayName}</h2>
-                        {myFamily.motto && <p className="text-sm text-stone-500 italic mt-1">« {myFamily.motto} »</p>}
-                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <div className="space-y-4 animate-fadeIn">
+
+                  {/* ── En-tête héroïque ── */}
+                  <div className={`relative overflow-hidden rounded-2xl border p-5 ${
+                    myFamily.type === "noble"
+                      ? "bg-gradient-to-br from-yellow-950/40 via-stone-900/60 to-amber-950/30 border-yellow-800/50"
+                      : "bg-gradient-to-br from-stone-100 to-stone-50 border-stone-200"
+                  }`}>
+                    {/* Blason en filigrane */}
+                    <div className={`absolute right-4 top-1/2 -translate-y-1/2 text-8xl select-none pointer-events-none ${myFamily.type === "noble" ? "opacity-10" : "opacity-5"}`}>
+                      {myFamily.coat || (myFamily.type === "noble" ? "⚜️" : "🏠")}
+                    </div>
+                    <div className="relative flex items-start gap-4">
+                      <div className={`text-5xl p-3 rounded-xl ${myFamily.type === "noble" ? "bg-yellow-900/30 border border-yellow-800/40" : "bg-stone-100 border border-stone-200"}`}>
+                        {myFamily.coat || (myFamily.type === "noble" ? "⚜️" : "🏠")}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h2 className={`text-2xl font-black font-serif ${myFamily.type === "noble" ? "text-amber-200" : "text-stone-800"}`}>{displayName}</h2>
+                        {myFamily.motto && <p className={`text-sm italic mt-0.5 ${myFamily.type === "noble" ? "text-amber-400/70" : "text-stone-500"}`}>« {myFamily.motto} »</p>}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
-                            myFamily.type === "noble" ? "bg-yellow-100 text-yellow-700 border-yellow-200" : "bg-stone-100 text-stone-600 border-stone-200"
-                          }`}>{myFamily.type === "noble" ? "Dynastie noble" : "Famille commune"}</span>
+                            myFamily.type === "noble" ? "bg-yellow-900/30 text-yellow-400 border-yellow-700/50" : "bg-stone-100 text-stone-600 border-stone-200"
+                          }`}>{myFamily.type === "noble" ? "⚜️ Dynastie noble" : "🏠 Famille commune"}</span>
                           {myBranch && (
-                            <span className="text-[10px] text-stone-500">{myBranch.isMain ? "👑 Branche principale" : `⚜️ Maison ${myBranch.name}`}</span>
+                            <span className={`text-[10px] ${myFamily.type === "noble" ? "text-amber-500/70" : "text-stone-500"}`}>
+                              {myBranch.isMain ? "👑 Branche principale" : `⚜️ Maison ${myBranch.name}`}
+                            </span>
                           )}
-                          {isHead && (
-                            <span className="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1"><Crown size={10} /> Chef de famille</span>
-                          )}
-                          {isRegent && (
-                            <span className="bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1"><Shield size={10} /> Régent</span>
-                          )}
-                          {myFamily.foundedYear && <span className="text-[10px] text-stone-400">Fondée en {myFamily.foundedYear}</span>}
+                          {isHead && <span className="bg-amber-500/20 text-amber-300 border border-amber-600/40 px-2 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1"><Crown size={9} /> Chef</span>}
+                          {isRegent && <span className="bg-purple-500/20 text-purple-300 border border-purple-600/40 px-2 py-0.5 rounded text-[9px] font-bold uppercase flex items-center gap-1"><Shield size={9} /> Régent</span>}
+                          {myFamily.foundedYear && <span className={`text-[10px] ${myFamily.type === "noble" ? "text-stone-500" : "text-stone-400"}`}>Fondée en {myFamily.foundedYear}</span>}
                         </div>
+                        {myFamily.description && <p className={`text-xs mt-2 leading-relaxed ${myFamily.type === "noble" ? "text-stone-400" : "text-stone-500"}`}>{myFamily.description}</p>}
                       </div>
                     </div>
-                    {myFamily.description && <p className="text-sm text-stone-500 mt-3 leading-relaxed">{myFamily.description}</p>}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Stats */}
-                    <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
-                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Informations</div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-stone-500">Membres</span>
-                          <span className="font-bold text-stone-700">{members.length}</span>
-                        </div>
-                        {myFamily.type === "noble" && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-stone-500">Branches</span>
-                            <span className="font-bold text-stone-700">{branches.length}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-stone-500">Chef</span>
-                          <span className="font-bold text-amber-700">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Aucun"}</span>
-                        </div>
-                        {regent && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-stone-500">Régent</span>
-                            <span className="font-bold text-purple-700">{regent.firstName ? `${regent.firstName} ${regent.lastName || ""}`.trim() : regent.name}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between text-sm border-t border-stone-100 pt-2">
-                          <span className="text-stone-500">Trésorerie</span>
-                          <span className="font-black font-mono text-yellow-700 text-lg">{treasury.toLocaleString()} Écus</span>
-                        </div>
-                      </div>
+                  {/* ── Bande de stats rapides ── */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-center">
+                      <div className="text-[8px] text-stone-400 uppercase font-black tracking-widest">Membres</div>
+                      <div className="text-lg font-black text-stone-700 mt-0.5">{members.length}</div>
                     </div>
+                    {myFamily.type === "noble" && (
+                      <div className="bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-center">
+                        <div className="text-[8px] text-stone-400 uppercase font-black tracking-widest">Branches</div>
+                        <div className="text-lg font-black text-stone-700 mt-0.5">{branches.length}</div>
+                      </div>
+                    )}
+                    <div className="bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-center">
+                      <div className="text-[8px] text-stone-400 uppercase font-black tracking-widest">Chef</div>
+                      <div className="text-xs font-black text-amber-700 mt-0.5 truncate">{head ? (head.firstName ? `${head.firstName}`.trim() : head.name) : "—"}</div>
+                    </div>
+                    {regent && (
+                      <div className="bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-center">
+                        <div className="text-[8px] text-stone-400 uppercase font-black tracking-widest">Régent</div>
+                        <div className="text-xs font-black text-purple-700 mt-0.5 truncate">{regent.firstName ? `${regent.firstName}`.trim() : regent.name}</div>
+                      </div>
+                    )}
+                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-xl px-3 py-2.5 text-center col-span-2 sm:col-span-1">
+                      <div className="text-[8px] text-amber-600 uppercase font-black tracking-widest flex items-center justify-center gap-1"><Coins size={9} /> Trésorerie</div>
+                      <div className="text-lg font-black font-mono text-amber-700 mt-0.5">{treasury.toLocaleString()}</div>
+                      <div className="text-[9px] text-amber-500">Écus</div>
+                    </div>
+                  </div>
+
+                  {/* ── Corps principal : tréso + chef ── */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                     {/* Trésorerie - actions */}
                     <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
-                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1"><Coins size={11} /> Trésorerie familiale</div>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1"><Coins size={11} /> Opérations de trésorerie</div>
                       <FamilyTreasuryActions
                         familyId={myFamily.id}
                         isHead={canManage}
@@ -1694,11 +1765,30 @@ const CitizenLayout = (props) => {
                         userBalance={user.balance || 0}
                         onDeposit={onFamilyDeposit}
                         onWithdraw={onFamilyWithdraw}
+                        onTransfer={onFamilyTreasuryTransfer}
+                        allFamilies={families}
                       />
+                      {/* Historique récent */}
+                      {treasuryLog.length > 0 && (
+                        <div className="border-t border-stone-100 pt-3 space-y-1">
+                          <div className="text-[9px] text-stone-400 uppercase font-black tracking-widest">Dernières opérations</div>
+                          {treasuryLog.slice(0, 5).map((entry) => (
+                            <div key={entry.id} className="flex items-center gap-2 py-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[10px] text-stone-600 truncate">{entry.label}</div>
+                                <div className="text-[9px] text-stone-400">{new Date(entry.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
+                              </div>
+                              <div className={`font-black font-mono text-xs shrink-0 ${logTypeColor(entry.type)}`}>
+                                {logSign(entry.type)}{entry.amount.toLocaleString()} Écus
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions chef / régent */}
-                    {canManage && (
+                    {canManage ? (
                       <div className={`rounded-xl p-4 space-y-3 ${isHead ? "bg-amber-50/50 border border-amber-200" : "bg-purple-50/50 border border-purple-200"}`}>
                         <div className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1 ${isHead ? "text-amber-600" : "text-purple-600"}`}>
                           {isHead ? <><Crown size={11} /> Gestion du chef</> : <><Shield size={11} /> Gestion du régent</>}
@@ -1715,13 +1805,41 @@ const CitizenLayout = (props) => {
                           onRemoveFamilyRegent={onRemoveFamilyRegent}
                         />
                       </div>
+                    ) : (
+                      /* Pour les membres simples : afficher la gouvernance */
+                      <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
+                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Gouvernance</div>
+                        {head && (
+                          <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-amber-100 rounded-lg">
+                            <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-sm font-black text-amber-600 shrink-0">
+                              {(head.firstName || head.name || "?")[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-black text-stone-700 truncate">{head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name}</div>
+                              <div className="text-[9px] text-amber-600 font-bold uppercase">👑 Chef de famille</div>
+                            </div>
+                          </div>
+                        )}
+                        {regent && (
+                          <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-purple-100 rounded-lg">
+                            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-sm font-black text-purple-600 shrink-0">
+                              {(regent.firstName || regent.name || "?")[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-black text-stone-700 truncate">{regent.firstName ? `${regent.firstName} ${regent.lastName || ""}`.trim() : regent.name}</div>
+                              <div className="text-[9px] text-purple-600 font-bold uppercase">🛡️ Régent</div>
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-stone-400 italic">Seul le chef ou le régent peut retirer des fonds et gérer la famille.</p>
+                      </div>
                     )}
                   </div>
 
-                  {/* Membres */}
+                  {/* ── Membres de la famille ── */}
                   <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
                     <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1">
-                      <Users size={11} /> Membres de la famille ({members.length})
+                      <Users size={11} /> Membres ({members.length})
                     </div>
                     {myFamily.type === "noble" ? (
                       <div className="space-y-3">
@@ -1730,25 +1848,30 @@ const CitizenLayout = (props) => {
                             (c) => c.lastName && branch.lastName && c.lastName.toLowerCase() === branch.lastName.toLowerCase()
                           );
                           return (
-                            <div key={bIdx} className="bg-stone-50 rounded-lg border border-stone-100 p-3">
-                              <div className="text-[9px] font-black uppercase text-stone-500 mb-2">
+                            <div key={bIdx} className={`rounded-lg border p-3 ${branch.isMain ? "bg-yellow-50/50 border-yellow-200/60" : "bg-stone-50 border-stone-100"}`}>
+                              <div className={`text-[9px] font-black uppercase mb-2 ${branch.isMain ? "text-amber-600" : "text-stone-500"}`}>
                                 {branch.isMain ? `👑 Branche principale — ${branch.name}` : `⚜️ Maison ${branch.name}`}
+                                <span className="ml-2 text-stone-400 normal-case font-normal">({branchMembers.length} membre{branchMembers.length !== 1 ? "s" : ""})</span>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                                {branchMembers.map((m) => (
-                                  <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded text-sm">
-                                    <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
-                                      {(m.firstName || m.name || "?")[0].toUpperCase()}
+                              {branchMembers.length === 0 ? (
+                                <div className="text-xs text-stone-400 italic py-1">Aucun membre dans cette branche</div>
+                              ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                  {branchMembers.map((m) => (
+                                    <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded text-sm">
+                                      <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
+                                        {(m.firstName || m.name || "?")[0].toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="font-bold text-stone-700 truncate text-xs">{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</div>
+                                        <div className="text-[10px] text-stone-400">{m.occupation || "Citoyen"}</div>
+                                      </div>
+                                      {m.id === myFamily.headId && <Crown size={12} className="text-amber-500 shrink-0" />}
+                                      {m.id === myFamily.regentId && <Shield size={12} className="text-purple-400 shrink-0" />}
                                     </div>
-                                    <div className="min-w-0">
-                                      <div className="font-bold text-stone-700 truncate text-xs">{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</div>
-                                      <div className="text-[10px] text-stone-400">{m.occupation || "Citoyen"}</div>
-                                    </div>
-                                    {m.id === myFamily.headId && <Crown size={12} className="text-amber-500 shrink-0" />}
-                                  </div>
-                                ))}
-                                {branchMembers.length === 0 && <div className="text-xs text-stone-400 italic col-span-2 py-2">Aucun membre</div>}
-                              </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1760,13 +1883,15 @@ const CitizenLayout = (props) => {
                             <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
                               {(m.firstName || m.name || "?")[0].toUpperCase()}
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="font-bold text-stone-700 truncate text-xs">{m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}</div>
                               <div className="text-[10px] text-stone-400">{m.occupation || "Citoyen"}</div>
                             </div>
                             {m.id === myFamily.headId && <Crown size={12} className="text-amber-500 shrink-0" />}
+                            {m.id === myFamily.regentId && <Shield size={12} className="text-purple-400 shrink-0" />}
                           </div>
                         ))}
+                        {members.length === 0 && <div className="text-xs text-stone-400 italic py-2 col-span-3">Aucun membre</div>}
                       </div>
                     )}
                   </div>
