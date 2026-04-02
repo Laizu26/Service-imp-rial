@@ -419,6 +419,7 @@ const CitizenLayout = (props) => {
     onDivorce,
     onDeclareChild,
     onRemoveChild,
+    onSetParents,
     sharedAccounts = {},
     onSharedAccountDeposit,
     onSharedAccountWithdraw,
@@ -1587,6 +1588,7 @@ const CitizenLayout = (props) => {
                 onDivorce={onDivorce}
                 onDeclareChild={onDeclareChild}
                 onRemoveChild={onRemoveChild}
+                onSetParents={onSetParents}
                 onSharedAccountDeposit={onSharedAccountDeposit}
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
                 gameDate={gameDate}

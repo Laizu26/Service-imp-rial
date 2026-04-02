@@ -60,6 +60,158 @@ function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw })
   );
 }
 
+// ── Section Parents & Fratrie ──────────────────────────────────────────────
+function ParentsSection({ user, safeUsers, onSetParents }) {
+  const [editingParents, setEditingParents] = useState(false);
+  const [fatherSearch, setFatherSearch] = useState("");
+  const [motherSearch, setMotherSearch] = useState("");
+
+  const father = user.fatherId ? safeUsers.find((c) => c.id === user.fatherId) : null;
+  const mother = user.motherId ? safeUsers.find((c) => c.id === user.motherId) : null;
+
+  // Trouver les frères et sœurs (même père ou même mère)
+  const siblings = safeUsers.filter((c) => {
+    if (c.id === user.id) return false;
+    if (user.fatherId && c.fatherId && c.fatherId === user.fatherId) return true;
+    if (user.motherId && c.motherId && c.motherId === user.motherId) return true;
+    return false;
+  });
+
+  const hasParents = user.fatherId || user.motherId;
+
+  const ParentCard = ({ label, parent, parentName, type }) => (
+    <div className="flex items-center gap-3 bg-white rounded-xl border border-stone-200 p-3">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${type === "father" ? "bg-blue-100 border-2 border-blue-200" : "bg-pink-100 border-2 border-pink-200"}`}>
+        <User size={18} className={type === "father" ? "text-blue-500" : "text-pink-500"} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">{label}</div>
+        {parent ? (
+          <div className="font-bold text-stone-800 text-sm truncate">{parent.name}</div>
+        ) : parentName ? (
+          <div className="font-bold text-stone-600 text-sm truncate italic">{parentName}</div>
+        ) : (
+          <div className="text-xs text-stone-400 italic">Non défini</div>
+        )}
+      </div>
+      {editingParents && (
+        <button
+          onClick={() => onSetParents(user.id, type === "father" ? { fatherId: null } : { motherId: null })}
+          className="text-stone-300 hover:text-red-400 p-1 shrink-0"
+          title="Retirer"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
+  );
+
+  const SearchParent = ({ type, searchValue, setSearch }) => {
+    const filteredUsers = safeUsers.filter((u) =>
+      u.id !== user.id && u.id !== user.fatherId && u.id !== user.motherId &&
+      (u.name?.toLowerCase().includes(searchValue.toLowerCase()) || u.id?.includes(searchValue))
+    ).slice(0, 6);
+
+    return (
+      <div className="relative">
+        <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-400">
+          <Search size={14} className="text-stone-300 shrink-0" />
+          <input
+            className="flex-1 p-2 outline-none text-sm font-bold bg-transparent"
+            placeholder={type === "father" ? "Chercher le père..." : "Chercher la mère..."}
+            value={searchValue}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        {searchValue && (
+          <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+            {filteredUsers.map((u) => (
+              <button key={u.id} onClick={() => {
+                onSetParents(user.id, type === "father" ? { fatherId: u.id } : { motherId: u.id });
+                setSearch("");
+              }}
+                className="w-full text-left p-2 rounded-lg hover:bg-stone-50 flex items-center gap-2 transition-colors">
+                <User size={12} className="text-stone-400 shrink-0" />
+                <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
+              </button>
+            ))}
+            {filteredUsers.length === 0 && <div className="text-xs text-stone-400 italic text-center py-2">Aucun citoyen trouvé.</div>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="border-t-4 border-stone-200 bg-stone-50/40 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-black uppercase tracking-widest text-stone-500 flex items-center gap-2">
+          <User size={13} /> Filiation — Mes Parents
+        </div>
+        <button
+          onClick={() => setEditingParents(!editingParents)}
+          className={`text-[9px] font-bold uppercase px-2 py-1 rounded border transition-colors ${editingParents ? "bg-stone-800 text-yellow-400 border-stone-700" : "text-stone-400 border-stone-200 hover:border-stone-400"}`}
+        >{editingParents ? "Terminé" : "Modifier"}</button>
+      </div>
+
+      {/* Affichage des parents */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ParentCard label="Père" parent={father} parentName={user.fatherName} type="father" />
+        <ParentCard label="Mère" parent={mother} parentName={user.motherName} type="mother" />
+      </div>
+
+      {/* Formulaire d'édition */}
+      {editingParents && (
+        <div className="space-y-3 bg-white rounded-xl border border-stone-200 p-4">
+          <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Définir / changer un parent</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <div className="text-[9px] text-blue-600 font-bold uppercase mb-1">Père</div>
+              <SearchParent type="father" searchValue={fatherSearch} setSearch={setFatherSearch} />
+            </div>
+            <div>
+              <div className="text-[9px] text-pink-600 font-bold uppercase mb-1">Mère</div>
+              <SearchParent type="mother" searchValue={motherSearch} setSearch={setMotherSearch} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fratrie */}
+      {siblings.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
+            Frères & Sœurs ({siblings.length})
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {siblings.map((s) => {
+              const isHalfSibling = (user.fatherId && s.fatherId === user.fatherId && user.motherId !== s.motherId) ||
+                                    (user.motherId && s.motherId === user.motherId && user.fatherId !== s.fatherId);
+              return (
+                <div key={s.id} className="flex items-center gap-2 bg-white rounded-lg border border-stone-100 px-3 py-2">
+                  <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
+                    {(s.firstName || s.name || "?")[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-stone-700 text-xs truncate">{s.name}</div>
+                    {isHalfSibling && <div className="text-[8px] text-stone-400 italic">Demi-frère/sœur</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {!hasParents && !editingParents && (
+        <div className="text-center py-3 text-stone-400 italic text-xs">
+          Aucun parent déclaré. Cliquez sur "Modifier" pour définir vos parents.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 const MarriageView = ({
   user,
@@ -72,6 +224,7 @@ const MarriageView = ({
   onDivorce,
   onDeclareChild,
   onRemoveChild,
+  onSetParents,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
   gameDate,
@@ -603,6 +756,9 @@ const MarriageView = ({
           </p>
         )}
       </div>
+
+      {/* ── MES PARENTS & FRATRIE ── */}
+      <ParentsSection user={user} safeUsers={safeUsers} onSetParents={onSetParents} />
 
       {/* ── ENFANTS & DESCENDANCE ── */}
       <div className="border-t-4 border-amber-200 bg-amber-50/40 p-5 space-y-4">

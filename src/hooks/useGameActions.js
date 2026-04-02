@@ -2525,6 +2525,28 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
+        // Mettre à jour fatherId/motherId sur l'enfant citoyen s'il est lié
+        if (childData.citizenId) {
+          const childIdx = newCitizens.findIndex((c) => c.id === childData.citizenId);
+          if (childIdx !== -1) {
+            const childCitizen = newCitizens[childIdx];
+            const parentUpdates = {};
+            // Déterminer le sexe du déclarant pour savoir si c'est père ou mère
+            const declarantSex = user.sex || user.gender;
+            const otherParent = childData.otherParentId ? newCitizens.find((c) => c.id === childData.otherParentId) : null;
+            if (declarantSex === "F" || declarantSex === "female" || declarantSex === "Femme") {
+              parentUpdates.motherId = session.id;
+              parentUpdates.motherName = user.name;
+              if (otherParent) { parentUpdates.fatherId = otherParent.id; parentUpdates.fatherName = otherParent.name; }
+            } else {
+              parentUpdates.fatherId = session.id;
+              parentUpdates.fatherName = user.name;
+              if (otherParent) { parentUpdates.motherId = otherParent.id; parentUpdates.motherName = otherParent.name; }
+            }
+            newCitizens[childIdx] = { ...childCitizen, ...parentUpdates };
+          }
+        }
+
         saveState({ ...state, citizens: newCitizens });
         notify(`${child.name} a été déclaré(e) comme enfant.`, "success");
       },
@@ -2558,6 +2580,34 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         saveState({ ...state, citizens: newCitizens });
         notify("Lien de filiation supprimé.", "info");
+      },
+
+      onSetParents: (citizenId, { fatherId, motherId }) => {
+        const newCitizens = [...(state.citizens || [])];
+        const idx = newCitizens.findIndex((c) => c.id === citizenId);
+        if (idx === -1) return;
+        const updates = {};
+        if (fatherId !== undefined) {
+          updates.fatherId = fatherId || null;
+          if (fatherId) {
+            const father = newCitizens.find((c) => c.id === fatherId);
+            updates.fatherName = father ? father.name : null;
+          } else {
+            updates.fatherName = null;
+          }
+        }
+        if (motherId !== undefined) {
+          updates.motherId = motherId || null;
+          if (motherId) {
+            const mother = newCitizens.find((c) => c.id === motherId);
+            updates.motherName = mother ? mother.name : null;
+          } else {
+            updates.motherName = null;
+          }
+        }
+        newCitizens[idx] = { ...newCitizens[idx], ...updates };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Filiation mise à jour.", "success");
       },
 
       // --- BABILLARD D'ENTREPRISE ---
