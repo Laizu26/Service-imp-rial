@@ -4322,6 +4322,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
         if ((newCitizens[userIdx].balance || 0) < total) { notify("Fonds insuffisants.", "error"); return; }
+        // Créditer la trésorerie de l'entreprise
+        const newCompanies = [...(state.companies || [])];
+        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
+        if (compIdx !== -1) {
+          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) + total };
+        }
         const currentHoldings = newCitizens[userIdx].stockholdings || {};
         newCitizens[userIdx] = {
           ...newCitizens[userIdx],
@@ -4330,8 +4336,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - qty };
         const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `Bourse: ${listing.symbol}`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_BUY" };
-        saveState({ ...state, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `${listing.companyName} (Bourse: ${listing.symbol})`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_BUY" };
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
         notify(`${qty} action(s) ${listing.symbol} achetée(s) pour ${total.toLocaleString()} Écus.`, "success");
       },
 
@@ -4349,14 +4355,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         const held = (newCitizens[userIdx].stockholdings || {})[listingId] || 0;
         if (held < qty) { notify(`Vous ne possédez que ${held} action(s) de cette valeur.`, "error"); return; }
         const total = qty * listing.pricePerShare;
+        // Débiter la trésorerie de l'entreprise (rachat)
+        const newCompanies = [...(state.companies || [])];
+        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
+        if (compIdx !== -1) {
+          if ((newCompanies[compIdx].balance || 0) < total) { notify("La trésorerie de l'entreprise est insuffisante pour racheter ces actions.", "error"); return; }
+          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) - total };
+        }
         const newHoldings = { ...(newCitizens[userIdx].stockholdings || {}) };
         const remaining = held - qty;
         if (remaining === 0) delete newHoldings[listingId]; else newHoldings[listingId] = remaining;
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + total, stockholdings: newHoldings };
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket + qty };
         const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: `Bourse: ${listing.symbol}`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Vente ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_SELL" };
-        saveState({ ...state, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        const ledgerEntry = { id: ts, fromName: `${listing.companyName} (Bourse: ${listing.symbol})`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Rachat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_SELL" };
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
         notify(`${qty} action(s) ${listing.symbol} vendues pour ${total.toLocaleString()} Écus.`, "success");
       },
 
@@ -4367,7 +4380,6 @@ export const useGameActions = (session, state, saveState, notify) => {
         const idx = listings.findIndex((l) => l.id === listingId);
         if (idx === -1) return;
         const listing = listings[idx];
-        // Vérifier que l'appelant est le propriétaire ou un admin (pas de session check strict pour flexibilité admin)
         const newCitizens = [...(state.citizens || [])];
         let totalPaid = 0;
         const ledgerEntries = [];
@@ -4378,11 +4390,18 @@ export const useGameActions = (session, state, saveState, notify) => {
           const payout = held * dpS;
           totalPaid += payout;
           newCitizens[i] = { ...c, balance: (c.balance || 0) + payout };
-          ledgerEntries.push({ id: ts + i, fromName: `Bourse: ${listing.symbol}`, toName: c.name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${dpS} Écus/action × ${held})`, type: "BOURSE_DIVIDEND" });
+          ledgerEntries.push({ id: ts + i, fromName: `${listing.companyName} (dividende ${listing.symbol})`, toName: c.name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${dpS} Écus/action × ${held})`, type: "BOURSE_DIVIDEND" });
         });
+        // Prélever les dividendes de la trésorerie de l'entreprise
+        const newCompanies = [...(state.companies || [])];
+        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
+        if (compIdx !== -1) {
+          if ((newCompanies[compIdx].balance || 0) < totalPaid) { notify(`Trésorerie insuffisante pour verser ${totalPaid.toLocaleString()} Écus de dividendes.`, "error"); return; }
+          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) - totalPaid };
+        }
         const divHistory = [{ amount: dpS, timestamp: ts, totalPaid }, ...(listing.dividendHistory || [])].slice(0, 20);
         listings[idx] = { ...listing, dividendHistory: divHistory };
-        saveState({ ...state, citizens: newCitizens, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])] });
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])] });
         notify(`Dividendes versés : ${dpS} Écus/action. Total distribué : ${totalPaid.toLocaleString()} Écus.`, "success");
       },
 
