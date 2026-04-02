@@ -11,6 +11,7 @@ import {
   Send,
   Briefcase,
   TrendingUp,
+  TrendingDown,
   Palette,
   Trash2,
   Plus,
@@ -31,6 +32,8 @@ import {
   Handshake,
   UserPlus,
   Clock,
+  Coins,
+  BarChart2,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -89,6 +92,10 @@ const MyCompanyView = ({
   onCreateCompanyEvent,
   onDeleteCompanyEvent,
   onCreateSubcontract,
+  bourseListings = [],
+  onBourseCreateListing,
+  onBourseEditListing,
+  onBoursePayDividends,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -150,6 +157,17 @@ const MyCompanyView = ({
   const [subTargetCompany, setSubTargetCompany] = useState("");
   const [subAmount, setSubAmount] = useState("");
   const [subDesc, setSubDesc] = useState("");
+
+  // Bourse
+  const [bourseSymbol, setBourseSymbol] = useState("");
+  const [bourseTotalShares, setBourseTotalShares] = useState("");
+  const [bourseOnMarket, setBourseOnMarket] = useState("");
+  const [boursePrice, setBoursePrice] = useState("");
+  const [bourseDesc, setBourseDesc] = useState("");
+  const [bourseNewPrice, setBourseNewPrice] = useState("");
+  const [bourseNewOnMarket, setBourseNewOnMarket] = useState("");
+  const [bourseDividend, setBourseDividend] = useState("");
+  const [showDividendForm, setShowDividendForm] = useState(false);
 
   const mySlaves = (citizens || []).filter(
     (c) => c.ownerId === user.id && !c.isForSale
@@ -880,6 +898,7 @@ const MyCompanyView = ({
           { id: "finance", label: "Banque & Salaires" },
           { id: "contracts", label: "Contrats", icon: ScrollText },
           { id: "management", label: "Gestion" },
+          { id: "bourse", label: "Bourse" },
           { id: "customize", label: "Personnalisation" },
         ].map((tab) => (
           <button
@@ -2113,6 +2132,298 @@ const MyCompanyView = ({
           </Card>
         </div>
       )}
+
+      {/* ONGLET BOURSE */}
+      {activeTab === "bourse" && (() => {
+        const myListing = bourseListings.find((l) => l.companyId === myCompany.id);
+        const shareholders = myListing
+          ? (citizens || []).filter((c) => (c.stockholdings || {})[myListing.id] > 0).map((c) => ({
+              ...c, shares: (c.stockholdings || {})[myListing.id],
+              value: (c.stockholdings || {})[myListing.id] * myListing.pricePerShare,
+            }))
+          : [];
+        const totalHeld = shareholders.reduce((s, c) => s + c.shares, 0);
+        const pctChange = myListing && myListing.initialPrice
+          ? ((myListing.pricePerShare - myListing.initialPrice) / myListing.initialPrice) * 100
+          : 0;
+
+        if (!myListing) {
+          // === PAS ENCORE COTÉE : formulaire IPO ===
+          const previewCap = parseInt(bourseTotalShares) * parseFloat(boursePrice) || 0;
+          return (
+            <div className="space-y-6">
+              <Card title="Introduction en Bourse (IPO)" icon={TrendingUp}>
+                <div className="space-y-4">
+                  <p className="text-xs text-stone-500">
+                    Coter votre société en bourse vous permet d'émettre des actions et d'attirer des investisseurs.
+                    Les actionnaires reçoivent des dividendes que vous versez manuellement.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Symbole boursier * (3-5 lettres)</label>
+                      <input className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
+                        value={bourseSymbol} onChange={(e) => setBourseSymbol(e.target.value.toUpperCase().slice(0, 5))} maxLength={5}
+                        placeholder={myCompany.name.substring(0, 4).toUpperCase()} />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Prix initial par action (Écus) *</label>
+                      <input type="number" className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
+                        value={boursePrice} onChange={(e) => setBoursePrice(e.target.value)} placeholder="ex: 100" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Nombre total d'actions émises *</label>
+                      <input type="number" className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
+                        value={bourseTotalShares} onChange={(e) => setBourseTotalShares(e.target.value)} placeholder="ex: 1000" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Actions mises en vente (≤ total)</label>
+                      <input type="number" className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
+                        value={bourseOnMarket} onChange={(e) => setBourseOnMarket(e.target.value)} placeholder="Défaut = total" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Prospectus / Description</label>
+                    <textarea className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 resize-none"
+                      rows={2} value={bourseDesc} onChange={(e) => setBourseDesc(e.target.value)}
+                      placeholder="Activité, perspectives de rendement…" />
+                  </div>
+                  {bourseTotalShares && boursePrice && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm space-y-1">
+                      <div className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Récapitulatif IPO</div>
+                      <div className="flex justify-between">
+                        <span className="text-stone-500">Capitalisation initiale</span>
+                        <span className="font-black font-mono text-amber-700">{previewCap.toLocaleString()} Écus</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-stone-500">Actions en vente</span>
+                        <span className="font-bold">{bourseOnMarket || bourseTotalShares} / {bourseTotalShares}</span>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    disabled={!bourseSymbol || !bourseTotalShares || !boursePrice}
+                    onClick={() => {
+                      onBourseCreateListing({
+                        companyId: myCompany.id, symbol: bourseSymbol,
+                        totalShares: bourseTotalShares, sharesOnMarket: bourseOnMarket || bourseTotalShares,
+                        pricePerShare: boursePrice, description: bourseDesc || myCompany.description,
+                      });
+                      setBourseSymbol(""); setBourseTotalShares(""); setBourseOnMarket(""); setBoursePrice(""); setBourseDesc("");
+                    }}
+                    className="w-full py-2.5 bg-stone-800 text-amber-400 font-black uppercase tracking-widest text-xs rounded-lg hover:bg-stone-700 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center justify-center gap-2"
+                  >
+                    <TrendingUp size={14} /> Introduire en bourse
+                  </button>
+                </div>
+              </Card>
+            </div>
+          );
+        }
+
+        // === DÉJÀ COTÉE : panel de gestion ===
+        return (
+          <div className="space-y-6">
+            {/* En-tête cotation */}
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="bg-stone-800 text-amber-300 font-black font-mono text-lg px-4 py-2 rounded-lg shrink-0">
+                  {myListing.symbol}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-black text-stone-800">{myCompany.name}</div>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${myListing.isActive ? "bg-green-50 text-green-600 border-green-200" : "bg-red-50 text-red-500 border-red-200"}`}>
+                      {myListing.isActive ? "Active" : "Suspendue"}
+                    </span>
+                    <span className="text-[9px] text-stone-500">depuis le {new Date(myListing.launchedAt).toLocaleDateString("fr-FR")}</span>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-2xl font-black font-mono text-stone-800">{myListing.pricePerShare.toLocaleString()} <span className="text-sm font-normal text-stone-400">Écus</span></div>
+                  <div className={`text-xs font-black flex items-center justify-end gap-1 ${pctChange > 0 ? "text-green-600" : pctChange < 0 ? "text-red-500" : "text-stone-400"}`}>
+                    {pctChange > 0 ? <TrendingUp size={11} /> : pctChange < 0 ? <TrendingDown size={11} /> : null}
+                    {pctChange !== 0 ? `${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}% vs IPO` : "Cours stable"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats rapides */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Capital total", value: (myListing.totalShares * myListing.pricePerShare).toLocaleString() + " Écus", sub: myListing.totalShares.toLocaleString() + " actions" },
+                { label: "En vente", value: myListing.sharesOnMarket.toLocaleString(), sub: `${myListing.totalShares > 0 ? ((myListing.sharesOnMarket / myListing.totalShares) * 100).toFixed(1) : 0}% du capital` },
+                { label: "Actionnaires", value: shareholders.length, sub: totalHeld.toLocaleString() + " actions détenues" },
+                { label: "Prix IPO", value: myListing.initialPrice.toLocaleString() + " Écus", sub: "prix d'introduction" },
+              ].map((s, i) => (
+                <div key={i} className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5">
+                  <div className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{s.label}</div>
+                  <div className="text-sm font-black text-stone-800 mt-0.5">{s.value}</div>
+                  <div className="text-[9px] text-stone-400">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Modifier le cours / volume */}
+              <Card title="Modifier la cotation" icon={BarChart2}>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Nouveau cours (Écus)</label>
+                    <div className="flex gap-2">
+                      <input type="number" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                        placeholder={myListing.pricePerShare} value={bourseNewPrice} onChange={(e) => setBourseNewPrice(e.target.value)} />
+                      <button
+                        disabled={!bourseNewPrice || parseFloat(bourseNewPrice) <= 0}
+                        onClick={() => { onBourseEditListing(myListing.id, { pricePerShare: parseFloat(bourseNewPrice) }); setBourseNewPrice(""); }}
+                        className="px-4 py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
+                        Appliquer
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Actions en vente</label>
+                    <div className="flex gap-2">
+                      <input type="number" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                        placeholder={myListing.sharesOnMarket} min={0} max={myListing.totalShares}
+                        value={bourseNewOnMarket} onChange={(e) => setBourseNewOnMarket(e.target.value)} />
+                      <button
+                        disabled={bourseNewOnMarket === "" || parseInt(bourseNewOnMarket) < 0 || parseInt(bourseNewOnMarket) > myListing.totalShares}
+                        onClick={() => { onBourseEditListing(myListing.id, { sharesOnMarket: parseInt(bourseNewOnMarket) }); setBourseNewOnMarket(""); }}
+                        className="px-4 py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
+                        Appliquer
+                      </button>
+                    </div>
+                    <div className="text-[9px] text-stone-400 mt-1">Max : {myListing.totalShares.toLocaleString()} actions</div>
+                  </div>
+                  <div className="pt-1 border-t border-stone-100">
+                    <button
+                      onClick={() => onBourseEditListing(myListing.id, { isActive: !myListing.isActive })}
+                      className={`w-full py-2 text-xs font-black uppercase rounded-lg border transition-colors ${
+                        myListing.isActive
+                          ? "border-red-200 text-red-600 hover:bg-red-50"
+                          : "border-green-200 text-green-600 hover:bg-green-50"
+                      }`}>
+                      {myListing.isActive ? "Suspendre la cotation" : "Réactiver la cotation"}
+                    </button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Dividendes */}
+              <Card title="Dividendes" icon={Coins}>
+                <div className="space-y-3">
+                  {shareholders.length === 0 ? (
+                    <p className="text-xs text-stone-400 italic text-center py-4">Aucun actionnaire pour le moment.</p>
+                  ) : (
+                    <>
+                      <div className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-xs space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-stone-500">Actionnaires</span>
+                          <span className="font-bold">{shareholders.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-stone-500">Actions détenues</span>
+                          <span className="font-bold">{totalHeld.toLocaleString()}</span>
+                        </div>
+                        {bourseDividend && parseFloat(bourseDividend) > 0 && (
+                          <div className="flex justify-between border-t border-stone-200 pt-1 mt-1">
+                            <span className="text-amber-600 font-bold">Total à distribuer</span>
+                            <span className="font-black font-mono text-amber-700">{(parseFloat(bourseDividend) * totalHeld).toLocaleString()} Écus</span>
+                          </div>
+                        )}
+                      </div>
+                      {!showDividendForm ? (
+                        <button onClick={() => setShowDividendForm(true)}
+                          className="w-full py-2.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black uppercase rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-1.5">
+                          <Coins size={13} /> Verser un dividende
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Montant par action (Écus)</label>
+                          <div className="flex gap-2">
+                            <input type="number" className="flex-1 border border-amber-200 rounded-lg p-2.5 text-sm outline-none focus:border-amber-400 bg-amber-50 font-mono"
+                              placeholder="ex: 5" value={bourseDividend} onChange={(e) => setBourseDividend(e.target.value)} />
+                            <button
+                              disabled={!bourseDividend || parseFloat(bourseDividend) <= 0}
+                              onClick={() => { onBoursePayDividends(myListing.id, bourseDividend); setBourseDividend(""); setShowDividendForm(false); }}
+                              className="px-4 py-2 bg-amber-600 text-white text-xs font-black uppercase rounded-lg hover:bg-amber-500 disabled:opacity-40 transition-colors">
+                              Distribuer
+                            </button>
+                            <button onClick={() => { setShowDividendForm(false); setBourseDividend(""); }}
+                              className="px-3 py-2 text-stone-400 hover:text-stone-600 text-xs">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {/* Historique dividendes */}
+                  {(myListing.dividendHistory || []).length > 0 && (
+                    <div className="border-t border-stone-100 pt-3 space-y-1">
+                      <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Historique</div>
+                      {myListing.dividendHistory.slice(0, 4).map((d, i) => (
+                        <div key={i} className="flex justify-between text-[10px]">
+                          <span className="text-stone-400">{new Date(d.timestamp).toLocaleDateString("fr-FR")}</span>
+                          <span className="font-mono text-amber-600 font-bold">{d.amount} Écu/action — {d.totalPaid?.toLocaleString()} Écus</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* Actionnaires */}
+            <Card title={`Actionnaires (${shareholders.length})`} icon={Users}>
+              {shareholders.length === 0 ? (
+                <p className="text-xs text-stone-400 italic text-center py-6">Aucun actionnaire pour le moment. Les actions sont disponibles à l'achat sur la Bourse.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  <div className="grid grid-cols-12 gap-2 px-2 text-[8px] font-black uppercase text-stone-400 tracking-widest pb-1 border-b border-stone-100">
+                    <div className="col-span-5">Citoyen</div>
+                    <div className="col-span-3 text-right">Actions</div>
+                    <div className="col-span-2 text-right">% du capital</div>
+                    <div className="col-span-2 text-right">Valeur</div>
+                  </div>
+                  {shareholders.sort((a, b) => b.shares - a.shares).map((c) => (
+                    <div key={c.id} className="grid grid-cols-12 gap-2 px-2 py-1.5 rounded-lg hover:bg-stone-50 items-center">
+                      <div className="col-span-5 flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 bg-stone-200 rounded-full flex items-center justify-center text-[10px] font-black text-stone-500 shrink-0">
+                          {(c.firstName || c.name || "?")[0].toUpperCase()}
+                        </div>
+                        <span className="text-xs text-stone-700 font-bold truncate">
+                          {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
+                        </span>
+                      </div>
+                      <div className="col-span-3 text-right text-xs font-mono font-bold text-stone-700">{c.shares.toLocaleString()}</div>
+                      <div className="col-span-2 text-right text-[10px] text-stone-400">
+                        {myListing.totalShares > 0 ? ((c.shares / myListing.totalShares) * 100).toFixed(1) : 0}%
+                      </div>
+                      <div className="col-span-2 text-right text-[10px] font-mono font-bold text-amber-600">{c.value.toLocaleString()} Écus</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Historique des prix */}
+            {(myListing.priceHistory || []).length > 1 && (
+              <Card title="Historique des cours" icon={History}>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {myListing.priceHistory.slice(0, 15).map((h, i) => (
+                    <div key={i} className="flex items-center justify-between px-2 py-1 rounded hover:bg-stone-50 text-xs">
+                      <span className="text-stone-400 text-[10px]">{new Date(h.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                      <span className={`font-black font-mono ${i === 0 ? "text-amber-600" : "text-stone-500"}`}>{h.price.toLocaleString()} Écus</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ONGLET PERSONNALISATION */}
       {activeTab === "customize" && (

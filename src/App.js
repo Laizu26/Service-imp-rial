@@ -603,6 +603,9 @@ export default function App() {
             bourseListings={state.bourseListings || []}
             onBourseBuyShares={actions.onBourseBuyShares}
             onBourseSellShares={actions.onBourseSellShares}
+            onBourseCreateListing={actions.onBourseCreateListing}
+            onBourseEditListing={actions.onBourseEditListing}
+            onBoursePayDividends={actions.onBoursePayDividends}
             onFamilyDeposit={actions.onFamilyDeposit}
             onFamilyWithdraw={actions.onFamilyWithdraw}
             onFamilyTreasuryTransfer={actions.onFamilyTreasuryTransfer}

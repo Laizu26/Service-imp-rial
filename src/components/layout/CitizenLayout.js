@@ -686,6 +686,9 @@ const CitizenLayout = (props) => {
     bourseListings = [],
     onBourseBuyShares,
     onBourseSellShares,
+    onBourseCreateListing,
+    onBourseEditListing,
+    onBoursePayDividends,
     onSetFamilyHead,
     onFamilyDeposit,
     onFamilyWithdraw,
@@ -1260,6 +1263,10 @@ const CitizenLayout = (props) => {
                 onCreateCompanyEvent={onCreateCompanyEvent}
                 onDeleteCompanyEvent={onDeleteCompanyEvent}
                 onCreateSubcontract={onCreateSubcontract}
+                bourseListings={bourseListings}
+                onBourseCreateListing={onBourseCreateListing}
+                onBourseEditListing={onBourseEditListing}
+                onBoursePayDividends={onBoursePayDividends}
               />
             )}
 
