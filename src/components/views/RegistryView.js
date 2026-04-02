@@ -36,6 +36,10 @@ const RegistryView = ({
   const [search, setSearch] = useState("");
   const [ownerSearch, setOwnerSearch] = useState("");
   const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
+  const [fatherSearch, setFatherSearch] = useState("");
+  const [showFatherDropdown, setShowFatherDropdown] = useState(false);
+  const [motherSearch, setMotherSearch] = useState("");
+  const [showMotherDropdown, setShowMotherDropdown] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const isGlobal = roleInfo.scope === "GLOBAL";
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
@@ -681,6 +685,118 @@ const RegistryView = ({
                                     ) : (
                                       <User size={12} className="text-stone-400 shrink-0" />
                                     )}
+                                    <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                    <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Filiation — Père */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-blue-400 uppercase block tracking-widest ml-1 font-sans">
+                        Père
+                      </label>
+                      {editForm.fatherId ? (
+                        <div className="flex items-center gap-2 p-3 border-2 border-blue-200 rounded-xl bg-blue-50">
+                          <User size={14} className="text-blue-500 shrink-0" />
+                          <span className="font-bold text-sm text-stone-800 truncate flex-1">
+                            {safeCitizens.find((c) => c.id === editForm.fatherId)?.name || editForm.fatherName || editForm.fatherId}
+                          </span>
+                          <button
+                            onClick={() => setEditForm({ ...editForm, fatherId: null, fatherName: null })}
+                            className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-blue-400">
+                            <Search size={14} className="text-stone-300 shrink-0" />
+                            <input
+                              className="flex-1 p-2 outline-none text-sm font-bold bg-transparent"
+                              placeholder="Chercher le père..."
+                              value={fatherSearch}
+                              onChange={(e) => setFatherSearch(e.target.value)}
+                              onFocus={() => setShowFatherDropdown(true)}
+                            />
+                          </div>
+                          {showFatherDropdown && fatherSearch && (
+                            <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                              {safeCitizens
+                                .filter((c) => c.id !== editForm.id && (c.name?.toLowerCase().includes(fatherSearch.toLowerCase()) || c.id?.includes(fatherSearch)))
+                                .slice(0, 6)
+                                .map((c) => (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => {
+                                      setEditForm({ ...editForm, fatherId: c.id, fatherName: c.name });
+                                      setFatherSearch("");
+                                      setShowFatherDropdown(false);
+                                    }}
+                                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                                  >
+                                    <User size={12} className="text-blue-400 shrink-0" />
+                                    <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                    <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Filiation — Mère */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-pink-400 uppercase block tracking-widest ml-1 font-sans">
+                        Mère
+                      </label>
+                      {editForm.motherId ? (
+                        <div className="flex items-center gap-2 p-3 border-2 border-pink-200 rounded-xl bg-pink-50">
+                          <User size={14} className="text-pink-500 shrink-0" />
+                          <span className="font-bold text-sm text-stone-800 truncate flex-1">
+                            {safeCitizens.find((c) => c.id === editForm.motherId)?.name || editForm.motherName || editForm.motherId}
+                          </span>
+                          <button
+                            onClick={() => setEditForm({ ...editForm, motherId: null, motherName: null })}
+                            className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-pink-400">
+                            <Search size={14} className="text-stone-300 shrink-0" />
+                            <input
+                              className="flex-1 p-2 outline-none text-sm font-bold bg-transparent"
+                              placeholder="Chercher la mère..."
+                              value={motherSearch}
+                              onChange={(e) => setMotherSearch(e.target.value)}
+                              onFocus={() => setShowMotherDropdown(true)}
+                            />
+                          </div>
+                          {showMotherDropdown && motherSearch && (
+                            <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                              {safeCitizens
+                                .filter((c) => c.id !== editForm.id && (c.name?.toLowerCase().includes(motherSearch.toLowerCase()) || c.id?.includes(motherSearch)))
+                                .slice(0, 6)
+                                .map((c) => (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => {
+                                      setEditForm({ ...editForm, motherId: c.id, motherName: c.name });
+                                      setMotherSearch("");
+                                      setShowMotherDropdown(false);
+                                    }}
+                                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                                  >
+                                    <User size={12} className="text-pink-400 shrink-0" />
                                     <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
                                     <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
                                   </button>
