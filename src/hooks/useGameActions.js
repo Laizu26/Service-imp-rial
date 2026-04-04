@@ -4085,7 +4085,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const logEntry = { id: ts, type: "deposit", amount: amt, actor: userName, label: `Dépôt par ${userName}`, timestamp: ts };
         families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) + amt, treasuryLog: [logEntry, ...(families[fIdx].treasuryLog || [])].slice(0, 60) };
         const ledgerEntry = { id: ts, fromName: userName, toName: `Famille: ${famName}`, amount: amt, timestamp: ts, reason: "Dépôt trésorerie familiale", type: "FAMILY" };
-        saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${amt} Écus déposés dans la trésorerie familiale.`, "success");
       },
 
@@ -4109,7 +4109,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const logEntry = { id: ts, type: "withdraw", amount: amt, actor: userName, label: `Retrait par ${userName}`, timestamp: ts };
         families[fIdx] = { ...fam, treasury: (fam.treasury || 0) - amt, treasuryLog: [logEntry, ...(fam.treasuryLog || [])].slice(0, 60) };
         const ledgerEntry = { id: ts, fromName: `Famille: ${famName}`, toName: userName, amount: amt, timestamp: ts, reason: "Retrait trésorerie familiale", type: "FAMILY" };
-        saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${amt} Écus retirés de la trésorerie familiale.`, "success");
       },
 
@@ -4135,7 +4135,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         families[toIdx] = { ...toFam, treasury: (toFam.treasury || 0) + amt,
           treasuryLog: [{ id: ts, type: "transfer_in", amount: amt, label: `Virement reçu de famille ${fromName} — ${motif}`, timestamp: ts }, ...(toFam.treasuryLog || [])].slice(0, 60) };
         const ledgerEntry = { id: ts, fromName: `Famille: ${fromName}`, toName: `Famille: ${toName}`, amount: amt, timestamp: ts, reason: motif, type: "FAMILY_TRANSFER" };
-        saveState({ ...state, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        saveState({ ...state, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${amt} Écus transférés vers la famille ${toName}.`, "success");
       },
 
@@ -4271,7 +4271,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           dividendHistory: [],
         };
         const ledgerEntry = { id: ts, fromName: company.name, toName: "Bourse Impériale", amount: 0, timestamp: ts, reason: `Introduction en bourse : ${symUp} (${shares} actions à ${price} Écus)`, type: "BOURSE_IPO" };
-        saveState({ ...state, bourseListings: [listing, ...listings], globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        saveState({ ...state, bourseListings: [listing, ...listings], globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${company.name} est désormais cotée en bourse sous le symbole ${symUp}.`, "success");
       },
 
@@ -4337,7 +4337,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - qty };
         const ts = Date.now();
         const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `${listing.companyName} (Bourse: ${listing.symbol})`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_BUY" };
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${qty} action(s) ${listing.symbol} achetée(s) pour ${total.toLocaleString()} Écus.`, "success");
       },
 
@@ -4369,7 +4369,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket + qty };
         const ts = Date.now();
         const ledgerEntry = { id: ts, fromName: `${listing.companyName} (Bourse: ${listing.symbol})`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Rachat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_SELL" };
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${qty} action(s) ${listing.symbol} vendues pour ${total.toLocaleString()} Écus.`, "success");
       },
 
@@ -4401,7 +4401,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         const divHistory = [{ amount: dpS, timestamp: ts, totalPaid }, ...(listing.dividendHistory || [])].slice(0, 20);
         listings[idx] = { ...listing, dividendHistory: divHistory };
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])] });
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`Dividendes versés : ${dpS} Écus/action. Total distribué : ${totalPaid.toLocaleString()} Écus.`, "success");
       },
 

@@ -159,15 +159,8 @@ const MyCompanyView = ({
   const [subDesc, setSubDesc] = useState("");
 
   // Bourse
-  const [bourseSymbol, setBourseSymbol] = useState("");
-  const [bourseTotalShares, setBourseTotalShares] = useState("");
-  const [bourseOnMarket, setBourseOnMarket] = useState("");
-  const [boursePrice, setBoursePrice] = useState("");
-  const [bourseDesc, setBourseDesc] = useState("");
-  const [bourseNewPrice, setBourseNewPrice] = useState("");
-  const [bourseNewOnMarket, setBourseNewOnMarket] = useState("");
-  const [bourseDividend, setBourseDividend] = useState("");
-  const [showDividendForm, setShowDividendForm] = useState(false);
+  const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", newPrice: "", newOnMarket: "", dividend: "", showDividendForm: false });
+  const setBF = (patch) => setBourseForm((p) => ({ ...p, ...patch }));
 
   const mySlaves = (citizens || []).filter(
     (c) => c.ownerId === user.id && !c.isForSale
@@ -2149,7 +2142,7 @@ const MyCompanyView = ({
 
         if (!myListing) {
           // === PAS ENCORE COTÉE : formulaire IPO ===
-          const previewCap = parseInt(bourseTotalShares) * parseFloat(boursePrice) || 0;
+          const previewCap = parseInt(bourseForm.totalShares) * parseFloat(bourseForm.price) || 0;
           return (
             <div className="space-y-6">
               <Card title="Introduction en Bourse (IPO)" icon={TrendingUp}>
@@ -2162,32 +2155,32 @@ const MyCompanyView = ({
                     <div>
                       <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Symbole boursier * (3-5 lettres)</label>
                       <input className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
-                        value={bourseSymbol} onChange={(e) => setBourseSymbol(e.target.value.toUpperCase().slice(0, 5))} maxLength={5}
+                        value={bourseForm.symbol} onChange={(e) => setBF({ symbol: e.target.value.toUpperCase().slice(0, 5) })} maxLength={5}
                         placeholder={myCompany.name.substring(0, 4).toUpperCase()} />
                     </div>
                     <div>
                       <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Prix initial par action (Écus) *</label>
                       <input type="number" className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
-                        value={boursePrice} onChange={(e) => setBoursePrice(e.target.value)} placeholder="ex: 100" />
+                        value={bourseForm.price} onChange={(e) => setBF({ price: e.target.value })} placeholder="ex: 100" />
                     </div>
                     <div>
                       <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Nombre total d'actions émises *</label>
                       <input type="number" className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
-                        value={bourseTotalShares} onChange={(e) => setBourseTotalShares(e.target.value)} placeholder="ex: 1000" />
+                        value={bourseForm.totalShares} onChange={(e) => setBF({ totalShares: e.target.value })} placeholder="ex: 1000" />
                     </div>
                     <div>
                       <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Actions mises en vente (≤ total)</label>
                       <input type="number" className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50"
-                        value={bourseOnMarket} onChange={(e) => setBourseOnMarket(e.target.value)} placeholder="Défaut = total" />
+                        value={bourseForm.onMarket} onChange={(e) => setBF({ onMarket: e.target.value })} placeholder="Défaut = total" />
                     </div>
                   </div>
                   <div>
                     <label className="text-[9px] font-black uppercase text-stone-500 tracking-widest block mb-1">Prospectus / Description</label>
                     <textarea className="w-full border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 resize-none"
-                      rows={2} value={bourseDesc} onChange={(e) => setBourseDesc(e.target.value)}
+                      rows={2} value={bourseForm.desc} onChange={(e) => setBF({ desc: e.target.value })}
                       placeholder="Activité, perspectives de rendement…" />
                   </div>
-                  {bourseTotalShares && boursePrice && (
+                  {bourseForm.totalShares && bourseForm.price && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm space-y-1">
                       <div className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Récapitulatif IPO</div>
                       <div className="flex justify-between">
@@ -2196,19 +2189,19 @@ const MyCompanyView = ({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-stone-500">Actions en vente</span>
-                        <span className="font-bold">{bourseOnMarket || bourseTotalShares} / {bourseTotalShares}</span>
+                        <span className="font-bold">{bourseForm.onMarket || bourseForm.totalShares} / {bourseForm.totalShares}</span>
                       </div>
                     </div>
                   )}
                   <button
-                    disabled={!bourseSymbol || !bourseTotalShares || !boursePrice}
+                    disabled={!bourseForm.symbol || !bourseForm.totalShares || !bourseForm.price}
                     onClick={() => {
                       onBourseCreateListing({
-                        companyId: myCompany.id, symbol: bourseSymbol,
-                        totalShares: bourseTotalShares, sharesOnMarket: bourseOnMarket || bourseTotalShares,
-                        pricePerShare: boursePrice, description: bourseDesc || myCompany.description,
+                        companyId: myCompany.id, symbol: bourseForm.symbol,
+                        totalShares: bourseForm.totalShares, sharesOnMarket: bourseForm.onMarket || bourseForm.totalShares,
+                        pricePerShare: bourseForm.price, description: bourseForm.desc || myCompany.description,
                       });
-                      setBourseSymbol(""); setBourseTotalShares(""); setBourseOnMarket(""); setBoursePrice(""); setBourseDesc("");
+                      setBF({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "" });
                     }}
                     className="w-full py-2.5 bg-stone-800 text-amber-400 font-black uppercase tracking-widest text-xs rounded-lg hover:bg-stone-700 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center justify-center gap-2"
                   >
@@ -2272,10 +2265,10 @@ const MyCompanyView = ({
                     <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Nouveau cours (Écus)</label>
                     <div className="flex gap-2">
                       <input type="number" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
-                        placeholder={myListing.pricePerShare} value={bourseNewPrice} onChange={(e) => setBourseNewPrice(e.target.value)} />
+                        placeholder={myListing.pricePerShare} value={bourseForm.newPrice} onChange={(e) => setBF({ newPrice: e.target.value })} />
                       <button
-                        disabled={!bourseNewPrice || parseFloat(bourseNewPrice) <= 0}
-                        onClick={() => { onBourseEditListing(myListing.id, { pricePerShare: parseFloat(bourseNewPrice) }); setBourseNewPrice(""); }}
+                        disabled={!bourseForm.newPrice || parseFloat(bourseForm.newPrice) <= 0}
+                        onClick={() => { onBourseEditListing(myListing.id, { pricePerShare: parseFloat(bourseForm.newPrice) }); setBF({ newPrice: "" }); }}
                         className="px-4 py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
                         Appliquer
                       </button>
@@ -2286,10 +2279,10 @@ const MyCompanyView = ({
                     <div className="flex gap-2">
                       <input type="number" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
                         placeholder={myListing.sharesOnMarket} min={0} max={myListing.totalShares}
-                        value={bourseNewOnMarket} onChange={(e) => setBourseNewOnMarket(e.target.value)} />
+                        value={bourseForm.newOnMarket} onChange={(e) => setBF({ newOnMarket: e.target.value })} />
                       <button
-                        disabled={bourseNewOnMarket === "" || parseInt(bourseNewOnMarket) < 0 || parseInt(bourseNewOnMarket) > myListing.totalShares}
-                        onClick={() => { onBourseEditListing(myListing.id, { sharesOnMarket: parseInt(bourseNewOnMarket) }); setBourseNewOnMarket(""); }}
+                        disabled={bourseForm.newOnMarket === "" || parseInt(bourseForm.newOnMarket) < 0 || parseInt(bourseForm.newOnMarket) > myListing.totalShares}
+                        onClick={() => { onBourseEditListing(myListing.id, { sharesOnMarket: parseInt(bourseForm.newOnMarket) }); setBF({ newOnMarket: "" }); }}
                         className="px-4 py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
                         Appliquer
                       </button>
@@ -2326,15 +2319,15 @@ const MyCompanyView = ({
                           <span className="text-stone-500">Actions détenues</span>
                           <span className="font-bold">{totalHeld.toLocaleString()}</span>
                         </div>
-                        {bourseDividend && parseFloat(bourseDividend) > 0 && (
+                        {bourseForm.dividend && parseFloat(bourseForm.dividend) > 0 && (
                           <div className="flex justify-between border-t border-stone-200 pt-1 mt-1">
                             <span className="text-amber-600 font-bold">Total à distribuer</span>
-                            <span className="font-black font-mono text-amber-700">{(parseFloat(bourseDividend) * totalHeld).toLocaleString()} Écus</span>
+                            <span className="font-black font-mono text-amber-700">{(parseFloat(bourseForm.dividend) * totalHeld).toLocaleString()} Écus</span>
                           </div>
                         )}
                       </div>
-                      {!showDividendForm ? (
-                        <button onClick={() => setShowDividendForm(true)}
+                      {!bourseForm.showDividendForm ? (
+                        <button onClick={() => setBF({ showDividendForm: true })}
                           className="w-full py-2.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black uppercase rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-1.5">
                           <Coins size={13} /> Verser un dividende
                         </button>
@@ -2343,14 +2336,14 @@ const MyCompanyView = ({
                           <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Montant par action (Écus)</label>
                           <div className="flex gap-2">
                             <input type="number" className="flex-1 border border-amber-200 rounded-lg p-2.5 text-sm outline-none focus:border-amber-400 bg-amber-50 font-mono"
-                              placeholder="ex: 5" value={bourseDividend} onChange={(e) => setBourseDividend(e.target.value)} />
+                              placeholder="ex: 5" value={bourseForm.dividend} onChange={(e) => setBF({ dividend: e.target.value })} />
                             <button
-                              disabled={!bourseDividend || parseFloat(bourseDividend) <= 0}
-                              onClick={() => { onBoursePayDividends(myListing.id, bourseDividend); setBourseDividend(""); setShowDividendForm(false); }}
+                              disabled={!bourseForm.dividend || parseFloat(bourseForm.dividend) <= 0}
+                              onClick={() => { onBoursePayDividends(myListing.id, bourseForm.dividend); setBF({ dividend: "", showDividendForm: false }); }}
                               className="px-4 py-2 bg-amber-600 text-white text-xs font-black uppercase rounded-lg hover:bg-amber-500 disabled:opacity-40 transition-colors">
                               Distribuer
                             </button>
-                            <button onClick={() => { setShowDividendForm(false); setBourseDividend(""); }}
+                            <button onClick={() => setBF({ showDividendForm: false, dividend: "" })}
                               className="px-3 py-2 text-stone-400 hover:text-stone-600 text-xs">
                               <X size={14} />
                             </button>

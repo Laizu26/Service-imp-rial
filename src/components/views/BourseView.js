@@ -367,6 +367,16 @@ const BourseView = ({
 
   const detailListing = bourseListings.find((l) => l.id === detailId);
 
+  const shareholderCounts = useMemo(() => {
+    const counts = {};
+    citizens.forEach((c) => {
+      Object.entries(c.stockholdings || {}).forEach(([lid, qty]) => {
+        if (qty > 0) counts[lid] = (counts[lid] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [citizens]);
+
   const histTypeLabel = (t) => ({ BOURSE_BUY: "Achat", BOURSE_SELL: "Vente", BOURSE_IPO: "IPO", BOURSE_DIVIDEND: "Dividende" }[t] || t);
   const histTypeColor = (t) => ({ BOURSE_BUY: "text-green-400", BOURSE_SELL: "text-red-400", BOURSE_IPO: "text-amber-400", BOURSE_DIVIDEND: "text-blue-400" }[t] || "text-stone-400");
 
@@ -477,7 +487,7 @@ const BourseView = ({
                 const pctChange = listing.initialPrice
                   ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice) * 100
                   : 0;
-                const shareholders = citizens.filter((c) => (c.stockholdings || {})[listing.id] > 0).length;
+                const shareholders = shareholderCounts[listing.id] || 0;
                 return (
                   <div key={listing.id}
                     className={`grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded-xl border transition-all cursor-pointer hover:border-stone-600 ${
