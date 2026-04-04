@@ -796,7 +796,7 @@ export default function App() {
               <header className="h-16 md:h-20 bg-[#fdf6e3]/95 backdrop-blur border-b border-stone-300 flex items-center px-4 md:px-8 justify-between shadow-sm relative z-20 shrink-0">
                 <div className="flex items-center gap-4 md:gap-6">
                   <button
-                    className="md:hidden p-2 hover:bg-stone-200 rounded-xl transition-all shadow-sm text-stone-700"
+                    className="md:hidden p-2 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition-all shadow-sm text-stone-700 dark:text-stone-300"
                     onClick={() => setSidebarOpen(true)}
                   >
                     <Menu size={24} />
@@ -805,7 +805,7 @@ export default function App() {
                     <span className="text-[9px] md:text-[10px] font-black uppercase text-stone-400 tracking-[0.2em] md:tracking-[0.4em] mb-1 font-mono">
                       Administration Impériale
                     </span>
-                    <div className="text-lg md:text-xl font-black uppercase text-stone-800 tracking-widest font-serif">
+                    <div className="text-lg md:text-xl font-black uppercase text-stone-800 dark:text-stone-100 tracking-widest font-serif">
                       {state.gameDate
                         ? `${state.gameDate.day}/${state.gameDate.month}/${state.gameDate.year}`
                         : `Cycle ${state.dayCycle}`}
@@ -813,7 +813,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest px-3 py-2 md:px-5 md:py-2.5 border-2 border-stone-200 rounded-full bg-white/50 shadow-inner hidden sm:block">
+                  <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest px-3 py-2 md:px-5 md:py-2.5 border-2 border-stone-200 rounded-full bg-white/50 dark:bg-stone-800 dark:border-stone-700 shadow-inner hidden sm:block">
                     Liaison: {syncStatus === "saving" ? "Archivage..." : "Stable"}
                   </div>
                   <NotificationCenter
@@ -834,7 +834,7 @@ export default function App() {
               </header>
 
               <main className="flex-1 p-4 md:p-8 overflow-hidden relative z-10">
-                <div className="max-w-[1600px] mx-auto w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-stone-400 scrollbar-track-stone-200 pb-10">
+                <div className="max-w-[1600px] mx-auto w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-stone-400 dark:scrollbar-thumb-stone-600 scrollbar-track-stone-200 dark:scrollbar-track-stone-900 pb-10">
                   {activeTab === "dashboard" &&
                     (roleInfo.level >= 90 || roleInfo.scope === "LOCAL") && (
                       <DashboardView
