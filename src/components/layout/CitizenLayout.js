@@ -34,6 +34,7 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart2,
+  X,
 } from "lucide-react";
 
 
@@ -734,9 +735,16 @@ const CitizenLayout = (props) => {
   const [np, setNp] = useState("");
   const [journalEntry, setJournalEntry] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState(null);
+  const [annuaireTab, setAnnuaireTab] = useState("citoyens");
   const [annuaireSearch, setAnnuaireSearch] = useState("");
   const [annuaireFilter, setAnnuaireFilter] = useState("ALL");
   const [selectedCitizen, setSelectedCitizen] = useState(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [selectedCountryId, setSelectedCountryId] = useState(null);
+  const [selectedFamilyId, setSelectedFamilyId] = useState(null);
+  const [annuaireCompanySearch, setAnnuaireCompanySearch] = useState("");
+  const [annuaireCountrySearch, setAnnuaireCountrySearch] = useState("");
+  const [annuaireFamilySearch, setAnnuaireFamilySearch] = useState("");
 
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
@@ -2105,128 +2113,432 @@ const CitizenLayout = (props) => {
               />
             )}
 
-            {/* === ANNUAIRE DES CITOYENS === */}
+            {/* === ANNUAIRE IMPÉRIAL === */}
             {active === "annuaire" && (
               <div className="space-y-4">
                 <div className="bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 border-stone-400 overflow-hidden p-6">
-                  <h2 className="text-xl font-black uppercase text-stone-800 tracking-widest font-serif flex items-center gap-3 mb-4">
+                  <h2 className="text-xl font-black uppercase text-stone-800 tracking-widest font-serif flex items-center gap-3 mb-1">
                     <Eye size={20} /> Annuaire Impérial
                   </h2>
-                  <p className="text-xs text-stone-500 mb-4">
-                    Consultez les fiches des citoyens de l'Empire. Les informations financières restent privées.
-                  </p>
-                  {/* Barre de recherche + filtres */}
-                  <div className="flex flex-col md:flex-row gap-3 mb-4">
-                    <div className="flex-1 relative">
-                      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                      <input
-                        className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 transition-colors"
-                        value={annuaireSearch}
-                        onChange={(e) => setAnnuaireSearch(e.target.value)}
-                        placeholder="Rechercher un citoyen..."
-                      />
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {[
-                        { key: "ALL", label: "Tous" },
-                        { key: "EMPEREUR", label: "Empereur" },
-                        { key: "ROI", label: "Rois" },
-                        { key: "FONC", label: "Fonctionnaires" },
-                        { key: "ESCLAVE", label: "Esclaves" },
-                      ].map((f) => (
-                        <button
-                          key={f.key}
-                          onClick={() => setAnnuaireFilter(f.key)}
-                          className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all ${
-                            annuaireFilter === f.key
-                              ? "bg-stone-800 text-white"
-                              : "bg-stone-200 text-stone-600 hover:bg-stone-300"
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
+                  <p className="text-xs text-stone-500 mb-4">Consultez les registres publics de l'Empire.</p>
+
+                  {/* Onglets */}
+                  <div className="flex gap-1 border-b-2 border-stone-300 mb-5">
+                    {[
+                      { id: "citoyens", label: "Citoyens", icon: <User size={13} />, count: safeUsers.length },
+                      { id: "entreprises", label: "Entreprises", icon: <Building2 size={13} />, count: safeCompanies.length },
+                      { id: "pays", label: "Pays", icon: <Landmark size={13} />, count: safeCountries.length },
+                      { id: "familles", label: "Familles", icon: <HeartHandshake size={13} />, count: families.length },
+                    ].map((t) => (
+                      <button key={t.id} onClick={() => { setAnnuaireTab(t.id); setAnnuaireSearch(""); setAnnuaireCompanySearch(""); setAnnuaireCountrySearch(""); setAnnuaireFamilySearch(""); setSelectedCitizen(null); setSelectedCompanyId(null); setSelectedCountryId(null); setSelectedFamilyId(null); }}
+                        className={`flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 -mb-0.5 transition-all ${
+                          annuaireTab === t.id ? "border-stone-700 text-stone-800" : "border-transparent text-stone-400 hover:text-stone-600"
+                        }`}>
+                        {t.icon}{t.label}
+                        <span className={`ml-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-black ${annuaireTab === t.id ? "bg-stone-800 text-white" : "bg-stone-200 text-stone-500"}`}>{t.count}</span>
+                      </button>
+                    ))}
                   </div>
-                  {/* Liste filtrée */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300">
-                    {safeUsers
-                      .filter((c) => {
-                        if (annuaireSearch) {
-                          const s = annuaireSearch.toLowerCase();
-                          if (!c.name?.toLowerCase().includes(s) && !c.id?.toLowerCase().includes(s)) return false;
-                        }
-                        if (annuaireFilter === "ALL") return true;
-                        if (annuaireFilter === "EMPEREUR") return c.role === "EMPEREUR";
-                        if (annuaireFilter === "ROI") return c.role === "ROI";
-                        if (annuaireFilter === "FONC") return ["GRAND_FONC_GLOBAL", "GRAND_FONC_LOCAL", "INTENDANT", "FONCTIONNAIRE", "POSTIERE"].includes(c.role);
-                        if (annuaireFilter === "ESCLAVE") return c.status === "Esclave";
-                        return true;
-                      })
-                      .sort((a, b) => {
-                        const getLevel = (c) => {
-                          if (ROLES[c.role]) return ROLES[c.role].level;
-                          const cc = safeCountries.find(ct => ct.id === c.countryId);
-                          const custom = (cc?.customRoles || []).find(r => r.type === "ROLE" && (r.id === c.role || r.name === c.role));
-                          return custom?.level || 0;
-                        };
-                        return getLevel(b) - getLevel(a);
-                      })
-                      .map((c) => {
-                        const cTheme = getRoleTheme(c.role);
-                        const cRole = (() => {
-                          if (ROLES[c.role]) return ROLES[c.role];
-                          const cc = safeCountries.find(ct => ct.id === c.countryId);
-                          const custom = (cc?.customRoles || []).find(r => r.type === "ROLE" && (r.id === c.role || r.name === c.role));
-                          return custom ? { label: custom.name, level: custom.level || 0 } : ROLES.CITOYEN;
-                        })();
-                        return (
-                          <button
-                            key={c.id}
-                            onClick={() => setSelectedCitizen(c)}
-                            className={`flex items-center gap-3 p-3 rounded-lg border-2 ${
-                              selectedCitizen?.id === c.id ? cTheme.border : "border-stone-200"
-                            } bg-white hover:shadow-md transition-all text-left`}
-                          >
-                            <div className={`w-10 h-10 rounded-lg ${cTheme.border} border-2 bg-stone-100 overflow-hidden shrink-0`}>
-                              {c.avatarUrl ? (
-                                <img src={c.avatarUrl} className="w-full h-full object-cover" alt="" onError={(e) => { e.target.style.display = "none"; }} />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <User size={16} className="text-stone-400" />
+
+                  {/* ── CITOYENS ── */}
+                  {annuaireTab === "citoyens" && (
+                    <>
+                      <div className="flex flex-col md:flex-row gap-3 mb-4">
+                        <div className="flex-1 relative">
+                          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                          <input className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 transition-colors"
+                            value={annuaireSearch} onChange={(e) => setAnnuaireSearch(e.target.value)} placeholder="Rechercher un citoyen…" />
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { key: "ALL", label: "Tous" },
+                            { key: "EMPEREUR", label: "Empereur" },
+                            { key: "ROI", label: "Rois" },
+                            { key: "FONC", label: "Fonctionnaires" },
+                            { key: "ESCLAVE", label: "Esclaves" },
+                          ].map((f) => (
+                            <button key={f.key} onClick={() => setAnnuaireFilter(f.key)}
+                              className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-all ${annuaireFilter === f.key ? "bg-stone-800 text-white" : "bg-stone-200 text-stone-600 hover:bg-stone-300"}`}>
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300">
+                        {safeUsers
+                          .filter((c) => {
+                            if (annuaireSearch) {
+                              const s = annuaireSearch.toLowerCase();
+                              if (!c.name?.toLowerCase().includes(s) && !c.id?.toLowerCase().includes(s)) return false;
+                            }
+                            if (annuaireFilter === "ALL") return true;
+                            if (annuaireFilter === "EMPEREUR") return c.role === "EMPEREUR";
+                            if (annuaireFilter === "ROI") return c.role === "ROI";
+                            if (annuaireFilter === "FONC") return ["GRAND_FONC_GLOBAL", "GRAND_FONC_LOCAL", "INTENDANT", "FONCTIONNAIRE", "POSTIERE"].includes(c.role);
+                            if (annuaireFilter === "ESCLAVE") return c.status === "Esclave";
+                            return true;
+                          })
+                          .sort((a, b) => {
+                            const getLevel = (c) => {
+                              if (ROLES[c.role]) return ROLES[c.role].level;
+                              const cc = safeCountries.find(ct => ct.id === c.countryId);
+                              const custom = (cc?.customRoles || []).find(r => r.type === "ROLE" && (r.id === c.role || r.name === c.role));
+                              return custom?.level || 0;
+                            };
+                            return getLevel(b) - getLevel(a);
+                          })
+                          .map((c) => {
+                            const cTheme = getRoleTheme(c.role);
+                            const cRole = (() => {
+                              if (ROLES[c.role]) return ROLES[c.role];
+                              const cc = safeCountries.find(ct => ct.id === c.countryId);
+                              const custom = (cc?.customRoles || []).find(r => r.type === "ROLE" && (r.id === c.role || r.name === c.role));
+                              return custom ? { label: custom.name, level: custom.level || 0 } : ROLES.CITOYEN;
+                            })();
+                            return (
+                              <button key={c.id} onClick={() => setSelectedCitizen(c)}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 ${selectedCitizen?.id === c.id ? cTheme.border : "border-stone-200"} bg-white hover:shadow-md transition-all text-left`}>
+                                <div className={`w-10 h-10 rounded-lg ${cTheme.border} border-2 bg-stone-100 overflow-hidden shrink-0`}>
+                                  {c.avatarUrl ? (
+                                    <img src={c.avatarUrl} className="w-full h-full object-cover" alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center"><User size={16} className="text-stone-400" /></div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-bold text-sm text-stone-800 truncate">
-                                {c.name}
-                                {c.title && <span className="text-xs text-stone-400 font-normal ml-1 italic">« {c.title} »</span>}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-sm text-stone-800 truncate">
+                                    {c.name}{c.title && <span className="text-xs text-stone-400 font-normal ml-1 italic">« {c.title} »</span>}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${cTheme.badge}`}>{cRole.label}</span>
+                                    <span className={`text-[8px] font-bold uppercase ${c.status === "Esclave" ? "text-red-600" : c.status === "Actif" ? "text-green-600" : c.status === "Diplomate" ? "text-blue-600" : "text-stone-400"}`}>
+                                      {c.status === "Diplomate" ? "🎖️ Diplomate" : (c.status || "Actif")}
+                                    </span>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        {safeUsers.length === 0 && <div className="col-span-2 text-center text-stone-400 py-10 text-sm">Aucun citoyen enregistré.</div>}
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── ENTREPRISES ── */}
+                  {annuaireTab === "entreprises" && (
+                    <>
+                      <div className="relative mb-4">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 transition-colors"
+                          value={annuaireCompanySearch} onChange={(e) => setAnnuaireCompanySearch(e.target.value)} placeholder="Rechercher une entreprise…" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300">
+                        {safeCompanies
+                          .filter((c) => !annuaireCompanySearch || c.name?.toLowerCase().includes(annuaireCompanySearch.toLowerCase()))
+                          .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                          .map((co) => {
+                            const owner = safeUsers.find((u) => u.id === co.ownerId);
+                            const empCount = (co.employees || []).length;
+                            const listing = (bourseListings || []).find((l) => l.companyId === co.id);
+                            return (
+                              <button key={co.id} onClick={() => setSelectedCompanyId(selectedCompanyId === co.id ? null : co.id)}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 ${selectedCompanyId === co.id ? "border-stone-700" : "border-stone-200"} bg-white hover:shadow-md transition-all text-left`}>
+                                <div className="w-10 h-10 rounded-lg border-2 border-stone-200 flex items-center justify-center shrink-0 text-white text-sm font-black"
+                                  style={{ backgroundColor: co.color || "#8B5CF6" }}>
+                                  {(co.name || "?")[0].toUpperCase()}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-sm text-stone-800 truncate">{co.name}</div>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {owner && <span className="text-[9px] text-stone-500 truncate">Patron : {owner.name}</span>}
+                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${co.hiringOpen !== false ? "border-green-300 bg-green-50 text-green-700" : "border-stone-200 bg-stone-100 text-stone-500"}`}>
+                                      {co.hiringOpen !== false ? "Recrutement ouvert" : "Fermé"}
+                                    </span>
+                                    {listing && <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-amber-300 bg-amber-50 text-amber-700">Cotée : {listing.symbol}</span>}
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-xs font-bold text-stone-600">{empCount} emp.</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        {safeCompanies.length === 0 && <div className="col-span-2 text-center text-stone-400 py-10 text-sm">Aucune entreprise enregistrée.</div>}
+                      </div>
+                      {/* Fiche entreprise */}
+                      {selectedCompanyId && (() => {
+                        const co = safeCompanies.find((c) => c.id === selectedCompanyId);
+                        if (!co) return null;
+                        const owner = safeUsers.find((u) => u.id === co.ownerId);
+                        const employees = safeUsers.filter((u) => (co.employees || []).includes(u.id));
+                        const slaves = safeUsers.filter((u) => (co.slaves || []).includes(u.id));
+                        const listing = (bourseListings || []).find((l) => l.companyId === co.id);
+                        return (
+                          <div className="mt-4 bg-white border-2 border-stone-300 rounded-xl p-5 space-y-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-14 h-14 rounded-xl border-2 border-stone-200 flex items-center justify-center text-white text-xl font-black shrink-0"
+                                style={{ backgroundColor: co.color || "#8B5CF6" }}>
+                                {(co.name || "?")[0].toUpperCase()}
                               </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${cTheme.badge}`}>
-                                  {cRole.label}
-                                </span>
-                                <span className={`text-[8px] font-bold uppercase ${
-                                  c.status === "Esclave" ? "text-red-600" :
-                                  c.status === "Actif" ? "text-green-600" :
-                                  c.status === "Diplomate" ? "text-blue-600" :
-                                  "text-stone-400"
-                                }`}>
-                                  {c.status === "Diplomate" ? "🎖️ Diplomate" : (c.status || "Actif")}
-                                </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-lg font-black text-stone-800">{co.name}</div>
+                                {co.motto && <div className="text-xs text-stone-400 italic">« {co.motto} »</div>}
+                                {owner && <div className="text-xs text-stone-500 mt-0.5 flex items-center gap-1"><Crown size={11} /> {owner.name}</div>}
+                              </div>
+                              <button onClick={() => setSelectedCompanyId(null)} className="text-stone-400 hover:text-stone-600 p-1 self-start"><X size={16} /></button>
+                            </div>
+                            {co.description && <p className="text-xs text-stone-600 italic border-t border-stone-100 pt-3">{co.description}</p>}
+                            <div className="grid grid-cols-2 gap-2 border-t border-stone-100 pt-3">
+                              <div className="bg-stone-50 rounded-lg p-2 text-center">
+                                <div className="text-[8px] uppercase font-black text-stone-400 tracking-widest">Employés</div>
+                                <div className="text-lg font-black text-stone-700">{employees.length}</div>
+                              </div>
+                              <div className="bg-stone-50 rounded-lg p-2 text-center">
+                                <div className="text-[8px] uppercase font-black text-stone-400 tracking-widest">Recrutement</div>
+                                <div className={`text-xs font-black mt-0.5 ${co.hiringOpen !== false ? "text-green-600" : "text-stone-400"}`}>{co.hiringOpen !== false ? "Ouvert" : "Fermé"}</div>
                               </div>
                             </div>
-                          </button>
+                            {listing && (
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs space-y-1">
+                                <div className="font-black text-amber-700 uppercase tracking-widest text-[9px] flex items-center gap-1"><TrendingUp size={11} /> Cotation boursière</div>
+                                <div className="flex justify-between"><span className="text-stone-500">Symbole</span><span className="font-black font-mono">{listing.symbol}</span></div>
+                                <div className="flex justify-between"><span className="text-stone-500">Cours actuel</span><span className="font-black font-mono text-amber-700">{listing.pricePerShare.toLocaleString()} Écus</span></div>
+                                <div className="flex justify-between"><span className="text-stone-500">Actions en vente</span><span className="font-mono">{listing.sharesOnMarket} / {listing.totalShares}</span></div>
+                              </div>
+                            )}
+                            {employees.length > 0 && (
+                              <div className="border-t border-stone-100 pt-3">
+                                <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Employés</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {employees.map((e) => <span key={e.id} className="px-2 py-0.5 bg-stone-100 text-stone-600 text-[10px] rounded font-bold">{e.name}</span>)}
+                                </div>
+                              </div>
+                            )}
+                            {slaves.length > 0 && (
+                              <div className="border-t border-stone-100 pt-3">
+                                <div className="text-[9px] font-black uppercase text-red-400 tracking-widest mb-2">Esclaves</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {slaves.map((e) => <span key={e.id} className="px-2 py-0.5 bg-red-50 text-red-600 text-[10px] rounded font-bold">{e.name}</span>)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         );
-                      })}
-                  </div>
-                  {safeUsers.length === 0 && (
-                    <div className="text-center text-stone-400 py-10 text-sm">Aucun citoyen enregistré.</div>
+                      })()}
+                    </>
+                  )}
+
+                  {/* ── PAYS ── */}
+                  {annuaireTab === "pays" && (
+                    <>
+                      <div className="relative mb-4">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 transition-colors"
+                          value={annuaireCountrySearch} onChange={(e) => setAnnuaireCountrySearch(e.target.value)} placeholder="Rechercher un pays…" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300">
+                        {safeCountries
+                          .filter((c) => !annuaireCountrySearch || c.name?.toLowerCase().includes(annuaireCountrySearch.toLowerCase()))
+                          .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                          .map((ct) => {
+                            const pop = safeUsers.filter((u) => u.countryId === ct.id).length;
+                            const king = safeUsers.find((u) => u.role === "ROI" && u.countryId === ct.id) || safeUsers.find((u) => u.role === "EMPEREUR" && u.countryId === ct.id);
+                            return (
+                              <button key={ct.id} onClick={() => setSelectedCountryId(selectedCountryId === ct.id ? null : ct.id)}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 ${selectedCountryId === ct.id ? "border-stone-700" : "border-stone-200"} bg-white hover:shadow-md transition-all text-left`}>
+                                <div className={`w-10 h-10 rounded-lg border-2 border-stone-200 flex items-center justify-center shrink-0 ${ct.color || "bg-stone-100"}`}>
+                                  <Landmark size={18} className="text-stone-500" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-sm text-stone-800 truncate">{ct.name}</div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {king && <span className="text-[9px] text-amber-600 font-bold flex items-center gap-0.5"><Crown size={9} /> {king.name}</span>}
+                                    <span className="text-[9px] text-stone-500">{pop} habitant{pop !== 1 ? "s" : ""}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <div className="text-[9px] text-stone-400">{(ct.regions || []).length} région{(ct.regions || []).length !== 1 ? "s" : ""}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        {safeCountries.length === 0 && <div className="col-span-2 text-center text-stone-400 py-10 text-sm">Aucun pays enregistré.</div>}
+                      </div>
+                      {/* Fiche pays */}
+                      {selectedCountryId && (() => {
+                        const ct = safeCountries.find((c) => c.id === selectedCountryId);
+                        if (!ct) return null;
+                        const pop = safeUsers.filter((u) => u.countryId === ct.id);
+                        const king = pop.find((u) => u.role === "ROI") || pop.find((u) => u.role === "EMPEREUR");
+                        const nobles = pop.filter((u) => ["ROI", "EMPRESS", "EMPEROR", "SEIGNEUR", "BARON"].includes(u.role));
+                        const fonc = pop.filter((u) => ["GRAND_FONC_GLOBAL", "GRAND_FONC_LOCAL", "INTENDANT", "FONCTIONNAIRE"].includes(u.role));
+                        return (
+                          <div className="mt-4 bg-white border-2 border-stone-300 rounded-xl p-5 space-y-4">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-14 h-14 rounded-xl border-2 border-stone-200 flex items-center justify-center shrink-0 ${ct.color || "bg-stone-100"}`}>
+                                <Landmark size={24} className="text-stone-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-lg font-black text-stone-800">{ct.name}</div>
+                                {king && <div className="text-xs text-amber-600 font-bold flex items-center gap-1 mt-0.5"><Crown size={11} /> {king.name}</div>}
+                              </div>
+                              <button onClick={() => setSelectedCountryId(null)} className="text-stone-400 hover:text-stone-600 p-1 self-start"><X size={16} /></button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 border-t border-stone-100 pt-3">
+                              {[
+                                { label: "Population", value: pop.length },
+                                { label: "Régions", value: (ct.regions || []).length },
+                                { label: "Fonctionnaires", value: fonc.length },
+                              ].map((s) => (
+                                <div key={s.label} className="bg-stone-50 rounded-lg p-2 text-center">
+                                  <div className="text-[8px] uppercase font-black text-stone-400 tracking-widest">{s.label}</div>
+                                  <div className="text-lg font-black text-stone-700">{s.value}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {(ct.regions || []).length > 0 && (
+                              <div className="border-t border-stone-100 pt-3">
+                                <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Régions</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {ct.regions.map((r, i) => <span key={i} className="px-2 py-0.5 bg-stone-100 text-stone-600 text-[10px] rounded font-bold">{r.name || r}</span>)}
+                                </div>
+                              </div>
+                            )}
+                            {nobles.length > 0 && (
+                              <div className="border-t border-stone-100 pt-3">
+                                <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Dirigeants & Nobles</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {nobles.map((n) => <span key={n.id} className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] rounded font-bold">{n.name}</span>)}
+                                </div>
+                              </div>
+                            )}
+                            {ct.laws && typeof ct.laws === "object" && (
+                              <div className="border-t border-stone-100 pt-3 space-y-1">
+                                <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Lois notables</div>
+                                {ct.laws.entryVisaFee > 0 && <div className="text-xs text-stone-600 flex justify-between"><span>Visa d'entrée</span><span className="font-mono font-bold">{ct.laws.entryVisaFee} Écus</span></div>}
+                                {ct.laws.marriageStructure && <div className="text-xs text-stone-600 flex justify-between"><span>Mariage</span><span className="font-bold">{ct.laws.marriageStructure}</span></div>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+
+                  {/* ── FAMILLES ── */}
+                  {annuaireTab === "familles" && (
+                    <>
+                      <div className="relative mb-4">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-stone-200 rounded-lg text-sm outline-none focus:border-stone-400 transition-colors"
+                          value={annuaireFamilySearch} onChange={(e) => setAnnuaireFamilySearch(e.target.value)} placeholder="Rechercher une famille…" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-stone-300">
+                        {families
+                          .filter((f) => {
+                            const n = (f.dynastyName || f.lastName || "");
+                            return !annuaireFamilySearch || n.toLowerCase().includes(annuaireFamilySearch.toLowerCase());
+                          })
+                          .sort((a, b) => ((a.dynastyName || a.lastName || "").localeCompare(b.dynastyName || b.lastName || "")))
+                          .map((fam) => {
+                            const memberCount = safeUsers.filter((u) => u.familyId === fam.id).length;
+                            const famName = fam.dynastyName || fam.lastName || "Famille sans nom";
+                            return (
+                              <button key={fam.id} onClick={() => setSelectedFamilyId(selectedFamilyId === fam.id ? null : fam.id)}
+                                className={`flex items-center gap-3 p-3 rounded-lg border-2 ${selectedFamilyId === fam.id ? "border-stone-700" : "border-stone-200"} bg-white hover:shadow-md transition-all text-left`}>
+                                <div className="w-10 h-10 rounded-lg border-2 border-stone-300 bg-stone-100 overflow-hidden flex items-center justify-center shrink-0">
+                                  {fam.blasonUrl ? (
+                                    <img src={fam.blasonUrl} className="w-full h-full object-contain" alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                                  ) : (
+                                    <Shield size={18} className="text-stone-400" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-sm text-stone-800 truncate">{famName}</div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {fam.headName && <span className="text-[9px] text-stone-500 flex items-center gap-0.5"><Crown size={9} /> {fam.headName}</span>}
+                                    <span className="text-[9px] text-stone-400">{memberCount} membre{memberCount !== 1 ? "s" : ""}</span>
+                                  </div>
+                                </div>
+                                {(fam.branches || []).length > 0 && <div className="text-[9px] text-stone-400 shrink-0">{fam.branches.length} branche{fam.branches.length !== 1 ? "s" : ""}</div>}
+                              </button>
+                            );
+                          })}
+                        {families.length === 0 && <div className="col-span-2 text-center text-stone-400 py-10 text-sm">Aucune famille enregistrée.</div>}
+                      </div>
+                      {/* Fiche famille */}
+                      {selectedFamilyId && (() => {
+                        const fam = families.find((f) => f.id === selectedFamilyId);
+                        if (!fam) return null;
+                        const famName = fam.dynastyName || fam.lastName || "Famille sans nom";
+                        const members = safeUsers.filter((u) => u.familyId === fam.id);
+                        return (
+                          <div className="mt-4 bg-white border-2 border-stone-300 rounded-xl p-5 space-y-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-14 h-14 rounded-xl border-2 border-stone-300 bg-stone-50 overflow-hidden flex items-center justify-center shrink-0">
+                                {fam.blasonUrl ? (
+                                  <img src={fam.blasonUrl} className="w-full h-full object-contain" alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                                ) : (
+                                  <Shield size={28} className="text-stone-300" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-lg font-black text-stone-800">Maison {famName}</div>
+                                {fam.headName && <div className="text-xs text-amber-600 font-bold flex items-center gap-1 mt-0.5"><Crown size={11} /> Chef : {fam.headName}</div>}
+                                {fam.regentName && <div className="text-xs text-blue-600 font-bold flex items-center gap-1"><Shield size={11} /> Régent : {fam.regentName}</div>}
+                              </div>
+                              <button onClick={() => setSelectedFamilyId(null)} className="text-stone-400 hover:text-stone-600 p-1 self-start"><X size={16} /></button>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 border-t border-stone-100 pt-3">
+                              {[
+                                { label: "Membres", value: members.length },
+                                { label: "Branches", value: (fam.branches || []).length },
+                                { label: "Trésorerie", value: fam.treasury ? `${(fam.treasury || 0).toLocaleString()} Écus` : "—" },
+                              ].map((s) => (
+                                <div key={s.label} className="bg-stone-50 rounded-lg p-2 text-center">
+                                  <div className="text-[8px] uppercase font-black text-stone-400 tracking-widest">{s.label}</div>
+                                  <div className="text-sm font-black text-stone-700 mt-0.5">{s.value}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {members.length > 0 && (
+                              <div className="border-t border-stone-100 pt-3">
+                                <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Membres</div>
+                                <div className="space-y-1 max-h-40 overflow-y-auto">
+                                  {members.map((m) => {
+                                    const mTheme = getRoleTheme(m.role);
+                                    const mRole = ROLES[m.role] || ROLES.CITOYEN;
+                                    return (
+                                      <div key={m.id} className="flex items-center gap-2 px-2 py-1 rounded bg-stone-50">
+                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black ${mTheme.bg} overflow-hidden`}>
+                                          {m.avatarUrl ? <img src={m.avatarUrl} className="w-full h-full object-cover" alt="" onError={(e) => { e.target.style.display = "none"; }} /> : (m.name || "?")[0].toUpperCase()}
+                                        </div>
+                                        <span className="text-xs font-bold text-stone-700 flex-1 truncate">{m.name}</span>
+                                        <span className={`text-[8px] font-black uppercase px-1 py-0.5 rounded border ${mTheme.badge}`}>{mRole.label}</span>
+                                        {m.id === fam.headId && <Crown size={10} className="text-amber-500 shrink-0" />}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            {(fam.branches || []).length > 0 && (
+                              <div className="border-t border-stone-100 pt-3">
+                                <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Branches</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {fam.branches.map((b, i) => <span key={i} className="px-2 py-0.5 bg-stone-100 text-stone-600 text-[10px] rounded font-bold">{b.name || `Branche ${i + 1}`}</span>)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
 
-                {/* Fiche sélectionnée */}
-                {selectedCitizen && (
+                {/* Fiche citoyen sélectionné */}
+                {annuaireTab === "citoyens" && selectedCitizen && (
                   <CitizenProfileCard
                     citizen={selectedCitizen}
                     countries={safeCountries}
