@@ -3581,10 +3581,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (pIdx === -1) return;
         const menu = [...(properties[pIdx].menu || [])];
         const mIdx = menu.findIndex((m) => m.itemName === itemName);
-        if (mIdx === -1 || menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
+        const infinite = menu[mIdx]?.stock === -1;
+        if (mIdx === -1 || (!infinite && menu[mIdx].stock <= 0)) { notify("Article indisponible.", "error"); return; }
         if ((user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
         const price = menu[mIdx].price;
-        menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
+        if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         const newCitizens = [...state.citizens];
         const uIdx = newCitizens.findIndex((c) => c.id === session.id);
         newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - price };

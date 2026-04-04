@@ -64,6 +64,10 @@ const PropertyDetailView = ({
   const [menuItemName, setMenuItemName] = useState("");
   const [menuItemPrice, setMenuItemPrice] = useState("");
   const [menuItemStock, setMenuItemStock] = useState("");
+  const [editingMenuIdx, setEditingMenuIdx] = useState(null);
+  const [editMenuName, setEditMenuName] = useState("");
+  const [editMenuPrice, setEditMenuPrice] = useState("");
+  const [editMenuStock, setEditMenuStock] = useState("");
 
   if (!prop) return null;
 
@@ -259,34 +263,59 @@ const PropertyDetailView = ({
           <Card title="Menu / Restauration" icon={Utensils}>
             <div className="space-y-2">
               {(prop.menu || []).length === 0 && <p className="text-stone-400 text-xs italic">Le menu est vide.</p>}
-              {(prop.menu || []).map((m, i) => (
-                <div key={i} className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
-                  <div>
-                    <span className="font-bold text-stone-800">{m.itemName}</span>
-                    <span className="font-mono text-yellow-700 ml-2 text-xs">{m.price} Écus</span>
-                    <span className={`text-xs ml-2 ${m.stock === 0 ? "text-red-400 font-bold" : "text-stone-400"}`}>
-                      {m.stock === 0 ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
-                    </span>
+              {(prop.menu || []).map((m, i) => {
+                const infinite = m.stock === -1;
+                const available = infinite || m.stock > 0;
+                if (editingMenuIdx === i && isOwner) return (
+                  <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
+                    <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editMenuName} onChange={(e) => setEditMenuName(e.target.value)} placeholder="Plat" />
+                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
+                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuStock} onChange={(e) => setEditMenuStock(e.target.value)} placeholder="Stock (-1=∞)" />
+                    <button onClick={() => {
+                      const newMenu = (prop.menu || []).map((item, idx) => idx === i ? { ...item, itemName: editMenuName.trim() || item.itemName, price: parseInt(editMenuPrice) || 0, stock: parseInt(editMenuStock) } : item);
+                      onUpdatePropertyFeature(prop.id, "menu", newMenu);
+                      setEditingMenuIdx(null);
+                    }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
+                    <button onClick={() => setEditingMenuIdx(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
                   </div>
-                  {!isOwner && m.stock > 0 && (
-                    <button
-                      onClick={() => onBuyFromMenu(prop.id, m.itemName)}
-                      disabled={(user?.balance || 0) < m.price}
-                      className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40 flex items-center gap-1"
-                      title="Consommé sur place — n'entre pas dans l'inventaire"
-                    >
-                      <Utensils size={10} /> Commander
-                    </button>
-                  )}
-                  {!isOwner && m.stock === 0 && <span className="text-[10px] text-red-400 font-bold uppercase">Indisponible</span>}
-                </div>
-              ))}
+                );
+                return (
+                  <div key={i} className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
+                    <div>
+                      <span className="font-bold text-stone-800">{m.itemName}</span>
+                      <span className="font-mono text-yellow-700 ml-2 text-xs">{m.price} Écus</span>
+                      <span className={`text-xs ml-2 ${!available ? "text-red-400 font-bold" : "text-stone-400"}`}>
+                        {infinite ? "∞ illimité" : !available ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!isOwner && available && (
+                        <button
+                          onClick={() => onBuyFromMenu(prop.id, m.itemName)}
+                          disabled={(user?.balance || 0) < m.price}
+                          className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40 flex items-center gap-1"
+                          title="Consommé sur place — n'entre pas dans l'inventaire"
+                        >
+                          <Utensils size={10} /> Commander
+                        </button>
+                      )}
+                      {!isOwner && !available && <span className="text-[10px] text-red-400 font-bold uppercase">Indisponible</span>}
+                      {isOwner && (
+                        <>
+                          <button onClick={() => { setEditingMenuIdx(i); setEditMenuName(m.itemName); setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock)); }} className="text-stone-400 hover:text-stone-600 p-1" title="Modifier"><Pencil size={12} /></button>
+                          <button onClick={() => { onUpdatePropertyFeature(prop.id, "menu", (prop.menu || []).filter((_, idx) => idx !== i)); }} className="text-red-400 hover:text-red-600 p-1" title="Supprimer"><Trash2 size={12} /></button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               {isOwner && (
                 <div className="flex gap-2 mt-2">
-                  <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Article" value={menuItemName} onChange={(e) => setMenuItemName(e.target.value)} />
+                  <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Nom du plat" value={menuItemName} onChange={(e) => setMenuItemName(e.target.value)} />
                   <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Prix" value={menuItemPrice} onChange={(e) => setMenuItemPrice(e.target.value)} />
-                  <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Stock" value={menuItemStock} onChange={(e) => setMenuItemStock(e.target.value)} />
-                  <button onClick={() => { if (menuItemName.trim()) { onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), { itemName: menuItemName.trim(), price: parseInt(menuItemPrice) || 0, stock: parseInt(menuItemStock) || 0 }]); setMenuItemName(""); setMenuItemPrice(""); setMenuItemStock(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
+                  <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Stock (-1=∞)" value={menuItemStock} onChange={(e) => setMenuItemStock(e.target.value)} />
+                  <button onClick={() => { if (menuItemName.trim()) { onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), { itemName: menuItemName.trim(), price: parseInt(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0 }]); setMenuItemName(""); setMenuItemPrice(""); setMenuItemStock(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
                 </div>
               )}
             </div>
