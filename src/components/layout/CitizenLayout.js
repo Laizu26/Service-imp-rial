@@ -35,6 +35,7 @@ import {
   TrendingDown,
   BarChart2,
   X,
+  Edit3,
 } from "lucide-react";
 
 
@@ -621,6 +622,7 @@ const CitizenLayout = (props) => {
     onDeleteCompanyEvent,
     onCreateSubcontract,
     onAddJournalEntry,
+    onEditJournalEntry,
     onDeleteJournalEntry,
     onListItemForSale,
     onCancelListing,
@@ -734,6 +736,14 @@ const CitizenLayout = (props) => {
   const [editOrigin, setEditOrigin] = useState("");
   const [np, setNp] = useState("");
   const [journalEntry, setJournalEntry] = useState("");
+  const [journalTitle, setJournalTitle] = useState("");
+  const [journalMood, setJournalMood] = useState("neutre");
+  const [journalSearch, setJournalSearch] = useState("");
+  const [journalEditId, setJournalEditId] = useState(null);
+  const [journalEditContent, setJournalEditContent] = useState("");
+  const [journalEditTitle, setJournalEditTitle] = useState("");
+  const [journalEditMood, setJournalEditMood] = useState("neutre");
+  const [journalExpanded, setJournalExpanded] = useState(new Set());
   const [selectedPropertyId, setSelectedPropertyId] = useState(null);
   const [annuaireTab, setAnnuaireTab] = useState("citoyens");
   const [annuaireSearch, setAnnuaireSearch] = useState("");
@@ -1702,59 +1712,196 @@ const CitizenLayout = (props) => {
                 </div>
 
                 {/* === JOURNAL INTIME RP === */}
-                <div className="p-6 md:p-8 border-t border-stone-200">
-                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-4 flex items-center gap-2">
-                    <Book size={16} /> Journal Intime
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <textarea
-                        className="flex-1 p-3 bg-white border border-stone-200 rounded text-sm resize-none outline-none"
-                        rows={2}
-                        value={journalEntry}
-                        onChange={(e) => setJournalEntry(e.target.value)}
-                        placeholder="Écrire une entrée dans votre journal..."
-                        maxLength={500}
-                      />
-                      <button
-                        onClick={() => {
-                          if (journalEntry.trim() && onAddJournalEntry) {
-                            onAddJournalEntry(journalEntry);
-                            setJournalEntry("");
-                          }
-                        }}
-                        disabled={!journalEntry.trim()}
-                        className="bg-stone-800 text-white px-4 rounded font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 self-end"
-                      >
-                        Écrire
-                      </button>
-                    </div>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {(user.journal || []).length === 0 ? (
-                        <div className="text-center text-stone-400 italic py-3 text-xs">
-                          Votre journal est vide. Commencez à écrire vos aventures !
-                        </div>
-                      ) : (
-                        (user.journal || []).map((entry) => (
-                          <div key={entry.id} className="bg-white border border-stone-200 rounded-lg p-3 group">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="text-sm text-stone-800 whitespace-pre-wrap">{entry.content}</div>
-                                <div className="text-[10px] text-stone-400 mt-1 font-mono">{entry.rpDate}</div>
+                {(() => {
+                  const MOODS = [
+                    { id: "neutre",   emoji: "📜", label: "Neutre",     color: "border-stone-300 bg-stone-50" },
+                    { id: "joyeux",   emoji: "😊", label: "Joyeux",     color: "border-amber-300 bg-amber-50" },
+                    { id: "triste",   emoji: "😢", label: "Triste",     color: "border-blue-300 bg-blue-50" },
+                    { id: "colere",   emoji: "😤", label: "En colère",  color: "border-red-300 bg-red-50" },
+                    { id: "songeur",  emoji: "🤔", label: "Songeur",    color: "border-purple-300 bg-purple-50" },
+                    { id: "inquiet",  emoji: "😰", label: "Inquiet",    color: "border-orange-300 bg-orange-50" },
+                    { id: "inspire",  emoji: "🌟", label: "Inspiré",    color: "border-yellow-300 bg-yellow-50" },
+                    { id: "amoureux", emoji: "❤️", label: "Amoureux",   color: "border-pink-300 bg-pink-50" },
+                  ];
+                  const getMoodData = (id) => MOODS.find((m) => m.id === id) || MOODS[0];
+                  const entries = user.journal || [];
+                  const filteredEntries = journalSearch
+                    ? entries.filter((e) => e.content?.toLowerCase().includes(journalSearch.toLowerCase()) || e.title?.toLowerCase().includes(journalSearch.toLowerCase()))
+                    : entries;
+
+                  return (
+                    <div className="border-t border-stone-200">
+                      {/* En-tête journal */}
+                      <div className="bg-[#fdf6e3] px-6 md:px-8 pt-6 pb-4 border-b border-amber-200/60">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-black uppercase text-stone-700 tracking-widest flex items-center gap-2 font-serif">
+                            <Book size={16} className="text-amber-700" /> Journal Intime
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-stone-400 font-mono">{entries.length} entrée{entries.length !== 1 ? "s" : ""}</span>
+                            {entries.length > 0 && (
+                              <div className="relative">
+                                <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400" />
+                                <input value={journalSearch} onChange={(e) => setJournalSearch(e.target.value)}
+                                  placeholder="Chercher…"
+                                  className="pl-6 pr-2 py-1 bg-white border border-stone-200 rounded text-[10px] outline-none focus:border-amber-400 w-28" />
                               </div>
-                              <button
-                                onClick={() => onDeleteJournalEntry && onDeleteJournalEntry(entry.id)}
-                                className="text-red-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                              >
-                                <Trash2 size={12} />
-                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Formulaire nouvelle entrée */}
+                        <div className="bg-white border-2 border-amber-200 rounded-xl p-4 shadow-sm space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest shrink-0">Humeur</span>
+                            <div className="flex gap-1 flex-wrap">
+                              {MOODS.map((m) => (
+                                <button key={m.id} onClick={() => setJournalMood(m.id)} title={m.label}
+                                  className={`text-base leading-none transition-all hover:scale-110 ${journalMood === m.id ? "opacity-100 scale-110" : "opacity-40"}`}>
+                                  {m.emoji}
+                                </button>
+                              ))}
                             </div>
                           </div>
-                        ))
-                      )}
+                          <input
+                            className="w-full bg-[#fdfaf4] border border-amber-100 rounded-lg px-3 py-2 text-sm text-stone-700 outline-none focus:border-amber-400 font-serif placeholder:text-stone-300 placeholder:italic"
+                            value={journalTitle}
+                            onChange={(e) => setJournalTitle(e.target.value)}
+                            placeholder="Titre (optionnel)…"
+                            maxLength={80}
+                          />
+                          <div className="relative">
+                            <textarea
+                              className="w-full bg-[#fdfaf4] border border-amber-100 rounded-lg px-3 py-2 text-sm text-stone-800 outline-none focus:border-amber-400 resize-none font-serif leading-relaxed"
+                              rows={4}
+                              value={journalEntry}
+                              onChange={(e) => setJournalEntry(e.target.value)}
+                              placeholder="Ce jour, il advint que…"
+                              maxLength={2000}
+                            />
+                            <span className="absolute bottom-2 right-3 text-[9px] text-stone-300 font-mono">{journalEntry.length}/2000</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] text-stone-400 italic">{getMoodData(journalMood).emoji} {getMoodData(journalMood).label}</span>
+                            <button
+                              onClick={() => {
+                                if (journalEntry.trim() && onAddJournalEntry) {
+                                  onAddJournalEntry(journalEntry, journalTitle, journalMood);
+                                  setJournalEntry(""); setJournalTitle(""); setJournalMood("neutre");
+                                }
+                              }}
+                              disabled={!journalEntry.trim()}
+                              className="flex items-center gap-1.5 bg-amber-800 text-amber-100 px-4 py-1.5 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-amber-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                            >
+                              <Book size={11} /> Consigner
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Liste des entrées */}
+                      <div className="bg-[#fdf6e3] px-6 md:px-8 pb-6 space-y-3 max-h-[700px] overflow-y-auto">
+                        {filteredEntries.length === 0 ? (
+                          <div className="text-center text-stone-400 italic py-10 text-sm font-serif">
+                            {journalSearch ? "Aucune entrée ne correspond à la recherche." : "Les pages de votre journal sont encore vierges…"}
+                          </div>
+                        ) : (
+                          filteredEntries.map((entry) => {
+                            const moodData = getMoodData(entry.mood);
+                            const isExpanded = journalExpanded.has(entry.id);
+                            const isEditing = journalEditId === entry.id;
+                            const isLong = entry.content?.length > 200;
+
+                            return (
+                              <div key={entry.id} className={`border-l-4 rounded-r-xl bg-white shadow-sm overflow-hidden group transition-all ${moodData.color}`}>
+                                {isEditing ? (
+                                  /* Mode édition */
+                                  <div className="p-4 space-y-3">
+                                    <input
+                                      className="w-full bg-stone-50 border border-stone-200 rounded px-3 py-1.5 text-sm text-stone-700 outline-none focus:border-amber-400 font-serif"
+                                      value={journalEditTitle}
+                                      onChange={(e) => setJournalEditTitle(e.target.value)}
+                                      placeholder="Titre…"
+                                    />
+                                    <div className="flex gap-1 flex-wrap">
+                                      {MOODS.map((m) => (
+                                        <button key={m.id} onClick={() => setJournalEditMood(m.id)} title={m.label}
+                                          className={`text-base leading-none transition-all ${journalEditMood === m.id ? "opacity-100 scale-110" : "opacity-35 hover:opacity-70"}`}>
+                                          {m.emoji}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <textarea
+                                      className="w-full bg-stone-50 border border-stone-200 rounded px-3 py-2 text-sm text-stone-800 outline-none focus:border-amber-400 resize-none font-serif leading-relaxed"
+                                      rows={5}
+                                      value={journalEditContent}
+                                      onChange={(e) => setJournalEditContent(e.target.value)}
+                                      maxLength={2000}
+                                    />
+                                    <div className="flex gap-2 justify-end">
+                                      <button onClick={() => setJournalEditId(null)}
+                                        className="px-3 py-1 text-stone-400 hover:text-stone-600 text-xs font-bold uppercase rounded">Annuler</button>
+                                      <button
+                                        onClick={() => {
+                                          if (journalEditContent.trim() && onEditJournalEntry) {
+                                            onEditJournalEntry(entry.id, journalEditContent, journalEditTitle, journalEditMood);
+                                            setJournalEditId(null);
+                                          }
+                                        }}
+                                        disabled={!journalEditContent.trim()}
+                                        className="px-3 py-1 bg-amber-800 text-amber-100 text-[10px] font-black uppercase tracking-widest rounded hover:bg-amber-700 disabled:opacity-40">
+                                        Sauvegarder
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* Mode lecture */
+                                  <div className="p-4">
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="text-lg leading-none shrink-0">{moodData.emoji}</span>
+                                        <div className="min-w-0">
+                                          {entry.title && <div className="text-sm font-black text-stone-800 font-serif truncate">{entry.title}</div>}
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[9px] text-stone-400 font-mono">
+                                              {entry.rpDate}{entry.editedAt ? " · modifié" : ""}
+                                            </span>
+                                            <span className={`text-[8px] font-black uppercase tracking-widest px-1 py-0.5 rounded border ${moodData.color}`}>{moodData.label}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          onClick={() => { setJournalEditId(entry.id); setJournalEditContent(entry.content); setJournalEditTitle(entry.title || ""); setJournalEditMood(entry.mood || "neutre"); }}
+                                          className="p-1 text-stone-400 hover:text-amber-700 rounded hover:bg-amber-50 transition-colors">
+                                          <Edit3 size={11} />
+                                        </button>
+                                        <button
+                                          onClick={() => onDeleteJournalEntry && onDeleteJournalEntry(entry.id)}
+                                          className="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors">
+                                          <Trash2 size={11} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className={`text-sm text-stone-700 font-serif leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? "line-clamp-3" : ""}`}>
+                                      {entry.content}
+                                    </div>
+                                    {isLong && (
+                                      <button onClick={() => setJournalExpanded((prev) => { const s = new Set(prev); s.has(entry.id) ? s.delete(entry.id) : s.add(entry.id); return s; })}
+                                        className="text-[10px] text-amber-700 font-bold mt-1 hover:underline">
+                                        {isExpanded ? "Réduire ▲" : "Lire la suite ▼"}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
 
                 {/* === CASIER JUDICIAIRE === */}
                 {(user.criminalRecord || []).length > 0 && (

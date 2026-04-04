@@ -526,6 +526,7 @@ export default function App() {
             onDeleteCompanyEvent={actions.onDeleteCompanyEvent}
             onCreateSubcontract={actions.onCreateSubcontract}
             onAddJournalEntry={actions.onAddJournalEntry}
+            onEditJournalEntry={actions.onEditJournalEntry}
             onDeleteJournalEntry={actions.onDeleteJournalEntry}
             onListItemForSale={actions.onListItemForSale}
             onCancelListing={actions.onCancelListing}

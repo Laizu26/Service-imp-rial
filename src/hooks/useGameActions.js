@@ -2923,7 +2923,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- JOURNAL INTIME RP ---
-      onAddJournalEntry: (content) => {
+      onAddJournalEntry: (content, title, mood) => {
         if (!session) return;
         if (!content?.trim()) { notify("Le contenu ne peut pas être vide.", "error"); return; }
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);
@@ -2933,13 +2933,31 @@ export const useGameActions = (session, state, saveState, notify) => {
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         journal.unshift({
           id: "J-" + Date.now(),
+          title: title?.trim() || "",
           content: content.trim(),
+          mood: mood || "neutre",
           rpDate: `${gd.day}/${gd.month}/${gd.year}`,
           timestamp: Date.now(),
         });
         newCitizens[userIdx] = { ...newCitizens[userIdx], journal };
         saveState({ ...state, citizens: newCitizens });
         notify("Entrée ajoutée au journal.", "success");
+      },
+
+      onEditJournalEntry: (entryId, content, title, mood) => {
+        if (!session) return;
+        if (!content?.trim()) { notify("Le contenu ne peut pas être vide.", "error"); return; }
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = {
+          ...newCitizens[userIdx],
+          journal: (newCitizens[userIdx].journal || []).map((j) =>
+            j.id === entryId ? { ...j, content: content.trim(), title: title?.trim() || j.title || "", mood: mood || j.mood || "neutre", editedAt: Date.now() } : j
+          ),
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Entrée modifiée.", "success");
       },
 
       onDeleteJournalEntry: (entryId) => {
