@@ -36,6 +36,8 @@ import {
   BarChart2,
   X,
   Edit3,
+  Plane,
+  History,
 } from "lucide-react";
 
 
@@ -1301,98 +1303,290 @@ const CitizenLayout = (props) => {
             {active === "travel" &&
               !isBanned &&
               !isPrisoner &&
-              canUseTravel && (
-                <div className="bg-[#fdf6e3] text-stone-900 p-6 md:p-8 rounded-lg shadow-2xl border-t-8 border-stone-500 space-y-6">
-                  <h3 className="text-xl font-bold uppercase tracking-widest text-stone-800 border-b pb-4 mb-4 font-serif">
-                    Demande de Laissez-passer
-                  </h3>
-                  {myPendingRequests.length > 0 ? (
-                    <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-sm">
-                      <div className="font-bold text-yellow-800 mb-2">
-                        En cours...
+              canUseTravel && (() => {
+                const currentCountry = safeCountries.find((c) => c.id === (user.locationCountryId || user.countryId));
+                const pendingReq = myPendingRequests[0] || null;
+                const destCountry = safeCountries.find((c) => c.id === travelDestCountry);
+                const visaFee = destCountry?.laws?.entryVisaFee || 0;
+                const travelHistory = safeRequests.filter((r) => r.citizenId === user.id && r.status === "APPROVED").slice(0, 8);
+                const rejectedReqs = safeRequests.filter((r) => r.citizenId === user.id && r.status === "REJECTED").slice(0, 3);
+                const otherCountries = safeCountries.filter((c) => c.id !== (user.locationCountryId || user.countryId));
+
+                return (
+                  <div className="space-y-5">
+                    {/* === EN-TÊTE === */}
+                    <div className="bg-[#fdf6e3] rounded-xl shadow-lg border-t-4 border-stone-400 p-5 md:p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-stone-800 flex items-center justify-center shrink-0">
+                          <Map size={20} className="text-amber-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-black uppercase tracking-widest text-stone-800 font-serif">Bureau des Voyages</h2>
+                          <p className="text-[9px] text-stone-500 uppercase tracking-widest">Laissez-passer & Visas Impériaux</p>
+                        </div>
                       </div>
-                      <div>
-                        Destination:{" "}
-                        {
-                          safeCountries.find(
-                            (c) => c.id === myPendingRequests[0].toCountry
-                          )?.name
-                        }
-                      </div>
-                      <div className="text-[10px] uppercase mt-2 tracking-widest font-bold text-stone-400">
-                        Status: {myPendingRequests[0].status}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <select
-                          className="w-full p-3 border rounded bg-white text-sm"
-                          value={travelDestCountry}
-                          onChange={(e) => setTravelDestCountry(e.target.value)}
-                        >
-                          <option value="">— Destination —</option>
-                          {safeCountries
-                            .filter(
-                              (c) =>
-                                c.id !==
-                                (user.locationCountryId || user.countryId)
-                            )
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                              </option>
-                            ))}
-                          <option
-                            value={
-                              user.locationCountryId || user.countryId
-                            }
-                          >
-                            Voyage Intérieur
-                          </option>
-                        </select>
-                        {travelDestCountry && (
-                          <select
-                            className="w-full p-3 border rounded bg-white text-sm"
-                            value={travelDestRegion}
-                            onChange={(e) =>
-                              setTravelDestRegion(e.target.value)
-                            }
-                          >
-                            <option value="">— Région —</option>
-                            {(
-                              safeCountries.find(
-                                (c) => c.id === travelDestCountry
-                              )?.regions || []
-                            ).map((r) => (
-                              <option key={r.id} value={r.name}>
-                                {r.name}
-                              </option>
-                            ))}
-                          </select>
+
+                      {/* Position actuelle */}
+                      <div className="bg-stone-800 rounded-xl p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-stone-700 flex items-center justify-center shrink-0">
+                          <MapPin size={22} className="text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[9px] text-stone-500 uppercase tracking-widest font-black mb-0.5">Vous vous trouvez actuellement</div>
+                          <div className="text-base font-black text-stone-100 font-serif">{currentCountry?.name || "Empire"}</div>
+                          {user.currentPosition && (
+                            <div className="text-xs text-stone-400 mt-0.5 flex items-center gap-1">
+                              <MapPin size={10} /> {user.currentPosition}
+                            </div>
+                          )}
+                        </div>
+                        {user.locationCountryId && user.locationCountryId !== user.countryId && (
+                          <div className="text-right shrink-0">
+                            <div className="text-[8px] text-stone-500 uppercase tracking-widest">Allégeance</div>
+                            <div className="text-xs font-bold text-amber-400">{safeCountries.find((c) => c.id === user.countryId)?.name || "—"}</div>
+                          </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => {
-                          if (travelDestCountry)
-                            onRequestTravel(
-                              travelDestCountry,
-                              travelDestRegion || "Frontière"
-                            );
-                        }}
-                        disabled={!travelDestCountry}
-                        className={`w-full py-3 rounded uppercase font-bold text-[10px] tracking-widest transition-all ${
-                          travelDestCountry
-                            ? "bg-stone-800 text-white hover:bg-stone-700"
-                            : "bg-stone-200 text-stone-400"
-                        }`}
-                      >
-                        Soumettre
-                      </button>
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* === DEMANDE EN COURS === */}
+                    {pendingReq && (() => {
+                      const fromC = safeCountries.find((c) => c.id === pendingReq.fromCountry);
+                      const toC = safeCountries.find((c) => c.id === pendingReq.toCountry);
+                      const isIntra = pendingReq.fromCountry === pendingReq.toCountry;
+                      const exitOk = pendingReq.validations?.exit || isIntra;
+                      const entryOk = pendingReq.validations?.entry;
+                      return (
+                        <div className="bg-[#fdf6e3] rounded-xl shadow border border-amber-200 overflow-hidden">
+                          <div className="bg-amber-800/10 border-b border-amber-200 px-5 py-3 flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-xs font-black uppercase tracking-widest text-amber-700">Laissez-passer en cours de traitement</span>
+                          </div>
+                          <div className="p-5">
+                            {/* Trajet */}
+                            <div className="flex items-center gap-3 mb-5">
+                              <div className="flex-1 bg-stone-100 rounded-lg p-3 text-center">
+                                <div className="text-[8px] text-stone-500 uppercase tracking-widest">Départ</div>
+                                <div className="text-sm font-black text-stone-800 mt-0.5">{fromC?.name || "—"}</div>
+                              </div>
+                              <div className="flex flex-col items-center gap-1 shrink-0">
+                                <Plane size={18} className="text-amber-600" />
+                                <div className="text-[8px] text-stone-400 uppercase tracking-widest font-black">{isIntra ? "Interne" : "International"}</div>
+                              </div>
+                              <div className="flex-1 bg-stone-100 rounded-lg p-3 text-center">
+                                <div className="text-[8px] text-stone-500 uppercase tracking-widest">Destination</div>
+                                <div className="text-sm font-black text-stone-800 mt-0.5">{toC?.name || "—"}</div>
+                                {pendingReq.toRegion && <div className="text-[10px] text-stone-500">{pendingReq.toRegion}</div>}
+                              </div>
+                            </div>
+
+                            {/* Timeline */}
+                            {!isIntra && (
+                              <div className="flex items-center gap-2">
+                                <div className={`flex-1 rounded-lg p-2.5 text-center border ${exitOk ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                                  <div className={`text-[8px] font-black uppercase tracking-widest ${exitOk ? "text-green-600" : "text-amber-600"}`}>
+                                    {exitOk ? "✓ Visa Sortie" : "⏳ Visa Sortie"}
+                                  </div>
+                                  <div className={`text-[9px] mt-0.5 ${exitOk ? "text-green-500" : "text-amber-500"}`}>
+                                    {exitOk ? "Accordé" : "En attente"}
+                                  </div>
+                                </div>
+                                <div className="text-stone-400 shrink-0">→</div>
+                                <div className={`flex-1 rounded-lg p-2.5 text-center border ${entryOk ? "bg-green-50 border-green-200" : exitOk ? "bg-amber-50 border-amber-200" : "bg-stone-50 border-stone-200"}`}>
+                                  <div className={`text-[8px] font-black uppercase tracking-widest ${entryOk ? "text-green-600" : exitOk ? "text-amber-600" : "text-stone-400"}`}>
+                                    {entryOk ? "✓ Visa Entrée" : exitOk ? "⏳ Visa Entrée" : "Visa Entrée"}
+                                  </div>
+                                  <div className={`text-[9px] mt-0.5 ${entryOk ? "text-green-500" : exitOk ? "text-amber-500" : "text-stone-400"}`}>
+                                    {entryOk ? "Accordé" : exitOk ? "En attente" : "En attente du visa sortie"}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="mt-3 text-[9px] text-stone-400 text-right font-mono">
+                              Soumis le {new Date(pendingReq.timestamp).toLocaleDateString("fr-FR")}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* === REJET RÉCENT === */}
+                    {!pendingReq && rejectedReqs.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                          <X size={14} className="text-red-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-black text-red-700 uppercase tracking-widest">Dernière demande refusée</div>
+                          <div className="text-xs text-red-600 mt-0.5">
+                            {safeCountries.find((c) => c.id === rejectedReqs[0].toCountry)?.name} — {rejectedReqs[0].toRegion}
+                          </div>
+                          {rejectedReqs[0].rejectionReason && (
+                            <div className="text-[10px] text-red-500 italic mt-1">« {rejectedReqs[0].rejectionReason} »</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* === NOUVELLE DEMANDE (si pas de demande en cours) === */}
+                    {!pendingReq && (
+                      <div className="bg-[#fdf6e3] rounded-xl shadow border border-stone-200">
+                        <div className="px-5 py-4 border-b border-stone-200">
+                          <h3 className="text-xs font-black uppercase tracking-widest text-stone-700 flex items-center gap-2">
+                            <Plane size={14} className="text-stone-500" /> Nouvelle demande de voyage
+                          </h3>
+                        </div>
+                        <div className="p-5 space-y-4">
+                          {/* Liste des pays */}
+                          <div>
+                            <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-2">Choisir une destination</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                              {/* Voyage intérieur */}
+                              <button
+                                onClick={() => { setTravelDestCountry(user.locationCountryId || user.countryId); setTravelDestRegion(""); }}
+                                className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                                  travelDestCountry === (user.locationCountryId || user.countryId)
+                                    ? "border-amber-500 bg-amber-50"
+                                    : "border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm"
+                                }`}
+                              >
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${travelDestCountry === (user.locationCountryId || user.countryId) ? "bg-amber-100" : "bg-stone-100"}`}>
+                                  <MapPin size={16} className={travelDestCountry === (user.locationCountryId || user.countryId) ? "text-amber-600" : "text-stone-500"} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-black text-stone-800">Voyage intérieur</div>
+                                  <div className="text-[9px] text-stone-500">{currentCountry?.name || "Pays actuel"}</div>
+                                </div>
+                                <div className="ml-auto shrink-0">
+                                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700">Libre</span>
+                                </div>
+                              </button>
+
+                              {otherCountries.map((c) => {
+                                const fee = c.laws?.entryVisaFee || 0;
+                                const isSelected = travelDestCountry === c.id;
+                                return (
+                                  <button key={c.id}
+                                    onClick={() => { setTravelDestCountry(c.id); setTravelDestRegion(""); }}
+                                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                                      isSelected ? "border-amber-500 bg-amber-50" : "border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm"
+                                    }`}
+                                  >
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? "bg-amber-100" : "bg-stone-100"}`}>
+                                      <Landmark size={16} className={isSelected ? "text-amber-600" : "text-stone-500"} />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-xs font-black text-stone-800 truncate">{c.name}</div>
+                                      <div className="text-[9px] text-stone-500">{(c.regions || []).length} région{(c.regions || []).length !== 1 ? "s" : ""}</div>
+                                    </div>
+                                    <div className="shrink-0">
+                                      {fee > 0
+                                        ? <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-700">{fee} Écus</span>
+                                        : <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700">Libre</span>
+                                      }
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Région */}
+                          {travelDestCountry && (() => {
+                            const regions = destCountry?.regions || (currentCountry?.regions || []);
+                            if (regions.length === 0) return null;
+                            return (
+                              <div>
+                                <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-2">Région de destination</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {regions.map((r) => {
+                                    const rName = r.name || r;
+                                    return (
+                                      <button key={rName} onClick={() => setTravelDestRegion(rName)}
+                                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                                          travelDestRegion === rName
+                                            ? "bg-stone-800 text-white border-stone-700"
+                                            : "bg-white text-stone-600 border-stone-200 hover:border-stone-400 hover:bg-stone-50"
+                                        }`}>
+                                        {rName}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Résumé + bouton */}
+                          {travelDestCountry && (
+                            <div className={`rounded-xl p-4 border space-y-3 ${visaFee > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                              <div className="flex items-start gap-3">
+                                <Plane size={16} className={visaFee > 0 ? "text-amber-600 mt-0.5 shrink-0" : "text-green-600 mt-0.5 shrink-0"} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-black text-stone-800">
+                                    {currentCountry?.name || "—"} → {destCountry?.name || currentCountry?.name || "—"}
+                                    {travelDestRegion ? ` · ${travelDestRegion}` : ""}
+                                  </div>
+                                  {visaFee > 0 ? (
+                                    <div className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
+                                      <Coins size={10} /> Frais de visa : <span className="font-black">{visaFee.toLocaleString()} Écus</span>
+                                      {(user.balance || 0) < visaFee && (
+                                        <span className="text-red-600 font-black ml-1">— Solde insuffisant !</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-green-700 mt-1">Entrée libre — aucun frais de visa</div>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => onRequestTravel(travelDestCountry, travelDestRegion || "Frontière")}
+                                disabled={visaFee > 0 && (user.balance || 0) < visaFee}
+                                className="w-full py-2.5 bg-stone-800 text-amber-300 font-black uppercase text-[10px] tracking-widest rounded-lg hover:bg-stone-700 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center justify-center gap-2"
+                              >
+                                <Plane size={13} /> Soumettre la demande de laissez-passer
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* === HISTORIQUE === */}
+                    {travelHistory.length > 0 && (
+                      <div className="bg-[#fdf6e3] rounded-xl shadow border border-stone-200">
+                        <div className="px-5 py-4 border-b border-stone-200">
+                          <h3 className="text-xs font-black uppercase tracking-widest text-stone-700 flex items-center gap-2">
+                            <History size={14} className="text-stone-500" /> Historique des voyages
+                          </h3>
+                        </div>
+                        <div className="divide-y divide-stone-100">
+                          {travelHistory.map((req) => {
+                            const fromC = safeCountries.find((c) => c.id === req.fromCountry);
+                            const toC = safeCountries.find((c) => c.id === req.toCountry);
+                            return (
+                              <div key={req.id} className="flex items-center gap-3 px-5 py-3">
+                                <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                  <Plane size={12} className="text-green-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-bold text-stone-800 truncate">
+                                    {fromC?.name || "—"} → {toC?.name || "—"}
+                                    {req.toRegion ? ` · ${req.toRegion}` : ""}
+                                  </div>
+                                  <div className="text-[9px] text-stone-400 font-mono">{new Date(req.timestamp).toLocaleDateString("fr-FR")}</div>
+                                </div>
+                                <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700 shrink-0">Approuvé</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             {active === "asia" && (
               <MaisonDeAsiaCitizen
