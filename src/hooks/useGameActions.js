@@ -968,6 +968,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
         notify("Demande soumise.", "success");
       },
+
+      onInternalTravel: (toRegion) => {
+        if (!session) return;
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...newCitizens[userIdx], currentPosition: toRegion || "Capitale" };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Déplacement vers ${toRegion || "la Capitale"}.`, "success");
+      },
       onUpdateCitizen: (formData) => {
         if (!session) return;
         let freshCitizens = [...(state.citizens || [])];

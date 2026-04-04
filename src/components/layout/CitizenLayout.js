@@ -575,6 +575,7 @@ const CitizenLayout = (props) => {
     onUpdateUser,
     onSend,
     onRequestTravel,
+    onInternalTravel,
     onTransfer,
     onProposeDebt,
     onSignDebt,
@@ -1444,22 +1445,22 @@ const CitizenLayout = (props) => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
                               {/* Voyage intérieur */}
                               <button
-                                onClick={() => { setTravelDestCountry(user.locationCountryId || user.countryId); setTravelDestRegion(""); }}
+                                onClick={() => { setTravelDestCountry("__internal__"); setTravelDestRegion(""); }}
                                 className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                                  travelDestCountry === (user.locationCountryId || user.countryId)
-                                    ? "border-amber-500 bg-amber-50"
+                                  travelDestCountry === "__internal__"
+                                    ? "border-green-400 bg-green-50"
                                     : "border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm"
                                 }`}
                               >
-                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${travelDestCountry === (user.locationCountryId || user.countryId) ? "bg-amber-100" : "bg-stone-100"}`}>
-                                  <MapPin size={16} className={travelDestCountry === (user.locationCountryId || user.countryId) ? "text-amber-600" : "text-stone-500"} />
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${travelDestCountry === "__internal__" ? "bg-green-100" : "bg-stone-100"}`}>
+                                  <MapPin size={16} className={travelDestCountry === "__internal__" ? "text-green-600" : "text-stone-500"} />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-black text-stone-800">Voyage intérieur</div>
-                                  <div className="text-[9px] text-stone-500">{currentCountry?.name || "Pays actuel"}</div>
+                                  <div className="text-xs font-black text-stone-800">Se déplacer dans {currentCountry?.name || "le pays actuel"}</div>
+                                  <div className="text-[9px] text-stone-500">Aucun visa requis — déplacement immédiat</div>
                                 </div>
                                 <div className="ml-auto shrink-0">
-                                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700">Libre</span>
+                                  <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700">Gratuit</span>
                                 </div>
                               </button>
 
@@ -1494,11 +1495,14 @@ const CitizenLayout = (props) => {
 
                           {/* Région */}
                           {travelDestCountry && (() => {
-                            const regions = destCountry?.regions || (currentCountry?.regions || []);
+                            const isInternal = travelDestCountry === "__internal__";
+                            const regions = isInternal ? (currentCountry?.regions || []) : (destCountry?.regions || []);
                             if (regions.length === 0) return null;
                             return (
                               <div>
-                                <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-2">Région de destination</div>
+                                <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-2">
+                                  {isInternal ? "Choisir une région" : "Région de destination"}
+                                </div>
                                 <div className="flex flex-wrap gap-2">
                                   {regions.map((r) => {
                                     const rName = r.name || r;
@@ -1519,36 +1523,61 @@ const CitizenLayout = (props) => {
                           })()}
 
                           {/* Résumé + bouton */}
-                          {travelDestCountry && (
-                            <div className={`rounded-xl p-4 border space-y-3 ${visaFee > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
-                              <div className="flex items-start gap-3">
-                                <Plane size={16} className={visaFee > 0 ? "text-amber-600 mt-0.5 shrink-0" : "text-green-600 mt-0.5 shrink-0"} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-black text-stone-800">
-                                    {currentCountry?.name || "—"} → {destCountry?.name || currentCountry?.name || "—"}
-                                    {travelDestRegion ? ` · ${travelDestRegion}` : ""}
-                                  </div>
-                                  {visaFee > 0 ? (
-                                    <div className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
-                                      <Coins size={10} /> Frais de visa : <span className="font-black">{visaFee.toLocaleString()} Écus</span>
-                                      {(user.balance || 0) < visaFee && (
-                                        <span className="text-red-600 font-black ml-1">— Solde insuffisant !</span>
-                                      )}
+                          {travelDestCountry && (() => {
+                            const isInternal = travelDestCountry === "__internal__";
+                            if (isInternal) {
+                              return (
+                                <div className="rounded-xl p-4 border space-y-3 bg-green-50 border-green-200">
+                                  <div className="flex items-start gap-3">
+                                    <MapPin size={16} className="text-green-600 mt-0.5 shrink-0" />
+                                    <div className="flex-1">
+                                      <div className="text-xs font-black text-stone-800">
+                                        Déplacement intérieur — {currentCountry?.name}
+                                        {travelDestRegion ? ` · ${travelDestRegion}` : ""}
+                                      </div>
+                                      <div className="text-[10px] text-green-700 mt-1">Gratuit et immédiat — aucun visa requis</div>
                                     </div>
-                                  ) : (
-                                    <div className="text-[10px] text-green-700 mt-1">Entrée libre — aucun frais de visa</div>
-                                  )}
+                                  </div>
+                                  <button
+                                    onClick={() => { onInternalTravel && onInternalTravel(travelDestRegion || "Capitale"); setTravelDestCountry(""); setTravelDestRegion(""); }}
+                                    className="w-full py-2.5 bg-green-700 text-white font-black uppercase text-[10px] tracking-widest rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                                  >
+                                    <MapPin size={13} /> Se déplacer {travelDestRegion ? `vers ${travelDestRegion}` : ""}
+                                  </button>
                                 </div>
+                              );
+                            }
+                            return (
+                              <div className={`rounded-xl p-4 border space-y-3 ${visaFee > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                                <div className="flex items-start gap-3">
+                                  <Plane size={16} className={visaFee > 0 ? "text-amber-600 mt-0.5 shrink-0" : "text-green-600 mt-0.5 shrink-0"} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-black text-stone-800">
+                                      {currentCountry?.name || "—"} → {destCountry?.name || "—"}
+                                      {travelDestRegion ? ` · ${travelDestRegion}` : ""}
+                                    </div>
+                                    {visaFee > 0 ? (
+                                      <div className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
+                                        <Coins size={10} /> Frais de visa : <span className="font-black">{visaFee.toLocaleString()} Écus</span>
+                                        {(user.balance || 0) < visaFee && (
+                                          <span className="text-red-600 font-black ml-1">— Solde insuffisant !</span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="text-[10px] text-green-700 mt-1">Entrée libre — aucun frais de visa</div>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => onRequestTravel(travelDestCountry, travelDestRegion || "Frontière")}
+                                  disabled={visaFee > 0 && (user.balance || 0) < visaFee}
+                                  className="w-full py-2.5 bg-stone-800 text-amber-300 font-black uppercase text-[10px] tracking-widest rounded-lg hover:bg-stone-700 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <Plane size={13} /> Soumettre la demande de laissez-passer
+                                </button>
                               </div>
-                              <button
-                                onClick={() => onRequestTravel(travelDestCountry, travelDestRegion || "Frontière")}
-                                disabled={visaFee > 0 && (user.balance || 0) < visaFee}
-                                className="w-full py-2.5 bg-stone-800 text-amber-300 font-black uppercase text-[10px] tracking-widest rounded-lg hover:bg-stone-700 disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center justify-center gap-2"
-                              >
-                                <Plane size={13} /> Soumettre la demande de laissez-passer
-                              </button>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       </div>
                     )}

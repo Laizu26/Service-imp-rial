@@ -466,6 +466,7 @@ export default function App() {
             countries={state.countries || []}
             travelRequests={state.travelRequests || []}
             onRequestTravel={actions.onRequestTravel}
+            onInternalTravel={actions.onInternalTravel}
             catalog={state.inventoryCatalog || []}
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}
