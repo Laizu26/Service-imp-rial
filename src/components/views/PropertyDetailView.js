@@ -258,10 +258,27 @@ const PropertyDetailView = ({
           {/* Menu */}
           <Card title="Menu / Restauration" icon={Utensils}>
             <div className="space-y-2">
+              {(prop.menu || []).length === 0 && <p className="text-stone-400 text-xs italic">Le menu est vide.</p>}
               {(prop.menu || []).map((m, i) => (
-                <div key={i} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm border border-stone-100">
-                  <div><span className="font-bold text-stone-700">{m.itemName}</span> <span className="font-mono text-yellow-700 ml-2">{m.price} Écus</span> <span className="text-stone-400 text-xs ml-1">(stock: {m.stock})</span></div>
-                  {!isOwner && m.stock > 0 && <button onClick={() => onBuyFromMenu(prop.id, m.itemName)} disabled={(user?.balance || 0) < m.price} className="bg-green-600 text-white px-2 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-50">Acheter</button>}
+                <div key={i} className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
+                  <div>
+                    <span className="font-bold text-stone-800">{m.itemName}</span>
+                    <span className="font-mono text-yellow-700 ml-2 text-xs">{m.price} Écus</span>
+                    <span className={`text-xs ml-2 ${m.stock === 0 ? "text-red-400 font-bold" : "text-stone-400"}`}>
+                      {m.stock === 0 ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
+                    </span>
+                  </div>
+                  {!isOwner && m.stock > 0 && (
+                    <button
+                      onClick={() => onBuyFromMenu(prop.id, m.itemName)}
+                      disabled={(user?.balance || 0) < m.price}
+                      className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40 flex items-center gap-1"
+                      title="Consommé sur place — n'entre pas dans l'inventaire"
+                    >
+                      <Utensils size={10} /> Commander
+                    </button>
+                  )}
+                  {!isOwner && m.stock === 0 && <span className="text-[10px] text-red-400 font-bold uppercase">Indisponible</span>}
                 </div>
               ))}
               {isOwner && (

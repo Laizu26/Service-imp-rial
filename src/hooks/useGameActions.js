@@ -3583,27 +3583,24 @@ export const useGameActions = (session, state, saveState, notify) => {
         const mIdx = menu.findIndex((m) => m.itemName === itemName);
         if (mIdx === -1 || menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
         if ((user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
+        const price = menu[mIdx].price;
         menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         const newCitizens = [...state.citizens];
         const uIdx = newCitizens.findIndex((c) => c.id === session.id);
-        const inv = [...(newCitizens[uIdx].inventory || [])];
-        const existingItem = inv.findIndex((i) => i.name === itemName);
-        if (existingItem !== -1) inv[existingItem] = { ...inv[existingItem], quantity: inv[existingItem].quantity + 1 };
-        else inv.push({ name: itemName, quantity: 1 });
-        newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - menu[mIdx].price, inventory: inv };
+        newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - price };
         properties[pIdx] = { ...properties[pIdx], menu };
         let newState = { ...state, citizens: newCitizens, properties };
         if (properties[pIdx].ownerType === "COMPANY") {
           const companies = [...(state.companies || [])];
           const cIdx = companies.findIndex((c) => c.id === properties[pIdx].ownerId);
-          if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + menu[mIdx].price }; newState.companies = companies; }
+          if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + price }; newState.companies = companies; }
         } else if (properties[pIdx].ownerId) {
           const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
-          if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + menu[mIdx].price };
+          if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + price };
         }
-        newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: menu[mIdx].price, timestamp: Date.now(), reason: `Menu: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])];
+        newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: price, timestamp: Date.now(), reason: `Menu: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])].slice(0, 1000);
         saveState(newState);
-        notify(`${itemName} acheté(e) !`, "success");
+        notify(`Vous dégustez ${itemName}. Bon appétit !`, "success");
       },
 
       // Commerce: acheter au shop
