@@ -251,17 +251,9 @@ const CompaniesAdminView = ({
                           <label className="text-[9px] font-bold uppercase text-stone-400 block mb-1">
                             Trésorerie
                           </label>
-                          <input
-                            type="number"
-                            className="w-full p-2 border rounded text-sm font-mono"
-                            value={editForm.balance}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                balance: parseInt(e.target.value) || 0,
-                              })
-                            }
-                          />
+                          <div className="w-full p-2 border rounded text-sm font-mono text-stone-400 bg-stone-50 cursor-not-allowed select-none">
+                            {(editForm.balance || 0).toLocaleString()} Écus — frappe impériale
+                          </div>
                         </div>
                         <div>
                           <label className="text-[9px] font-bold uppercase text-stone-400 block mb-1">

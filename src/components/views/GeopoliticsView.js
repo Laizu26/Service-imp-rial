@@ -555,20 +555,12 @@ const GeopoliticsView = ({
                   </div>
 
                   {/* Trésorerie */}
-                  <div className="bg-white/70 rounded-xl border border-stone-200 p-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-yellow-100 rounded-xl"><Coins size={20} className="text-yellow-700" /></div>
-                      <div>
-                        <div className="text-[10px] uppercase font-black text-stone-400 tracking-widest">Trésorerie nationale</div>
-                        <div className="text-2xl font-black text-yellow-800 font-mono">{(selectedCountry.treasury || 0).toLocaleString()} <span className="text-sm">Écus</span></div>
-                      </div>
+                  <div className="bg-white/70 rounded-xl border border-stone-200 p-4 flex items-center gap-3">
+                    <div className="p-3 bg-yellow-100 rounded-xl"><Coins size={20} className="text-yellow-700" /></div>
+                    <div>
+                      <div className="text-[10px] uppercase font-black text-stone-400 tracking-widest">Trésorerie nationale</div>
+                      <div className="text-2xl font-black text-yellow-800 font-mono">{(selectedCountry.treasury || 0).toLocaleString()} <span className="text-sm">Écus</span></div>
                     </div>
-                    {canEdit && (
-                      <input type="number"
-                        className="w-32 p-2 border-2 border-yellow-300 rounded-xl text-sm font-mono font-bold text-center outline-none focus:border-yellow-500"
-                        value={selectedCountry.treasury || 0}
-                        onChange={(e) => updateSelected({ treasury: parseInt(e.target.value) || 0 })} />
-                    )}
                   </div>
                 </div>
               )}

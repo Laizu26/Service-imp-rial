@@ -563,7 +563,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
               </div>
               <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) } }, gd)} ans</div>
             </div>
-            <div><Label>Solde (Ecus)</Label><Input type="number" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} min="0" /></div>
+            <div><Label>Solde initial (Écus)</Label><div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed">0 — géré par la frappe impériale</div></div>
             <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{Object.entries(ROLES).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}</Select></div>
             <div><Label>Pays</Label><Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>{safeCountries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
             <div><Label>Occupation</Label><Input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Metier..." /></div>
@@ -650,7 +650,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                         <div><Label>Role</Label><Select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></div>
                         <div><Label>Pays</Label><Select value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value })}>{safeCountries.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</Select></div>
                         <div><Label>Statut</Label><Select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>{(BASE_STATUSES || ["Actif", "Esclave", "Prisonnier", "Malade", "Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
-                        <div><Label>Solde</Label><Input type="number" value={editForm.balance} onChange={(e) => setEditForm({ ...editForm, balance: e.target.value })} /></div>
+                        <div><Label>Solde</Label><div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed">{(editForm.balance || 0).toLocaleString()} Écus — frappe impériale</div></div>
                         <div><Label>Occupation</Label><Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} /></div>
                         <div className="md:col-span-2">
                           <Label>Date de naissance (RP)</Label>
@@ -1131,26 +1131,9 @@ const GMLois = ({ state, onUpdateState, notify }) => {
                   {country.rulerName || "Sans souverain"} &middot; {activeLawCount} loi{activeLawCount > 1 ? "s" : ""} active{activeLawCount > 1 ? "s" : ""}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Trésor (E)</div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      value={treasuryInput}
-                      onChange={(e) => setTreasuryInput(e.target.value)}
-                      onBlur={() => {
-                        const val = Math.max(0, parseInt(treasuryInput) || 0);
-                        const updated = countries.map((c) => c.id === selectedId ? { ...c, treasury: val } : c);
-                        onUpdateState({ ...state, countries: updated });
-                        setTreasuryInput(String(val));
-                      }}
-                      className="w-28 bg-stone-800 border border-stone-700 rounded-lg p-1.5 text-sm font-black text-yellow-400 text-right outline-none focus:border-yellow-600/50 font-mono"
-                      min="0"
-                    />
-                    <span className="text-stone-400 text-sm font-bold">E</span>
-                  </div>
-                </div>
+              <div className="text-right">
+                <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Trésor</div>
+                <div className="font-mono font-black text-yellow-400 text-sm">{(country.treasury || 0).toLocaleString()} E</div>
               </div>
             </div>
           </Card>

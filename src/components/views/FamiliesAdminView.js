@@ -422,10 +422,12 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           </div>
         )}
 
-        {/* Trésorerie initiale */}
+        {/* Trésorerie : lecture seule — modification via frappe impériale uniquement */}
         <div>
           <Label>Trésorerie familiale (Écus)</Label>
-          <Input type="number" value={form.treasury || 0} onChange={(e) => setForm({ ...form, treasury: parseInt(e.target.value) || 0 })} placeholder="0" />
+          <div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed select-none">
+            {(form.treasury || 0).toLocaleString()} Écus — géré par la frappe impériale
+          </div>
         </div>
 
         <div>
