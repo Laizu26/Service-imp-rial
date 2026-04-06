@@ -4431,6 +4431,86 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Dividendes versés : ${dpS} Écus/action. Total distribué : ${totalPaid.toLocaleString()} Écus.`, "success");
       },
 
+      // ── GARDE ──────────────────────────────────────────────────────────
+      onGuardUpdateInfo: (countryId, info) => {
+        const countries = (state.countries || []).map((c) =>
+          c.id === countryId ? { ...c, guard: { ...(c.guard || {}), ...info } } : c
+        );
+        saveState({ ...state, countries });
+      },
+
+      onGuardAddRank: (countryId, rank) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, ranks: [...(guard.ranks || []), rank] } };
+        });
+        saveState({ ...state, countries });
+        notify(`Grade "${rank.name}" créé.`, "success");
+      },
+
+      onGuardRemoveRank: (countryId, rankId) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, ranks: (guard.ranks || []).filter((r) => r.id !== rankId) } };
+        });
+        saveState({ ...state, countries });
+      },
+
+      onGuardAddMember: (countryId, citizenId, rankId) => {
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) return;
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          const already = (guard.members || []).some((m) => m.citizenId === citizenId);
+          if (already) return c;
+          const newMember = { citizenId, citizenName: citizen.name, rankId, note: "", joinedAt: Date.now() };
+          return { ...c, guard: { ...guard, members: [...(guard.members || []), newMember] } };
+        });
+        saveState({ ...state, countries });
+        notify(`${citizen.name} rejoint la garde.`, "success");
+      },
+
+      onGuardUpdateMember: (countryId, citizenId, updates) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, members: (guard.members || []).map((m) => m.citizenId === citizenId ? { ...m, ...updates } : m) } };
+        });
+        saveState({ ...state, countries });
+      },
+
+      onGuardRemoveMember: (countryId, citizenId) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, members: (guard.members || []).filter((m) => m.citizenId !== citizenId) } };
+        });
+        saveState({ ...state, countries });
+        notify("Membre retiré de la garde.", "info");
+      },
+
+      onGuardIssueOrder: (countryId, order) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, orders: [order, ...(guard.orders || [])].slice(0, 100) } };
+        });
+        saveState({ ...state, countries });
+        notify("Ordre émis.", "success");
+      },
+
+      onGuardDeleteOrder: (countryId, orderId) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, orders: (guard.orders || []).filter((o) => o.id !== orderId) } };
+        });
+        saveState({ ...state, countries });
+      },
+
     }, notify);
   }, [session, state, saveState, notify]);
 };

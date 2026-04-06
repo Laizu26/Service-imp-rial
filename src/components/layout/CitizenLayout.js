@@ -720,6 +720,8 @@ const CitizenLayout = (props) => {
     gmTempBoost = null,
     gameDate,
     families = [],
+    onGuardIssueOrder,
+    onGuardUpdateMember,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -761,6 +763,14 @@ const CitizenLayout = (props) => {
 
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
+
+  // Garde (citoyen)
+  const [guardTab, setGuardTab] = useState("ordres");
+  const [guardExpandedOrder, setGuardExpandedOrder] = useState(null);
+  const [guardOrderTitle, setGuardOrderTitle] = useState("");
+  const [guardOrderContent, setGuardOrderContent] = useState("");
+  const [guardOrderMinLevel, setGuardOrderMinLevel] = useState(1);
+  const [guardOrderUrgent, setGuardOrderUrgent] = useState(false);
 
   // Mise à jour des formulaires une fois que l'user est chargé
   useEffect(() => {
@@ -856,6 +866,13 @@ const CitizenLayout = (props) => {
   const theme = getRoleTheme(user.role);
   const roleInfo = ROLES[user.role] || ROLES.CITOYEN;
 
+  // Garde
+  const myCountryData = (safeCountries || []).find((c) => c.id === user.countryId);
+  const myGuard = myCountryData?.guard || {};
+  const myGuardMember = (myGuard.members || []).find((m) => m.citizenId === user.id);
+  const isGuard = !!myGuardMember;
+  const myGuardRank = isGuard ? (myGuard.ranks || []).find((r) => r.id === myGuardMember.rankId) : null;
+
   // Badges du citoyen
   const safeCompanies = Array.isArray(companies) ? companies : [];
   const ownedCompany = safeCompanies.find((c) => c.ownerId === user.id);
@@ -886,6 +903,7 @@ const CitizenLayout = (props) => {
     { id: "contracts", label: "Contrats", icon: Scroll },
     { id: "annuaire", label: "Annuaire", icon: Eye },
     { id: "physique_magie", label: "Physique & Magie", icon: Zap },
+    isGuard && { id: "garde", label: "Garde Impériale", icon: Shield },
     { id: "notifications", label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ""}`, icon: Bell },
   ].filter(Boolean);
 
@@ -3370,6 +3388,141 @@ const CitizenLayout = (props) => {
                 onUpdateUser={onUpdateUser}
               />
             )}
+            {active === "garde" && isGuard && (() => {
+              const gRanks = myGuard.ranks || [];
+              const gAllMembers = myGuard.members || [];
+              const gOrders = (myGuard.orders || []).filter((o) => (myGuardRank?.level || 0) >= (o.minRankLevel || 1));
+              const RANK_COLORS_CIT = {
+                stone:"bg-stone-100 text-stone-700 border-stone-300", amber:"bg-amber-100 text-amber-800 border-amber-300",
+                red:"bg-red-100 text-red-800 border-red-300", blue:"bg-blue-100 text-blue-800 border-blue-300",
+                green:"bg-green-100 text-green-800 border-green-300", purple:"bg-purple-100 text-purple-800 border-purple-300",
+                black:"bg-stone-800 text-stone-100 border-stone-600",
+              };
+              const gRankBadge = myGuardRank ? (RANK_COLORS_CIT[myGuardRank.color] || RANK_COLORS_CIT.stone) : RANK_COLORS_CIT.stone;
+              const gCanOrder  = myGuardRank?.canOrder  || false;
+              const gCanManage = myGuardRank?.canManage || false;
+              const gVisibleMembers = gAllMembers.filter((m) => {
+                if (gCanManage) return true;
+                const mRank = gRanks.find((r) => r.id === m.rankId);
+                return (mRank?.level || 0) <= (myGuardRank?.level || 0);
+              });
+              const GTABS = [
+                { id: "ordres",  label: "Ordres"  },
+                { id: "membres", label: "Membres" },
+                ...(gCanOrder ? [{ id: "emettre", label: "Émettre un ordre" }] : []),
+              ];
+              return (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="bg-stone-800 text-white rounded-2xl p-5 flex items-center gap-4">
+                    <div className="p-3 bg-white/10 rounded-xl"><Shield size={28} /></div>
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-stone-400 font-bold">{myGuard.name || "Corps de Garde"}</div>
+                      <div className="text-xl font-black font-serif">{user.name}</div>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        {myGuardRank ? (
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${gRankBadge}`}>{myGuardRank.name}</span>
+                        ) : (
+                          <span className="text-xs text-stone-400 italic">Grade non assigné</span>
+                        )}
+                        {myGuardMember?.note && <span className="text-xs text-stone-400 italic">{myGuardMember.note}</span>}
+                      </div>
+                    </div>
+                    <div className="ml-auto text-right text-xs text-stone-400">
+                      <div className="font-black text-white text-lg">{gAllMembers.length}</div>
+                      <div>membres</div>
+                    </div>
+                  </div>
+                  {myGuard.description && (
+                    <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-sm text-stone-600 italic">{myGuard.description}</div>
+                  )}
+                  <div className="flex gap-1 border-b border-stone-200">
+                    {GTABS.map((t) => (
+                      <button key={t.id} onClick={() => setGuardTab(t.id)}
+                        className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-t-lg border-b-2 transition-all ${
+                          guardTab === t.id ? "border-stone-800 text-stone-800 bg-white" : "border-transparent text-stone-400 hover:text-stone-600"
+                        }`}>{t.label}</button>
+                    ))}
+                  </div>
+                  {guardTab === "ordres" && (
+                    <div className="space-y-2">
+                      {gOrders.length === 0 && <p className="text-stone-400 italic text-sm text-center py-8">Aucun ordre en cours.</p>}
+                      {gOrders.map((o) => (
+                        <div key={o.id} className={`bg-white rounded-xl border overflow-hidden ${o.urgent ? "border-red-300" : "border-stone-200"}`}>
+                          <button onClick={() => setGuardExpandedOrder(guardExpandedOrder === o.id ? null : o.id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                            {o.urgent && <span className="text-red-500 font-black text-[9px] uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-200">🚨 Urgent</span>}
+                            <span className="font-bold text-stone-800 flex-1">{o.title}</span>
+                            <span className="text-[10px] text-stone-400 shrink-0">{o.author} · {o.date ? new Date(o.date).toLocaleDateString("fr-FR") : ""}</span>
+                            <ChevronDown size={13} className={`text-stone-400 transition-transform ${guardExpandedOrder === o.id ? "" : "-rotate-90"}`} />
+                          </button>
+                          {guardExpandedOrder === o.id && o.content && (
+                            <div className="px-4 pb-4 border-t border-stone-100 bg-stone-50">
+                              <p className="text-sm text-stone-600 mt-3 leading-relaxed whitespace-pre-wrap">{o.content}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {guardTab === "membres" && (
+                    <div className="space-y-2">
+                      {gVisibleMembers.length === 0 && <p className="text-stone-400 italic text-sm text-center py-8">Aucun membre visible.</p>}
+                      {gVisibleMembers.map((m) => {
+                        const mRank  = gRanks.find((r) => r.id === m.rankId);
+                        const mBadge = mRank ? (RANK_COLORS_CIT[mRank.color] || RANK_COLORS_CIT.stone) : RANK_COLORS_CIT.stone;
+                        return (
+                          <div key={m.citizenId} className="bg-white rounded-xl border border-stone-200 px-4 py-3 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center font-black text-stone-600 text-sm shrink-0">
+                              {(m.citizenName || "?")[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-stone-800 text-sm">
+                                {m.citizenName}{m.citizenId === user.id && <span className="ml-2 text-[9px] text-stone-400">(vous)</span>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {mRank && <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${mBadge}`}>{mRank.name}</span>}
+                                {m.note && <span className="text-[10px] text-stone-400 italic truncate">{m.note}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {guardTab === "emettre" && gCanOrder && (
+                    <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
+                      <input className="w-full p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-stone-400"
+                        value={guardOrderTitle} onChange={(e) => setGuardOrderTitle(e.target.value)} placeholder="Titre de l'ordre..." />
+                      <textarea className="w-full p-2.5 border rounded-lg text-sm outline-none resize-none focus:border-stone-400" rows={4}
+                        value={guardOrderContent} onChange={(e) => setGuardOrderContent(e.target.value)} placeholder="Contenu..." />
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-stone-500">Visible dès niveau :</span>
+                          <select className="p-2 border rounded-lg text-sm bg-white outline-none"
+                            value={guardOrderMinLevel} onChange={(e) => setGuardOrderMinLevel(parseInt(e.target.value))}>
+                            {[1,2,3,4,5,6,7,8,9,10].map((n) => <option key={n} value={n}>Niv. {n}+</option>)}
+                          </select>
+                        </div>
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-red-700 cursor-pointer">
+                          <input type="checkbox" checked={guardOrderUrgent} onChange={(e) => setGuardOrderUrgent(e.target.checked)} />
+                          🚨 Urgent
+                        </label>
+                        <button onClick={() => {
+                          if (!guardOrderTitle.trim() || !onGuardIssueOrder) return;
+                          onGuardIssueOrder(user.countryId, { id: `ord-${Date.now()}`, title: guardOrderTitle.trim(), content: guardOrderContent.trim(), minRankLevel: guardOrderMinLevel, urgent: guardOrderUrgent, author: user.name, date: Date.now() });
+                          setGuardOrderTitle(""); setGuardOrderContent(""); setGuardOrderMinLevel(1); setGuardOrderUrgent(false);
+                          setGuardTab("ordres");
+                        }} disabled={!guardOrderTitle.trim()}
+                          className="ml-auto bg-stone-800 text-white px-5 py-2 rounded-lg text-[10px] font-bold uppercase disabled:opacity-40">
+                          Émettre
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {active === "notifications" && (
               <NotificationCenterView
                 allWithStatus={allWithStatus}

@@ -57,6 +57,7 @@ import PostOfficeView from "./components/views/PostOfficeView";
 import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
+import GuardAdminView from "./components/views/GuardAdminView";
 import JobsAdminView from "./components/views/JobsAdminView";
 import FamiliesAdminView from "./components/views/FamiliesAdminView";
 import BourseView from "./components/views/BourseView";
@@ -259,6 +260,8 @@ export default function App() {
     tabs.push({ id: "items", label: "Objets", icon: Box });
     tabs.push({ id: "bank", label: "Banque", icon: Coins });
     tabs.push({ id: "post", label: "Poste", icon: Mail });
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "guard_admin", label: "Garde", icon: Shield });
     if (effectiveLevel >= 40)
       tabs.push({ id: "espionage", label: "Cabinet Noir", icon: EyeOff });
     if (effectiveLevel >= 40)
@@ -472,6 +475,8 @@ export default function App() {
             debtRegistry={state.debtRegistry || []}
             gazette={state.gazette || []}
             families={state.families || []}
+            onGuardIssueOrder={actions.onGuardIssueOrder}
+            onGuardUpdateMember={actions.onGuardUpdateMember}
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}
@@ -856,6 +861,23 @@ export default function App() {
                       onUpdate={(c) => saveState({ ...state, countries: c })}
                       session={session}
                       roleInfo={roleInfo}
+                    />
+                  )}
+
+                  {activeTab === "guard_admin" && (
+                    <GuardAdminView
+                      countries={state.countries}
+                      citizens={state.citizens}
+                      session={session}
+                      roleInfo={roleInfo}
+                      onGuardUpdateInfo={actions.onGuardUpdateInfo}
+                      onGuardAddRank={actions.onGuardAddRank}
+                      onGuardRemoveRank={actions.onGuardRemoveRank}
+                      onGuardAddMember={actions.onGuardAddMember}
+                      onGuardUpdateMember={actions.onGuardUpdateMember}
+                      onGuardRemoveMember={actions.onGuardRemoveMember}
+                      onGuardIssueOrder={actions.onGuardIssueOrder}
+                      onGuardDeleteOrder={actions.onGuardDeleteOrder}
                     />
                   )}
 
