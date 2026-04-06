@@ -723,6 +723,8 @@ const CitizenLayout = (props) => {
     onGuardIssueOrder,
     onGuardUpdateMember,
     onGuardCompleteOrder,
+    onGuardImprison,
+    onGuardRelease,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -774,6 +776,9 @@ const CitizenLayout = (props) => {
   const [guardOrderUrgent, setGuardOrderUrgent] = useState(false);
   const [guardReportOrderId, setGuardReportOrderId] = useState(null);
   const [guardReportText, setGuardReportText] = useState("");
+  const [guardPrisonCitizenId, setGuardPrisonCitizenId] = useState("");
+  const [guardPrisonReason, setGuardPrisonReason] = useState("");
+  const [guardPrisonSentence, setGuardPrisonSentence] = useState("");
 
   // Mise à jour des formulaires une fois que l'user est chargé
   useEffect(() => {
@@ -3404,6 +3409,7 @@ const CitizenLayout = (props) => {
               const gRankBadge = myGuardRank ? (RANK_COLORS_CIT[myGuardRank.color] || RANK_COLORS_CIT.stone) : RANK_COLORS_CIT.stone;
               const gCanOrder  = myGuardRank?.canOrder  || false;
               const gCanManage = myGuardRank?.canManage || false;
+              const gPrison    = myGuard.prison || [];
               const gVisibleMembers = gAllMembers.filter((m) => {
                 if (gCanManage) return true;
                 const mRank = gRanks.find((r) => r.id === m.rankId);
@@ -3412,7 +3418,8 @@ const CitizenLayout = (props) => {
               const GTABS = [
                 { id: "ordres",  label: "Ordres"  },
                 { id: "membres", label: "Membres" },
-                ...(gCanOrder ? [{ id: "emettre", label: "Émettre un ordre" }] : []),
+                ...(gCanManage ? [{ id: "prison", label: `Prison${gPrison.length > 0 ? ` (${gPrison.length})` : ""}` }] : []),
+                ...(gCanOrder  ? [{ id: "emettre", label: "Émettre un ordre" }] : []),
               ];
               return (
                 <div className="space-y-4 animate-fadeIn">
@@ -3544,6 +3551,58 @@ const CitizenLayout = (props) => {
                       })}
                     </div>
                   )}
+                  {guardTab === "prison" && gCanManage && (
+                    <div className="space-y-4">
+                      {/* Incarcérer */}
+                      <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Incarcérer un citoyen</div>
+                        <select className="w-full p-2.5 border rounded-lg text-sm bg-white outline-none focus:border-stone-400"
+                          value={guardPrisonCitizenId} onChange={(e) => setGuardPrisonCitizenId(e.target.value)}>
+                          <option value="">— Sélectionner un citoyen —</option>
+                          {safeUsers.filter((c) => !gPrison.some((p) => p.citizenId === c.id)).map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                        <input className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-400"
+                          placeholder="Motif d'incarcération..." value={guardPrisonReason}
+                          onChange={(e) => setGuardPrisonReason(e.target.value)} />
+                        <input className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-400"
+                          placeholder="Durée de la peine (ex: 3 jours RP, indéterminée...)" value={guardPrisonSentence}
+                          onChange={(e) => setGuardPrisonSentence(e.target.value)} />
+                        <button onClick={() => {
+                          if (!guardPrisonCitizenId || !onGuardImprison) return;
+                          onGuardImprison(user.countryId, guardPrisonCitizenId, guardPrisonReason, guardPrisonSentence);
+                          setGuardPrisonCitizenId(""); setGuardPrisonReason(""); setGuardPrisonSentence("");
+                        }} disabled={!guardPrisonCitizenId}
+                          className="w-full bg-red-700 hover:bg-red-800 text-white py-2.5 rounded-lg text-[10px] font-black uppercase disabled:opacity-40 flex items-center justify-center gap-1.5">
+                          🔒 Incarcérer
+                        </button>
+                      </div>
+                      {/* Liste */}
+                      {gPrison.length === 0 ? (
+                        <p className="text-stone-400 italic text-sm text-center py-8">La prison est vide.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {gPrison.map((p) => (
+                            <div key={p.id} className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
+                              <div className="p-2 bg-red-100 rounded-lg shrink-0 mt-0.5 text-red-600 text-sm">🔒</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-black text-stone-800 text-sm">{p.citizenName}</div>
+                                <div className="text-xs text-red-700 mt-0.5">{p.reason}</div>
+                                {p.sentence && <div className="text-[10px] text-stone-500 mt-0.5">Peine : {p.sentence}</div>}
+                                <div className="text-[10px] text-stone-400 mt-1">Arrêté par {p.guardName} · {p.since ? new Date(p.since).toLocaleDateString("fr-FR") : ""}</div>
+                              </div>
+                              <button onClick={() => onGuardRelease && onGuardRelease(user.countryId, p.citizenId)}
+                                className="shrink-0 flex items-center gap-1 bg-green-100 hover:bg-green-200 text-green-800 border border-green-300 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">
+                                🔓 Libérer
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {guardTab === "emettre" && gCanOrder && (
                     <div className="bg-white rounded-xl border border-stone-200 p-5 space-y-3">
                       <input className="w-full p-2.5 border rounded-lg text-sm font-bold outline-none focus:border-stone-400"

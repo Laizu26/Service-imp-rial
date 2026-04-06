@@ -478,6 +478,8 @@ export default function App() {
             onGuardIssueOrder={actions.onGuardIssueOrder}
             onGuardUpdateMember={actions.onGuardUpdateMember}
             onGuardCompleteOrder={actions.onGuardCompleteOrder}
+            onGuardImprison={actions.onGuardImprison}
+            onGuardRelease={actions.onGuardRelease}
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}
@@ -880,6 +882,8 @@ export default function App() {
                       onGuardIssueOrder={actions.onGuardIssueOrder}
                       onGuardDeleteOrder={actions.onGuardDeleteOrder}
                       onGuardCompleteOrder={actions.onGuardCompleteOrder}
+                      onGuardImprison={actions.onGuardImprison}
+                      onGuardRelease={actions.onGuardRelease}
                     />
                   )}
 

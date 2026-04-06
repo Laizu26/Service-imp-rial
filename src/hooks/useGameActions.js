@@ -4431,6 +4431,38 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Dividendes versés : ${dpS} Écus/action. Total distribué : ${totalPaid.toLocaleString()} Écus.`, "success");
       },
 
+      onGuardImprison: (countryId, citizenId, reason, sentence) => {
+        if (!session) return;
+        const guard = (state.countries || []).find((c) => c.id === countryId)?.guard || {};
+        if ((guard.prison || []).some((p) => p.citizenId === citizenId)) { notify("Ce citoyen est déjà incarcéré.", "error"); return; }
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) return;
+        const jailer = (state.citizens || []).find((c) => c.id === session.id);
+        const entry = { id: Date.now(), citizenId, citizenName: citizen.name, reason: reason || "Non précisé", sentence: sentence || "", guardId: session.id, guardName: jailer?.name || "Garde inconnu", since: Date.now() };
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          return { ...c, guard: { ...(c.guard || {}), prison: [...((c.guard || {}).prison || []), entry] } };
+        });
+        const newCitizens = (state.citizens || []).map((c) =>
+          c.id === citizenId ? { ...c, status: "Prisonnier" } : c
+        );
+        saveState({ ...state, countries, citizens: newCitizens });
+        notify(`${citizen.name} incarcéré(e). Motif : ${reason || "Non précisé"}.`, "info");
+      },
+
+      onGuardRelease: (countryId, citizenId) => {
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          return { ...c, guard: { ...(c.guard || {}), prison: ((c.guard || {}).prison || []).filter((p) => p.citizenId !== citizenId) } };
+        });
+        const newCitizens = (state.citizens || []).map((c) =>
+          c.id === citizenId ? { ...c, status: "Actif" } : c
+        );
+        saveState({ ...state, countries, citizens: newCitizens });
+        notify(`${citizen?.name || "Prisonnier"} libéré(e).`, "success");
+      },
+
       // ── GARDE ──────────────────────────────────────────────────────────
       onGuardUpdateInfo: (countryId, info) => {
         const countries = (state.countries || []).map((c) =>

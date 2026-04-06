@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   Shield, Plus, Trash2, Edit3, Save, X, Users, ScrollText,
   ChevronDown, AlertTriangle, Crown, Star, UserCheck,
-  UserMinus, Search, CheckCircle2, Clock, FileText,
+  UserMinus, Search, CheckCircle2, Clock, FileText, Lock, Unlock,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 
@@ -32,6 +32,8 @@ const GuardAdminView = ({
   onGuardIssueOrder,
   onGuardDeleteOrder,
   onGuardCompleteOrder,
+  onGuardImprison,
+  onGuardRelease,
 }) => {
   const safeRoleInfo = roleInfo || { level: 0, scope: "LOCAL" };
   const isGlobal = safeRoleInfo.scope === "GLOBAL";
@@ -68,7 +70,12 @@ const GuardAdminView = ({
   const [orderMinLevel, setOrderMinLevel] = useState(1);
   const [orderUrgent, setOrderUrgent] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
-  const [orderFilter, setOrderFilter] = useState("active"); // "active" | "done"
+  const [orderFilter, setOrderFilter] = useState("active");
+
+  // Prison
+  const [prisonCitizenId, setPrisonCitizenId] = useState("");
+  const [prisonReason, setPrisonReason] = useState("");
+  const [prisonSentence, setPrisonSentence] = useState("");
 
   const country = countries.find((c) => c.id === selectedCountryId);
   const guard = country?.guard || {};
@@ -87,11 +94,14 @@ const GuardAdminView = ({
     </div>
   );
 
+  const prisonCount = (guard.prison || []).length;
+
   const TABS = [
     { id: "corps",   label: "Corps",   icon: Shield    },
     { id: "grades",  label: "Grades",  icon: Star      },
     { id: "membres", label: "Membres", icon: Users     },
     { id: "ordres",  label: "Ordres",  icon: ScrollText },
+    { id: "prison",  label: `Prison${prisonCount > 0 ? ` (${prisonCount})` : ""}`, icon: Lock },
   ];
 
   return (
@@ -465,6 +475,79 @@ const GuardAdminView = ({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ══ PRISON ══ */}
+          {tab === "prison" && (
+            <div className="space-y-4">
+              {canEdit && (
+                <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+                  <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1.5"><Lock size={10} /> Incarcérer un citoyen</div>
+                  <UserSearchSelect
+                    users={citizens.filter((c) => !(guard.prison || []).some((p) => p.citizenId === c.id))}
+                    onSelect={setPrisonCitizenId}
+                    value={prisonCitizenId}
+                    placeholder="Chercher un citoyen..."
+                  />
+                  <input
+                    className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-400"
+                    placeholder="Motif d'incarcération..."
+                    value={prisonReason}
+                    onChange={(e) => setPrisonReason(e.target.value)}
+                  />
+                  <input
+                    className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-stone-400"
+                    placeholder="Durée de la peine (ex: 3 jours RP, indéterminée...)"
+                    value={prisonSentence}
+                    onChange={(e) => setPrisonSentence(e.target.value)}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!prisonCitizenId) return;
+                      onGuardImprison(country.id, prisonCitizenId, prisonReason, prisonSentence);
+                      setPrisonCitizenId(""); setPrisonReason(""); setPrisonSentence("");
+                    }}
+                    disabled={!prisonCitizenId}
+                    className="w-full bg-red-700 hover:bg-red-800 text-white py-2.5 rounded-lg text-[10px] font-black uppercase disabled:opacity-40 flex items-center justify-center gap-1.5"
+                  >
+                    <Lock size={12} /> Incarcérer
+                  </button>
+                </div>
+              )}
+
+              {/* Liste des prisonniers */}
+              {(guard.prison || []).length === 0 ? (
+                <div className="text-center py-12 text-stone-400">
+                  <Unlock size={32} className="mx-auto mb-3 opacity-30" />
+                  <p className="italic text-sm">La prison est vide.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {(guard.prison || []).map((p) => (
+                    <div key={p.id} className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-4">
+                      <div className="p-2 bg-red-100 rounded-lg shrink-0 mt-0.5"><Lock size={14} className="text-red-600" /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-black text-stone-800 text-sm">{p.citizenName}</div>
+                        <div className="text-xs text-red-700 mt-0.5 font-medium">{p.reason}</div>
+                        {p.sentence && <div className="text-[10px] text-stone-500 mt-0.5">Peine : {p.sentence}</div>}
+                        <div className="text-[10px] text-stone-400 mt-1 flex items-center gap-3">
+                          <span>Arrêté par {p.guardName}</span>
+                          <span>{p.since ? new Date(p.since).toLocaleDateString("fr-FR") : ""}</span>
+                        </div>
+                      </div>
+                      {canEdit && (
+                        <button
+                          onClick={() => onGuardRelease(country.id, p.citizenId)}
+                          className="shrink-0 flex items-center gap-1.5 bg-green-100 hover:bg-green-200 text-green-800 border border-green-300 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all"
+                        >
+                          <Unlock size={11} /> Libérer
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
