@@ -477,6 +477,7 @@ export default function App() {
             families={state.families || []}
             onGuardIssueOrder={actions.onGuardIssueOrder}
             onGuardUpdateMember={actions.onGuardUpdateMember}
+            onGuardCompleteOrder={actions.onGuardCompleteOrder}
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}
@@ -878,6 +879,7 @@ export default function App() {
                       onGuardRemoveMember={actions.onGuardRemoveMember}
                       onGuardIssueOrder={actions.onGuardIssueOrder}
                       onGuardDeleteOrder={actions.onGuardDeleteOrder}
+                      onGuardCompleteOrder={actions.onGuardCompleteOrder}
                     />
                   )}
 

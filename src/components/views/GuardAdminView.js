@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import {
   Shield, Plus, Trash2, Edit3, Save, X, Users, ScrollText,
-  ChevronDown, ChevronRight, AlertTriangle, Crown, Star, UserCheck,
-  UserMinus, Search,
+  ChevronDown, AlertTriangle, Crown, Star, UserCheck,
+  UserMinus, Search, CheckCircle2, Clock, FileText,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 
@@ -31,6 +31,7 @@ const GuardAdminView = ({
   onGuardRemoveMember,
   onGuardIssueOrder,
   onGuardDeleteOrder,
+  onGuardCompleteOrder,
 }) => {
   const safeRoleInfo = roleInfo || { level: 0, scope: "LOCAL" };
   const isGlobal = safeRoleInfo.scope === "GLOBAL";
@@ -67,6 +68,7 @@ const GuardAdminView = ({
   const [orderMinLevel, setOrderMinLevel] = useState(1);
   const [orderUrgent, setOrderUrgent] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [orderFilter, setOrderFilter] = useState("active"); // "active" | "done"
 
   const country = countries.find((c) => c.id === selectedCountryId);
   const guard = country?.guard || {};
@@ -397,28 +399,67 @@ const GuardAdminView = ({
                 </div>
               )}
 
+              {/* Filtre actif / terminé */}
+              <div className="flex gap-1 bg-stone-100 rounded-xl p-1 w-fit">
+                {[{ id: "active", label: "En cours", icon: Clock }, { id: "done", label: "Terminés", icon: CheckCircle2 }].map((f) => (
+                  <button key={f.id} onClick={() => setOrderFilter(f.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                      orderFilter === f.id ? "bg-white shadow text-stone-800" : "text-stone-400 hover:text-stone-600"
+                    }`}>
+                    <f.icon size={11} />{f.label}
+                    <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${orderFilter === f.id ? "bg-stone-100" : "bg-stone-200"}`}>
+                      {(guard.orders || []).filter((o) => f.id === "done" ? o.status === "done" : o.status !== "done").length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               <div className="space-y-2">
-                {(guard.orders || []).length === 0 && <p className="text-stone-400 italic text-sm text-center py-8">Aucun ordre en cours.</p>}
-                {(guard.orders || []).map((o) => (
-                  <div key={o.id} className={`bg-white rounded-xl border overflow-hidden ${o.urgent ? "border-red-300" : "border-stone-200"}`}>
+                {(guard.orders || []).filter((o) => orderFilter === "done" ? o.status === "done" : o.status !== "done").length === 0 && (
+                  <p className="text-stone-400 italic text-sm text-center py-8">Aucun ordre {orderFilter === "done" ? "terminé" : "en cours"}.</p>
+                )}
+                {(guard.orders || []).filter((o) => orderFilter === "done" ? o.status === "done" : o.status !== "done").map((o) => (
+                  <div key={o.id} className={`bg-white rounded-xl border overflow-hidden ${o.status === "done" ? "border-green-200" : o.urgent ? "border-red-300" : "border-stone-200"}`}>
                     <div className="flex items-center px-4 py-3 gap-3">
-                      {o.urgent && <AlertTriangle size={14} className="text-red-500 shrink-0" />}
+                      {o.status === "done"
+                        ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
+                        : o.urgent && <AlertTriangle size={14} className="text-red-500 shrink-0" />
+                      }
                       <button onClick={() => setExpandedOrder(expandedOrder === o.id ? null : o.id)}
                         className="flex-1 text-left flex items-center gap-2">
-                        {expandedOrder === o.id ? <ChevronDown size={13} className="text-stone-400" /> : <ChevronRight size={13} className="text-stone-400" />}
-                        <span className="font-bold text-stone-800 text-sm">{o.title}</span>
+                        <ChevronDown size={13} className={`text-stone-400 transition-transform ${expandedOrder === o.id ? "" : "-rotate-90"}`} />
+                        <span className={`font-bold text-sm ${o.status === "done" ? "text-stone-400 line-through" : "text-stone-800"}`}>{o.title}</span>
                       </button>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className="text-[9px] text-stone-400">Niv. {o.minRankLevel}+ · {o.author} · {o.date ? new Date(o.date).toLocaleDateString("fr-FR") : ""}</span>
+                        {(o.reports || []).length > 0 && (
+                          <span className="flex items-center gap-0.5 text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-bold">
+                            <FileText size={9} /> {(o.reports || []).length}
+                          </span>
+                        )}
                         {canEdit && (
                           <button onClick={() => onGuardDeleteOrder(country.id, o.id)}
                             className="p-1 hover:bg-red-50 rounded text-stone-300 hover:text-red-500"><Trash2 size={12} /></button>
                         )}
                       </div>
                     </div>
-                    {expandedOrder === o.id && o.content && (
-                      <div className="px-4 pb-4 border-t border-stone-100 bg-stone-50">
-                        <p className="text-sm text-stone-600 mt-3 leading-relaxed whitespace-pre-wrap">{o.content}</p>
+                    {expandedOrder === o.id && (
+                      <div className="px-4 pb-4 border-t border-stone-100 bg-stone-50 space-y-3">
+                        {o.content && <p className="text-sm text-stone-600 mt-3 leading-relaxed whitespace-pre-wrap">{o.content}</p>}
+                        {(o.reports || []).length > 0 && (
+                          <div className="space-y-2 mt-2">
+                            <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1.5"><FileText size={10} /> Rapports de mission</div>
+                            {(o.reports || []).map((r) => (
+                              <div key={r.id} className="bg-white rounded-lg border border-stone-200 p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-black text-stone-700">{r.author}</span>
+                                  <span className="text-[9px] text-stone-400">{r.date ? new Date(r.date).toLocaleDateString("fr-FR") : ""}</span>
+                                </div>
+                                <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">{r.content}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

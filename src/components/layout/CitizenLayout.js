@@ -722,6 +722,7 @@ const CitizenLayout = (props) => {
     families = [],
     onGuardIssueOrder,
     onGuardUpdateMember,
+    onGuardCompleteOrder,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -771,6 +772,8 @@ const CitizenLayout = (props) => {
   const [guardOrderContent, setGuardOrderContent] = useState("");
   const [guardOrderMinLevel, setGuardOrderMinLevel] = useState(1);
   const [guardOrderUrgent, setGuardOrderUrgent] = useState(false);
+  const [guardReportOrderId, setGuardReportOrderId] = useState(null);
+  const [guardReportText, setGuardReportText] = useState("");
 
   // Mise à jour des formulaires une fois que l'user est chargé
   useEffect(() => {
@@ -3446,22 +3449,74 @@ const CitizenLayout = (props) => {
                   {guardTab === "ordres" && (
                     <div className="space-y-2">
                       {gOrders.length === 0 && <p className="text-stone-400 italic text-sm text-center py-8">Aucun ordre en cours.</p>}
-                      {gOrders.map((o) => (
-                        <div key={o.id} className={`bg-white rounded-xl border overflow-hidden ${o.urgent ? "border-red-300" : "border-stone-200"}`}>
-                          <button onClick={() => setGuardExpandedOrder(guardExpandedOrder === o.id ? null : o.id)}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-left">
-                            {o.urgent && <span className="text-red-500 font-black text-[9px] uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-200">🚨 Urgent</span>}
-                            <span className="font-bold text-stone-800 flex-1">{o.title}</span>
-                            <span className="text-[10px] text-stone-400 shrink-0">{o.author} · {o.date ? new Date(o.date).toLocaleDateString("fr-FR") : ""}</span>
-                            <ChevronDown size={13} className={`text-stone-400 transition-transform ${guardExpandedOrder === o.id ? "" : "-rotate-90"}`} />
-                          </button>
-                          {guardExpandedOrder === o.id && o.content && (
-                            <div className="px-4 pb-4 border-t border-stone-100 bg-stone-50">
-                              <p className="text-sm text-stone-600 mt-3 leading-relaxed whitespace-pre-wrap">{o.content}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                      {gOrders.map((o) => {
+                        const isDone = o.status === "done";
+                        return (
+                          <div key={o.id} className={`bg-white rounded-xl border overflow-hidden ${isDone ? "border-green-200 opacity-70" : o.urgent ? "border-red-300" : "border-stone-200"}`}>
+                            <button onClick={() => setGuardExpandedOrder(guardExpandedOrder === o.id ? null : o.id)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                              {isDone
+                                ? <span className="text-green-600 font-black text-[9px] uppercase bg-green-50 px-2 py-0.5 rounded-full border border-green-200">✓ Terminé</span>
+                                : o.urgent && <span className="text-red-500 font-black text-[9px] uppercase bg-red-50 px-2 py-0.5 rounded-full border border-red-200">🚨 Urgent</span>
+                              }
+                              <span className={`font-bold flex-1 ${isDone ? "line-through text-stone-400" : "text-stone-800"}`}>{o.title}</span>
+                              <span className="text-[10px] text-stone-400 shrink-0">{o.author} · {o.date ? new Date(o.date).toLocaleDateString("fr-FR") : ""}</span>
+                              <ChevronDown size={13} className={`text-stone-400 transition-transform ${guardExpandedOrder === o.id ? "" : "-rotate-90"}`} />
+                            </button>
+                            {guardExpandedOrder === o.id && (
+                              <div className="px-4 pb-4 border-t border-stone-100 bg-stone-50 space-y-3">
+                                {o.content && <p className="text-sm text-stone-600 mt-3 leading-relaxed whitespace-pre-wrap">{o.content}</p>}
+                                {/* Rapports existants */}
+                                {(o.reports || []).length > 0 && (
+                                  <div className="space-y-2">
+                                    <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Rapports de mission</div>
+                                    {(o.reports || []).map((r) => (
+                                      <div key={r.id} className="bg-white rounded-lg border border-stone-200 p-3">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-xs font-black text-stone-700">{r.author}</span>
+                                          <span className="text-[9px] text-stone-400">{r.date ? new Date(r.date).toLocaleDateString("fr-FR") : ""}</span>
+                                        </div>
+                                        <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">{r.content}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Formulaire rapport + terminer */}
+                                {!isDone && onGuardCompleteOrder && (
+                                  guardReportOrderId === o.id ? (
+                                    <div className="space-y-2 mt-2">
+                                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Rapport de mission</div>
+                                      <textarea
+                                        className="w-full p-2.5 border rounded-lg text-sm outline-none resize-none focus:border-stone-400 bg-white"
+                                        rows={4}
+                                        value={guardReportText}
+                                        onChange={(e) => setGuardReportText(e.target.value)}
+                                        placeholder="Décrivez le déroulement de la mission, les résultats, les incidents..."
+                                      />
+                                      <div className="flex gap-2 justify-end">
+                                        <button onClick={() => { setGuardReportOrderId(null); setGuardReportText(""); }}
+                                          className="px-3 py-1.5 rounded-lg bg-stone-100 text-[10px] font-bold uppercase">Annuler</button>
+                                        <button onClick={() => {
+                                          onGuardCompleteOrder(user.countryId, o.id, guardReportText.trim());
+                                          setGuardReportOrderId(null); setGuardReportText("");
+                                        }}
+                                          className="px-4 py-1.5 rounded-lg bg-green-600 text-white text-[10px] font-bold uppercase flex items-center gap-1.5">
+                                          ✓ Soumettre et terminer
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => { setGuardReportOrderId(o.id); setGuardReportText(""); setGuardExpandedOrder(o.id); }}
+                                      className="flex items-center gap-1.5 text-[10px] font-black uppercase text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-all">
+                                      ✓ Marquer terminé + rapport
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   {guardTab === "membres" && (

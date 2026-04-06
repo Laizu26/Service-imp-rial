@@ -4511,6 +4511,26 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, countries });
       },
 
+      onGuardCompleteOrder: (countryId, orderId, report) => {
+        if (!session) return;
+        const citizen = (state.citizens || []).find((c) => c.id === session.id);
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          const orders = (guard.orders || []).map((o) => {
+            if (o.id !== orderId) return o;
+            const reports = [
+              { id: Date.now(), author: citizen?.name || "Inconnu", content: report, date: Date.now() },
+              ...(o.reports || []),
+            ];
+            return { ...o, status: "done", reports };
+          });
+          return { ...c, guard: { ...guard, orders } };
+        });
+        saveState({ ...state, countries });
+        notify("Ordre marqué terminé. Rapport soumis.", "success");
+      },
+
     }, notify);
   }, [session, state, saveState, notify]);
 };
