@@ -17,7 +17,7 @@ import {
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
-import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
+import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney } from "../../lib/gameUtils";
 
 const RegistryView = ({
   citizens,
@@ -944,7 +944,7 @@ const RegistryView = ({
                                 <Package size={12} className="text-stone-400 shrink-0" />
                                 <span className="font-bold text-sm text-stone-800 truncate">{item.name}</span>
                                 {item.price != null && (
-                                  <span className="text-[9px] text-stone-400 ml-auto shrink-0">{item.price} Écus</span>
+                                  <span className="text-[9px] text-stone-400 ml-auto shrink-0">{formatMoney(item.price)}</span>
                                 )}
                               </button>
                             ))}
@@ -1107,11 +1107,8 @@ const RegistryView = ({
                       size={100}
                       className="absolute -right-6 -bottom-6 opacity-10 font-sans"
                     />
-                    <div className="text-6xl font-black relative z-10 font-serif">
-                      {Number(selected.balance || 0).toLocaleString()}
-                    </div>
-                    <div className="text-[10px] uppercase font-black tracking-[0.4em] mt-3 opacity-50 relative z-10 font-sans">
-                      Écus
+                    <div className="text-4xl font-black relative z-10 font-serif">
+                      {formatMoney(selected.balance || 0)}
                     </div>
                   </Card>
                 </div>

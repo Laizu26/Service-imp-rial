@@ -24,6 +24,7 @@ import {
   Plus,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import { formatMoney } from "../../lib/gameUtils";
 
 // Couleurs de rareté
 const RARITY_COLORS = {
@@ -220,7 +221,7 @@ const CitizenInventoryView = ({
               <div className="text-center">
                 <div className="text-[9px] uppercase font-black text-stone-400">Prix</div>
                 <div className="font-black text-yellow-600 text-sm mt-0.5 flex items-center justify-center gap-0.5">
-                  <Coins size={11} /> {item.price}
+                  <Coins size={11} /> {formatMoney(item.price)}
                 </div>
               </div>
               <div className="text-center border-l border-stone-200">
@@ -278,8 +279,7 @@ const CitizenInventoryView = ({
           {/* Solde */}
           <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-2 flex items-center gap-2">
             <Coins size={16} className="text-yellow-600" />
-            <span className="font-black font-mono text-yellow-800">{(user.balance || 0).toLocaleString()}</span>
-            <span className="text-[10px] text-yellow-600 font-bold">Écus</span>
+            <span className="font-black font-mono text-yellow-800">{formatMoney(user.balance || 0)}</span>
           </div>
 
           {/* Tabs */}
@@ -422,7 +422,7 @@ const CitizenInventoryView = ({
 
                   {/* Prix de revente */}
                   <div className="absolute top-2 right-2 text-[10px] font-bold text-yellow-600 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Coins size={9} /> {item.price}
+                    <Coins size={9} /> {formatMoney(item.price)}
                   </div>
                 </div>
               );
@@ -494,7 +494,7 @@ const CitizenInventoryView = ({
 
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
                       <div className="text-yellow-700 font-black font-mono text-lg flex items-center gap-1">
-                        {(item.price || 0).toLocaleString()} <Coins size={14} />
+                        {formatMoney((item.price || 0))} <Coins size={14} />
                       </div>
                       {item.weight !== undefined && !isSlave && (
                         <span className="text-[10px] text-stone-400 flex items-center gap-0.5">
@@ -603,7 +603,7 @@ const CitizenInventoryView = ({
                     <div key={listing.id} className="bg-white border border-stone-200 rounded-lg p-3 flex justify-between items-center">
                       <div>
                         <span className="font-bold text-sm text-stone-800">{listing.quantity}x {listing.itemName}</span>
-                        <span className="ml-2 font-mono text-sm text-yellow-700">{listing.price} Écus</span>
+                        <span className="ml-2 font-mono text-sm text-yellow-700">{formatMoney(listing.price)}</span>
                       </div>
                       <button
                         onClick={() => onCancelListing && onCancelListing(listing.id)}
@@ -638,7 +638,7 @@ const CitizenInventoryView = ({
                           <div className="text-[10px] text-stone-400 mt-0.5">
                             Vendeur : {listing.sellerName}
                           </div>
-                          <div className="font-mono font-bold text-yellow-700 mt-1">{listing.price} Écus</div>
+                          <div className="font-mono font-bold text-yellow-700 mt-1">{formatMoney(listing.price)}</div>
                         </div>
                         <button
                           onClick={() => onBuyFromPlayer && onBuyFromPlayer(listing.id)}
@@ -673,7 +673,7 @@ const CitizenInventoryView = ({
                           {(trade.offer.items || []).map((item, i) => (
                             <div key={i} className="text-xs text-stone-700">{item.quantity}x {item.name}</div>
                           ))}
-                          {trade.offer.money > 0 && <div className="text-xs font-mono text-yellow-700">{trade.offer.money} Écus</div>}
+                          {trade.offer.money > 0 && <div className="text-xs font-mono text-yellow-700">{formatMoney(trade.offer.money)}</div>}
                           {(trade.offer.items || []).length === 0 && !trade.offer.money && <div className="text-xs text-stone-400 italic">Rien</div>}
                         </div>
                         <div className="bg-red-50 rounded-lg p-2">
@@ -681,7 +681,7 @@ const CitizenInventoryView = ({
                           {(trade.request.items || []).map((item, i) => (
                             <div key={i} className="text-xs text-stone-700">{item.quantity}x {item.name}</div>
                           ))}
-                          {trade.request.money > 0 && <div className="text-xs font-mono text-yellow-700">{trade.request.money} Écus</div>}
+                          {trade.request.money > 0 && <div className="text-xs font-mono text-yellow-700">{formatMoney(trade.request.money)}</div>}
                           {(trade.request.items || []).length === 0 && !trade.request.money && <div className="text-xs text-stone-400 italic">Rien</div>}
                         </div>
                       </div>
@@ -716,7 +716,7 @@ const CitizenInventoryView = ({
                         <span className="text-xs font-bold text-stone-700">→ {trade.toName}</span>
                         <div className="text-[10px] text-stone-400 mt-0.5">
                           Offre : {(trade.offer.items || []).map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                          {trade.offer.money > 0 && ` + ${trade.offer.money} Écus`}
+                          {trade.offer.money > 0 && ` + ${formatMoney(trade.offer.money)}`}
                         </div>
                       </div>
                       <button
@@ -922,13 +922,13 @@ const CitizenInventoryView = ({
                       Total à payer
                     </span>
                     <span className={`font-mono font-black text-xl flex items-center gap-1 ${canAfford ? "text-stone-900" : "text-red-600"}`}>
-                      {(finalPrice || 0).toLocaleString()} <Coins size={14} className="text-yellow-600" />
+                      {formatMoney((finalPrice || 0))} <Coins size={14} className="text-yellow-600" />
                     </span>
                   </div>
                   <div className="text-[10px] text-stone-400 mt-2">
-                    Solde actuel : <span className="font-mono font-bold">{(user.balance || 0).toLocaleString()}</span> Écus
+                    Solde actuel : {formatMoney((user.balance || 0))}
                     {canAfford && (
-                      <span className="ml-1">(reste : {((user.balance || 0) - finalPrice).toLocaleString()})</span>
+                      <span className="ml-1">(reste : {formatMoney(((user.balance || 0) - finalPrice))})</span>
                     )}
                   </div>
                   {!canAfford && (

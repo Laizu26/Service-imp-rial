@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Book, Gavel, Scroll, Bookmark, Globe, Library } from "lucide-react";
+import { formatMoney } from "../../lib/gameUtils";
 
 const LibraryView = ({ countries, session }) => {
   const [activeTab, setActiveTab] = useState("codes");
@@ -49,7 +50,7 @@ const LibraryView = ({ countries, session }) => {
 
     if (laws.entryVisaFee > 0)
       addArt(
-        `Tout étranger souhaitant pénétrer sur le territoire devra s'acquitter d'une taxe douanière de ${laws.entryVisaFee} Écus.`
+        `Tout étranger souhaitant pénétrer sur le territoire devra s'acquitter d'une taxe douanière de ${formatMoney(laws.entryVisaFee)}.`
       );
 
     if (laws.allowWeapons === false)

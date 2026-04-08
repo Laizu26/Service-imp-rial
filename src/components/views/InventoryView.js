@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { ROLES } from "../../lib/constants";
+import { formatMoney } from "../../lib/gameUtils";
 
 // Couleurs de rareté
 const RARITY_CONFIG = {
@@ -364,7 +365,7 @@ const InventoryView = ({ items, onUpdate, session, roleInfo, companies = [], cou
                     </div>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-[10px] font-bold text-yellow-700 flex items-center gap-0.5">
-                        <Coins size={9} /> {item.price} Écus
+                        <Coins size={9} /> {formatMoney(item.price)}
                       </span>
                       <span className="text-[9px] text-stone-400 flex items-center gap-0.5">
                         <Scale size={8} /> {item.weight || 0} kg

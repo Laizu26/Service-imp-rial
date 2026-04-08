@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Card from "../ui/Card";
+import { formatMoney } from "../../lib/gameUtils";
 
 // AJOUT DE onPassDay DANS LES PROPS
 const DashboardView = ({
@@ -244,10 +245,7 @@ const DashboardView = ({
               {stats.label}
             </div>
             <div className={`text-4xl font-black font-serif ${stats.color}`}>
-              {stats.treasury?.toLocaleString()}{" "}
-              <span className="text-sm text-white opacity-50 font-sans">
-                Écus
-              </span>
+              {formatMoney(stats.treasury)}
             </div>
           </div>
           <Coins className="absolute -right-4 -bottom-4 opacity-10" size={96} />
@@ -443,8 +441,7 @@ const DashboardView = ({
                             <div className="flex justify-between items-center mt-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-mono font-black text-stone-900 bg-stone-100 px-1 rounded">
-                                  {tx.amount.toLocaleString()}{" "}
-                                  <span className="text-[9px]">Écus</span>
+                                  {formatMoney(tx.amount)}
                                 </span>
                                 {tx.type && (
                                   <span className={`px-1 py-0.5 rounded text-[8px] font-black uppercase ${typeColors[tx.type] || "bg-stone-100 text-stone-500"}`}>

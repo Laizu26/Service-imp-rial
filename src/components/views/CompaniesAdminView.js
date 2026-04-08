@@ -14,6 +14,7 @@ import {
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { formatMoney } from "../../lib/gameUtils";
 
 const CompaniesAdminView = ({
   companies,
@@ -252,7 +253,7 @@ const CompaniesAdminView = ({
                             Trésorerie
                           </label>
                           <div className="w-full p-2 border rounded text-sm font-mono text-stone-400 bg-stone-50 cursor-not-allowed select-none">
-                            {(editForm.balance || 0).toLocaleString()} Écus — frappe impériale
+                            {formatMoney((editForm.balance || 0))} — frappe impériale
                           </div>
                         </div>
                         <div>
@@ -389,7 +390,7 @@ const CompaniesAdminView = ({
                             {country ? country.name : "Empire"}
                           </span>
                           <span className="font-mono font-bold text-stone-700">
-                            {(comp.balance || 0).toLocaleString()} ¢
+                            {formatMoney((comp.balance || 0))}
                           </span>
                           <span className="text-stone-400">
                             Taxe: {comp.taxRate ?? 10}%

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import { formatMoney } from "../../lib/gameUtils";
 
 const SlavePersonalView = ({
   user,
@@ -99,18 +100,16 @@ const SlavePersonalView = ({
                 Solde Visible
               </div>
               <div className="text-2xl font-mono font-black text-stone-200">
-                {visibleBalance.toLocaleString()}
+                {formatMoney(visibleBalance)}
               </div>
-              <div className="text-[9px] text-stone-500">Écus</div>
             </div>
             <div className="bg-stone-800 p-4 rounded-xl border border-amber-900/40 text-center min-w-[130px]">
               <div className="text-[9px] uppercase font-bold tracking-widest text-amber-600 mb-1 flex items-center justify-center gap-1">
                 <EyeOff size={10} /> Compte Caché
               </div>
               <div className="text-2xl font-mono font-black text-amber-400">
-                {hiddenBalance.toLocaleString()}
+                {formatMoney(hiddenBalance)}
               </div>
-              <div className="text-[9px] text-amber-700">Écus</div>
             </div>
           </div>
         </div>
@@ -345,7 +344,7 @@ const SlavePersonalView = ({
               <span className="text-stone-400">
                 Disponible :{" "}
                 <span className="font-mono font-bold text-amber-600">
-                  {hiddenBalance.toLocaleString()} Écus
+                  {formatMoney(hiddenBalance)}
                 </span>
               </span>
             </div>

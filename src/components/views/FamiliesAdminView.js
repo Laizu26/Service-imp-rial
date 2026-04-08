@@ -17,6 +17,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
 } from "lucide-react";
+import { formatMoney } from "../../lib/gameUtils";
 
 /* ── Helpers communs ── */
 const Label = ({ children }) => (
@@ -236,7 +237,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         return { ...f, treasury: newTreasury, treasuryLog: [{ id: ts, type, amount: Math.abs(amt), label, timestamp: ts }, ...(f.treasuryLog || [])].slice(0, 60) };
       }),
     });
-    notify(`Trésorerie ajustée de ${amt > 0 ? "+" : ""}${amt} Écus.`, "success");
+    notify(`Trésorerie ajustée de ${amt > 0 ? "+" : ""}${formatMoney(amt)}.`, "success");
     setAdjustAmount(""); setAdjustReason("");
   };
 
@@ -261,7 +262,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         return f;
       }),
     });
-    notify(`${amt} Écus transférés de ${fromName} vers ${toName}.`, "success");
+    notify(`${formatMoney(amt)} transférés de ${fromName} vers ${toName}.`, "success");
     setTransferToFamId(""); setTransferAmount(""); setTransferReason("");
   };
 
@@ -426,7 +427,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         <div>
           <Label>Trésorerie familiale (Écus)</Label>
           <div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed select-none">
-            {(form.treasury || 0).toLocaleString()} Écus — géré par la frappe impériale
+            {formatMoney((form.treasury || 0))} — géré par la frappe impériale
           </div>
         </div>
 
@@ -492,7 +493,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           <div className="flex items-center gap-1 shrink-0">
             <div className="bg-amber-900/30 border border-amber-800/50 rounded-lg px-3 py-1.5 text-right">
               <div className="text-[8px] text-amber-600 uppercase font-black tracking-widest">Trésorerie</div>
-              <div className="text-sm font-black font-mono text-amber-300">{(detailFam.treasury || 0).toLocaleString()} Écus</div>
+              <div className="text-sm font-black font-mono text-amber-300">{formatMoney((detailFam.treasury || 0))}</div>
             </div>
             <button onClick={() => openEdit(detailFam)} className="text-stone-500 hover:text-stone-300 p-1.5 rounded hover:bg-stone-800 transition-all"><Edit3 size={14} /></button>
           </div>
@@ -679,7 +680,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               </div>
               <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2 flex items-center justify-between">
                 <span className="text-[10px] text-amber-600 uppercase font-black">Solde actuel</span>
-                <span className="font-black font-mono text-amber-300 text-sm">{(detailFam.treasury || 0).toLocaleString()} Écus</span>
+                <span className="font-black font-mono text-amber-300 text-sm">{formatMoney((detailFam.treasury || 0))}</span>
               </div>
               <div className="space-y-2">
                 <div>
@@ -708,7 +709,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                     className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-xs text-stone-200 outline-none focus:border-blue-500/50">
                     <option value="">— Choisir une famille —</option>
                     {otherFamilies.map((f) => (
-                      <option key={f.id} value={f.id}>{getFamilyDisplayName(f)} — {(f.treasury || 0).toLocaleString()} Écus</option>
+                      <option key={f.id} value={f.id}>{getFamilyDisplayName(f)} — {formatMoney((f.treasury || 0))}</option>
                     ))}
                   </select>
                 </div>
@@ -746,7 +747,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                         <div className="text-[9px] text-stone-600">{new Date(entry.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
                       </div>
                       <div className={`font-black font-mono text-xs shrink-0 ${logColor(entry.type)}`}>
-                        {logSign(entry.type)}{entry.amount.toLocaleString()} Écus
+                        {logSign(entry.type)}{formatMoney(entry.amount)}
                       </div>
                     </div>
                   ))}
@@ -827,7 +828,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                         <span className="text-[9px] text-stone-600">· {fam.foundedYear}</span>
                       )}
                       {(fam.treasury || 0) > 0 && (
-                        <span className="text-[9px] text-amber-500 font-mono font-bold">{(fam.treasury || 0).toLocaleString()} Écus</span>
+                        <span className="text-[9px] text-amber-500 font-mono font-bold">{formatMoney((fam.treasury || 0))}</span>
                       )}
                     </div>
                     {fam.headId && (() => {

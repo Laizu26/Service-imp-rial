@@ -8,6 +8,7 @@ import {
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import { formatMoney } from "../../lib/gameUtils";
 
 const PROPERTY_TYPES = {
   MAISON: { label: "Maison", icon: Home, color: "bg-stone-100 text-stone-600" },
@@ -233,7 +234,7 @@ const PropertiesAdminView = ({
         <StatCard icon={Home} label="Total" value={stats.total} color="bg-stone-100 text-stone-600" />
         <StatCard icon={Key} label="Possédées" value={stats.owned} color="bg-blue-100 text-blue-600" />
         <StatCard icon={Tag} label="Disponibles" value={stats.available} color="bg-green-100 text-green-600" />
-        <StatCard icon={Coins} label="Valeur totale" value={`${stats.totalValue.toLocaleString()}`} color="bg-yellow-100 text-yellow-700" sub="Écus" />
+        <StatCard icon={Coins} label="Valeur totale" value={formatMoney(stats.totalValue)} color="bg-yellow-100 text-yellow-700"  />
         <StatCard icon={DoorOpen} label="En location" value={stats.rented} color="bg-sky-100 text-sky-600" />
         <StatCard icon={TrendingUp} label="En vente" value={stats.forSale} color="bg-rose-100 text-rose-600" />
         <StatCard icon={Building2} label="Entreprises" value={stats.companyOwned} color="bg-indigo-100 text-indigo-600" />
@@ -461,7 +462,7 @@ const PropertiesAdminView = ({
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-[10px] text-stone-400">
                       <span className="flex items-center gap-1"><Globe size={9} /> {getLocationLabel(prop)}</span>
-                      <span className="font-mono font-bold text-yellow-700">{(prop.price || 0).toLocaleString()} Écus</span>
+                      <span className="font-mono font-bold text-yellow-700">{formatMoney((prop.price || 0))}</span>
                       {(prop.income || 0) > 0 && <span className="font-mono font-bold text-green-600">+{prop.income}/j</span>}
                     </div>
                   </div>
@@ -547,7 +548,7 @@ const PropertiesAdminView = ({
                               <div className="bg-blue-100 p-2 rounded-lg"><User size={16} className="text-blue-600" /></div>
                               <div>
                                 <div className="font-bold text-blue-700 text-sm">{tenant ? tenant.name : prop.rental.tenantName}</div>
-                                <div className="text-[10px] text-blue-400">Loyer : <span className="font-mono font-bold">{prop.rental.dailyRate} Écus/jour</span></div>
+                                <div className="text-[10px] text-blue-400">Loyer : <span className="font-mono font-bold">{formatMoney(prop.rental.dailyRate)}/jour</span></div>
                                 {prop.rental.startDate && <div className="text-[10px] text-stone-400">Depuis le {prop.rental.startDate}</div>}
                               </div>
                             </div>
@@ -561,7 +562,7 @@ const PropertiesAdminView = ({
                         ) : prop.rental ? (
                           <>
                             <div className="text-sm text-sky-600 font-bold">
-                              En attente de locataire — <span className="font-mono">{prop.rental.dailyRate} Écus/jour</span>
+                              En attente de locataire — <span className="font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
                             </div>
                             <button
                               onClick={() => adminCancelRental(prop.id)}
@@ -581,7 +582,7 @@ const PropertiesAdminView = ({
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
                         <div className="text-sm">
                           <span className="font-bold text-yellow-700">En vente</span>
-                          <span className="font-mono font-bold text-yellow-800 ml-2">{prop.salePrice} Écus</span>
+                          <span className="font-mono font-bold text-yellow-800 ml-2">{formatMoney(prop.salePrice)}</span>
                         </div>
                         <button
                           onClick={() => adminCancelSale(prop.id)}

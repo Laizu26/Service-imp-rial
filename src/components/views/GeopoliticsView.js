@@ -8,6 +8,7 @@ import {
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { MARRIAGE_STRUCTURES, FILIATION_TYPES } from "../../lib/constants";
+import { formatMoney } from "../../lib/gameUtils";
 
 // ── Palette couleurs pays ──────────────────────────────────────────────────
 const COUNTRY_COLORS = [
@@ -331,8 +332,7 @@ const GeopoliticsView = ({
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-mono font-bold text-stone-800 text-xs">{(c.treasury || 0).toLocaleString()}</div>
-                      <div className="text-[9px] text-stone-400">Écus</div>
+                      <div className="font-mono font-bold text-stone-800 text-xs">{formatMoney(c.treasury || 0)}</div>
                     </div>
                   </div>
                   {/* Mini stability bar */}
@@ -461,7 +461,7 @@ const GeopoliticsView = ({
               {/* Barre de stats rapides */}
               <div className="grid grid-cols-4 border-b border-black/5 bg-white/40">
                 {[
-                  { label: "Trésorerie", value: `${(selectedCountry.treasury || 0).toLocaleString()} Écus`, icon: Coins },
+                  { label: "Trésorerie", value: `${formatMoney((selectedCountry.treasury || 0))}`, icon: Coins },
                   { label: "Citoyens",   value: countryCitizens.length, icon: Users },
                   { label: "Régions",    value: (selectedCountry.regions || []).length, icon: MapPin },
                   { label: "Stabilité",  value: `${selectedCountry.stability ?? 50}%`, icon: Activity },
@@ -559,7 +559,7 @@ const GeopoliticsView = ({
                     <div className="p-3 bg-yellow-100 rounded-xl"><Coins size={20} className="text-yellow-700" /></div>
                     <div>
                       <div className="text-[10px] uppercase font-black text-stone-400 tracking-widest">Trésorerie nationale</div>
-                      <div className="text-2xl font-black text-yellow-800 font-mono">{(selectedCountry.treasury || 0).toLocaleString()} <span className="text-sm">Écus</span></div>
+                      <div className="text-2xl font-black text-yellow-800 font-mono">{formatMoney((selectedCountry.treasury || 0))}</div>
                     </div>
                   </div>
                 </div>
@@ -679,7 +679,7 @@ const GeopoliticsView = ({
                             />
                           ) : (
                             <span className="text-xs">
-                              {selectedCountry.laws.entryVisaFee || 0} Écus
+                              {formatMoney(selectedCountry.laws.entryVisaFee || 0)}
                             </span>
                           )}
                         </div>
@@ -996,8 +996,7 @@ const GeopoliticsView = ({
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-mono text-xs font-bold text-stone-700">{(c.balance || 0).toLocaleString()}</div>
-                        <div className="text-[9px] text-stone-400">Écus</div>
+                        <div className="font-mono text-xs font-bold text-stone-700">{formatMoney(c.balance || 0)}</div>
                       </div>
                     </div>
                   ))}

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import { ROLES } from "../../lib/constants";
+import { formatMoney } from "../../lib/gameUtils";
 
 const SlaveManagementView = ({
   slaves,
@@ -145,7 +146,7 @@ const SlaveManagementView = ({
       onConfiscateSlaveMoney(slave.id);
     } else {
       onUpdateCitizen({ ...slave, balance: 0 });
-      notify(`Vous avez confisqué ${slave.balance} Écus à ${slave.name}.`, "info");
+      notify(`Vous avez confisqué ${formatMoney(slave.balance)} à ${slave.name}.`, "info");
     }
     if (selectedSlave) setSelectedSlave({ ...selectedSlave, balance: 0 });
   };
@@ -176,7 +177,7 @@ const SlaveManagementView = ({
               <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
               <div className="flex-1 text-xs text-red-800">
                 <strong>{alert.slaveName}</strong> a tenté de dissimuler{" "}
-                <strong>{alert.amount} Écus</strong> !
+                <strong>{formatMoney(alert.amount)}</strong> !
                 <span className="text-[10px] text-red-400 ml-2">
                   {alert.timestamp
                     ? new Date(alert.timestamp).toLocaleString()
@@ -188,7 +189,7 @@ const SlaveManagementView = ({
                   onClick={() => {
                     if (
                       window.confirm(
-                        `Restituer ${alert.amount} Écus de ${alert.slaveName} vers votre compte ?`
+                        `Restituer ${formatMoney(alert.amount)} de ${alert.slaveName} vers votre compte ?`
                       )
                     ) {
                       onRestoreHiddenTransfer(alert.id, alert.slaveId, alert.amount);
@@ -333,7 +334,7 @@ const SlaveManagementView = ({
                       onClick={() => {
                         if (
                           !window.confirm(
-                            `Acheter votre liberté pour ${selectedSlave.salePrice} Écus ?`
+                            `Acheter votre liberté pour ${formatMoney(selectedSlave.salePrice)} ?`
                           )
                         )
                           return;
@@ -670,7 +671,7 @@ const SlaveManagementView = ({
                             }
                             if (
                               !window.confirm(
-                                `Mettre ${selectedSlave.name} en vente pour ${p} Écus ?`
+                                `Mettre ${selectedSlave.name} en vente pour ${formatMoney(p)} ?`
                               )
                             )
                               return;
@@ -686,7 +687,7 @@ const SlaveManagementView = ({
                             });
                             setPrice("");
                             notify(
-                              `${selectedSlave.name} mis en vente pour ${p} Écus.`,
+                              `${selectedSlave.name} mis en vente pour ${formatMoney(p)}.`,
                               "success"
                             );
                           }}

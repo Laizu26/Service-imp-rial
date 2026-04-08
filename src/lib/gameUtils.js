@@ -59,3 +59,50 @@ export function formatRPDate(date) {
   ];
   return `${date.day} ${months[(date.month - 1) % 12]} ${date.year}`;
 }
+
+// ── Système monétaire : Écu (or) + Liar (cuivre, 1/10 écu) ────────────────
+
+/**
+ * Formate un montant en écus (float) sous forme lisible.
+ * Exemples : 12.5 → "12 Écus 5 Liards" | 10 → "10 Écus" | 0.3 → "3 Liards" | 0 → "0 Liard"
+ */
+export function formatMoney(val) {
+  const v = Math.round((val || 0) * 10); // en liards entiers
+  const ecus = Math.floor(v / 10);
+  const liards = v % 10;
+  if (ecus === 0 && liards === 0) return "0 Liard";
+  if (ecus === 0) return `${liards} Liard${liards > 1 ? "s" : ""}`;
+  if (liards === 0) return `${ecus.toLocaleString()} Écu${ecus > 1 ? "s" : ""}`;
+  return `${ecus.toLocaleString()} Écu${ecus > 1 ? "s" : ""} ${liards} Liard${liards > 1 ? "s" : ""}`;
+}
+
+/**
+ * Formate un montant compact (pour les espaces réduits).
+ * Exemples : 12.5 → "12 É 5 L" | 10 → "10 É" | 0.3 → "3 L"
+ */
+export function formatMoneyShort(val) {
+  const v = Math.round((val || 0) * 10);
+  const ecus = Math.floor(v / 10);
+  const liards = v % 10;
+  if (ecus === 0 && liards === 0) return "0 L";
+  if (ecus === 0) return `${liards} L`;
+  if (liards === 0) return `${ecus.toLocaleString()} É`;
+  return `${ecus.toLocaleString()} É ${liards} L`;
+}
+
+/**
+ * Convertit des écus + liards en valeur float stockable.
+ * parseMoney(10, 5) → 10.5
+ */
+export function parseMoney(ecus = 0, liards = 0) {
+  return Math.round((parseInt(ecus) || 0) * 10 + (parseInt(liards) || 0)) / 10;
+}
+
+/**
+ * Décompose un float écu en { ecus, liards }.
+ * splitMoney(10.5) → { ecus: 10, liards: 5 }
+ */
+export function splitMoney(val) {
+  const v = Math.round((val || 0) * 10);
+  return { ecus: Math.floor(v / 10), liards: v % 10 };
+}

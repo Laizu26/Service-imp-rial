@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
+import { formatMoney } from "../lib/gameUtils";
 
 /**
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
@@ -154,7 +155,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
           type: "slave_alert",
           category: "Main d'Oeuvre",
           title: "Activité suspecte",
-          description: `${alert.slaveName || "Esclave"} — ${alert.amount || 0} Écus dissimulés`,
+          description: `${alert.slaveName || "Esclave"} — ${formatMoney(alert.amount || 0)} dissimulés`,
           timestamp: alert.timestamp || Date.now(),
           rpDate: rpDateStr,
           route: "slaves",
@@ -174,7 +175,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
             type: "debt",
             category: "Finances",
             title: "Contrat de dette",
-            description: `${d.total || d.amount} Écus — ${creditor?.name || "Créancier"}`,
+            description: `${formatMoney(d.total || d.amount)} — ${creditor?.name || "Créancier"}`,
             timestamp: d.createdAt || Date.now(),
             rpDate: rpDateStr,
             route: "bank",

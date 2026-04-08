@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import { formatMoney } from "../../lib/gameUtils";
 
 const PROP_TYPES = {
   MAISON: "Maison", DOMAINE: "Domaine", TERRAIN: "Terrain",
@@ -190,7 +191,7 @@ const PropertyDetailView = ({
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-bold text-stone-700 text-sm">{r.name}</span>
-                        <span className="ml-2 font-mono text-yellow-700 text-xs">{r.pricePerNight} Écus/nuit</span>
+                        <span className="ml-2 font-mono text-yellow-700 text-xs">{formatMoney(r.pricePerNight)}/nuit</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {r.tenantId ? (
@@ -283,7 +284,7 @@ const PropertyDetailView = ({
                   <div key={i} className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
                     <div>
                       <span className="font-bold text-stone-800">{m.itemName}</span>
-                      <span className="font-mono text-yellow-700 ml-2 text-xs">{m.price} Écus</span>
+                      <span className="font-mono text-yellow-700 ml-2 text-xs">{formatMoney(m.price)}</span>
                       <span className={`text-xs ml-2 ${!available ? "text-red-400 font-bold" : "text-stone-400"}`}>
                         {infinite ? "∞ illimité" : !available ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
                       </span>
@@ -387,7 +388,7 @@ const PropertyDetailView = ({
             {(prop.shopStock || []).length === 0 && <p className="text-stone-400 text-xs italic">Aucun article en stock.</p>}
             {(prop.shopStock || []).map((s, i) => (
               <div key={i} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm border border-stone-100">
-                <div><span className="font-bold text-stone-700">{s.itemName}</span> <span className="font-mono text-yellow-700 ml-2">{s.price} Écus</span> <span className="text-stone-400 text-xs ml-1">(stock: {s.qty})</span></div>
+                <div><span className="font-bold text-stone-700">{s.itemName}</span> <span className="font-mono text-yellow-700 ml-2">{formatMoney(s.price)}</span> <span className="text-stone-400 text-xs ml-1">(stock: {s.qty})</span></div>
                 {!isOwner && s.qty > 0 && <button onClick={() => onBuyFromShop(prop.id, s.itemName)} disabled={(user?.balance || 0) < s.price} className="bg-green-600 text-white px-2 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-50">Acheter</button>}
               </div>
             ))}
@@ -412,7 +413,7 @@ const PropertyDetailView = ({
               <div>
                 <span className="font-bold text-stone-700">{s.name}</span>
                 <span className="text-xs text-stone-400 ml-2">{s.role}</span>
-                {s.salary > 0 && <span className="ml-2 font-mono text-yellow-700 text-xs">{s.salary} Écus/jour</span>}
+                {s.salary > 0 && <span className="ml-2 font-mono text-yellow-700 text-xs">{formatMoney(s.salary)}/jour</span>}
               </div>
               {isOwner && <button onClick={() => onRemovePropertyStaff(prop.id, s.id)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>}
             </div>

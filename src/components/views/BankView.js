@@ -17,6 +17,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import { formatMoney } from "../../lib/gameUtils";
 
 // --- Carte statistique ---
 const TreasuryStatCard = ({ icon: Icon, label, value, color, sub }) => (
@@ -337,7 +338,7 @@ const BankView = ({
           >
             {(isSource ? allowedCountries : safeCountries).map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} ({(c.treasury || 0).toLocaleString()} Écus)
+                {c.name} ({formatMoney((c.treasury || 0))})
               </option>
             ))}
           </select>
@@ -362,7 +363,7 @@ const BankView = ({
           >
             {safeCompanies.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} ({(c.balance || 0).toLocaleString()} Écus)
+                {c.name} ({formatMoney((c.balance || 0))})
               </option>
             ))}
           </select>
@@ -382,7 +383,7 @@ const BankView = ({
                 : "text-stone-800"
             }`}
           >
-            {Number(currentSrcBalance).toLocaleString()} Écus
+            {formatMoney(Number(currentSrcBalance))}
           </span>
         </div>
       )}
@@ -397,28 +398,28 @@ const BankView = ({
           <TreasuryStatCard
             icon={Crown}
             label="Trésor Impérial"
-            value={`${Number(treasury || 0).toLocaleString()} ¢`}
+            value={`${formatMoney(Number(treasury || 0))}`}
             color="bg-yellow-50 text-yellow-600"
             sub="Caisse centrale"
           />
           <TreasuryStatCard
             icon={Users}
             label="Richesse Citoyenne"
-            value={`${totalWealth.toLocaleString()} ¢`}
+            value={`${formatMoney(totalWealth)}`}
             color="bg-blue-50 text-blue-600"
             sub={`${safeUsers.length} citoyen${safeUsers.length !== 1 ? "s" : ""}`}
           />
           <TreasuryStatCard
             icon={Flag}
             label="Trésors Nationaux"
-            value={`${totalCountryWealth.toLocaleString()} ¢`}
+            value={`${formatMoney(totalCountryWealth)}`}
             color="bg-green-50 text-green-600"
             sub={`${safeCountries.length} nation${safeCountries.length !== 1 ? "s" : ""}`}
           />
           <TreasuryStatCard
             icon={Building2}
             label="Capital Entreprises"
-            value={`${totalCompanyWealth.toLocaleString()} ¢`}
+            value={`${formatMoney(totalCompanyWealth)}`}
             color="bg-purple-50 text-purple-600"
             sub={`${safeCompanies.length} entreprise${safeCompanies.length !== 1 ? "s" : ""}`}
           />
@@ -559,7 +560,7 @@ const BankView = ({
                 </div>
                 <div className="text-right">
                   <div className="font-mono font-black text-amber-700 text-sm">
-                    {(u.hiddenBalance || 0).toLocaleString()} Écus
+                    {formatMoney((u.hiddenBalance || 0))}
                   </div>
                   <div className="text-[9px] text-stone-400">
                     Visible : {(u.balance || 0).toLocaleString()}
@@ -706,8 +707,7 @@ const BankView = ({
                         {String(l?.toName || "Archives")}
                       </td>
                       <td className="p-3 text-right font-mono text-stone-900 font-black text-sm">
-                        {Number(l?.amount || 0).toLocaleString()}{" "}
-                        <span className="text-stone-400 text-[10px]">Écus</span>
+                        {formatMoney(Number(l?.amount || 0))}
                       </td>
                       <td className="p-3 text-stone-400 text-[10px] normal-case font-normal max-w-[180px] truncate">
                         {l?.reason || "—"}

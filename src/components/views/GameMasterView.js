@@ -45,7 +45,7 @@ import {
   Activity,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
-import { getCitizenAge, ageToBirthDate, formatRPDate } from "../../lib/gameUtils";
+import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort } from "../../lib/gameUtils";
 
 /* ================================================
    HELPERS
@@ -153,7 +153,7 @@ const GMDashboard = ({ state }) => {
     { label: "Citoyens", value: citizens.length, color: "text-blue-400", icon: Users },
     { label: "Pays", value: countries.length, color: "text-emerald-400", icon: Globe },
     { label: "Entreprises", value: companies.length, color: "text-purple-400", icon: Landmark },
-    { label: "Tresor Imperial", value: `${(state.treasury || 0).toLocaleString()} E`, color: "text-yellow-400", icon: Crown },
+    { label: "Tresor Imperial", value: `${formatMoneyShort((state.treasury || 0))}`, color: "text-yellow-400", icon: Crown },
     { label: "Cycle de jeu", value: state.dayCycle || 0, color: "text-stone-300", icon: RefreshCw },
     { label: "Date RP", value: state.gameDate ? `${state.gameDate.day}/${state.gameDate.month}/${state.gameDate.year}` : "\u2014", color: "text-stone-200", icon: Calendar },
   ];
@@ -207,19 +207,19 @@ const GMDashboard = ({ state }) => {
           <div className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
             <TrendingUp size={12} /> Masse monetaire totale
           </div>
-          <div className="text-2xl font-black text-yellow-400 mb-3">{totalWealth.toLocaleString()} E</div>
+          <div className="text-2xl font-black text-yellow-400 mb-3">{formatMoneyShort(totalWealth)}</div>
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between text-stone-400">
-              <span>Tresor Imperial</span><span className="font-mono text-stone-300">{(state.treasury || 0).toLocaleString()} E</span>
+              <span>Tresor Imperial</span><span className="font-mono text-stone-300">{formatMoneyShort((state.treasury || 0))}</span>
             </div>
             <div className="flex justify-between text-stone-400">
-              <span>Citoyens</span><span className="font-mono text-stone-300">{totalCitizenWealth.toLocaleString()} E</span>
+              <span>Citoyens</span><span className="font-mono text-stone-300">{formatMoneyShort(totalCitizenWealth)}</span>
             </div>
             <div className="flex justify-between text-stone-400">
-              <span>Pays</span><span className="font-mono text-stone-300">{totalCountryWealth.toLocaleString()} E</span>
+              <span>Pays</span><span className="font-mono text-stone-300">{formatMoneyShort(totalCountryWealth)}</span>
             </div>
             <div className="flex justify-between text-stone-400">
-              <span>Entreprises</span><span className="font-mono text-stone-300">{totalCompanyWealth.toLocaleString()} E</span>
+              <span>Entreprises</span><span className="font-mono text-stone-300">{formatMoneyShort(totalCompanyWealth)}</span>
             </div>
           </div>
         </Card>
@@ -245,7 +245,7 @@ const GMDashboard = ({ state }) => {
               {topWealth.map((c) => (
                 <div key={c.id} className="flex justify-between text-xs py-0.5">
                   <span className="text-stone-400 truncate">{c.name}</span>
-                  <span className="font-mono text-yellow-500 shrink-0 ml-2">{(c.balance || 0).toLocaleString()} E</span>
+                  <span className="font-mono text-yellow-500 shrink-0 ml-2">{formatMoneyShort((c.balance || 0))}</span>
                 </div>
               ))}
             </div>
@@ -306,7 +306,7 @@ const GMDashboard = ({ state }) => {
                   <span className="text-stone-500 font-mono text-[9px] shrink-0">{new Date(e.timestamp).toLocaleDateString("fr-FR")}</span>
                   <span className="text-stone-400 truncate">{e.fromName || "?"} &rarr; {e.toName || "?"}</span>
                 </div>
-                <span className="font-mono font-bold text-yellow-500 shrink-0 ml-2">{(e.amount || 0).toLocaleString()} E</span>
+                <span className="font-mono font-bold text-yellow-500 shrink-0 ml-2">{formatMoneyShort((e.amount || 0))}</span>
               </div>
             ))}
           </div>
@@ -631,7 +631,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-xs font-bold text-yellow-500">{(c.balance || 0).toLocaleString()} E</div>
+                      <div className="text-xs font-bold text-yellow-500">{formatMoneyShort((c.balance || 0))}</div>
                       <div className="text-[9px] text-stone-600 font-mono mt-0.5">mdp: {c.password || "???"}</div>
                     </div>
                     <div className="flex gap-1 shrink-0">
@@ -650,7 +650,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                         <div><Label>Role</Label><Select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></div>
                         <div><Label>Pays</Label><Select value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value })}>{safeCountries.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</Select></div>
                         <div><Label>Statut</Label><Select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>{(BASE_STATUSES || ["Actif", "Esclave", "Prisonnier", "Malade", "Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
-                        <div><Label>Solde</Label><div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed">{(editForm.balance || 0).toLocaleString()} Écus — frappe impériale</div></div>
+                        <div><Label>Solde</Label><div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed">{formatMoney((editForm.balance || 0))} — frappe impériale</div></div>
                         <div><Label>Occupation</Label><Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} /></div>
                         <div className="md:col-span-2">
                           <Label>Date de naissance (RP)</Label>
@@ -1133,7 +1133,7 @@ const GMLois = ({ state, onUpdateState, notify }) => {
               </div>
               <div className="text-right">
                 <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-1">Trésor</div>
-                <div className="font-mono font-black text-yellow-400 text-sm">{(country.treasury || 0).toLocaleString()} E</div>
+                <div className="font-mono font-black text-yellow-400 text-sm">{formatMoneyShort((country.treasury || 0))}</div>
               </div>
             </div>
           </Card>
@@ -1243,7 +1243,7 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
       globalLedger: [...(state.globalLedger || []), entry],
     });
     setMintAmount("");
-    notify(`${amount.toLocaleString()} Ecus frappes et ajoutes au Tresor Imperial.`, "success");
+    notify(`${formatMoneyShort(amount)} frappes et ajoutes au Tresor Imperial.`, "success");
   };
 
   const activeContracts = (state.jobContracts || []).filter((j) => j.active);
@@ -1304,7 +1304,7 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
         </h3>
         <div className="flex items-center gap-2 text-sm text-stone-400 mb-3">
           <Crown size={14} className="text-yellow-500" />
-          Tresor Imperial actuel : <span className="font-bold text-yellow-400">{(state.treasury || 0).toLocaleString()} E</span>
+          Tresor Imperial actuel : <span className="font-bold text-yellow-400">{formatMoneyShort((state.treasury || 0))}</span>
         </div>
         <div className="flex gap-2">
           <Input type="number" value={mintAmount} onChange={(e) => setMintAmount(e.target.value)} placeholder="Montant a frapper..." min="1" className="flex-1" />
@@ -1327,7 +1327,7 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
                   <div className="text-sm font-bold text-stone-200">{j.name}</div>
                   <div className="text-[10px] text-stone-500">{j.frequency} &middot; {j.recipients?.length || 0} beneficiaire{(j.recipients?.length || 0) > 1 ? "s" : ""}</div>
                 </div>
-                <div className="text-sm font-bold text-yellow-500">{(j.amount || 0).toLocaleString()} E</div>
+                <div className="text-sm font-bold text-yellow-500">{formatMoneyShort((j.amount || 0))}</div>
               </div>
             ))}
           </div>
@@ -1884,7 +1884,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                             {(quest.reward?.money > 0 || quest.reward?.description) && (
                               <div className="flex items-center gap-3 p-2.5 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
                                 {quest.reward?.money > 0 && (
-                                  <span className="text-sm font-bold text-yellow-400 flex items-center gap-1"><Coins size={12} /> {quest.reward.money.toLocaleString()} Écus</span>
+                                  <span className="text-sm font-bold text-yellow-400 flex items-center gap-1"><Coins size={12} /> {formatMoney(quest.reward.money)}</span>
                                 )}
                                 {quest.reward?.description && <span className="text-sm text-stone-300">{quest.reward.description}</span>}
                               </div>

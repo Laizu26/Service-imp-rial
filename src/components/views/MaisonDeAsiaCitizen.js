@@ -4,6 +4,7 @@ import {
   Gem, Heart, LogOut, Star, Clock, Users, X, History,
   MessageCircle, Timer, User, ChevronRight, ChevronLeft, Images,
 } from "lucide-react";
+import { formatMoney } from "../../lib/gameUtils";
 
 const MaisonDeAsiaCitizen = ({
   citizens,
@@ -106,7 +107,7 @@ const MaisonDeAsiaCitizen = ({
   const handleBooking = (worker) => {
     if (userBalance < worker.price) return;
     if (houseRegistry.find((r) => r.staffId === worker.id)) return;
-    if (window.confirm(`Passer un moment avec ${worker.name} pour ${worker.price} Écus ?`)) {
+    if (window.confirm(`Passer un moment avec ${worker.name} pour ${formatMoney(worker.price)} ?`)) {
       onBook(worker.id);
       setSelectedStaff(null);
     }
@@ -218,7 +219,7 @@ const MaisonDeAsiaCitizen = ({
 
             <div className="flex flex-wrap gap-3 mb-4">
               <span className="bg-fuchsia-900/50 border border-fuchsia-700 text-fuchsia-200 px-3 py-1 rounded-full text-xs font-bold">
-                {worker.price} Écus
+                {formatMoney(worker.price)}
               </span>
               <span className="bg-stone-800 border border-stone-600 text-stone-300 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
                 <Clock size={12} /> {dur} min
@@ -263,7 +264,7 @@ const MaisonDeAsiaCitizen = ({
                       : "bg-fuchsia-800 hover:bg-fuchsia-700 text-white border border-fuchsia-600"
                   }`}
                 >
-                  <Heart size={14} fill="currentColor" /> Réserver — {worker.price} Écus
+                  <Heart size={14} fill="currentColor" /> Réserver — {formatMoney(worker.price)}
                 </button>
               ) : inMyQueue ? (
                 <button
@@ -486,7 +487,7 @@ const MaisonDeAsiaCitizen = ({
 
                         {/* Badges */}
                         <div className="absolute top-3 right-3 bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-fuchsia-500/30 text-xs font-bold text-fuchsia-200">
-                          {worker.price} Écus
+                          {formatMoney(worker.price)}
                         </div>
                         {rating.count > 0 && (
                           <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2 py-1 rounded-full text-[10px] font-bold text-yellow-300 flex items-center gap-1">
@@ -584,7 +585,7 @@ const MaisonDeAsiaCitizen = ({
                             <div className="flex gap-3 text-[10px] text-stone-400 mt-0.5">
                               <span>{new Date(visit.endTime).toLocaleDateString("fr-FR")}</span>
                               <span>{visit.duration || "?"} min</span>
-                              <span className="text-fuchsia-400 font-bold">{visit.pricePaid} Écus</span>
+                              <span className="text-fuchsia-400 font-bold">{formatMoney(visit.pricePaid)}</span>
                             </div>
                             {visitReview && (
                               <div className="mt-1">

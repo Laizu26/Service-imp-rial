@@ -32,6 +32,7 @@ import {
   Scale,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
+import { formatMoney } from "../../lib/gameUtils";
 
 // --- Composant de statistiques bancaires ---
 const StatCard = ({ icon: Icon, label, value, color, sub }) => (
@@ -366,10 +367,7 @@ const CitizenBankView = ({
             <div className="text-5xl md:text-6xl font-black font-serif tracking-tighter">
               {showBalance ? (
                 <>
-                  {Number(user?.balance || 0).toLocaleString()}{" "}
-                  <span className="text-lg font-sans font-medium text-yellow-600/60">
-                    Écus
-                  </span>
+                  {formatMoney(user?.balance || 0)}
                 </>
               ) : (
                 <span className="text-yellow-600/40">••••••</span>
@@ -448,14 +446,14 @@ const CitizenBankView = ({
         <StatCard
           icon={TrendingDown}
           label="Passif"
-          value={`${totalDebtOwed.toLocaleString()} ¢`}
+          value={`${formatMoney(totalDebtOwed)}`}
           color="bg-red-50 text-red-600"
           sub={`${myDebts.length} dette${myDebts.length !== 1 ? "s" : ""}`}
         />
         <StatCard
           icon={TrendingUp}
           label="Actif"
-          value={`${totalCreditDue.toLocaleString()} ¢`}
+          value={`${formatMoney(totalCreditDue)}`}
           color="bg-green-50 text-green-600"
           sub={`${myCredits.length} créance${myCredits.length !== 1 ? "s" : ""}`}
         />
@@ -626,7 +624,7 @@ const CitizenBankView = ({
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-stone-500">Montant à envoyer</span>
                       <span className="font-black font-mono text-stone-800">
-                        {parseInt(transferAmount || 0).toLocaleString()} Écus
+                        {formatMoney(parseInt(transferAmount || 0))}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-xs mt-1">
@@ -644,8 +642,7 @@ const CitizenBankView = ({
                         {(
                           (user?.balance || 0) -
                           parseInt(transferAmount || 0)
-                        ).toLocaleString()}{" "}
-                        Écus
+                        ).toLocaleString()}{formatMoney(" ")}
                       </span>
                     </div>
                   </div>
@@ -763,7 +760,7 @@ const CitizenBankView = ({
                             }`}
                           >
                             {isIncoming ? "+" : "−"}
-                            {tx.amount.toLocaleString()}
+                            {formatMoney(tx.amount)}
                           </div>
                         </div>
                       );
@@ -812,7 +809,7 @@ const CitizenBankView = ({
                           Prêt
                         </div>
                         <div className="font-black text-stone-800 text-sm">
-                          {(contract.principal || 0).toLocaleString()} ¢
+                          {formatMoney((contract.principal || 0))}
                         </div>
                       </div>
                       <div>
@@ -828,7 +825,7 @@ const CitizenBankView = ({
                           Total dû
                         </div>
                         <div className="font-black text-red-600 text-sm">
-                          {(contract.totalAmount || 0).toLocaleString()} ¢
+                          {formatMoney((contract.totalAmount || 0))}
                         </div>
                       </div>
                     </div>
@@ -890,9 +887,9 @@ const CitizenBankView = ({
                         {contract.debtorName}
                       </div>
                       <div className="text-xs font-mono font-bold text-stone-600 mt-1">
-                        {(contract.principal || 0).toLocaleString()} ¢
+                        {formatMoney((contract.principal || 0))}
                         <span className="text-stone-400 text-[10px] ml-1">
-                          → {(contract.totalAmount || 0).toLocaleString()} ¢
+                          → {formatMoney((contract.totalAmount || 0))}
                         </span>
                       </div>
                     </div>
@@ -1023,8 +1020,7 @@ const CitizenBankView = ({
                       <span className="font-mono font-bold text-stone-800">
                         {loanAmount
                           ? parseInt(loanAmount).toLocaleString()
-                          : "0"}{" "}
-                        ¢
+                          : "0"}{formatMoney(" ")}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
@@ -1037,8 +1033,7 @@ const CitizenBankView = ({
                                 parseInt(loanInterest)) /
                                 100
                             ).toLocaleString()
-                          : "0"}{" "}
-                        ¢
+                          : "0"}{formatMoney(" ")}
                       </span>
                     </div>
                     <div className="border-t border-yellow-200 pt-1.5 flex justify-between text-sm">
@@ -1051,8 +1046,7 @@ const CitizenBankView = ({
                               parseInt(loanAmount) *
                                 (1 + parseInt(loanInterest || 0) / 100)
                             ).toLocaleString()
-                          : "0"}{" "}
-                        ¢
+                          : "0"}{formatMoney(" ")}
                       </span>
                     </div>
                   </div>
@@ -1082,7 +1076,7 @@ const CitizenBankView = ({
                       Mes Dettes
                     </h3>
                     <p className="text-[9px] text-red-400 mt-0.5">
-                      {totalDebtOwed.toLocaleString()} ¢ à rembourser
+                      {formatMoney(totalDebtOwed)} à rembourser
                     </p>
                   </div>
                 </div>
@@ -1120,7 +1114,7 @@ const CitizenBankView = ({
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-black font-mono text-red-600">
-                              {(d.totalAmount || 0).toLocaleString()} ¢
+                              {formatMoney((d.totalAmount || 0))}
                             </div>
                             <StatusBadge status="ACTIVE" />
                           </div>
@@ -1156,7 +1150,7 @@ const CitizenBankView = ({
                       Mes Créances
                     </h3>
                     <p className="text-[9px] text-green-400 mt-0.5">
-                      {totalCreditDue.toLocaleString()} ¢ attendus
+                      {formatMoney(totalCreditDue)} attendus
                     </p>
                   </div>
                 </div>
@@ -1194,7 +1188,7 @@ const CitizenBankView = ({
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-black font-mono text-green-600">
-                              {(c.totalAmount || 0).toLocaleString()} ¢
+                              {formatMoney((c.totalAmount || 0))}
                             </div>
                             <StatusBadge status="ACTIVE" />
                           </div>
@@ -1300,7 +1294,7 @@ const CitizenBankView = ({
                         <div className="flex items-center gap-3 shrink-0">
                           <StatusBadge status={c.status} />
                           <div className="font-mono font-black text-sm text-stone-800">
-                            {(c.totalAmount || 0).toLocaleString()} ¢
+                            {formatMoney((c.totalAmount || 0))}
                           </div>
                         </div>
                       </div>
@@ -1456,7 +1450,7 @@ const CitizenBankView = ({
                           }`}
                         >
                           {isIncoming ? "+" : "−"}
-                          {tx.amount.toLocaleString()}
+                          {formatMoney(tx.amount)}
                         </div>
                       </div>
                     );

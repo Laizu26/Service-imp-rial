@@ -4,6 +4,7 @@ import {
   BarChart2, History, Search, ChevronDown, ChevronUp,
   ArrowUpRight, ArrowDownLeft, Zap, Building2, Users,
 } from "lucide-react";
+import { formatMoney } from "../../lib/gameUtils";
 
 /* ── Helpers ── */
 const Label = ({ children }) => (
@@ -102,7 +103,7 @@ const IPOForm = ({ companies, listings, onCreateListing, onCancel }) => {
             className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50">
             <option value="">— Choisir une entreprise —</option>
             {availableCompanies.map((c) => (
-              <option key={c.id} value={c.id}>{c.name} (solde: {(c.balance || 0).toLocaleString()} Écus)</option>
+              <option key={c.id} value={c.id}>{c.name} (solde: {formatMoney((c.balance || 0))})</option>
             ))}
           </select>
           {availableCompanies.length === 0 && (
@@ -141,7 +142,7 @@ const IPOForm = ({ companies, listings, onCreateListing, onCancel }) => {
 
         {companyId && totalShares && pricePerShare && (
           <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-2 text-[10px] text-amber-300 space-y-0.5">
-            <div>Capitalisation initiale : <span className="font-black font-mono">{(parseInt(totalShares) * parseFloat(pricePerShare) || 0).toLocaleString()} Écus</span></div>
+            <div>Capitalisation initiale : <span className="font-black font-mono">{formatMoney((parseInt(totalShares) * parseFloat(pricePerShare) || 0))}</span></div>
             <div>Actions en vente : <span className="font-black">{sharesOnMarket || totalShares} / {totalShares}</span></div>
           </div>
         )}
@@ -196,8 +197,8 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
       {/* Stats rapides */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { label: "Cours", value: `${listing.pricePerShare.toLocaleString()} Écus`, sub: priceChangePct(listing.pricePerShare, listing.initialPrice), subColor: priceChangeColor(listing.pricePerShare, listing.initialPrice) },
-          { label: "Capital total", value: `${(listing.totalShares * listing.pricePerShare).toLocaleString()} Écus`, sub: `${listing.totalShares.toLocaleString()} actions` },
+          { label: "Cours", value: `${formatMoney(listing.pricePerShare)}`, sub: priceChangePct(listing.pricePerShare, listing.initialPrice), subColor: priceChangeColor(listing.pricePerShare, listing.initialPrice) },
+          { label: "Capital total", value: `${formatMoney((listing.totalShares * listing.pricePerShare))}`, sub: `${listing.totalShares.toLocaleString()} actions` },
           { label: "En vente", value: listing.sharesOnMarket.toLocaleString(), sub: `${floatPct}% du capital` },
           { label: "Actionnaires", value: shareholders.length, sub: `${heldPct}% détenu` },
         ].map((s, i) => (
@@ -263,7 +264,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
             </div>
             {divAmount && totalHeld > 0 && (
               <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/30 rounded px-2 py-1">
-                Total à distribuer : <span className="font-black font-mono">{(parseFloat(divAmount) * totalHeld).toLocaleString()} Écus</span> pour {shareholders.length} actionnaire(s)
+                Total à distribuer : <span className="font-black font-mono">{formatMoney((parseFloat(divAmount) * totalHeld))}</span> pour {shareholders.length} actionnaire(s)
               </div>
             )}
             <div className="flex gap-2">
@@ -279,7 +280,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
             {listing.dividendHistory.slice(0, 5).map((d, i) => (
               <div key={i} className="flex items-center justify-between text-[10px] border-t border-stone-700/40 pt-1">
                 <span className="text-stone-400">{new Date(d.timestamp).toLocaleDateString("fr-FR")}</span>
-                <span className="font-mono font-bold text-amber-300">{d.amount} Écus/action — {d.totalPaid?.toLocaleString()} Écus distribués</span>
+                <span className="font-mono font-bold text-amber-300">{formatMoney(d.amount)}/action — {formatMoney(d.totalPaid || 0)} distribués</span>
               </div>
             ))}
           </div>
@@ -306,7 +307,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
                   {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                 </span>
                 <span className="text-[10px] font-mono text-stone-400 shrink-0">{c.shares.toLocaleString()} actions</span>
-                <span className="text-[10px] font-mono text-amber-400 shrink-0">{c.value.toLocaleString()} Écus</span>
+                <span className="text-[10px] font-mono text-amber-400 shrink-0">{formatMoney(c.value)}</span>
               </div>
             ))}
           </div>
@@ -325,7 +326,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
               {listing.priceHistory.slice(0, 5).map((h, i) => (
                 <div key={i} className="flex items-center gap-3 text-[9px]">
                   <span className="text-stone-500 w-24 shrink-0">{new Date(h.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                  <span className={`font-mono font-black ${i === 0 ? "text-amber-300" : "text-stone-400"}`}>{h.price.toLocaleString()} Écus</span>
+                  <span className={`font-mono font-black ${i === 0 ? "text-amber-300" : "text-stone-400"}`}>{formatMoney(h.price)}</span>
                 </div>
               ))}
             </div>
@@ -504,8 +505,7 @@ const BourseView = ({
                       <div className="text-[9px] text-stone-500">{shareholders} actionnaire(s)</div>
                     </div>
                     <div className="col-span-2 text-right">
-                      <div className="font-black font-mono text-sm text-stone-200">{listing.pricePerShare.toLocaleString()}</div>
-                      <div className="text-[9px] text-stone-500">Écus</div>
+                      <div className="font-black font-mono text-sm text-stone-200">{formatMoney(listing.pricePerShare)}</div>
                     </div>
                     <div className="col-span-2 text-right flex flex-col items-end gap-0.5">
                       <div className={`flex items-center gap-0.5 font-black text-xs ${priceChangeColor(listing.pricePerShare, listing.initialPrice)}`}>
@@ -554,7 +554,7 @@ const BourseView = ({
                     <div className="col-span-3 text-xs text-stone-400 truncate">{e.fromName}</div>
                     <div className="col-span-3 text-xs text-stone-300 truncate">{e.toName}</div>
                     <div className="col-span-2 text-right font-mono text-xs font-bold text-amber-300">
-                      {e.amount > 0 ? `${e.amount.toLocaleString()} Écus` : "—"}
+                      {e.amount > 0 ? `${formatMoney(e.amount)}` : "—"}
                     </div>
                     <div className="col-span-2 text-right text-[9px] text-stone-500">
                       {new Date(e.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}

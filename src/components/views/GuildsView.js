@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Users, Plus, Crown, LogOut, Coins, Settings, UserMinus, ChevronDown, ChevronUp, Trash2, Shield } from "lucide-react";
 import Card from "../ui/Card";
+import { formatMoney } from "../../lib/gameUtils";
 
 const GUILD_TYPES = {
   GENERAL: "Générale",
@@ -87,7 +88,7 @@ const GuildsView = ({
                       {guild.motto && <p className="text-xs italic text-stone-400 mt-0.5">"{guild.motto}"</p>}
                       <div className="flex gap-4 mt-1 text-[10px] text-stone-400">
                         <span>{(guild.members || []).length} membre{(guild.members || []).length > 1 ? "s" : ""}</span>
-                        <span className="font-mono font-bold text-yellow-700">{(guild.balance || 0).toLocaleString()} Écus</span>
+                        <span className="font-mono font-bold text-yellow-700">{formatMoney((guild.balance || 0))}</span>
                         <span>Chef : {guild.leaderName}</span>
                       </div>
                     </div>
@@ -134,7 +135,7 @@ const GuildsView = ({
 
                       {/* Trésorerie */}
                       <div className="bg-white rounded-lg border border-stone-200 p-3">
-                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">Trésorerie — {(guild.balance || 0).toLocaleString()} Écus</div>
+                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">Trésorerie — {formatMoney((guild.balance || 0))}</div>
                         <div className="flex gap-2">
                           <input type="number" className="w-28 p-1.5 border rounded text-sm font-mono" placeholder="Montant" value={depositAmt[guild.id] || ""} onChange={(e) => setDepositAmt({ ...depositAmt, [guild.id]: e.target.value })} />
                           <button onClick={() => { if (depositAmt[guild.id]) { onGuildDeposit(guild.id, depositAmt[guild.id]); setDepositAmt({ ...depositAmt, [guild.id]: "" }); } }} className="bg-green-600 text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500">

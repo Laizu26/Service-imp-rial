@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Card from "../ui/Card";
+import { formatMoney } from "../../lib/gameUtils";
 
 const FREQUENCIES = [
   { value: "daily", label: "Chaque jour RP" },
@@ -234,7 +235,7 @@ const JobsAdminView = ({
                 <div className="min-w-0 flex-1">
                   <div className="font-black text-sm truncate">{job.name || "Sans nom"}</div>
                   <div className={`text-[10px] mt-0.5 flex items-center gap-1.5 flex-wrap ${selectedJob === job.id ? "text-stone-300" : "text-stone-500"}`}>
-                    {job.frequency !== "par_tache" && <span>{job.amount?.toLocaleString()} Écus · </span>}
+                    {job.frequency !== "par_tache" && <span>{formatMoney(job.amount || 0)} · </span>}
                     <span>{FREQUENCIES.find((f) => f.value === job.frequency)?.label || job.frequency}</span>
                     {job.type === "MAISON" && (
                       <span className={`px-1 py-0.5 rounded text-[8px] font-black uppercase ${selectedJob === job.id ? "bg-fuchsia-700 text-fuchsia-200" : "bg-fuchsia-100 text-fuchsia-700"}`}>Maison</span>
@@ -485,7 +486,7 @@ const JobsAdminView = ({
                             <div className="text-[10px] text-stone-400 font-mono flex items-center gap-2">
                               <span className="uppercase tracking-widest">{typeLabel}</span>
                               <span>·</span>
-                              <span>= {share.toLocaleString()} Écus / versement</span>
+                              <span>= {formatMoney(share)} / versement</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -628,13 +629,13 @@ const JobsAdminView = ({
                         <div key={r.id} className="flex justify-between text-sm">
                           <span className="text-stone-300">{r.name}</span>
                           <span className="font-black font-mono text-yellow-400">
-                            +{Math.floor(form.amount * r.percent / 100).toLocaleString()} Écus
+                            +{formatMoney(Math.floor(form.amount * r.percent / 100))}
                           </span>
                         </div>
                       ))}
                       <div className="border-t border-stone-700 pt-2 mt-2 flex justify-between text-xs font-black">
                         <span className="text-stone-400 uppercase tracking-widest">Total prélevé</span>
-                        <span className="text-white font-mono">{form.amount.toLocaleString()} Écus</span>
+                        <span className="text-white font-mono">{formatMoney(form.amount)}</span>
                       </div>
                     </div>
                   </div>

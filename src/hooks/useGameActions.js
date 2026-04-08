@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatMoney } from "../lib/gameUtils";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -376,7 +377,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             treasury: (state.treasury || 0) + val,
             globalLedger: [newEntry, ...(state.globalLedger || [])],
           });
-          notify(`${val.toLocaleString()} Écus ont été frappés.`, "success");
+          notify(`${formatMoney(val)} ont été frappés.`, "success");
         } else {
           notify("Montant invalide.", "error");
         }
@@ -1107,7 +1108,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
         notify(
-          `${qty}x ${item.name} acheté(s) pour ${cost} Écus.`,
+          `${qty}x ${item.name} acheté(s) pour ${formatMoney(cost)}.`,
           "success"
         );
       },
@@ -1315,7 +1316,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
         notify(
-          `${amount} Écus confisqués à ${newCitizens[slaveIdx].name}.`,
+          `${formatMoney(amount)} confisqués à ${newCitizens[slaveIdx].name}.`,
           "info"
         );
       },
@@ -1390,12 +1391,12 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         if (detected) {
           notify(
-            `${amt} Écus dissimulés... mais votre maître a été alerté ! (${detectionChance}% de risque)`,
+            `${formatMoney(amt)} dissimulés... mais votre maître a été alerté ! (${detectionChance}% de risque)`,
             "error"
           );
         } else {
           notify(
-            `${amt} Écus dissimulés avec succès. (${detectionChance}% de risque)`,
+            `${formatMoney(amt)} dissimulés avec succès. (${detectionChance}% de risque)`,
             "success"
           );
         }
@@ -1438,7 +1439,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           globalLedger: [withdrawLedger, ...(state.globalLedger || [])],
         });
         notify(
-          `${amt} Écus retirés du compte caché. Attention, ils sont maintenant visibles !`,
+          `${formatMoney(amt)} retirés du compte caché. Attention, ils sont maintenant visibles !`,
           "info"
         );
       },
@@ -1504,7 +1505,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         saveState(s);
         notify(
-          `${amt} Écus transférés discrètement à ${targetName}.`,
+          `${formatMoney(amt)} transférés discrètement à ${targetName}.`,
           "success"
         );
       },
@@ -1569,7 +1570,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           globalLedger: [restoreLedger, ...(state.globalLedger || [])],
         });
         notify(
-          `${toRestore} Écus restitués depuis le compte caché de ${slave.name}.`,
+          `${formatMoney(toRestore)} restitués depuis le compte caché de ${slave.name}.`,
           "success"
         );
       },
@@ -1825,7 +1826,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) - amt };
         sharedAccounts[pairKey] = { ...sharedAccounts[pairKey], balance: (sharedAccounts[pairKey].balance || 0) + amt };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
-        notify(`${amt.toLocaleString()} Écus versés dans le trésor commun.`, "success");
+        notify(`${formatMoney(amt)} versés dans le trésor commun.`, "success");
       },
 
       // Retrait du trésor commun / fief (avec vérification de domination pour le fief)
@@ -1855,11 +1856,11 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
-        if ((account.balance || 0) < amt) { notify("Le trésor commun ne contient pas assez d'Écus.", "error"); return; }
+        if ((account.balance || 0) < amt) { notify("Le trésor commun ne contient pas assez de fonds.", "error"); return; }
         sharedAccounts[pairKey] = { ...account, balance: account.balance - amt };
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
-        notify(`${amt.toLocaleString()} Écus retirés du trésor commun.`, "success");
+        notify(`${formatMoney(amt)} retirés du trésor commun.`, "success");
       },
 
       onSelfManumit: () => {
@@ -1889,7 +1890,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const price = citizen.salePrice || 500;
         if ((citizen.balance || 0) < price) {
           notify(
-            `Fonds insuffisants. Il faut ${price} Écus pour racheter votre liberté.`,
+            `Fonds insuffisants. Il faut ${formatMoney(price)} pour racheter votre liberté.`,
             "error"
           );
           return;
@@ -2407,7 +2408,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const total = debt.total || debt.amount;
         if ((state.citizens[debtorIdx].balance || 0) < total) {
           notify(
-            `Fonds insuffisants. Il faut ${total} Écus.`,
+            `Fonds insuffisants. Il faut ${formatMoney(total)}.`,
             "error"
           );
           return;
@@ -2441,7 +2442,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           debtRegistry: registry,
           globalLedger: [debtLedger, ...(state.globalLedger || [])],
         });
-        notify(`Dette remboursée (${total} Écus).`, "success");
+        notify(`Dette remboursée (${formatMoney(total)}).`, "success");
       },
       onCancelDebt: (debtId) => {
         if (!session) return;
@@ -3019,7 +3020,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         newCitizens[userIdx] = { ...user, inventory: newInv };
         saveState({ ...state, citizens: newCitizens, playerMarket: listings });
-        notify(`${qty}x ${itemInfo?.name || "objet"} mis en vente pour ${pr} Écus.`, "success");
+        notify(`${qty}x ${itemInfo?.name || "objet"} mis en vente pour ${formatMoney(pr)}.`, "success");
       },
 
       onCancelListing: (listingId) => {
@@ -3089,7 +3090,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           playerMarket: listings.filter((l) => l.id !== listingId),
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
-        notify(`${listing.quantity}x ${listing.itemName} acheté(s) pour ${listing.price} Écus.`, "success");
+        notify(`${listing.quantity}x ${listing.itemName} acheté(s) pour ${formatMoney(listing.price)}.`, "success");
       },
 
       // --- PROPOSITIONS D'ÉCHANGE ---
@@ -3318,7 +3319,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!pr || pr <= 0) { notify("Prix invalide.", "error"); return; }
         properties[pIdx] = { ...prop, forSale: true, salePrice: pr };
         saveState({ ...state, properties });
-        notify(`"${prop.name}" mise en vente pour ${pr} Écus.`, "success");
+        notify(`"${prop.name}" mise en vente pour ${formatMoney(pr)}.`, "success");
       },
 
       onCancelPropertySale: (propertyId) => {
@@ -3700,7 +3701,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (prop.rental && prop.rental.tenantId) { notify("Un locataire occupe déjà ce bien.", "error"); return; }
         properties[pIdx] = { ...prop, rental: { dailyRate: rate, tenantId: null, tenantName: null, startDate: null } };
         saveState({ ...state, properties });
-        notify(`"${prop.name}" proposée à la location pour ${rate} Écus/jour.`, "success");
+        notify(`"${prop.name}" proposée à la location pour ${formatMoney(rate)}/jour.`, "success");
       },
 
       onCancelPropertyRental: (propertyId) => {
@@ -3754,7 +3755,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           properties,
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
-        notify(`Vous louez "${prop.name}" pour ${prop.rental.dailyRate} Écus/jour.`, "success");
+        notify(`Vous louez "${prop.name}" pour ${formatMoney(prop.rental.dailyRate)}/jour.`, "success");
       },
 
       onEvictTenant: (propertyId) => {
@@ -4016,7 +4017,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           amount: amt, timestamp: Date.now(), reason: "Cotisation guilde", type: "GUILD",
         };
         saveState({ ...state, citizens: newCitizens, guilds, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
-        notify(`${amt} Écus déposés dans la caisse de la guilde.`, "success");
+        notify(`${formatMoney(amt)} déposés dans la caisse de la guilde.`, "success");
       },
 
       onGuildWithdraw: (guildId, amount) => {
@@ -4038,7 +4039,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           amount: amt, timestamp: Date.now(), reason: "Retrait guilde", type: "GUILD",
         };
         saveState({ ...state, citizens: newCitizens, guilds, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
-        notify(`${amt} Écus retirés de la caisse.`, "success");
+        notify(`${formatMoney(amt)} retirés de la caisse.`, "success");
       },
 
       onDissolveGuild: (guildId) => {
@@ -4056,7 +4057,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         const name = guilds[gIdx].name;
         saveState({ ...state, guilds: guilds.filter((g) => g.id !== guildId), citizens: newCitizens });
-        notify(`Guilde "${name}" dissoute.${remaining > 0 ? ` ${remaining} Écus restitués.` : ""}`, "info");
+        notify(`Guilde "${name}" dissoute.${remaining > 0 ? ` ${formatMoney(remaining)} restitués.` : ""}`, "info");
       },
 
       // ========== GESTION FAMILLE / DYNASTIE (CITOYEN) ==========
@@ -4112,7 +4113,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         families[fIdx] = { ...families[fIdx], treasury: (families[fIdx].treasury || 0) + amt, treasuryLog: [logEntry, ...(families[fIdx].treasuryLog || [])].slice(0, 60) };
         const ledgerEntry = { id: ts, fromName: userName, toName: `Famille: ${famName}`, amount: amt, timestamp: ts, reason: "Dépôt trésorerie familiale", type: "FAMILY" };
         saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${amt} Écus déposés dans la trésorerie familiale.`, "success");
+        notify(`${formatMoney(amt)} déposés dans la trésorerie familiale.`, "success");
       },
 
       onFamilyWithdraw: (familyId, amount) => {
@@ -4136,7 +4137,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         families[fIdx] = { ...fam, treasury: (fam.treasury || 0) - amt, treasuryLog: [logEntry, ...(fam.treasuryLog || [])].slice(0, 60) };
         const ledgerEntry = { id: ts, fromName: `Famille: ${famName}`, toName: userName, amount: amt, timestamp: ts, reason: "Retrait trésorerie familiale", type: "FAMILY" };
         saveState({ ...state, citizens: newCitizens, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${amt} Écus retirés de la trésorerie familiale.`, "success");
+        notify(`${formatMoney(amt)} retirés de la trésorerie familiale.`, "success");
       },
 
       onFamilyTreasuryTransfer: (fromFamilyId, toFamilyId, amount, reason) => {
@@ -4162,7 +4163,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           treasuryLog: [{ id: ts, type: "transfer_in", amount: amt, label: `Virement reçu de famille ${fromName} — ${motif}`, timestamp: ts }, ...(toFam.treasuryLog || [])].slice(0, 60) };
         const ledgerEntry = { id: ts, fromName: `Famille: ${fromName}`, toName: `Famille: ${toName}`, amount: amt, timestamp: ts, reason: motif, type: "FAMILY_TRANSFER" };
         saveState({ ...state, families, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${amt} Écus transférés vers la famille ${toName}.`, "success");
+        notify(`${formatMoney(amt)} transférés vers la famille ${toName}.`, "success");
       },
 
       onEditFamilyInfo: (familyId, updates) => {
@@ -4296,7 +4297,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           priceHistory: [{ price, timestamp: ts }],
           dividendHistory: [],
         };
-        const ledgerEntry = { id: ts, fromName: company.name, toName: "Bourse Impériale", amount: 0, timestamp: ts, reason: `Introduction en bourse : ${symUp} (${shares} actions à ${price} Écus)`, type: "BOURSE_IPO" };
+        const ledgerEntry = { id: ts, fromName: company.name, toName: "Bourse Impériale", amount: 0, timestamp: ts, reason: `Introduction en bourse : ${symUp} (${shares} actions à ${formatMoney(price)})`, type: "BOURSE_IPO" };
         saveState({ ...state, bourseListings: [listing, ...listings], globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${company.name} est désormais cotée en bourse sous le symbole ${symUp}.`, "success");
       },
@@ -4362,9 +4363,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - qty };
         const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `${listing.companyName} (Bourse: ${listing.symbol})`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_BUY" };
+        const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `${listing.companyName} (Bourse: ${listing.symbol})`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${formatMoney(listing.pricePerShare)}`, type: "BOURSE_BUY" };
         saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${qty} action(s) ${listing.symbol} achetée(s) pour ${total.toLocaleString()} Écus.`, "success");
+        notify(`${qty} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(total)}.`, "success");
       },
 
       onBourseSellShares: (listingId, quantity) => {
@@ -4394,9 +4395,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + total, stockholdings: newHoldings };
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket + qty };
         const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: `${listing.companyName} (Bourse: ${listing.symbol})`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Rachat ${qty} action(s) ${listing.symbol} à ${listing.pricePerShare} Écus`, type: "BOURSE_SELL" };
+        const ledgerEntry = { id: ts, fromName: `${listing.companyName} (Bourse: ${listing.symbol})`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Rachat ${qty} action(s) ${listing.symbol} à ${formatMoney(listing.pricePerShare)}`, type: "BOURSE_SELL" };
         saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${qty} action(s) ${listing.symbol} vendues pour ${total.toLocaleString()} Écus.`, "success");
+        notify(`${qty} action(s) ${listing.symbol} vendues pour ${formatMoney(total)}.`, "success");
       },
 
       onBoursePayDividends: (listingId, dividendPerShare) => {
@@ -4416,19 +4417,19 @@ export const useGameActions = (session, state, saveState, notify) => {
           const payout = held * dpS;
           totalPaid += payout;
           newCitizens[i] = { ...c, balance: (c.balance || 0) + payout };
-          ledgerEntries.push({ id: ts + i, fromName: `${listing.companyName} (dividende ${listing.symbol})`, toName: c.name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${dpS} Écus/action × ${held})`, type: "BOURSE_DIVIDEND" });
+          ledgerEntries.push({ id: ts + i, fromName: `${listing.companyName} (dividende ${listing.symbol})`, toName: c.name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${formatMoney(dpS)}/action × ${held})`, type: "BOURSE_DIVIDEND" });
         });
         // Prélever les dividendes de la trésorerie de l'entreprise
         const newCompanies = [...(state.companies || [])];
         const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
         if (compIdx !== -1) {
-          if ((newCompanies[compIdx].balance || 0) < totalPaid) { notify(`Trésorerie insuffisante pour verser ${totalPaid.toLocaleString()} Écus de dividendes.`, "error"); return; }
+          if ((newCompanies[compIdx].balance || 0) < totalPaid) { notify(`Trésorerie insuffisante pour verser ${formatMoney(totalPaid)} de dividendes.`, "error"); return; }
           newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) - totalPaid };
         }
         const divHistory = [{ amount: dpS, timestamp: ts, totalPaid }, ...(listing.dividendHistory || [])].slice(0, 20);
         listings[idx] = { ...listing, dividendHistory: divHistory };
         saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`Dividendes versés : ${dpS} Écus/action. Total distribué : ${totalPaid.toLocaleString()} Écus.`, "success");
+        notify(`Dividendes versés : ${formatMoney(dpS)}/action. Total distribué : ${formatMoney(totalPaid)}.`, "success");
       },
 
       onGuardImprison: (countryId, citizenId, reason, sentence) => {

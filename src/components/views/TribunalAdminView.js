@@ -3,6 +3,7 @@ import { Scale, Plus, Gavel, User, MessageSquare, X, ChevronDown, ChevronUp, Tra
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { formatMoney } from "../../lib/gameUtils";
 
 const STATUS_LABELS = { PENDING: "En attente", IN_PROGRESS: "En cours", VERDICT: "Jugé" };
 const STATUS_COLORS = {
@@ -100,7 +101,7 @@ const TribunalAdminView = ({
                         {trial.verdict && (
                           <div className={`mt-1 text-xs font-bold ${trial.verdict === "GUILTY" ? "text-red-600" : "text-green-600"}`}>
                             Verdict : {VERDICT_LABELS[trial.verdict]}
-                            {trial.sentence && ` — ${SENTENCE_TYPES[trial.sentence.type]}${trial.sentence.amount ? ` : ${trial.sentence.amount} Écus` : ""}${trial.sentence.text ? ` (${trial.sentence.text})` : ""}`}
+                            {trial.sentence && ` — ${SENTENCE_TYPES[trial.sentence.type]}${trial.sentence.amount ? ` : ${formatMoney(trial.sentence.amount)}` : ""}${trial.sentence.text ? ` (${trial.sentence.text})` : ""}`}
                           </div>
                         )}
                       </div>

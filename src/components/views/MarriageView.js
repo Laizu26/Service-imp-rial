@@ -18,7 +18,7 @@ import {
   MARRIAGE_DOMINANCE,
   FILIATION_TYPES,
 } from "../../lib/constants";
-import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
 
 // ── Panneau dépôt / retrait trésor commun ou fief ───────────────────────────
 function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw }) {
@@ -325,7 +325,7 @@ const MarriageView = ({
                   {(proposal.dot || 0) > 0 && (
                     <div>
                       <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Dot</span>
-                      <span className="font-bold text-stone-700">{(proposal.dot).toLocaleString()} Écus</span>
+                      <span className="font-bold text-stone-700">{formatMoney((proposal.dot))}</span>
                     </div>
                   )}
                   {proposal.clauses && (
@@ -412,7 +412,7 @@ const MarriageView = ({
                       <div className="bg-amber-50 rounded-lg p-2.5 border border-amber-100">
                         <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Dot versée</span>
                         <span className="font-bold text-amber-700 flex items-center gap-1">
-                          <Coins size={11} /> {(spouse.dot).toLocaleString()} Écus
+                          <Coins size={11} /> {formatMoney((spouse.dot))}
                         </span>
                       </div>
                     )}
@@ -433,7 +433,7 @@ const MarriageView = ({
                         </span>
                         <span className="font-black text-stone-800 text-sm flex items-center gap-1">
                           <Coins size={13} className="text-yellow-600" />
-                          {(sharedAccount.balance || 0).toLocaleString()} Écus
+                          {formatMoney((sharedAccount.balance || 0))}
                         </span>
                       </div>
                       {onSharedAccountDeposit && onSharedAccountWithdraw && (

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import Card from "../ui/Card";
+import { formatMoney } from "../../lib/gameUtils";
 
 
 /* ───────────── Constantes contrats ───────────── */
@@ -752,7 +753,7 @@ const MaisonDeAsiaAdmin = ({
                           </p>
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-xs text-stone-400 font-mono">
-                              {member.price} Écus
+                              {formatMoney(member.price)}
                             </span>
                             <span className="text-[10px] text-stone-400 flex items-center gap-1">
                               <Clock size={10} /> {effectiveDuration} min
@@ -1189,7 +1190,7 @@ const MaisonDeAsiaAdmin = ({
                         {companies.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.name} (Solde :{" "}
-                            {(c.balance || 0).toLocaleString()} Écus)
+                            {formatMoney((c.balance || 0))})
                           </option>
                         ))}
                       </select>
@@ -1221,9 +1222,8 @@ const MaisonDeAsiaAdmin = ({
                         <div className="text-[10px] font-black uppercase text-fuchsia-400 tracking-widest mb-1">
                           Solde actuel
                         </div>
-                        <div className="text-3xl font-mono font-black text-fuchsia-800">
-                          {(linkedCompany.balance || 0).toLocaleString()}{" "}
-                          <span className="text-sm">Écus</span>
+                        <div className="text-2xl font-mono font-black text-fuchsia-800">
+                          {formatMoney(linkedCompany.balance || 0)}
                         </div>
                       </div>
                     </div>
@@ -1267,8 +1267,7 @@ const MaisonDeAsiaAdmin = ({
                           Revenu max / session
                         </div>
                         <div className="text-xl font-mono font-black text-green-600">
-                          {Math.floor(totalStaffPrices * 0.8).toLocaleString()}{" "}
-                          Écus
+                          {Math.floor(totalStaffPrices * 0.8).toLocaleString()}{formatMoney(" ")}
                         </div>
                         <div className="text-[9px] text-stone-400">
                           (80% de {totalStaffPrices.toLocaleString()})
@@ -1339,8 +1338,7 @@ const MaisonDeAsiaAdmin = ({
                                   <td className="p-3 text-right font-mono font-bold text-green-700">
                                     {Math.floor(
                                       (data.revenue || 0) * 0.8
-                                    ).toLocaleString()}{" "}
-                                    Écus
+                                    ).toLocaleString()}{formatMoney(" ")}
                                   </td>
                                   <td className="p-3 text-center">
                                     {data.avgRating !== null ? (
@@ -1515,7 +1513,7 @@ const MaisonDeAsiaAdmin = ({
                           <div className="min-w-0 flex-1">
                             <div className="font-black text-sm truncate">{c.name || "Sans nom"}</div>
                             <div className={`text-[10px] mt-0.5 ${selectedContractId === c.id ? "text-fuchsia-300" : "text-stone-500"}`}>
-                              {c.frequency !== "par_tache" && `${c.amount?.toLocaleString()} Écus · `}
+                              {c.frequency !== "par_tache" && `${formatMoney(c.amount || 0)} · `}
                               {CONTRACT_FREQUENCIES.find((f) => f.value === c.frequency)?.label || c.frequency}
                             </div>
                           </div>
@@ -1675,7 +1673,7 @@ const MaisonDeAsiaAdmin = ({
                                       <div className="font-bold text-sm text-stone-800 truncate">{r.name}</div>
                                       {!isParTache && (
                                         <div className="text-[10px] text-stone-400 font-mono">
-                                          = {share.toLocaleString()} Écus / versement
+                                          = {formatMoney(share)} / versement
                                         </div>
                                       )}
                                     </div>
@@ -1735,13 +1733,13 @@ const MaisonDeAsiaAdmin = ({
                                   <div key={r.id} className="flex justify-between text-sm">
                                     <span className="text-fuchsia-300 truncate">{r.name}</span>
                                     <span className="font-black font-mono text-fuchsia-200 shrink-0 ml-2">
-                                      +{Math.floor(form.amount * r.percent / 100).toLocaleString()} Écus
+                                      +{formatMoney(Math.floor(form.amount * r.percent / 100))}
                                     </span>
                                   </div>
                                 ))}
                                 <div className="border-t border-fuchsia-800 pt-1.5 mt-1.5 flex justify-between text-xs font-black">
                                   <span className="text-fuchsia-400 uppercase tracking-widest">Total prélevé</span>
-                                  <span className="text-white font-mono">{form.amount.toLocaleString()} Écus</span>
+                                  <span className="text-white font-mono">{formatMoney(form.amount)}</span>
                                 </div>
                               </div>
                             </div>

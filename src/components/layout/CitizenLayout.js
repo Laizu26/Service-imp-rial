@@ -43,7 +43,7 @@ import {
 
 import NotificationCenter from "../ui/NotificationCenter";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
-import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
@@ -97,7 +97,7 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
       {/* Dépôt */}
       {activeOp === "deposit" && (
         <div className="space-y-2">
-          <div className="text-[9px] text-stone-400 mt-1">Votre solde : <span className="font-mono font-bold text-stone-600">{userBalance.toLocaleString()} Écus</span></div>
+          <div className="text-[9px] text-stone-400 mt-1">Votre solde : <span className="font-mono font-bold text-stone-600">{formatMoney(userBalance)}</span></div>
           <div className="flex gap-2">
             <input type="number" className="flex-1 p-2 border border-stone-200 rounded text-sm font-mono bg-white focus:border-stone-400 outline-none" placeholder="Montant" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
             <button
@@ -112,7 +112,7 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
       {/* Retrait */}
       {activeOp === "withdraw" && isHead && (
         <div className="space-y-2">
-          <div className="text-[9px] text-amber-600 mt-1">Trésorerie disponible : <span className="font-mono font-bold">{treasury.toLocaleString()} Écus</span></div>
+          <div className="text-[9px] text-amber-600 mt-1">Trésorerie disponible : <span className="font-mono font-bold">{formatMoney(treasury)}</span></div>
           <div className="flex gap-2">
             <input type="number" className="flex-1 p-2 border border-amber-200 rounded text-sm font-mono bg-white focus:border-amber-400 outline-none" placeholder="Montant" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
             <button
@@ -151,7 +151,7 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
               className="bg-blue-700 text-white px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-blue-600 transition-colors"
             >Virer</button>
           </div>
-          <div className="text-[9px] text-stone-400">Disponible : <span className="font-mono font-bold">{treasury.toLocaleString()} Écus</span></div>
+          <div className="text-[9px] text-stone-400">Disponible : <span className="font-mono font-bold">{formatMoney(treasury)}</span></div>
         </div>
       )}
 
@@ -410,7 +410,7 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
             </div>
             <div className="bg-amber-900/30 border border-amber-800/40 rounded-lg px-3 py-1.5">
               <div className="text-[8px] text-amber-500 uppercase font-black">Mon portefeuille</div>
-              <div className="text-lg font-black font-mono text-amber-300">{portfolioValue.toLocaleString()} Écus</div>
+              <div className="text-lg font-black font-mono text-amber-300">{formatMoney(portfolioValue)}</div>
             </div>
             <div className="bg-stone-800/40 border border-stone-700 rounded-lg px-3 py-1.5">
               <div className="text-[8px] text-stone-500 uppercase font-black">Mes lignes</div>
@@ -459,7 +459,7 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
                     {listing.description && <div className="text-[10px] text-stone-400 truncate">{listing.description}</div>}
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-black font-mono text-stone-800 text-base">{listing.pricePerShare.toLocaleString()} <span className="text-xs font-normal text-stone-500">Écus</span></div>
+                    <div className="font-black font-mono text-stone-800 text-base">{formatMoney(listing.pricePerShare)}</div>
                     <div className={`text-[10px] font-black flex items-center justify-end gap-0.5 ${pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-stone-400"}`}>
                       {pct > 0 ? <TrendingUp size={10} /> : pct < 0 ? <TrendingDown size={10} /> : null}
                       {pct !== 0 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
@@ -489,7 +489,7 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
                 </div>
                 {!canAfford && qty > 0 && (
                   <div className="px-4 py-1 bg-red-50 text-red-500 text-[9px] font-bold border-t border-red-100">
-                    Fonds insuffisants — coût : {(qty * listing.pricePerShare).toLocaleString()} Écus / solde : {(user.balance || 0).toLocaleString()} Écus
+                    Fonds insuffisants — coût : {formatMoney((qty * listing.pricePerShare))} / solde : {formatMoney((user.balance || 0))}
                   </div>
                 )}
               </div>
@@ -511,8 +511,8 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
             <>
               <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4">
                 <div className="text-[10px] text-amber-600 uppercase font-black tracking-widest">Valeur totale du portefeuille</div>
-                <div className="text-3xl font-black font-mono text-amber-700 mt-1">{portfolioValue.toLocaleString()} <span className="text-lg font-normal">Écus</span></div>
-                <div className="text-xs text-amber-500 mt-0.5">{myHoldings.length} ligne(s) — solde personnel : {(user.balance || 0).toLocaleString()} Écus</div>
+                <div className="text-3xl font-black font-mono text-amber-700 mt-1">{formatMoney(portfolioValue)}</div>
+                <div className="text-xs text-amber-500 mt-0.5">{myHoldings.length} ligne(s) — solde personnel : {formatMoney((user.balance || 0))}</div>
               </div>
               {myHoldings.map(([lid, qty]) => {
                 const listing = bourseListings.find((l) => l.id === lid);
@@ -528,17 +528,17 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-stone-800 text-sm truncate">{listing.companyName}</div>
-                        <div className="text-[10px] text-stone-500">{qty.toLocaleString()} action(s) × {listing.pricePerShare.toLocaleString()} Écus</div>
+                        <div className="text-[10px] text-stone-500">{qty.toLocaleString()} action(s) × {formatMoney(listing.pricePerShare)}</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="font-black font-mono text-stone-800 text-base">{value.toLocaleString()} Écus</div>
+                        <div className="font-black font-mono text-stone-800 text-base">{formatMoney(value)}</div>
                         <div className={`text-[10px] font-black ${pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-stone-400"}`}>
                           {pct !== 0 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-stone-50 border-t border-stone-100">
-                      <span className="text-[9px] text-stone-400 flex-1">Cours : {listing.pricePerShare.toLocaleString()} Écus/action</span>
+                      <span className="text-[9px] text-stone-400 flex-1">Cours : {formatMoney(listing.pricePerShare)}/action</span>
                       <input type="number" min={1} max={qty}
                         className="w-16 p-1.5 border border-stone-200 rounded text-sm font-mono text-center bg-white focus:border-red-400 outline-none"
                         value={sellQty[lid] || 1}
@@ -1509,7 +1509,7 @@ const CitizenLayout = (props) => {
                                     </div>
                                     <div className="shrink-0">
                                       {fee > 0
-                                        ? <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-700">{fee} Écus</span>
+                                        ? <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-700">{formatMoney(fee)}</span>
                                         : <span className="text-[8px] font-black px-1.5 py-0.5 rounded border bg-green-50 border-green-200 text-green-700">Libre</span>
                                       }
                                     </div>
@@ -1584,7 +1584,7 @@ const CitizenLayout = (props) => {
                                     </div>
                                     {visaFee > 0 ? (
                                       <div className="text-[10px] text-amber-700 mt-1 flex items-center gap-1">
-                                        <Coins size={10} /> Frais de visa : <span className="font-black">{visaFee.toLocaleString()} Écus</span>
+                                        <Coins size={10} /> Frais de visa : <span className="font-black">{formatMoney(visaFee)}</span>
                                         {(user.balance || 0) < visaFee && (
                                           <span className="text-red-600 font-black ml-1">— Solde insuffisant !</span>
                                         )}
@@ -1771,7 +1771,7 @@ const CitizenLayout = (props) => {
                       <div className="flex items-center gap-4 text-sm">
                         <div className="flex items-center gap-1.5 font-bold text-stone-700">
                           <Coins size={16} className="text-yellow-600" />
-                          {(user.balance || 0).toLocaleString()} Écus
+                          {formatMoney((user.balance || 0))}
                         </div>
                         {(user.inventory || []).length > 0 && (
                           <div className="flex items-center gap-1.5 text-stone-500">
@@ -2169,7 +2169,7 @@ const CitizenLayout = (props) => {
                           </div>
                           {entry.sentence && (
                             <div className="text-red-600 mt-1">
-                              Peine : {entry.sentence.type === "FINE" ? `Amende de ${entry.sentence.amount} Écus` : entry.sentence.type === "PRISON" ? `Emprisonnement${entry.sentence.text ? ` — ${entry.sentence.text}` : ""}` : entry.sentence.type === "EXILE" ? "Exil" : entry.sentence.text || "Autre"}
+                              Peine : {entry.sentence.type === "FINE" ? `Amende de ${formatMoney(entry.sentence.amount)}` : entry.sentence.type === "PRISON" ? `Emprisonnement${entry.sentence.text ? ` — ${entry.sentence.text}` : ""}` : entry.sentence.type === "EXILE" ? "Exil" : entry.sentence.text || "Autre"}
                             </div>
                           )}
                           <div className="text-red-400 mt-1">Juge : {entry.judgeName || "Inconnu"}</div>
@@ -2347,8 +2347,7 @@ const CitizenLayout = (props) => {
                     )}
                     <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-xl px-3 py-2.5 text-center col-span-2 sm:col-span-1">
                       <div className="text-[8px] text-amber-600 uppercase font-black tracking-widest flex items-center justify-center gap-1"><Coins size={9} /> Trésorerie</div>
-                      <div className="text-lg font-black font-mono text-amber-700 mt-0.5">{treasury.toLocaleString()}</div>
-                      <div className="text-[9px] text-amber-500">Écus</div>
+                      <div className="text-lg font-black font-mono text-amber-700 mt-0.5">{formatMoney(treasury)}</div>
                     </div>
                   </div>
 
@@ -2379,7 +2378,7 @@ const CitizenLayout = (props) => {
                                 <div className="text-[9px] text-stone-400">{new Date(entry.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
                               </div>
                               <div className={`font-black font-mono text-xs shrink-0 ${logTypeColor(entry.type)}`}>
-                                {logSign(entry.type)}{entry.amount.toLocaleString()} Écus
+                                {logSign(entry.type)}{formatMoney(entry.amount)}
                               </div>
                             </div>
                           ))}
@@ -2698,7 +2697,7 @@ const CitizenLayout = (props) => {
                               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs space-y-1">
                                 <div className="font-black text-amber-700 uppercase tracking-widest text-[9px] flex items-center gap-1"><TrendingUp size={11} /> Cotation boursière</div>
                                 <div className="flex justify-between"><span className="text-stone-500">Symbole</span><span className="font-black font-mono">{listing.symbol}</span></div>
-                                <div className="flex justify-between"><span className="text-stone-500">Cours actuel</span><span className="font-black font-mono text-amber-700">{listing.pricePerShare.toLocaleString()} Écus</span></div>
+                                <div className="flex justify-between"><span className="text-stone-500">Cours actuel</span><span className="font-black font-mono text-amber-700">{formatMoney(listing.pricePerShare)}</span></div>
                                 <div className="flex justify-between"><span className="text-stone-500">Actions en vente</span><span className="font-mono">{listing.sharesOnMarket} / {listing.totalShares}</span></div>
                               </div>
                             )}
@@ -2811,7 +2810,7 @@ const CitizenLayout = (props) => {
                             {ct.laws && typeof ct.laws === "object" && (
                               <div className="border-t border-stone-100 pt-3 space-y-1">
                                 <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Lois notables</div>
-                                {ct.laws.entryVisaFee > 0 && <div className="text-xs text-stone-600 flex justify-between"><span>Visa d'entrée</span><span className="font-mono font-bold">{ct.laws.entryVisaFee} Écus</span></div>}
+                                {ct.laws.entryVisaFee > 0 && <div className="text-xs text-stone-600 flex justify-between"><span>Visa d'entrée</span><span className="font-mono font-bold">{formatMoney(ct.laws.entryVisaFee)}</span></div>}
                                 {ct.laws.marriageStructure && <div className="text-xs text-stone-600 flex justify-between"><span>Mariage</span><span className="font-bold">{ct.laws.marriageStructure}</span></div>}
                               </div>
                             )}
@@ -2889,7 +2888,7 @@ const CitizenLayout = (props) => {
                               {[
                                 { label: "Membres", value: members.length },
                                 { label: "Branches", value: (fam.branches || []).length },
-                                { label: "Trésorerie", value: fam.treasury ? `${(fam.treasury || 0).toLocaleString()} Écus` : "—" },
+                                { label: "Trésorerie", value: fam.treasury ? `${formatMoney((fam.treasury || 0))}` : "—" },
                               ].map((s) => (
                                 <div key={s.label} className="bg-stone-50 rounded-lg p-2 text-center">
                                   <div className="text-[8px] uppercase font-black text-stone-400 tracking-widest">{s.label}</div>
@@ -3068,7 +3067,7 @@ const CitizenLayout = (props) => {
                             )}
                             {(prop.income || 0) > 0 && (
                               <span className="flex items-center gap-1 text-green-600 font-bold font-mono">
-                                <Coins size={11} /> +{prop.income} Écus/jour
+                                <Coins size={11} /> +{formatMoney(prop.income)}/jour
                               </span>
                             )}
                             {variant !== "owned" && prop.ownerId && (
@@ -3097,12 +3096,12 @@ const CitizenLayout = (props) => {
                               <div className="text-[10px] text-stone-400 uppercase font-bold">Bien{myProps.length > 1 ? "s" : ""}</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-2xl font-black text-yellow-700 font-mono">{totalValue.toLocaleString()}</div>
-                              <div className="text-[10px] text-stone-400 uppercase font-bold">Valeur (Écus)</div>
+                              <div className="text-2xl font-black text-yellow-700 font-mono">{formatMoney(totalValue)}</div>
+                              <div className="text-[10px] text-stone-400 uppercase font-bold">Valeur</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-2xl font-black text-green-600 font-mono">+{totalIncome}</div>
-                              <div className="text-[10px] text-stone-400 uppercase font-bold">Écus / jour</div>
+                              <div className="text-2xl font-black text-green-600 font-mono">+{formatMoney(totalIncome)}</div>
+                              <div className="text-[10px] text-stone-400 uppercase font-bold">/ jour</div>
                             </div>
                           </div>
                         </div>
@@ -3127,7 +3126,7 @@ const CitizenLayout = (props) => {
                                   <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                                     <div className="text-xs">
                                       <span className="text-blue-700 font-bold">Loué à {prop.rental.tenantName}</span>
-                                      <span className="text-blue-500 ml-2 font-mono">{prop.rental.dailyRate} Écus/jour</span>
+                                      <span className="text-blue-500 ml-2 font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
                                       {prop.rental.startDate && <span className="text-blue-400 ml-2">depuis le {prop.rental.startDate}</span>}
                                     </div>
                                     <button
@@ -3142,7 +3141,7 @@ const CitizenLayout = (props) => {
                                 {prop.rental && !prop.rental.tenantId && (
                                   <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                                     <div className="text-xs text-blue-600">
-                                      En location : <span className="font-mono font-bold">{prop.rental.dailyRate} Écus/jour</span>
+                                      En location : <span className="font-mono font-bold">{formatMoney(prop.rental.dailyRate)}/jour</span>
                                     </div>
                                     <button
                                       onClick={() => onCancelPropertyRental && onCancelPropertyRental(prop.id)}
@@ -3154,11 +3153,11 @@ const CitizenLayout = (props) => {
                                 )}
                                 {/* Actions vente / location */}
                                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-sm font-bold text-stone-500">Estimé : {prop.price} Écus</div>
+                                  <div className="font-mono text-sm font-bold text-stone-500">Estimé : {formatMoney(prop.price)}</div>
                                   <div className="flex flex-wrap gap-2">
                                     {prop.forSale ? (
                                       <div className="flex items-center gap-2">
-                                        <span className="font-mono text-sm font-bold text-yellow-700">{prop.salePrice} Écus</span>
+                                        <span className="font-mono text-sm font-bold text-yellow-700">{formatMoney(prop.salePrice)}</span>
                                         <button
                                           onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
                                           className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors"
@@ -3198,7 +3197,7 @@ const CitizenLayout = (props) => {
                             {available.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="admin">
                                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-lg font-black text-yellow-700">{prop.price.toLocaleString()} Écus</div>
+                                  <div className="font-mono text-lg font-black text-yellow-700">{formatMoney(prop.price)}</div>
                                   <button
                                     onClick={() => onBuyProperty && onBuyProperty(prop.id)}
                                     disabled={(user.balance || 0) < prop.price}
@@ -3209,7 +3208,7 @@ const CitizenLayout = (props) => {
                                 </div>
                                 {(user.balance || 0) < prop.price && (
                                   <div className="text-[10px] text-red-400 text-right">
-                                    Il vous manque {(prop.price - (user.balance || 0)).toLocaleString()} Écus
+                                    Il vous manque {formatMoney((prop.price - (user.balance || 0)))}
                                   </div>
                                 )}
                               </PropertyCard>
@@ -3228,7 +3227,7 @@ const CitizenLayout = (props) => {
                             {forSale.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="player">
                                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-lg font-black text-yellow-700">{prop.salePrice.toLocaleString()} Écus</div>
+                                  <div className="font-mono text-lg font-black text-yellow-700">{formatMoney(prop.salePrice)}</div>
                                   <button
                                     onClick={() => onBuyPropertyFromPlayer && onBuyPropertyFromPlayer(prop.id)}
                                     disabled={(user.balance || 0) < prop.salePrice}
@@ -3239,7 +3238,7 @@ const CitizenLayout = (props) => {
                                 </div>
                                 {(user.balance || 0) < prop.salePrice && (
                                   <div className="text-[10px] text-red-400 text-right">
-                                    Il vous manque {(prop.salePrice - (user.balance || 0)).toLocaleString()} Écus
+                                    Il vous manque {formatMoney((prop.salePrice - (user.balance || 0)))}
                                   </div>
                                 )}
                               </PropertyCard>
@@ -3260,7 +3259,7 @@ const CitizenLayout = (props) => {
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
                                   <div className="text-xs">
                                     <span className="text-blue-700 font-bold">Locataire</span>
-                                    <span className="text-blue-500 ml-2 font-mono">{prop.rental.dailyRate} Écus/jour</span>
+                                    <span className="text-blue-500 ml-2 font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
                                     {prop.rental.startDate && <span className="text-blue-400 ml-2">depuis le {prop.rental.startDate}</span>}
                                     <div className="text-stone-400 mt-0.5">Propriétaire : {prop.ownerName}</div>
                                   </div>
@@ -3288,7 +3287,7 @@ const CitizenLayout = (props) => {
                               <PropertyCard key={prop.id} prop={prop} variant="admin">
                                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
                                   <div>
-                                    <div className="font-mono text-lg font-black text-blue-700">{prop.rental.dailyRate} Écus/jour</div>
+                                    <div className="font-mono text-lg font-black text-blue-700">{formatMoney(prop.rental.dailyRate)}/jour</div>
                                     <div className="text-[10px] text-stone-400">Propriétaire : {prop.ownerName}</div>
                                   </div>
                                   <button

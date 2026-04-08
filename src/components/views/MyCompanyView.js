@@ -38,6 +38,7 @@ import {
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { formatMoney } from "../../lib/gameUtils";
 
 const TYPE_RATES = {
   SERVICE: { emp: 12, slave: 9, label: "Services / Commerce" },
@@ -266,8 +267,7 @@ const MyCompanyView = ({
                         Solde personnel
                       </div>
                       <div className="text-2xl font-mono font-black text-stone-800">
-                        {(user.balance || 0).toLocaleString()}{" "}
-                        <span className="text-sm">Écus</span>
+                        {(user.balance || 0).toLocaleString()}{formatMoney(" ")}
                       </div>
                     </div>
                     <div className="text-right bg-yellow-50 p-3 rounded-xl border border-yellow-200">
@@ -275,8 +275,7 @@ const MyCompanyView = ({
                         Compte entreprise
                       </div>
                       <div className="text-2xl font-mono font-black text-yellow-800">
-                        {((workerCompany.workerBalances || {})[user.id] || 0).toLocaleString()}{" "}
-                        <span className="text-sm">Écus</span>
+                        {((workerCompany.workerBalances || {})[user.id] || 0).toLocaleString()}{formatMoney(" ")}
                       </div>
                     </div>
                   </div>
@@ -304,7 +303,7 @@ const MyCompanyView = ({
                     <div className="flex justify-between items-center py-2 border-b border-stone-100">
                       <span className="text-xs text-stone-500">Production / jour</span>
                       <span className="text-sm font-mono font-bold text-green-600">
-                        {((wEmpCount * wRates.emp + wSlaveCount * wRates.slave) * wLevel).toLocaleString()} Écus
+                        {formatMoney(((wEmpCount * wRates.emp + wSlaveCount * wRates.slave) * wLevel))}
                       </span>
                     </div>
                     <div className="flex justify-between items-center py-2">
@@ -367,7 +366,7 @@ const MyCompanyView = ({
                   <Card title="Retrait de Salaire" icon={Wallet}>
                     <div className="space-y-3">
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-stone-600">
-                        Vous avez <span className="font-black text-yellow-800">{myCompanyBalance.toLocaleString()} Écus</span> disponibles
+                        Vous avez <span className="font-black text-yellow-800">{formatMoney(myCompanyBalance)}</span> disponibles
                         sur votre compte interne. Retirez-les pour les transférer sur votre solde personnel.
                       </div>
                       <div className="flex gap-2">
@@ -423,7 +422,7 @@ const MyCompanyView = ({
                             </div>
                           </div>
                           <span className={`font-mono font-bold text-sm ${entry.type === "SALARY" ? "text-green-600" : "text-teal-600"}`}>
-                            {entry.type === "SALARY" ? "+" : ""}{entry.amount?.toLocaleString()} Écus
+                            {entry.type === "SALARY" ? "+" : ""}{formatMoney(entry.amount || 0)}
                           </span>
                         </div>
                       ))}
@@ -450,7 +449,7 @@ const MyCompanyView = ({
                                 <div className="font-bold text-sm text-stone-800">{c.name || "Sans nom"}</div>
                                 <div className="text-[10px] text-stone-500 mt-0.5">
                                   {freq?.label || c.frequency}
-                                  {c.frequency !== "par_tache" && ` · ${c.amount?.toLocaleString()} Écus total`}
+                                  {c.frequency !== "par_tache" && ` · ${formatMoney(c.amount || 0)} total`}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -464,7 +463,7 @@ const MyCompanyView = ({
                                 <span className="text-[10px] font-bold text-yellow-700 uppercase">Ma part</span>
                                 <span className="font-mono font-bold text-sm text-yellow-800">
                                   {myShare.percent}%
-                                  {c.frequency !== "par_tache" && ` = ${Math.floor((c.amount || 0) * myShare.percent / 100).toLocaleString()} Écus`}
+                                  {c.frequency !== "par_tache" && ` = ${formatMoney(Math.floor((c.amount || 0) * myShare.percent / 100))}`}
                                 </span>
                               </div>
                             )}
@@ -878,8 +877,7 @@ const MyCompanyView = ({
             Trésorerie
           </div>
           <div className="text-4xl font-mono font-black text-stone-800">
-            {myCompany.balance?.toLocaleString()}{" "}
-            <span className="text-sm">Écus</span>
+            {myCompany.balance?.toLocaleString()}{formatMoney(" ")}
           </div>
         </div>
       </div>
@@ -1151,7 +1149,7 @@ const MyCompanyView = ({
               <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-600 space-y-1">
                 <div className="flex justify-between">
                   <span>
-                    Employés ({empCount}) x {rates.emp} Écus x Niv.{level}
+                    Employés ({empCount}) x {formatMoney(rates.emp)} x Niv.{level}
                   </span>
                   <span className="font-mono font-bold">
                     {(empCount * rates.emp * level).toLocaleString()}
@@ -1159,7 +1157,7 @@ const MyCompanyView = ({
                 </div>
                 <div className="flex justify-between">
                   <span>
-                    Esclaves ({slaveCount}) x {rates.slave} Écus x Niv.{level}
+                    Esclaves ({slaveCount}) x {formatMoney(rates.slave)} x Niv.{level}
                   </span>
                   <span className="font-mono font-bold">
                     {(slaveCount * rates.slave * level).toLocaleString()}
@@ -1205,7 +1203,7 @@ const MyCompanyView = ({
                       <div className="flex justify-between mb-1 text-stone-600">
                         <span className="flex items-center gap-1"><Wallet size={10} /> Trésorerie requise</span>
                         <span className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}>
-                          {(myCompany.balance || 0).toLocaleString()} / {requiredFunds.toLocaleString()} Écus
+                          {(myCompany.balance || 0).toLocaleString()} / {formatMoney(requiredFunds)}
                         </span>
                       </div>
                       <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden">
@@ -1217,7 +1215,7 @@ const MyCompanyView = ({
                     </div>
                     <div className="text-[9px] text-stone-400 italic">
                       {canLevelUp
-                        ? `La montée de niveau aura lieu au prochain 1er du mois RP. ${requiredFunds.toLocaleString()} Écus seront prélevés de la trésorerie.`
+                        ? `La montée de niveau aura lieu au prochain 1er du mois RP. ${formatMoney(requiredFunds)} seront prélevés de la trésorerie.`
                         : "La montée de niveau est vérifiée automatiquement le 1er de chaque mois RP."}
                     </div>
                   </div>
@@ -1255,7 +1253,7 @@ const MyCompanyView = ({
                               </span>
                               {empCompBal > 0 && (
                                 <span className="text-[9px] font-mono text-yellow-600">
-                                  Compte interne : {empCompBal.toLocaleString()} Écus
+                                  Compte interne : {formatMoney(empCompBal)}
                                 </span>
                               )}
                             </div>
@@ -1338,7 +1336,7 @@ const MyCompanyView = ({
                       Coût Total
                     </span>
                     <span className="ml-2 text-sm font-mono font-bold text-stone-700">
-                      {totalSalary.toLocaleString()} Écus
+                      {formatMoney(totalSalary)}
                     </span>
                   </div>
                   <button
@@ -1470,7 +1468,7 @@ const MyCompanyView = ({
                       <div className="min-w-0 flex-1">
                         <div className="font-black text-sm truncate">{c.name || "Sans nom"}</div>
                         <div className={`text-[10px] mt-0.5 ${selectedContractId === c.id ? "text-stone-300" : "text-stone-500"}`}>
-                          {c.frequency !== "par_tache" && `${c.amount?.toLocaleString()} Écus · `}
+                          {c.frequency !== "par_tache" && `${formatMoney(c.amount || 0)} · `}
                           {CONTRACT_FREQUENCIES.find((f) => f.value === c.frequency)?.label || c.frequency}
                         </div>
                       </div>
@@ -1630,7 +1628,7 @@ const MyCompanyView = ({
                                   <div className="font-bold text-sm text-stone-800 truncate">{r.name}</div>
                                   {!isParTache && (
                                     <div className="text-[10px] text-stone-400 font-mono">
-                                      = {share.toLocaleString()} Écus / versement
+                                      = {formatMoney(share)} / versement
                                     </div>
                                   )}
                                 </div>
@@ -1688,13 +1686,13 @@ const MyCompanyView = ({
                               <div key={r.id} className="flex justify-between text-sm">
                                 <span className="text-stone-300 truncate">{r.name}</span>
                                 <span className="font-black font-mono text-yellow-400 shrink-0 ml-2">
-                                  +{Math.floor(form.amount * r.percent / 100).toLocaleString()} Écus
+                                  +{formatMoney(Math.floor(form.amount * r.percent / 100))}
                                 </span>
                               </div>
                             ))}
                             <div className="border-t border-stone-700 pt-1.5 mt-1.5 flex justify-between text-xs font-black">
                               <span className="text-stone-400 uppercase tracking-widest">Total prélevé</span>
-                              <span className="text-white font-mono">{form.amount.toLocaleString()} Écus</span>
+                              <span className="text-white font-mono">{formatMoney(form.amount)}</span>
                             </div>
                           </div>
                         </div>
@@ -2185,7 +2183,7 @@ const MyCompanyView = ({
                       <div className="text-[9px] font-black uppercase text-amber-600 tracking-widest">Récapitulatif IPO</div>
                       <div className="flex justify-between">
                         <span className="text-stone-500">Capitalisation initiale</span>
-                        <span className="font-black font-mono text-amber-700">{previewCap.toLocaleString()} Écus</span>
+                        <span className="font-black font-mono text-amber-700">{formatMoney(previewCap)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-stone-500">Actions en vente</span>
@@ -2232,7 +2230,7 @@ const MyCompanyView = ({
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-2xl font-black font-mono text-stone-800">{myListing.pricePerShare.toLocaleString()} <span className="text-sm font-normal text-stone-400">Écus</span></div>
+                  <div className="text-2xl font-black font-mono text-stone-800">{formatMoney(myListing.pricePerShare)}</div>
                   <div className={`text-xs font-black flex items-center justify-end gap-1 ${pctChange > 0 ? "text-green-600" : pctChange < 0 ? "text-red-500" : "text-stone-400"}`}>
                     {pctChange > 0 ? <TrendingUp size={11} /> : pctChange < 0 ? <TrendingDown size={11} /> : null}
                     {pctChange !== 0 ? `${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}% vs IPO` : "Cours stable"}
@@ -2244,10 +2242,10 @@ const MyCompanyView = ({
             {/* Stats rapides */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: "Capital total", value: (myListing.totalShares * myListing.pricePerShare).toLocaleString() + " Écus", sub: myListing.totalShares.toLocaleString() + " actions" },
+                { label: "Capital total", value:formatMoney( (myListing.totalShares * myListing.pricePerShare)), sub: myListing.totalShares.toLocaleString() + " actions" },
                 { label: "En vente", value: myListing.sharesOnMarket.toLocaleString(), sub: `${myListing.totalShares > 0 ? ((myListing.sharesOnMarket / myListing.totalShares) * 100).toFixed(1) : 0}% du capital` },
                 { label: "Actionnaires", value: shareholders.length, sub: totalHeld.toLocaleString() + " actions détenues" },
-                { label: "Prix IPO", value: myListing.initialPrice.toLocaleString() + " Écus", sub: "prix d'introduction" },
+                { label: "Prix IPO", value:formatMoney( myListing.initialPrice), sub: "prix d'introduction" },
               ].map((s, i) => (
                 <div key={i} className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5">
                   <div className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{s.label}</div>
@@ -2322,7 +2320,7 @@ const MyCompanyView = ({
                         {bourseForm.dividend && parseFloat(bourseForm.dividend) > 0 && (
                           <div className="flex justify-between border-t border-stone-200 pt-1 mt-1">
                             <span className="text-amber-600 font-bold">Total à distribuer</span>
-                            <span className="font-black font-mono text-amber-700">{(parseFloat(bourseForm.dividend) * totalHeld).toLocaleString()} Écus</span>
+                            <span className="font-black font-mono text-amber-700">{formatMoney((parseFloat(bourseForm.dividend) * totalHeld))}</span>
                           </div>
                         )}
                       </div>
@@ -2359,7 +2357,7 @@ const MyCompanyView = ({
                       {myListing.dividendHistory.slice(0, 4).map((d, i) => (
                         <div key={i} className="flex justify-between text-[10px]">
                           <span className="text-stone-400">{new Date(d.timestamp).toLocaleDateString("fr-FR")}</span>
-                          <span className="font-mono text-amber-600 font-bold">{d.amount} Écu/action — {d.totalPaid?.toLocaleString()} Écus</span>
+                          <span className="font-mono text-amber-600 font-bold">{d.amount} Écu/action — {formatMoney(d.totalPaid || 0)}</span>
                         </div>
                       ))}
                     </div>
@@ -2394,7 +2392,7 @@ const MyCompanyView = ({
                       <div className="col-span-2 text-right text-[10px] text-stone-400">
                         {myListing.totalShares > 0 ? ((c.shares / myListing.totalShares) * 100).toFixed(1) : 0}%
                       </div>
-                      <div className="col-span-2 text-right text-[10px] font-mono font-bold text-amber-600">{c.value.toLocaleString()} Écus</div>
+                      <div className="col-span-2 text-right text-[10px] font-mono font-bold text-amber-600">{formatMoney(c.value)}</div>
                     </div>
                   ))}
                 </div>
@@ -2408,7 +2406,7 @@ const MyCompanyView = ({
                   {myListing.priceHistory.slice(0, 15).map((h, i) => (
                     <div key={i} className="flex items-center justify-between px-2 py-1 rounded hover:bg-stone-50 text-xs">
                       <span className="text-stone-400 text-[10px]">{new Date(h.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                      <span className={`font-black font-mono ${i === 0 ? "text-amber-600" : "text-stone-500"}`}>{h.price.toLocaleString()} Écus</span>
+                      <span className={`font-black font-mono ${i === 0 ? "text-amber-600" : "text-stone-500"}`}>{formatMoney(h.price)}</span>
                     </div>
                   ))}
                 </div>
