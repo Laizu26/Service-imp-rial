@@ -1267,10 +1267,10 @@ const MaisonDeAsiaAdmin = ({
                           Revenu max / session
                         </div>
                         <div className="text-xl font-mono font-black text-green-600">
-                          {Math.floor(totalStaffPrices * 0.8).toLocaleString()}{formatMoney(" ")}
+                          {formatMoney(Math.floor(totalStaffPrices * 0.8))}
                         </div>
                         <div className="text-[9px] text-stone-400">
-                          (80% de {totalStaffPrices.toLocaleString()})
+                          (80% de {formatMoney(totalStaffPrices)})
                         </div>
                       </div>
                     </div>
@@ -1336,9 +1336,9 @@ const MaisonDeAsiaAdmin = ({
                                     {data.visits}
                                   </td>
                                   <td className="p-3 text-right font-mono font-bold text-green-700">
-                                    {Math.floor(
+                                    {formatMoney(Math.floor(
                                       (data.revenue || 0) * 0.8
-                                    ).toLocaleString()}{formatMoney(" ")}
+                                    ))}
                                   </td>
                                   <td className="p-3 text-center">
                                     {data.avgRating !== null ? (

@@ -563,7 +563,7 @@ const BankView = ({
                     {formatMoney((u.hiddenBalance || 0))}
                   </div>
                   <div className="text-[9px] text-stone-400">
-                    Visible : {(u.balance || 0).toLocaleString()}
+                    Visible : {formatMoney(u.balance || 0)}
                   </div>
                 </div>
               </div>

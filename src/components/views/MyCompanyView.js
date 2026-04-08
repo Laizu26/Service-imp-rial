@@ -267,7 +267,7 @@ const MyCompanyView = ({
                         Solde personnel
                       </div>
                       <div className="text-2xl font-mono font-black text-stone-800">
-                        {(user.balance || 0).toLocaleString()}{formatMoney(" ")}
+                        {formatMoney((user.balance || 0))}
                       </div>
                     </div>
                     <div className="text-right bg-yellow-50 p-3 rounded-xl border border-yellow-200">
@@ -275,7 +275,7 @@ const MyCompanyView = ({
                         Compte entreprise
                       </div>
                       <div className="text-2xl font-mono font-black text-yellow-800">
-                        {((workerCompany.workerBalances || {})[user.id] || 0).toLocaleString()}{formatMoney(" ")}
+                        {formatMoney((workerCompany.workerBalances || {})[user.id] || 0)}
                       </div>
                     </div>
                   </div>
@@ -877,7 +877,7 @@ const MyCompanyView = ({
             Trésorerie
           </div>
           <div className="text-4xl font-mono font-black text-stone-800">
-            {myCompany.balance?.toLocaleString()}{formatMoney(" ")}
+            {formatMoney(myCompany.balance || 0)}
           </div>
         </div>
       </div>
@@ -1203,7 +1203,7 @@ const MyCompanyView = ({
                       <div className="flex justify-between mb-1 text-stone-600">
                         <span className="flex items-center gap-1"><Wallet size={10} /> Trésorerie requise</span>
                         <span className={`font-bold ${(myCompany.balance || 0) >= requiredFunds ? "text-green-600" : "text-red-500"}`}>
-                          {(myCompany.balance || 0).toLocaleString()} / {formatMoney(requiredFunds)}
+                          {formatMoney((myCompany.balance || 0))} / {formatMoney(requiredFunds)}
                         </span>
                       </div>
                       <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden">

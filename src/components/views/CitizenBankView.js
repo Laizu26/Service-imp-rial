@@ -639,10 +639,10 @@ const CitizenBankView = ({
                             : "text-green-600"
                         }`}
                       >
-                        {(
+                        {formatMoney((
                           (user?.balance || 0) -
                           parseFloat(transferAmount || 0)
-                        ).toLocaleString()}{formatMoney(" ")}
+                        ))}
                       </span>
                     </div>
                   </div>
@@ -1018,22 +1018,20 @@ const CitizenBankView = ({
                     <div className="flex justify-between text-xs">
                       <span className="text-yellow-700">Principal</span>
                       <span className="font-mono font-bold text-stone-800">
-                        {loanAmount
-                          ? parseFloat(loanAmount).toLocaleString()
-                          : "0"}{formatMoney(" ")}
+                        {formatMoney(parseFloat(loanAmount) || 0)}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-yellow-700">Intérêts</span>
                       <span className="font-mono font-bold text-yellow-700">
                         +
-                        {loanAmount && loanInterest
+                        {formatMoney(loanAmount && loanInterest
                           ? Math.floor(
                               (parseFloat(loanAmount) *
                                 parseFloat(loanInterest)) /
                                 100
-                            ).toLocaleString()
-                          : "0"}{formatMoney(" ")}
+                            )
+                          : 0)}
                       </span>
                     </div>
                     <div className="border-t border-yellow-200 pt-1.5 flex justify-between text-sm">
@@ -1041,12 +1039,12 @@ const CitizenBankView = ({
                         Total à rembourser
                       </span>
                       <span className="font-black font-mono text-red-700 text-base">
-                        {loanAmount
+                        {formatMoney(loanAmount
                           ? Math.floor(
                               parseFloat(loanAmount) *
                                 (1 + parseFloat(loanInterest || 0) / 100)
-                            ).toLocaleString()
-                          : "0"}{formatMoney(" ")}
+                            )
+                          : 0)}
                       </span>
                     </div>
                   </div>
