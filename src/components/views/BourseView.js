@@ -118,7 +118,7 @@ const IPOForm = ({ companies, listings, onCreateListing, onCancel }) => {
           </div>
           <div>
             <Label>Prix initial par action (Écus) *</Label>
-            <Input type="number" value={pricePerShare} onChange={(e) => setPricePerShare(e.target.value)} placeholder="ex: 100" />
+            <Input type="number" step="0.1" value={pricePerShare} onChange={(e) => setPricePerShare(e.target.value)} placeholder="ex: 100" />
           </div>
         </div>
 
@@ -219,7 +219,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Cours (Écus)</Label>
-              <Input type="number" value={newPrice} onChange={(e) => setNewPrice(parseFloat(e.target.value))} />
+              <Input type="number" step="0.1" value={newPrice} onChange={(e) => setNewPrice(parseFloat(e.target.value))} />
             </div>
             <div>
               <Label>Actions en vente</Label>
@@ -260,7 +260,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
           <div className="space-y-2">
             <div>
               <Label>Montant par action (Écus)</Label>
-              <Input type="number" value={divAmount} onChange={(e) => setDivAmount(e.target.value)} placeholder="ex: 5" />
+              <Input type="number" step="0.1" value={divAmount} onChange={(e) => setDivAmount(e.target.value)} placeholder="ex: 5" />
             </div>
             {divAmount && totalHeld > 0 && (
               <div className="text-[10px] text-amber-400 bg-amber-900/20 border border-amber-800/30 rounded px-2 py-1">

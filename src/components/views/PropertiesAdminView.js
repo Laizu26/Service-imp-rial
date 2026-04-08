@@ -143,8 +143,8 @@ const PropertiesAdminView = ({
       name: newName.trim(),
       type: newType,
       description: newDescription.trim(),
-      price: parseInt(newPrice) || 0,
-      income: parseInt(newIncome) || 0,
+      price: parseFloat(newPrice) || 0,
+      income: parseFloat(newIncome) || 0,
       countryId: newCountryId || null,
       regionId: newRegionId || null,
       location: (() => {
@@ -187,8 +187,8 @@ const PropertiesAdminView = ({
     }
     onEditProperty(editingId, {
       ...editForm,
-      price: parseInt(editForm.price) || 0,
-      income: parseInt(editForm.income) || 0,
+      price: parseFloat(editForm.price) || 0,
+      income: parseFloat(editForm.income) || 0,
       ownerId: editForm.ownerId || null,
       ownerName, ownerType,
       location: country ? (region ? `${region.name}, ${country.name}` : country.name) : "",
@@ -310,11 +310,11 @@ const PropertiesAdminView = ({
               </div>
               <div>
                 <Label>Prix d'achat (Écus)</Label>
-                <input type="number" className="w-full p-2.5 border rounded-lg font-mono" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} placeholder="0" />
+                <input type="number" step="0.1" className="w-full p-2.5 border rounded-lg font-mono" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} placeholder="0" />
               </div>
               <div>
                 <Label>Revenu journalier (Écus / jour)</Label>
-                <input type="number" className="w-full p-2.5 border rounded-lg font-mono" value={newIncome} onChange={(e) => setNewIncome(e.target.value)} placeholder="0" />
+                <input type="number" step="0.1" className="w-full p-2.5 border rounded-lg font-mono" value={newIncome} onChange={(e) => setNewIncome(e.target.value)} placeholder="0" />
               </div>
               <div>
                 <Label>Pays</Label>
@@ -378,8 +378,8 @@ const PropertiesAdminView = ({
                         {Object.entries(PROPERTY_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
                     </div>
-                    <div><Label>Prix</Label><input type="number" className="w-full p-2 border rounded font-mono text-sm" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} /></div>
-                    <div><Label>Revenu / jour</Label><input type="number" className="w-full p-2 border rounded font-mono text-sm" value={editForm.income} onChange={(e) => setEditForm({ ...editForm, income: e.target.value })} /></div>
+                    <div><Label>Prix</Label><input type="number" step="0.1" className="w-full p-2 border rounded font-mono text-sm" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} /></div>
+                    <div><Label>Revenu / jour</Label><input type="number" step="0.1" className="w-full p-2 border rounded font-mono text-sm" value={editForm.income} onChange={(e) => setEditForm({ ...editForm, income: e.target.value })} /></div>
                     <div><Label>Pays</Label>
                       <select className="w-full p-2 border rounded text-sm bg-white" value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value, regionId: "" })}>
                         <option value="">-- Aucun --</option>

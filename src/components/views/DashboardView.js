@@ -101,7 +101,7 @@ const DashboardView = ({
   };
 
   const handleMintMoney = () => {
-    const val = parseInt(mintAmount);
+    const val = parseFloat(mintAmount);
     if (onAddTreasury && val > 0) {
       onAddTreasury(val);
       setMintAmount("");

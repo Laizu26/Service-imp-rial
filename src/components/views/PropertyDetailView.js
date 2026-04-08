@@ -178,9 +178,9 @@ const PropertyDetailView = ({
                     /* Mode édition */
                     <div className="flex items-center gap-2">
                       <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editRoomName} onChange={(e) => setEditRoomName(e.target.value)} />
-                      <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" value={editRoomPrice} onChange={(e) => setEditRoomPrice(e.target.value)} />
+                      <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" value={editRoomPrice} onChange={(e) => setEditRoomPrice(e.target.value)} />
                       <button onClick={() => {
-                        const rooms = (prop.rooms || []).map((rm) => rm.id === r.id ? { ...rm, name: editRoomName.trim() || rm.name, pricePerNight: parseInt(editRoomPrice) || 0 } : rm);
+                        const rooms = (prop.rooms || []).map((rm) => rm.id === r.id ? { ...rm, name: editRoomName.trim() || rm.name, pricePerNight: parseFloat(editRoomPrice) || 0 } : rm);
                         onSetupRooms(prop.id, rooms);
                         setEditingRoomId(null);
                       }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
@@ -223,8 +223,8 @@ const PropertyDetailView = ({
               {isOwner && (
                 <div className="flex gap-2 mt-2">
                   <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Nom de la chambre" value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} />
-                  <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Prix/nuit" value={newRoomPrice} onChange={(e) => setNewRoomPrice(e.target.value)} />
-                  <button onClick={() => { if (newRoomName.trim()) { const rooms = [...(prop.rooms || []), { id: Date.now(), name: newRoomName.trim(), pricePerNight: parseInt(newRoomPrice) || 0, tenantId: null, tenantName: null }]; onSetupRooms(prop.id, rooms); setNewRoomName(""); setNewRoomPrice(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
+                  <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Prix/nuit" value={newRoomPrice} onChange={(e) => setNewRoomPrice(e.target.value)} />
+                  <button onClick={() => { if (newRoomName.trim()) { const rooms = [...(prop.rooms || []), { id: Date.now(), name: newRoomName.trim(), pricePerNight: parseFloat(newRoomPrice) || 0, tenantId: null, tenantName: null }]; onSetupRooms(prop.id, rooms); setNewRoomName(""); setNewRoomPrice(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
                 </div>
               )}
             </div>
@@ -270,10 +270,10 @@ const PropertyDetailView = ({
                 if (editingMenuIdx === i && isOwner) return (
                   <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
                     <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editMenuName} onChange={(e) => setEditMenuName(e.target.value)} placeholder="Plat" />
-                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
+                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
                     <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuStock} onChange={(e) => setEditMenuStock(e.target.value)} placeholder="Stock (-1=∞)" />
                     <button onClick={() => {
-                      const newMenu = (prop.menu || []).map((item, idx) => idx === i ? { ...item, itemName: editMenuName.trim() || item.itemName, price: parseInt(editMenuPrice) || 0, stock: parseInt(editMenuStock) } : item);
+                      const newMenu = (prop.menu || []).map((item, idx) => idx === i ? { ...item, itemName: editMenuName.trim() || item.itemName, price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock) } : item);
                       onUpdatePropertyFeature(prop.id, "menu", newMenu);
                       setEditingMenuIdx(null);
                     }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
@@ -314,9 +314,9 @@ const PropertyDetailView = ({
               {isOwner && (
                 <div className="flex gap-2 mt-2">
                   <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Nom du plat" value={menuItemName} onChange={(e) => setMenuItemName(e.target.value)} />
-                  <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Prix" value={menuItemPrice} onChange={(e) => setMenuItemPrice(e.target.value)} />
+                  <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Prix" value={menuItemPrice} onChange={(e) => setMenuItemPrice(e.target.value)} />
                   <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Stock (-1=∞)" value={menuItemStock} onChange={(e) => setMenuItemStock(e.target.value)} />
-                  <button onClick={() => { if (menuItemName.trim()) { onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), { itemName: menuItemName.trim(), price: parseInt(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0 }]); setMenuItemName(""); setMenuItemPrice(""); setMenuItemStock(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
+                  <button onClick={() => { if (menuItemName.trim()) { onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), { itemName: menuItemName.trim(), price: parseFloat(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0 }]); setMenuItemName(""); setMenuItemPrice(""); setMenuItemStock(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
                 </div>
               )}
             </div>
@@ -396,8 +396,8 @@ const PropertyDetailView = ({
               <div className="flex gap-2 mt-2">
                 <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Article" value={shopItemName} onChange={(e) => setShopItemName(e.target.value)} />
                 <input className="w-14 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Qté" value={shopItemQty} onChange={(e) => setShopItemQty(e.target.value)} />
-                <input className="w-14 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Prix" value={shopItemPrice} onChange={(e) => setShopItemPrice(e.target.value)} />
-                <button onClick={() => { if (shopItemName.trim()) { onUpdatePropertyFeature(prop.id, "shopStock", [...(prop.shopStock || []), { itemName: shopItemName.trim(), qty: parseInt(shopItemQty) || 0, price: parseInt(shopItemPrice) || 0 }]); setShopItemName(""); setShopItemQty(""); setShopItemPrice(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
+                <input className="w-14 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Prix" value={shopItemPrice} onChange={(e) => setShopItemPrice(e.target.value)} />
+                <button onClick={() => { if (shopItemName.trim()) { onUpdatePropertyFeature(prop.id, "shopStock", [...(prop.shopStock || []), { itemName: shopItemName.trim(), qty: parseInt(shopItemQty) || 0, price: parseFloat(shopItemPrice) || 0 }]); setShopItemName(""); setShopItemQty(""); setShopItemPrice(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
               </div>
             )}
           </div>
@@ -422,7 +422,7 @@ const PropertyDetailView = ({
             <div className="flex gap-2 mt-2">
               <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setStaffCitizenId} value={staffCitizenId} placeholder="Embaucher..." /></div>
               <input className="w-24 p-1.5 border rounded text-xs" placeholder="Rôle" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} />
-              <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Salaire" value={staffSalary} onChange={(e) => setStaffSalary(e.target.value)} />
+              <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Salaire" value={staffSalary} onChange={(e) => setStaffSalary(e.target.value)} />
               <button onClick={() => { if (staffCitizenId) { onAddPropertyStaff(prop.id, staffCitizenId, staffRole || "Employé", staffSalary); setStaffCitizenId(""); setStaffRole(""); setStaffSalary(""); } }} disabled={!staffCitizenId} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase disabled:opacity-50"><Plus size={12} /></button>
             </div>
           )}

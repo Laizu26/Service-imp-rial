@@ -580,13 +580,13 @@ const CitizenInventoryView = ({
                 <button
                   onClick={() => {
                     if (sellItem && sellPrice && onListItemForSale) {
-                      onListItemForSale(sellItem, parseInt(sellPrice), sellQty);
+                      onListItemForSale(sellItem, parseFloat(sellPrice), sellQty);
                       setSellItem(null);
                       setSellPrice("");
                       setSellQty(1);
                     }
                   }}
-                  disabled={!sellItem || !sellPrice || parseInt(sellPrice) <= 0}
+                  disabled={!sellItem || !sellPrice || parseFloat(sellPrice) <= 0}
                   className="bg-cyan-600 text-white px-4 py-2 rounded font-bold text-xs uppercase hover:bg-cyan-500 disabled:opacity-50 flex items-center gap-1"
                 >
                   <Store size={12} /> Vendre
@@ -780,7 +780,7 @@ const CitizenInventoryView = ({
                       </div>
                     );
                   })}
-                  <input type="number" className="w-full p-1.5 border rounded text-xs font-mono" placeholder="+ Écus"
+                  <input type="number" step="0.1" className="w-full p-1.5 border rounded text-xs font-mono" placeholder="+ Écus"
                     value={tradeOfferMoney} onChange={(e) => setTradeOfferMoney(e.target.value)} min={0}
                   />
                 </div>
@@ -820,7 +820,7 @@ const CitizenInventoryView = ({
                       </div>
                     );
                   })}
-                  <input type="number" className="w-full p-1.5 border rounded text-xs font-mono" placeholder="+ Écus"
+                  <input type="number" step="0.1" className="w-full p-1.5 border rounded text-xs font-mono" placeholder="+ Écus"
                     value={tradeRequestMoney} onChange={(e) => setTradeRequestMoney(e.target.value)} min={0}
                   />
                 </div>

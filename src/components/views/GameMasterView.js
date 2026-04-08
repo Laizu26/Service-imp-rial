@@ -406,7 +406,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
     const newCitizen = {
       id: newId, firstName: form.firstName.trim(), lastName: form.lastName.trim(), name: fullName, birthDate,
       role: form.role, countryId: form.countryId, locationCountryId: form.countryId,
-      password: form.password, balance: parseInt(form.balance) || 0,
+      password: form.password, balance: parseFloat(form.balance) || 0,
       occupation: form.occupation || "Citoyen", status: form.status,
       bio: "", avatarUrl: "", inventory: [], messages: [],
       currentPosition: "", motto: "", title: "", religion: "", origin: "",
@@ -441,7 +441,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
             name: fullName, birthDate,
             role: editForm.role, countryId: editForm.countryId,
             password: editForm.password || c.password,
-            balance: parseInt(editForm.balance),
+            balance: parseFloat(editForm.balance),
             occupation: editForm.occupation, status: editForm.status,
             statusEffects: editForm.statusEffects || [],
             ...(isEmperor && {
@@ -555,11 +555,11 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
             <div>
               <Label>Date de naissance (RP)</Label>
               <div className="grid grid-cols-3 gap-2">
-                <Input type="number" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
+                <Input type="number" step="0.1" value={form.birthDay} onChange={(e) => setForm({ ...form, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
                 <Select value={form.birthMonth} onChange={(e) => setForm({ ...form, birthMonth: e.target.value })}>
                   {["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                 </Select>
-                <Input type="number" value={form.birthYear} onChange={(e) => setForm({ ...form, birthYear: e.target.value })} placeholder="Annee" />
+                <Input type="number" step="0.1" value={form.birthYear} onChange={(e) => setForm({ ...form, birthYear: e.target.value })} placeholder="Annee" />
               </div>
               <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) } }, gd)} ans</div>
             </div>
@@ -655,7 +655,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                         <div className="md:col-span-2">
                           <Label>Date de naissance (RP)</Label>
                           <div className="grid grid-cols-3 gap-2">
-                            <Input type="number" value={editForm.birthDay} onChange={(e) => setEditForm({ ...editForm, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
+                            <Input type="number" step="0.1" value={editForm.birthDay} onChange={(e) => setEditForm({ ...editForm, birthDay: e.target.value })} min="1" max="30" placeholder="Jour" />
                             <Select value={editForm.birthMonth} onChange={(e) => setEditForm({ ...editForm, birthMonth: e.target.value })}>
                               {["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"].map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                             </Select>
@@ -1155,11 +1155,11 @@ const GMLois = ({ state, onUpdateState, notify }) => {
               </div>
               <div>
                 <Label>Age minimum mariage</Label>
-                <Input type="number" value={laws.marriageMinAge || 16} onChange={(e) => setLawValue("marriageMinAge", parseInt(e.target.value) || 16)} min="0" max="100" />
+                <Input type="number" step="0.1" value={laws.marriageMinAge || 16} onChange={(e) => setLawValue("marriageMinAge", parseInt(e.target.value) || 16)} min="0" max="100" />
               </div>
               <div>
                 <Label>Frais de visa (Ecus)</Label>
-                <Input type="number" value={laws.entryVisaFee || 0} onChange={(e) => setLawValue("entryVisaFee", parseInt(e.target.value) || 0)} min="0" />
+                <Input type="number" step="0.1" value={laws.entryVisaFee || 0} onChange={(e) => setLawValue("entryVisaFee", parseFloat(e.target.value) || 0)} min="0" />
               </div>
             </div>
           </Card>
@@ -1225,7 +1225,7 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
   };
 
   const handleMint = () => {
-    const amount = parseInt(mintAmount);
+    const amount = parseFloat(mintAmount);
     if (!amount || amount <= 0) { notify("Montant invalide.", "error"); return; }
     const entry = {
       id: `ledger_${Date.now()}`,
@@ -1307,8 +1307,8 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
           Tresor Imperial actuel : <span className="font-bold text-yellow-400">{formatMoneyShort((state.treasury || 0))}</span>
         </div>
         <div className="flex gap-2">
-          <Input type="number" value={mintAmount} onChange={(e) => setMintAmount(e.target.value)} placeholder="Montant a frapper..." min="1" className="flex-1" />
-          <BtnPrimary onClick={handleMint} className="px-6" disabled={!mintAmount || parseInt(mintAmount) <= 0}>
+          <Input type="number" step="0.1" value={mintAmount} onChange={(e) => setMintAmount(e.target.value)} placeholder="Montant a frapper..." min="1" className="flex-1" />
+          <BtnPrimary onClick={handleMint} className="px-6" disabled={!mintAmount || parseFloat(mintAmount) <= 0}>
             <Coins size={14} /> Frapper
           </BtnPrimary>
         </div>
@@ -1643,7 +1643,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
               <div><Label>Récompense</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Input type="number" value={form.reward.money} min="0"
+                    <Input type="number" step="0.1" value={form.reward.money} min="0"
                       onChange={(e) => setForm({ ...form, reward: { ...form.reward, money: parseInt(e.target.value) || 0 } })}
                       placeholder="Écus…" />
                     <div className="text-[9px] text-stone-500 mt-1">Montant en Écus</div>

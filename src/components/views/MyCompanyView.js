@@ -371,7 +371,7 @@ const MyCompanyView = ({
                       </div>
                       <div className="flex gap-2">
                         <input
-                          type="number"
+                          type="number" step="0.1"
                           className="flex-1 p-2 border rounded font-mono text-sm"
                           placeholder="Montant..."
                           value={empWithdrawAmount}
@@ -383,7 +383,7 @@ const MyCompanyView = ({
                             onWithdrawCompanySalary(workerCompany.id, empWithdrawAmount);
                             setEmpWithdrawAmount("");
                           }}
-                          disabled={!empWithdrawAmount || parseInt(empWithdrawAmount) <= 0}
+                          disabled={!empWithdrawAmount || parseFloat(empWithdrawAmount) <= 0}
                           className="bg-yellow-500 text-stone-900 px-4 py-2 rounded font-bold uppercase text-xs hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-1"
                         >
                           <Wallet size={14} /> Retirer
@@ -1075,7 +1075,7 @@ const MyCompanyView = ({
             <Card title="Injection Capital" icon={ArrowDownLeft}>
               <div className="flex gap-2">
                 <input
-                  type="number"
+                  type="number" step="0.1"
                   className="flex-1 p-2 border rounded font-mono text-sm"
                   placeholder="Montant..."
                   value={depositAmount}
@@ -1095,7 +1095,7 @@ const MyCompanyView = ({
             <Card title="Retrait Dividendes" icon={ArrowUpRight}>
               <div className="flex gap-2">
                 <input
-                  type="number"
+                  type="number" step="0.1"
                   className="flex-1 p-2 border rounded font-mono text-sm"
                   placeholder="Montant..."
                   value={withdrawAmount}
@@ -1259,7 +1259,7 @@ const MyCompanyView = ({
                             </div>
                             <div className="flex items-center gap-1">
                               <input
-                                type="number"
+                                type="number" step="0.1"
                                 className="w-24 p-2 border rounded font-mono text-sm text-right"
                                 placeholder="0"
                                 value={salaryMap[empId] || ""}
@@ -1308,7 +1308,7 @@ const MyCompanyView = ({
                             </div>
                             <div className="flex items-center gap-1">
                               <input
-                                type="number"
+                                type="number" step="0.1"
                                 className="w-24 p-2 border rounded font-mono text-sm text-right"
                                 placeholder="0"
                                 value={salaryMap[slaveId] || ""}
@@ -1550,10 +1550,10 @@ const MyCompanyView = ({
                           {isParTache ? "Montant / session (info)" : "Montant total (Écus)"}
                         </label>
                         <input
-                          type="number" min={0}
+                          type="number" step="0.1" min={0}
                           className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-800 font-bold font-mono"
                           value={form.amount || ""}
-                          onChange={(e) => setContractForm((f) => ({ ...f, amount: parseInt(e.target.value) || 0 }))}
+                          onChange={(e) => setContractForm((f) => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
                           placeholder="0"
                         />
                       </div>
@@ -2085,7 +2085,7 @@ const MyCompanyView = ({
                   <div className="flex-1">
                     <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Montant (Écus)</label>
                     <input
-                      type="number"
+                      type="number" step="0.1"
                       className="w-full p-2 border rounded font-mono text-sm"
                       value={subAmount}
                       onChange={(e) => setSubAmount(e.target.value)}
@@ -2107,13 +2107,13 @@ const MyCompanyView = ({
                 <button
                   onClick={() => {
                     if (subTargetCompany && subAmount && onCreateSubcontract) {
-                      onCreateSubcontract(myCompany.id, subTargetCompany, parseInt(subAmount), subDesc);
+                      onCreateSubcontract(myCompany.id, subTargetCompany, parseFloat(subAmount), subDesc);
                       setSubTargetCompany("");
                       setSubAmount("");
                       setSubDesc("");
                     }
                   }}
-                  disabled={!subTargetCompany || !subAmount || parseInt(subAmount) <= 0}
+                  disabled={!subTargetCompany || !subAmount || parseFloat(subAmount) <= 0}
                   className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-2"
                 >
                   <Send size={14} /> Transférer
@@ -2262,7 +2262,7 @@ const MyCompanyView = ({
                   <div>
                     <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Nouveau cours (Écus)</label>
                     <div className="flex gap-2">
-                      <input type="number" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                      <input type="number" step="0.1" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
                         placeholder={myListing.pricePerShare} value={bourseForm.newPrice} onChange={(e) => setBF({ newPrice: e.target.value })} />
                       <button
                         disabled={!bourseForm.newPrice || parseFloat(bourseForm.newPrice) <= 0}
@@ -2333,7 +2333,7 @@ const MyCompanyView = ({
                         <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Montant par action (Écus)</label>
                           <div className="flex gap-2">
-                            <input type="number" className="flex-1 border border-amber-200 rounded-lg p-2.5 text-sm outline-none focus:border-amber-400 bg-amber-50 font-mono"
+                            <input type="number" step="0.1" className="flex-1 border border-amber-200 rounded-lg p-2.5 text-sm outline-none focus:border-amber-400 bg-amber-50 font-mono"
                               placeholder="ex: 5" value={bourseForm.dividend} onChange={(e) => setBF({ dividend: e.target.value })} />
                             <button
                               disabled={!bourseForm.dividend || parseFloat(bourseForm.dividend) <= 0}

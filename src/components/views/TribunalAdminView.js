@@ -215,7 +215,7 @@ const TribunalAdminView = ({
                               </div>
                             </div>
                             {verdictForm[trial.id]?.sentenceType === "FINE" && (
-                              <input type="number" className="w-full p-2 border rounded font-mono text-sm" placeholder="Montant de l'amende (Écus)" value={verdictForm[trial.id]?.amount || ""} onChange={(e) => setVerdictForm({ ...verdictForm, [trial.id]: { ...verdictForm[trial.id], amount: e.target.value } })} />
+                              <input type="number" step="0.1" className="w-full p-2 border rounded font-mono text-sm" placeholder="Montant de l'amende (Écus)" value={verdictForm[trial.id]?.amount || ""} onChange={(e) => setVerdictForm({ ...verdictForm, [trial.id]: { ...verdictForm[trial.id], amount: e.target.value } })} />
                             )}
                             {(verdictForm[trial.id]?.sentenceType === "PRISON" || verdictForm[trial.id]?.sentenceType === "CUSTOM") && (
                               <input className="w-full p-2 border rounded text-sm" placeholder="Détails de la peine..." value={verdictForm[trial.id]?.text || ""} onChange={(e) => setVerdictForm({ ...verdictForm, [trial.id]: { ...verdictForm[trial.id], text: e.target.value } })} />
@@ -226,7 +226,7 @@ const TribunalAdminView = ({
                                 if (!vf?.verdict) return;
                                 const sentence = vf.sentenceType ? {
                                   type: vf.sentenceType,
-                                  amount: parseInt(vf.amount) || 0,
+                                  amount: parseFloat(vf.amount) || 0,
                                   text: vf.text || "",
                                 } : null;
                                 onRenderVerdict(trial.id, { verdict: vf.verdict, sentence });

@@ -617,7 +617,7 @@ const SlaveManagementView = ({
                     ) : (
                       <div className="flex flex-col sm:flex-row gap-3 items-center">
                         <input
-                          type="number"
+                          type="number" step="0.1"
                           aria-label="Prix en écus"
                           placeholder="Prix en Écus"
                           value={price}
@@ -664,7 +664,7 @@ const SlaveManagementView = ({
                               );
                               return;
                             }
-                            const p = parseInt(price);
+                            const p = parseFloat(price);
                             if (!p || p <= 0) {
                               notify("Prix invalide.", "error");
                               return;
@@ -692,13 +692,13 @@ const SlaveManagementView = ({
                             );
                           }}
                           className={`w-full sm:w-auto px-4 py-2 rounded text-sm font-bold transition ${
-                            !canManage(selectedSlave) || parseInt(price) <= 0
+                            !canManage(selectedSlave) || parseFloat(price) <= 0
                               ? "bg-stone-200 text-stone-400 cursor-not-allowed"
                               : "bg-stone-900 text-white hover:bg-stone-800"
                           }`}
                           disabled={
                             !price ||
-                            parseInt(price) <= 0 ||
+                            parseFloat(price) <= 0 ||
                             !canManage(selectedSlave) ||
                             (!isGlobalAdmin &&
                               !getCountryLaws(selectedSlave).allowLocalSales)

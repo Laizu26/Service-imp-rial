@@ -332,7 +332,7 @@ const JobsAdminView = ({
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Montant total (Écus)</label>
                   <input
-                    type="number"
+                    type="number" step="0.1"
                     min={1}
                     className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-800 font-bold font-mono"
                     value={form.amount || ""}

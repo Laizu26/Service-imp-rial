@@ -99,10 +99,10 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
         <div className="space-y-2">
           <div className="text-[9px] text-stone-400 mt-1">Votre solde : <span className="font-mono font-bold text-stone-600">{formatMoney(userBalance)}</span></div>
           <div className="flex gap-2">
-            <input type="number" className="flex-1 p-2 border border-stone-200 rounded text-sm font-mono bg-white focus:border-stone-400 outline-none" placeholder="Montant" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+            <input type="number" step="0.1" className="flex-1 p-2 border border-stone-200 rounded text-sm font-mono bg-white focus:border-stone-400 outline-none" placeholder="Montant" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
             <button
               onClick={() => { if (depositAmount) { onDeposit(familyId, depositAmount); setDepositAmount(""); } }}
-              disabled={!depositAmount || parseInt(depositAmount) <= 0 || parseInt(depositAmount) > userBalance}
+              disabled={!depositAmount || parseFloat(depositAmount) <= 0 || parseFloat(depositAmount) > userBalance}
               className="bg-stone-800 text-yellow-500 px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-stone-700 transition-colors"
             >Déposer</button>
           </div>
@@ -114,10 +114,10 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
         <div className="space-y-2">
           <div className="text-[9px] text-amber-600 mt-1">Trésorerie disponible : <span className="font-mono font-bold">{formatMoney(treasury)}</span></div>
           <div className="flex gap-2">
-            <input type="number" className="flex-1 p-2 border border-amber-200 rounded text-sm font-mono bg-white focus:border-amber-400 outline-none" placeholder="Montant" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
+            <input type="number" step="0.1" className="flex-1 p-2 border border-amber-200 rounded text-sm font-mono bg-white focus:border-amber-400 outline-none" placeholder="Montant" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
             <button
               onClick={() => { if (withdrawAmount) { onWithdraw(familyId, withdrawAmount); setWithdrawAmount(""); } }}
-              disabled={!withdrawAmount || parseInt(withdrawAmount) <= 0 || parseInt(withdrawAmount) > treasury}
+              disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > treasury}
               className="bg-amber-700 text-white px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-amber-600 transition-colors"
             >Retirer</button>
           </div>
@@ -147,7 +147,7 @@ const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDepo
                   setTransferAmount(""); setTransferTarget(""); setTransferReason("");
                 }
               }}
-              disabled={!transferTarget || !transferAmount || parseInt(transferAmount) <= 0 || parseInt(transferAmount) > treasury}
+              disabled={!transferTarget || !transferAmount || parseFloat(transferAmount) <= 0 || parseFloat(transferAmount) > treasury}
               className="bg-blue-700 text-white px-4 py-2 rounded text-[10px] font-bold uppercase disabled:opacity-40 hover:bg-blue-600 transition-colors"
             >Virer</button>
           </div>
@@ -285,13 +285,13 @@ const SellPropertyButton = ({ propId, onSellProperty }) => {
       />
       <button
         onClick={() => {
-          if (price && parseInt(price) > 0) {
-            onSellProperty(propId, parseInt(price));
+          if (price && parseFloat(price) > 0) {
+            onSellProperty(propId, parseFloat(price));
             setOpen(false);
             setPrice("");
           }
         }}
-        disabled={!price || parseInt(price) <= 0}
+        disabled={!price || parseFloat(price) <= 0}
         className="bg-yellow-500 text-stone-900 text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-yellow-400 disabled:opacity-40 transition-colors"
       >
         Confirmer
@@ -334,13 +334,13 @@ const RentPropertyButton = ({ propId, onListPropertyForRent }) => {
       />
       <button
         onClick={() => {
-          if (rate && parseInt(rate) > 0) {
-            onListPropertyForRent(propId, parseInt(rate));
+          if (rate && parseFloat(rate) > 0) {
+            onListPropertyForRent(propId, parseFloat(rate));
             setOpen(false);
             setRate("");
           }
         }}
-        disabled={!rate || parseInt(rate) <= 0}
+        disabled={!rate || parseFloat(rate) <= 0}
         className="bg-blue-500 text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-blue-400 disabled:opacity-40 transition-colors"
       >
         Confirmer

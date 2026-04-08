@@ -137,13 +137,13 @@ const GuildsView = ({
                       <div className="bg-white rounded-lg border border-stone-200 p-3">
                         <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">Trésorerie — {formatMoney((guild.balance || 0))}</div>
                         <div className="flex gap-2">
-                          <input type="number" className="w-28 p-1.5 border rounded text-sm font-mono" placeholder="Montant" value={depositAmt[guild.id] || ""} onChange={(e) => setDepositAmt({ ...depositAmt, [guild.id]: e.target.value })} />
+                          <input type="number" step="0.1" className="w-28 p-1.5 border rounded text-sm font-mono" placeholder="Montant" value={depositAmt[guild.id] || ""} onChange={(e) => setDepositAmt({ ...depositAmt, [guild.id]: e.target.value })} />
                           <button onClick={() => { if (depositAmt[guild.id]) { onGuildDeposit(guild.id, depositAmt[guild.id]); setDepositAmt({ ...depositAmt, [guild.id]: "" }); } }} className="bg-green-600 text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500">
                             <Coins size={12} /> Déposer
                           </button>
                           {isLeader && (
                             <>
-                              <input type="number" className="w-28 p-1.5 border rounded text-sm font-mono" placeholder="Montant" value={withdrawAmt[guild.id] || ""} onChange={(e) => setWithdrawAmt({ ...withdrawAmt, [guild.id]: e.target.value })} />
+                              <input type="number" step="0.1" className="w-28 p-1.5 border rounded text-sm font-mono" placeholder="Montant" value={withdrawAmt[guild.id] || ""} onChange={(e) => setWithdrawAmt({ ...withdrawAmt, [guild.id]: e.target.value })} />
                               <button onClick={() => { if (withdrawAmt[guild.id]) { onGuildWithdraw(guild.id, withdrawAmt[guild.id]); setWithdrawAmt({ ...withdrawAmt, [guild.id]: "" }); } }} className="bg-yellow-500 text-stone-900 px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-yellow-400">
                                 Retirer
                               </button>

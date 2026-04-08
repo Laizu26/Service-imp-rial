@@ -40,7 +40,7 @@ const SlavePersonalView = ({
   const visibleBalance = user.balance || 0;
 
   // Calcul du risque pour l'affichage
-  const hideAmtNum = parseInt(hideAmount) || 0;
+  const hideAmtNum = parseFloat(hideAmount) || 0;
   const detectionRisk =
     hideAmtNum > 0 ? Math.min(100, 10 + Math.floor(hideAmtNum / 15) * 5) : 0;
 
@@ -51,7 +51,7 @@ const SlavePersonalView = ({
   };
 
   const handleWithdraw = () => {
-    const amt = parseInt(withdrawAmount) || 0;
+    const amt = parseFloat(withdrawAmount) || 0;
     if (amt <= 0) return;
     onWithdrawHiddenMoney(amt);
     setWithdrawAmount("");
@@ -59,7 +59,7 @@ const SlavePersonalView = ({
 
   const handleHiddenTransfer = () => {
     if (!transferTarget || !transferAmount) return;
-    const amt = parseInt(transferAmount);
+    const amt = parseFloat(transferAmount);
     if (amt <= 0 || amt > hiddenBalance) return;
     const tgtRaw =
       transferTargetType === "COMPANY"
@@ -143,7 +143,7 @@ const SlavePersonalView = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="number" step="0.1"
                   className="w-full p-3 bg-white border border-stone-300 rounded font-mono font-bold text-stone-900 outline-none focus:border-amber-500 transition-colors"
                   value={hideAmount}
                   onChange={(e) => setHideAmount(e.target.value)}
@@ -211,7 +211,7 @@ const SlavePersonalView = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="number" step="0.1"
                   className="w-full p-3 bg-white border border-stone-300 rounded font-mono font-bold text-stone-900 outline-none focus:border-stone-500 transition-colors"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
@@ -227,8 +227,8 @@ const SlavePersonalView = ({
               onClick={handleWithdraw}
               disabled={
                 !withdrawAmount ||
-                parseInt(withdrawAmount) <= 0 ||
-                parseInt(withdrawAmount) > hiddenBalance
+                parseFloat(withdrawAmount) <= 0 ||
+                parseFloat(withdrawAmount) > hiddenBalance
               }
               className="w-full bg-stone-800 text-white py-3 rounded font-black uppercase text-[10px] tracking-[0.2em] hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
             >
@@ -328,7 +328,7 @@ const SlavePersonalView = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="number" step="0.1"
                   className="w-full p-3 bg-white border border-stone-300 rounded font-mono font-bold text-stone-900 outline-none focus:border-amber-500 transition-colors"
                   value={transferAmount}
                   onChange={(e) => setTransferAmount(e.target.value)}
@@ -353,8 +353,8 @@ const SlavePersonalView = ({
               disabled={
                 !transferTarget ||
                 !transferAmount ||
-                parseInt(transferAmount) <= 0 ||
-                parseInt(transferAmount) > hiddenBalance
+                parseFloat(transferAmount) <= 0 ||
+                parseFloat(transferAmount) > hiddenBalance
               }
               className="w-full bg-amber-700 text-white py-3 rounded font-black uppercase text-[10px] tracking-[0.2em] hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
             >

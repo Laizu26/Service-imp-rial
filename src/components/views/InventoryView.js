@@ -520,7 +520,7 @@ const InventoryView = ({ items, onUpdate, session, roleInfo, companies = [], cou
                           type="number"
                           className="w-full p-2 pr-6 bg-stone-50 border border-stone-200 rounded text-xs font-bold outline-none font-mono"
                           value={editForm.price}
-                          onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) || 0 })}
+                          onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) || 0 })}
                         />
                         <Coins size={10} className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400" />
                       </div>

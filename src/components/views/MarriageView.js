@@ -32,7 +32,7 @@ function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw })
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <input
-        type="number"
+        type="number" step="0.1"
         min={0}
         value={amount}
         onChange={(e) => setAmount(parseInt(e.target.value) || 0)}
@@ -593,7 +593,7 @@ const MarriageView = ({
                     <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">
                       Montant de la Dot (Écus)
                     </label>
-                    <input type="number" min={0}
+                    <input type="number" step="0.1" min={0}
                       className="w-full p-3 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold focus:border-amber-400"
                       value={marryDot}
                       onChange={(e) => setMarryDot(parseInt(e.target.value) || 0)} />

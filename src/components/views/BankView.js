@@ -255,7 +255,7 @@ const BankView = ({
 
   const handleTransfer = () => {
     if (amount > 0 && srcId && tgtId) {
-      onTransfer(getRaw(srcType, srcId), getRaw(tgtType, tgtId), parseInt(amount));
+      onTransfer(getRaw(srcType, srcId), getRaw(tgtType, tgtId), parseFloat(amount));
       setAmount("");
     }
   };
@@ -378,7 +378,7 @@ const BankView = ({
           </span>
           <span
             className={`font-mono font-bold text-lg ${
-              currentSrcBalance < (parseInt(amount) || 0)
+              currentSrcBalance < (parseFloat(amount) || 0)
                 ? "text-red-500"
                 : "text-stone-800"
             }`}
@@ -494,7 +494,7 @@ const BankView = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="number" step="0.1"
                   className="w-full p-4 border-2 border-stone-300 rounded-xl text-xl font-bold bg-white outline-none focus:border-yellow-500 font-mono transition-colors"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -504,7 +504,7 @@ const BankView = ({
                   Écus
                 </span>
               </div>
-              {amount && parseInt(amount) > currentSrcBalance && (
+              {amount && parseFloat(amount) > currentSrcBalance && (
                 <div className="flex items-center gap-1.5 mt-2 text-[10px] text-red-500 font-bold">
                   <AlertTriangle size={10} />
                   Le montant dépasse le solde source

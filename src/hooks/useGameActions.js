@@ -361,7 +361,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
       },
       onAddTreasury: (amount) => {
-        const val = parseInt(amount);
+        const val = parseFloat(amount);
         if (val && !isNaN(val) && val > 0) {
           const newEntry = {
             id: Date.now(),
@@ -420,7 +420,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           ownerId: ownerId,
           countryId: countryId || "NONE",
           level: 1,
-          balance: parseInt(startingBalance) || 0,
+          balance: parseFloat(startingBalance) || 0,
           employees: [],
           slaves: [],
           inventory: [],
@@ -501,11 +501,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (sanitized.level !== undefined)
           sanitized.level = Math.max(1, parseInt(sanitized.level) || 1);
         if (sanitized.balance !== undefined)
-          sanitized.balance = parseInt(sanitized.balance) || 0;
+          sanitized.balance = parseFloat(sanitized.balance) || 0;
         if (sanitized.taxRate !== undefined)
           sanitized.taxRate = Math.max(
             0,
-            Math.min(100, parseInt(sanitized.taxRate) || 0)
+            Math.min(100, parseFloat(sanitized.taxRate) || 0)
           );
         const newCompanies = [...state.companies];
         newCompanies[compIdx] = { ...newCompanies[compIdx], ...sanitized };
@@ -546,7 +546,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         const company = state.companies[compIdx];
         const user = state.citizens[userIdx];
-        const val = parseInt(amount);
+        const val = parseFloat(amount);
 
         if (!val || val <= 0) {
           notify("Montant invalide.", "error");
@@ -619,8 +619,8 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         allWorkers.forEach((wId) => {
           const val = isMap
-            ? parseInt(salaryData[wId]) || 0
-            : parseInt(salaryData) || 0;
+            ? parseFloat(salaryData[wId]) || 0
+            : parseFloat(salaryData) || 0;
           if (val > 0) {
             payments[wId] = val;
             totalCost += val;
@@ -683,7 +683,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         const company = state.companies[compIdx];
         const user = state.citizens[userIdx];
-        const val = parseInt(amount);
+        const val = parseFloat(amount);
         if (!val || val <= 0) {
           notify("Montant invalide.", "error");
           return;
@@ -874,7 +874,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         let s = structuredClone(state);
         const process = (raw, isCredit) => {
-          const v = isCredit ? parseInt(amount) : -parseInt(amount);
+          const v = isCredit ? parseFloat(amount) : -parseFloat(amount);
           if (raw === "GLOBAL") {
             s.treasury += v;
             return "Trésor Impérial";
@@ -912,7 +912,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           id: Date.now(),
           fromName,
           toName,
-          amount: parseInt(amount),
+          amount: parseFloat(amount),
           timestamp: Date.now(),
           type: "TRANSFER",
         };
@@ -1324,7 +1324,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // --- COMPTE CACHÉ (esclave dissimule son argent) ---
       onHideMoney: (amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) return;
 
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);
@@ -1404,7 +1404,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onWithdrawHiddenMoney: (amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) return;
 
         const userIdx = state.citizens.findIndex((c) => c.id === session.id);
@@ -1447,7 +1447,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // --- TRANSFERT DEPUIS LE COMPTE CACHÉ ---
       onHiddenTransfer: (targetRaw, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0 || !targetRaw) return;
 
         let s = structuredClone(state);
@@ -1527,7 +1527,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // --- RESTITUTION D'UN TRANSFERT CACHÉ DÉCOUVERT ---
       onRestoreHiddenTransfer: (alertId, slaveId, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0 || !slaveId) return;
 
         const newCitizens = [...state.citizens];
@@ -1815,7 +1815,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // Dépôt dans le trésor commun / fief
       onSharedAccountDeposit: (pairKey, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) return;
         const newCitizens = [...state.citizens];
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
@@ -1832,7 +1832,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // Retrait du trésor commun / fief (avec vérification de domination pour le fief)
       onSharedAccountWithdraw: (pairKey, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) return;
         const newCitizens = [...state.citizens];
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
@@ -2332,7 +2332,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
       onProposeDebt: (targetId, amount, interest, reason) => {
         if (!session) return;
-        const val = parseInt(amount);
+        const val = parseFloat(amount);
         const rate = parseFloat(interest) || 0;
         if (!val || val <= 0) {
           notify("Montant invalide.", "error");
@@ -2902,7 +2902,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Seul le dirigeant peut créer un contrat de sous-traitance.", "error");
           return;
         }
-        const val = parseInt(amount);
+        const val = parseFloat(amount);
         if (!val || val <= 0) {
           notify("Montant invalide.", "error");
           return;
@@ -2993,7 +2993,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const inv = user.inventory || [];
         const slot = inv.find((e) => e.itemId === itemId);
         const qty = parseInt(quantity) || 1;
-        const pr = parseInt(price);
+        const pr = parseFloat(price);
         if (!slot || slot.quantity < qty) { notify("Quantité insuffisante.", "error"); return; }
         if (!pr || pr <= 0) { notify("Prix invalide.", "error"); return; }
         const catalog = state.inventoryCatalog || [];
@@ -3229,8 +3229,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           name: name || "Propriété sans nom",
           type: type || "MAISON",
           description: description || "",
-          price: parseInt(price) || 0,
-          income: parseInt(income) || 0,
+          price: parseFloat(price) || 0,
+          income: parseFloat(income) || 0,
           countryId: countryId || null,
           regionId: regionId || null,
           location: location || "",
@@ -3315,7 +3315,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (pIdx === -1) return;
         const prop = properties[pIdx];
         if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
-        const pr = parseInt(price);
+        const pr = parseFloat(price);
         if (!pr || pr <= 0) { notify("Prix invalide.", "error"); return; }
         properties[pIdx] = { ...prop, forSale: true, salePrice: pr };
         saveState({ ...state, properties });
@@ -3650,7 +3650,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (pIdx === -1) return;
         const staff = [...(properties[pIdx].staff || [])];
         if (staff.find((s) => s.id === citizenId)) { notify("Déjà employé.", "error"); return; }
-        staff.push({ id: citizenId, name: citizen.name, role: role || "Employé", salary: parseInt(salary) || 0 });
+        staff.push({ id: citizenId, name: citizen.name, role: role || "Employé", salary: parseFloat(salary) || 0 });
         properties[pIdx] = { ...properties[pIdx], staff };
         saveState({ ...state, properties });
         notify(`${citizen.name} embauché(e) comme ${role || "employé"}.`, "success");
@@ -3696,7 +3696,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (pIdx === -1) return;
         const prop = properties[pIdx];
         if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
-        const rate = parseInt(dailyRate);
+        const rate = parseFloat(dailyRate);
         if (!rate || rate <= 0) { notify("Tarif invalide.", "error"); return; }
         if (prop.rental && prop.rental.tenantId) { notify("Un locataire occupe déjà ce bien.", "error"); return; }
         properties[pIdx] = { ...prop, rental: { dailyRate: rate, tenantId: null, tenantName: null, startDate: null } };
@@ -4000,7 +4000,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onGuildDeposit: (guildId, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
         const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
@@ -4022,7 +4022,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onGuildWithdraw: (guildId, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
         const guilds = [...(state.guilds || [])];
         const gIdx = guilds.findIndex((g) => g.id === guildId);
@@ -4096,7 +4096,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onFamilyDeposit: (familyId, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
@@ -4118,7 +4118,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onFamilyWithdraw: (familyId, amount) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
@@ -4142,7 +4142,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onFamilyTreasuryTransfer: (fromFamilyId, toFamilyId, amount, reason) => {
         if (!session) return;
-        const amt = parseInt(amount);
+        const amt = parseFloat(amount);
         if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
         if (fromFamilyId === toFamilyId) { notify("Impossible de transférer vers la même famille.", "error"); return; }
         const families = [...(state.families || [])];

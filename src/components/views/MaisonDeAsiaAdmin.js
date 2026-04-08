@@ -275,7 +275,7 @@ const MaisonDeAsiaAdmin = ({
       name: slaveProfile.name,
       avatarUrl: slaveProfile.avatarUrl,
       specialty: newStaffSpecialty,
-      price: parseInt(newStaffPrice),
+      price: parseFloat(newStaffPrice),
       sessionDuration: newStaffDuration ? parseInt(newStaffDuration) : undefined,
       specialtyDescription: newStaffDescription || "",
       gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
@@ -324,7 +324,7 @@ const MaisonDeAsiaAdmin = ({
         ? {
             ...s,
             specialty: editSpecialty,
-            price: parseInt(editPrice) || 0,
+            price: parseFloat(editPrice) || 0,
             sessionDuration: editDuration ? parseInt(editDuration) : undefined,
             specialtyDescription: editDescription,
             gallery: editGallery,
@@ -549,7 +549,7 @@ const MaisonDeAsiaAdmin = ({
                     className="absolute left-3 top-3.5 text-stone-400"
                   />
                   <input
-                    type="number"
+                    type="number" step="0.1"
                     className="p-3 pl-8 w-full border rounded-lg text-sm bg-stone-50"
                     placeholder="Prix"
                     value={newStaffPrice}
@@ -698,7 +698,7 @@ const MaisonDeAsiaAdmin = ({
                           <div className="grid grid-cols-2 gap-2">
                             <div className="relative">
                               <input
-                                type="number"
+                                type="number" step="0.1"
                                 className="w-full p-1.5 pl-6 border rounded text-xs bg-stone-50 outline-none focus:border-fuchsia-500 font-mono"
                                 value={editPrice}
                                 onChange={(e) => setEditPrice(e.target.value)}
@@ -1595,7 +1595,7 @@ const MaisonDeAsiaAdmin = ({
                               {isParTache ? "Montant / session (info)" : "Montant total (Écus)"}
                             </label>
                             <input
-                              type="number" min={0}
+                              type="number" step="0.1" min={0}
                               className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-fuchsia-500 font-bold font-mono"
                               value={form.amount || ""}
                               onChange={(e) => setContractForm((f) => ({ ...f, amount: parseInt(e.target.value) || 0 }))}

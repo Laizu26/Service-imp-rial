@@ -219,7 +219,7 @@ const CitizenBankView = ({
 
   // --- ACTIONS ---
   const handleTransfer = () => {
-    if (!transferTarget || !transferAmount || parseInt(transferAmount) <= 0)
+    if (!transferTarget || !transferAmount || parseFloat(transferAmount) <= 0)
       return;
     const tgtRaw =
       transferTargetType === "COMPANY"
@@ -227,19 +227,19 @@ const CitizenBankView = ({
         : transferTargetType === "COUNTRY"
         ? `C-${transferTarget}`
         : `U-${transferTarget}`;
-    onTransfer(`U-${user.id}`, tgtRaw, parseInt(transferAmount));
+    onTransfer(`U-${user.id}`, tgtRaw, parseFloat(transferAmount));
     setTransferAmount("");
     setTransferTarget("");
     setTransferReason("");
   };
 
   const handleProposeLoan = () => {
-    if (!loanTarget || !loanAmount || parseInt(loanAmount) <= 0) return;
+    if (!loanTarget || !loanAmount || parseFloat(loanAmount) <= 0) return;
     if (onProposeDebt) {
       onProposeDebt(
         loanTarget,
-        parseInt(loanAmount),
-        parseInt(loanInterest) || 0,
+        parseFloat(loanAmount),
+        parseFloat(loanInterest) || 0,
         loanReason || "Prêt",
         loanDueDate || "Indéterminée"
       );
@@ -584,7 +584,7 @@ const CitizenBankView = ({
                   </label>
                   <div className="relative">
                     <input
-                      type="number"
+                      type="number" step="0.1"
                       className="w-full p-3 pr-16 bg-white border-2 border-stone-200 rounded-lg font-mono font-bold text-lg text-stone-900 outline-none focus:border-yellow-500 transition-colors"
                       value={transferAmount}
                       onChange={(e) => setTransferAmount(e.target.value)}
@@ -594,7 +594,7 @@ const CitizenBankView = ({
                       Écus
                     </span>
                   </div>
-                  {transferAmount && parseInt(transferAmount) > (user?.balance || 0) && (
+                  {transferAmount && parseFloat(transferAmount) > (user?.balance || 0) && (
                     <div className="flex items-center gap-1.5 mt-2 text-[10px] text-red-500 font-bold">
                       <AlertTriangle size={10} />
                       Fonds insuffisants
@@ -624,7 +624,7 @@ const CitizenBankView = ({
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-stone-500">Montant à envoyer</span>
                       <span className="font-black font-mono text-stone-800">
-                        {formatMoney(parseInt(transferAmount || 0))}
+                        {formatMoney(parseFloat(transferAmount || 0))}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-xs mt-1">
@@ -633,7 +633,7 @@ const CitizenBankView = ({
                       </span>
                       <span
                         className={`font-black font-mono ${
-                          (user?.balance || 0) - parseInt(transferAmount || 0) <
+                          (user?.balance || 0) - parseFloat(transferAmount || 0) <
                           0
                             ? "text-red-500"
                             : "text-green-600"
@@ -641,7 +641,7 @@ const CitizenBankView = ({
                       >
                         {(
                           (user?.balance || 0) -
-                          parseInt(transferAmount || 0)
+                          parseFloat(transferAmount || 0)
                         ).toLocaleString()}{formatMoney(" ")}
                       </span>
                     </div>
@@ -653,8 +653,8 @@ const CitizenBankView = ({
                   disabled={
                     !transferTarget ||
                     !transferAmount ||
-                    parseInt(transferAmount) <= 0 ||
-                    parseInt(transferAmount) > (user?.balance || 0)
+                    parseFloat(transferAmount) <= 0 ||
+                    parseFloat(transferAmount) > (user?.balance || 0)
                   }
                   className="w-full bg-gradient-to-r from-stone-800 to-stone-900 text-yellow-500 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] hover:from-stone-700 hover:to-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
                 >
@@ -944,7 +944,7 @@ const CitizenBankView = ({
                     </label>
                     <div className="relative">
                       <input
-                        type="number"
+                        type="number" step="0.1"
                         className="w-full p-2.5 pr-8 bg-white border-2 border-stone-200 rounded-lg font-mono font-bold text-stone-900 outline-none focus:border-yellow-500 transition-colors"
                         value={loanAmount}
                         onChange={(e) => setLoanAmount(e.target.value)}
@@ -1019,7 +1019,7 @@ const CitizenBankView = ({
                       <span className="text-yellow-700">Principal</span>
                       <span className="font-mono font-bold text-stone-800">
                         {loanAmount
-                          ? parseInt(loanAmount).toLocaleString()
+                          ? parseFloat(loanAmount).toLocaleString()
                           : "0"}{formatMoney(" ")}
                       </span>
                     </div>
@@ -1029,8 +1029,8 @@ const CitizenBankView = ({
                         +
                         {loanAmount && loanInterest
                           ? Math.floor(
-                              (parseInt(loanAmount) *
-                                parseInt(loanInterest)) /
+                              (parseFloat(loanAmount) *
+                                parseFloat(loanInterest)) /
                                 100
                             ).toLocaleString()
                           : "0"}{formatMoney(" ")}
@@ -1043,8 +1043,8 @@ const CitizenBankView = ({
                       <span className="font-black font-mono text-red-700 text-base">
                         {loanAmount
                           ? Math.floor(
-                              parseInt(loanAmount) *
-                                (1 + parseInt(loanInterest || 0) / 100)
+                              parseFloat(loanAmount) *
+                                (1 + parseFloat(loanInterest || 0) / 100)
                             ).toLocaleString()
                           : "0"}{formatMoney(" ")}
                       </span>

@@ -242,7 +242,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   };
 
   const adminTransferTreasury = (fromFamId, toFamId, amount, reason) => {
-    const amt = parseInt(amount);
+    const amt = parseFloat(amount);
     if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
     if (fromFamId === toFamId) { notify("Impossible de transférer vers la même famille.", "error"); return; }
     const fromFam = safeFamilies.find((f) => f.id === fromFamId);
@@ -685,7 +685,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               <div className="space-y-2">
                 <div>
                   <Label>Montant (positif = ajouter, négatif = retirer)</Label>
-                  <Input type="number" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} placeholder="ex: 500 ou -200" />
+                  <Input type="number" step="0.1" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} placeholder="ex: 500 ou -200" />
                 </div>
                 <div>
                   <Label>Motif</Label>
@@ -715,7 +715,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                 </div>
                 <div>
                   <Label>Montant</Label>
-                  <Input type="number" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="Montant en Écus" />
+                  <Input type="number" step="0.1" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="Montant en Écus" />
                 </div>
                 <div>
                   <Label>Motif du virement</Label>
