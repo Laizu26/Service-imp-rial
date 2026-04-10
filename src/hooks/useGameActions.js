@@ -4432,6 +4432,59 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Dividendes versés : ${formatMoney(dpS)}/action. Total distribué : ${formatMoney(totalPaid)}.`, "success");
       },
 
+      // ── Plan d'Actionnariat Salarié (ESPP) ──
+      onUpdateCompanyESPP: (companyId, esppSettings) => {
+        const companies = [...(state.companies || [])];
+        const idx = companies.findIndex((c) => c.id === companyId);
+        if (idx === -1) return;
+        if (companies[idx].ownerId !== session.id) { notify("Action non autorisée.", "error"); return; }
+        companies[idx] = { ...companies[idx], espp: { ...esppSettings } };
+        saveState({ ...state, companies });
+        notify(esppSettings.enabled ? "Plan d'actionnariat salarié activé." : "Plan d'actionnariat salarié désactivé.", "success");
+      },
+
+      onEmployeeBuyShares: (companyId, listingId, qty) => {
+        if (!session) return;
+        const quantity = parseInt(qty);
+        if (!quantity || quantity <= 0) { notify("Quantité invalide.", "error"); return; }
+        const companies = [...(state.companies || [])];
+        const compIdx = companies.findIndex((c) => c.id === companyId);
+        if (compIdx === -1) { notify("Entreprise introuvable.", "error"); return; }
+        const company = companies[compIdx];
+        const isEmployee = (company.employees || []).includes(session.id);
+        if (!isEmployee) { notify("Vous n'êtes pas employé dans cette entreprise.", "error"); return; }
+        const espp = company.espp || {};
+        if (!espp.enabled) { notify("Le plan d'actionnariat n'est pas actif.", "error"); return; }
+        const discount = Math.min(Math.max(parseFloat(espp.discountPercent) || 0, 0), 90) / 100;
+        const listings = [...(state.bourseListings || [])];
+        const lIdx = listings.findIndex((l) => l.id === listingId);
+        if (lIdx === -1) { notify("Cotation introuvable.", "error"); return; }
+        const listing = listings[lIdx];
+        if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
+        if (listing.sharesOnMarket < quantity) { notify(`Seulement ${listing.sharesOnMarket} action(s) disponible(s).`, "error"); return; }
+        const discountedPrice = Math.round(listing.pricePerShare * (1 - discount) * 10) / 10;
+        const totalCost = Math.round(quantity * discountedPrice * 10) / 10;
+        const workerBal = (company.workerBalances || {})[session.id] || 0;
+        if (workerBal < totalCost) { notify(`Compte entreprise insuffisant. Disponible : ${formatMoney(workerBal)}, requis : ${formatMoney(totalCost)}.`, "error"); return; }
+        const newCitizens = [...(state.citizens || [])];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        // Débit du compte entreprise de l'employé
+        const wb = { ...(company.workerBalances || {}) };
+        wb[session.id] = workerBal - totalCost;
+        companies[compIdx] = { ...company, workerBalances: wb };
+        // Crédit de la trésorerie de l'entreprise (au prix réduit)
+        companies[compIdx] = { ...companies[compIdx], balance: (companies[compIdx].balance || 0) + totalCost };
+        // Mise à jour des actions du citoyen
+        const currentHoldings = newCitizens[userIdx].stockholdings || {};
+        newCitizens[userIdx] = { ...newCitizens[userIdx], stockholdings: { ...currentHoldings, [listingId]: (currentHoldings[listingId] || 0) + quantity } };
+        listings[lIdx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - quantity };
+        const ts = Date.now();
+        const ledgerEntry = { id: ts, fromName: `Compte salarié — ${company.name}`, toName: `${listing.companyName} (ESPP: ${listing.symbol})`, amount: totalCost, timestamp: ts, reason: `ESPP : ${quantity} action(s) ${listing.symbol} à ${formatMoney(discountedPrice)} (−${espp.discountPercent}%)`, type: "ESPP_BUY" };
+        saveState({ ...state, companies, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`${quantity} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(totalCost)} (remise salarié −${espp.discountPercent}%).`, "success");
+      },
+
       onGuardImprison: (countryId, citizenId, reason, sentence) => {
         if (!session) return;
         const guard = (state.countries || []).find((c) => c.id === countryId)?.guard || {};

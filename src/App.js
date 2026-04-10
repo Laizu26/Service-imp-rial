@@ -616,6 +616,8 @@ export default function App() {
             onBourseCreateListing={actions.onBourseCreateListing}
             onBourseEditListing={actions.onBourseEditListing}
             onBoursePayDividends={actions.onBoursePayDividends}
+            onUpdateCompanyESPP={actions.onUpdateCompanyESPP}
+            onEmployeeBuyShares={actions.onEmployeeBuyShares}
             onFamilyDeposit={actions.onFamilyDeposit}
             onFamilyWithdraw={actions.onFamilyWithdraw}
             onFamilyTreasuryTransfer={actions.onFamilyTreasuryTransfer}

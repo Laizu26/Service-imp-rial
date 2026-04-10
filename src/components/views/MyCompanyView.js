@@ -97,6 +97,8 @@ const MyCompanyView = ({
   onBourseCreateListing,
   onBourseEditListing,
   onBoursePayDividends,
+  onUpdateCompanyESPP,
+  onEmployeeBuyShares,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -130,6 +132,9 @@ const MyCompanyView = ({
   const [editColor, setEditColor] = useState("#8B5CF6");
   const [editHiring, setEditHiring] = useState(true);
   const [empWithdrawAmount, setEmpWithdrawAmount] = useState("");
+  const [esppBuyQty, setEsppBuyQty] = useState(1);
+  const [esppDiscountEdit, setEsppDiscountEdit] = useState("");
+  const [esppMaxEdit, setEsppMaxEdit] = useState("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
   // Babillard
@@ -401,6 +406,88 @@ const MyCompanyView = ({
                     </div>
                   </Card>
                 ) : null;
+              })()}
+
+              {/* ── Plan d'Actionnariat Salarié (ESPP) ── */}
+              {isEmployee && (() => {
+                const espp = workerCompany.espp || {};
+                if (!espp.enabled) return null;
+                const listing = bourseListings.find((l) => l.companyId === workerCompany.id && l.isActive);
+                if (!listing) return null;
+                const discount = Math.min(Math.max(parseFloat(espp.discountPercent) || 0, 0), 90);
+                const discountedPrice = Math.round(listing.pricePerShare * (1 - discount / 100) * 10) / 10;
+                const myCompanyBal = (workerCompany.workerBalances || {})[user.id] || 0;
+                const maxAffordable = discountedPrice > 0 ? Math.floor(myCompanyBal / discountedPrice) : 0;
+                const qty = Math.max(1, parseInt(esppBuyQty) || 1);
+                const totalCost = Math.round(qty * discountedPrice * 10) / 10;
+                const canBuy = myCompanyBal >= totalCost && listing.sharesOnMarket >= qty;
+                return (
+                  <Card title="Actionnariat Salarié" icon={TrendingUp}>
+                    <div className="space-y-4">
+                      {/* Info remise */}
+                      <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            −{discount}% salarié
+                          </span>
+                          <span className="text-xs font-bold text-stone-700">{listing.symbol} — {listing.companyName}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mt-3">
+                          <div className="text-center">
+                            <div className="text-[9px] text-stone-400 uppercase font-black">Prix marché</div>
+                            <div className="font-mono font-black text-stone-500 line-through text-sm">{formatMoney(listing.pricePerShare)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[9px] text-emerald-600 uppercase font-black">Prix salarié</div>
+                            <div className="font-mono font-black text-emerald-700 text-lg">{formatMoney(discountedPrice)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[9px] text-stone-400 uppercase font-black">Disponibles</div>
+                            <div className="font-mono font-black text-stone-700 text-sm">{listing.sharesOnMarket.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Compte entreprise disponible */}
+                      <div className="flex items-center justify-between text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <span className="text-stone-500">Compte entreprise disponible</span>
+                        <span className="font-black font-mono text-amber-700">{formatMoney(myCompanyBal)}</span>
+                      </div>
+                      {maxAffordable > 0 && (
+                        <div className="text-[10px] text-stone-400 text-center">
+                          Vous pouvez acheter jusqu'à <span className="font-black text-stone-600">{maxAffordable}</span> action(s)
+                        </div>
+                      )}
+                      {/* Formulaire d'achat */}
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          max={Math.min(maxAffordable, listing.sharesOnMarket)}
+                          value={esppBuyQty}
+                          onChange={(e) => setEsppBuyQty(e.target.value)}
+                          className="w-24 p-2 border rounded font-mono text-sm text-center font-bold"
+                          placeholder="Qté"
+                        />
+                        <span className="text-xs text-stone-400 flex-1">
+                          = <span className="font-black text-stone-700">{formatMoney(totalCost)}</span> depuis compte entreprise
+                        </span>
+                        <button
+                          onClick={() => { if (canBuy) { onEmployeeBuyShares(workerCompany.id, listing.id, qty); setEsppBuyQty(1); } }}
+                          disabled={!canBuy || !onEmployeeBuyShares}
+                          className="bg-emerald-600 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          <TrendingUp size={13} /> Acheter
+                        </button>
+                      </div>
+                      {!canBuy && myCompanyBal < totalCost && (
+                        <div className="text-[10px] text-red-500 font-bold text-center">
+                          Solde entreprise insuffisant ({formatMoney(myCompanyBal)} / {formatMoney(totalCost)})
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
               })()}
 
               {/* Historique des paies */}
@@ -2365,6 +2452,83 @@ const MyCompanyView = ({
                 </div>
               </Card>
             </div>
+
+            {/* ── Plan d'Actionnariat Salarié (ESPP) — config patron ── */}
+            {myListing && onUpdateCompanyESPP && (() => {
+              const espp = myCompany.espp || {};
+              const isActive = espp.enabled || false;
+              const initDiscount = () => { setEsppDiscountEdit(String(espp.discountPercent || 10)); setEsppMaxEdit(String(espp.maxSharesPerPurchase || "")); };
+              return (
+                <Card title="Plan d'Actionnariat Salarié" icon={TrendingUp}>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-bold text-stone-700">Activer l'ESPP</div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">Les employés pourront acheter des actions avec une remise, depuis leur compte entreprise.</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const next = !isActive;
+                          const d = parseFloat(esppDiscountEdit) || espp.discountPercent || 10;
+                          const m = parseInt(esppMaxEdit) || espp.maxSharesPerPurchase || 0;
+                          onUpdateCompanyESPP(myCompany.id, { enabled: next, discountPercent: d, maxSharesPerPurchase: m });
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-colors ${isActive ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-stone-200 text-stone-500 hover:bg-stone-300"}`}
+                      >
+                        {isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                        {isActive ? "Actif" : "Inactif"}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Remise salarié (%)</label>
+                        <input
+                          type="number" min={1} max={90} step={1}
+                          className="w-full p-2 border rounded font-mono text-sm"
+                          placeholder="ex: 20"
+                          value={esppDiscountEdit}
+                          onFocus={() => { if (!esppDiscountEdit) initDiscount(); }}
+                          onChange={(e) => setEsppDiscountEdit(e.target.value)}
+                        />
+                        {esppDiscountEdit && (
+                          <div className="text-[9px] text-emerald-600 mt-1">
+                            Prix salarié : <span className="font-black">{formatMoney(Math.round(myListing.pricePerShare * (1 - (parseFloat(esppDiscountEdit) || 0) / 100) * 10) / 10)}</span>
+                            <span className="text-stone-400"> (marché : {formatMoney(myListing.pricePerShare)})</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Max actions / achat (0 = illimité)</label>
+                        <input
+                          type="number" min={0} step={1}
+                          className="w-full p-2 border rounded font-mono text-sm"
+                          placeholder="0"
+                          value={esppMaxEdit}
+                          onFocus={() => { if (!esppMaxEdit) initDiscount(); }}
+                          onChange={(e) => setEsppMaxEdit(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const d = Math.min(90, Math.max(1, parseFloat(esppDiscountEdit) || 10));
+                        const m = parseInt(esppMaxEdit) || 0;
+                        onUpdateCompanyESPP(myCompany.id, { enabled: isActive, discountPercent: d, maxSharesPerPurchase: m });
+                      }}
+                      disabled={!esppDiscountEdit}
+                      className="w-full py-2 bg-stone-800 text-white text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40"
+                    >
+                      Enregistrer la configuration
+                    </button>
+                    {isActive && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-[10px] text-emerald-700 font-bold text-center">
+                        ESPP actif — remise de <span className="text-emerald-800">{espp.discountPercent}%</span> pour vos {(myCompany.employees || []).length} employé(s)
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              );
+            })()}
 
             {/* Actionnaires */}
             <Card title={`Actionnaires (${shareholders.length})`} icon={Users}>
