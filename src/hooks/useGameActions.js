@@ -4381,6 +4381,15 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (userIdx === -1) return;
         const held = (newCitizens[userIdx].stockholdings || {})[listingId] || 0;
         if (held < qty) { notify(`Vous ne possédez que ${held} action(s) de cette valeur.`, "error"); return; }
+        // Vérifier les actions bloquées par période ESPP
+        const now = Date.now();
+        const activeLocks = (newCitizens[userIdx].esppLocks || []).filter((l) => l.listingId === listingId && l.unlocksAt > now);
+        const lockedQty = activeLocks.reduce((sum, l) => sum + l.qty, 0);
+        if (held - lockedQty < qty) {
+          const mostRecentUnlock = Math.max(...activeLocks.map((l) => l.unlocksAt));
+          notify(`${lockedQty} action(s) bloquée(s) par période ESPP jusqu'au ${new Date(mostRecentUnlock).toLocaleDateString("fr-FR")}. Vous ne pouvez vendre que ${Math.max(0, held - lockedQty)} action(s).`, "error");
+          return;
+        }
         const total = qty * listing.pricePerShare;
         // Débiter la trésorerie de l'entreprise (rachat)
         const newCompanies = [...(state.companies || [])];
@@ -4392,7 +4401,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newHoldings = { ...(newCitizens[userIdx].stockholdings || {}) };
         const remaining = held - qty;
         if (remaining === 0) delete newHoldings[listingId]; else newHoldings[listingId] = remaining;
-        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + total, stockholdings: newHoldings };
+        // Nettoyer les verrous ESPP expirés au moment de la vente
+        const cleanedLocks = (newCitizens[userIdx].esppLocks || []).filter((l) => l.unlocksAt > now);
+        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + total, stockholdings: newHoldings, esppLocks: cleanedLocks };
         listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket + qty };
         const ts = Date.now();
         const ledgerEntry = { id: ts, fromName: `${listing.companyName} (Bourse: ${listing.symbol})`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Rachat ${qty} action(s) ${listing.symbol} à ${formatMoney(listing.pricePerShare)}`, type: "BOURSE_SELL" };
@@ -4477,12 +4488,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         companies[compIdx] = { ...companies[compIdx], balance: (companies[compIdx].balance || 0) + totalCost };
         // Mise à jour des actions du citoyen
         const currentHoldings = newCitizens[userIdx].stockholdings || {};
-        newCitizens[userIdx] = { ...newCitizens[userIdx], stockholdings: { ...currentHoldings, [listingId]: (currentHoldings[listingId] || 0) + quantity } };
-        listings[lIdx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - quantity };
         const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: `Compte salarié — ${company.name}`, toName: `${listing.companyName} (ESPP: ${listing.symbol})`, amount: totalCost, timestamp: ts, reason: `ESPP : ${quantity} action(s) ${listing.symbol} à ${formatMoney(discountedPrice)} (−${espp.discountPercent}%)`, type: "ESPP_BUY" };
+        // Enregistrement de la période de blocage si définie
+        const lockupDays = Math.max(0, parseInt(espp.lockupDays) || 0);
+        let updatedLocks = (newCitizens[userIdx].esppLocks || []).filter((l) => l.unlocksAt > ts); // nettoyer les verrous expirés
+        if (lockupDays > 0) {
+          updatedLocks = [...updatedLocks, { id: `ESPP-${ts}`, listingId, qty: quantity, unlocksAt: ts + lockupDays * 86400000, symbol: listing.symbol, companyName: listing.companyName }];
+        }
+        newCitizens[userIdx] = { ...newCitizens[userIdx], stockholdings: { ...currentHoldings, [listingId]: (currentHoldings[listingId] || 0) + quantity }, esppLocks: updatedLocks };
+        listings[lIdx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - quantity };
+        const ledgerEntry = { id: ts, fromName: `Compte salarié — ${company.name}`, toName: `${listing.companyName} (ESPP: ${listing.symbol})`, amount: totalCost, timestamp: ts, reason: `ESPP : ${quantity} action(s) ${listing.symbol} à ${formatMoney(discountedPrice)} (−${espp.discountPercent}%${lockupDays > 0 ? `, bloqué ${lockupDays}j` : ""})`, type: "ESPP_BUY" };
         saveState({ ...state, companies, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${quantity} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(totalCost)} (remise salarié −${espp.discountPercent}%).`, "success");
+        notify(`${quantity} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(totalCost)} (−${espp.discountPercent}%${lockupDays > 0 ? ` · bloquées ${lockupDays} jour(s)` : ""}).`, "success");
       },
 
       onGuardImprison: (countryId, citizenId, reason, sentence) => {

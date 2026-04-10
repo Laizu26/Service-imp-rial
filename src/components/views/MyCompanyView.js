@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Building2,
   Users,
@@ -34,11 +34,130 @@ import {
   Clock,
   Coins,
   BarChart2,
+  Lock,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { formatMoney } from "../../lib/gameUtils";
+
+// ── Sous-composant ESPP — config patron (state propre pour éviter la synchro inter-entreprises) ──
+function ESPPConfigCard({ myCompany, myListing, onUpdateCompanyESPP }) {
+  const espp = myCompany.espp || {};
+  const [discount, setDiscount] = useState(String(espp.discountPercent ?? 10));
+  const [maxPer, setMaxPer] = useState(String(espp.maxSharesPerPurchase ?? ""));
+  const [lockupDays, setLockupDays] = useState(String(espp.lockupDays ?? 0));
+  const isActive = espp.enabled || false;
+
+  // Resync quand les données de l'entreprise changent (ex: sauvegarde depuis autre session)
+  useEffect(() => {
+    setDiscount(String(espp.discountPercent ?? 10));
+    setMaxPer(String(espp.maxSharesPerPurchase ?? ""));
+    setLockupDays(String(espp.lockupDays ?? 0));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myCompany.id]);
+
+  const discountNum = Math.min(90, Math.max(1, parseFloat(discount) || 10));
+  const salaryPrice = Math.round(myListing.pricePerShare * (1 - discountNum / 100) * 10) / 10;
+
+  const save = (enabledOverride) => {
+    onUpdateCompanyESPP(myCompany.id, {
+      enabled: enabledOverride !== undefined ? enabledOverride : isActive,
+      discountPercent: discountNum,
+      maxSharesPerPurchase: parseInt(maxPer) || 0,
+      lockupDays: Math.max(0, parseInt(lockupDays) || 0),
+    });
+  };
+
+  return (
+    <Card title="Plan d'Actionnariat Salarié" icon={TrendingUp}>
+      <div className="space-y-4">
+        {/* Toggle activer/désactiver */}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs font-bold text-stone-700">Activer l'ESPP</div>
+            <div className="text-[10px] text-stone-400 mt-0.5">
+              Les employés peuvent acheter des actions de l'entreprise à prix réduit depuis leur compte salarial.
+            </div>
+          </div>
+          <button
+            onClick={() => save(!isActive)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-colors ${
+              isActive ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-stone-200 text-stone-500 hover:bg-stone-300"
+            }`}
+          >
+            {isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+            {isActive ? "Actif" : "Inactif"}
+          </button>
+        </div>
+
+        {/* Paramètres */}
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+              Remise (%)
+            </label>
+            <input
+              type="number" min={1} max={90} step={1}
+              className="w-full p-2 border rounded font-mono text-sm"
+              placeholder="ex: 20"
+              value={discount}
+              onChange={(e) => setDiscount(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+              Max / achat (0 = ∞)
+            </label>
+            <input
+              type="number" min={0} step={1}
+              className="w-full p-2 border rounded font-mono text-sm"
+              placeholder="0"
+              value={maxPer}
+              onChange={(e) => setMaxPer(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+              Blocage (jours réels)
+            </label>
+            <input
+              type="number" min={0} step={1}
+              className="w-full p-2 border rounded font-mono text-sm"
+              placeholder="0"
+              value={lockupDays}
+              onChange={(e) => setLockupDays(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Aperçu prix */}
+        <div className="bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-[10px] flex items-center justify-between">
+          <span className="text-stone-400">Prix marché → Prix salarié</span>
+          <span className="font-black">
+            <span className="line-through text-stone-400 mr-2">{formatMoney(myListing.pricePerShare)}</span>
+            <span className="text-emerald-600">{formatMoney(salaryPrice)}</span>
+            <span className="text-stone-400 ml-1">(−{discountNum}%)</span>
+          </span>
+        </div>
+
+        <button
+          onClick={() => save()}
+          className="w-full py-2 bg-stone-800 text-white text-xs font-black uppercase rounded-lg hover:bg-stone-700"
+        >
+          Enregistrer la configuration
+        </button>
+
+        {isActive && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-[10px] text-emerald-700 font-bold text-center">
+            ESPP actif — −{espp.discountPercent}% pour vos {(myCompany.employees || []).length} employé(s)
+            {(espp.lockupDays || 0) > 0 && <span className="ml-2 text-amber-600">· Blocage {espp.lockupDays}j</span>}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 const TYPE_RATES = {
   SERVICE: { emp: 12, slave: 9, label: "Services / Commerce" },
@@ -133,8 +252,6 @@ const MyCompanyView = ({
   const [editHiring, setEditHiring] = useState(true);
   const [empWithdrawAmount, setEmpWithdrawAmount] = useState("");
   const [esppBuyQty, setEsppBuyQty] = useState(1);
-  const [esppDiscountEdit, setEsppDiscountEdit] = useState("");
-  const [esppMaxEdit, setEsppMaxEdit] = useState("");
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
   // Babillard
@@ -421,6 +538,10 @@ const MyCompanyView = ({
                 const qty = Math.max(1, parseInt(esppBuyQty) || 1);
                 const totalCost = Math.round(qty * discountedPrice * 10) / 10;
                 const canBuy = myCompanyBal >= totalCost && listing.sharesOnMarket >= qty;
+                const now = Date.now();
+                const activeLocks = (user.esppLocks || []).filter((l) => l.listingId === listing.id && l.unlocksAt > now);
+                const totalLocked = activeLocks.reduce((sum, l) => sum + l.qty, 0);
+                const totalHeld = (user.stockholdings || {})[listing.id] || 0;
                 return (
                   <Card title="Actionnariat Salarié" icon={TrendingUp}>
                     <div className="space-y-4">
@@ -483,6 +604,26 @@ const MyCompanyView = ({
                       {!canBuy && myCompanyBal < totalCost && (
                         <div className="text-[10px] text-red-500 font-bold text-center">
                           Solde entreprise insuffisant ({formatMoney(myCompanyBal)} / {formatMoney(totalCost)})
+                        </div>
+                      )}
+                      {/* Actions bloquées par période de blocage ESPP */}
+                      {activeLocks.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Lock size={13} className="text-amber-600" />
+                            <span className="text-[11px] font-black text-amber-700 uppercase tracking-wide">Actions bloquées — période de rétention</span>
+                          </div>
+                          <div className="text-[10px] text-stone-500">
+                            Vous détenez <span className="font-black text-stone-700">{totalHeld}</span> action(s) au total, dont <span className="font-black text-amber-700">{totalLocked}</span> bloquée(s) (non vendables).
+                          </div>
+                          <div className="space-y-1">
+                            {activeLocks.map((lock) => (
+                              <div key={lock.id} className="flex justify-between items-center text-[10px] bg-white border border-amber-100 rounded px-2 py-1">
+                                <span className="text-stone-600">{lock.qty} action(s) via ESPP</span>
+                                <span className="font-black text-amber-600">Débloqué le {new Date(lock.unlocksAt).toLocaleDateString("fr-FR")}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2454,81 +2595,14 @@ const MyCompanyView = ({
             </div>
 
             {/* ── Plan d'Actionnariat Salarié (ESPP) — config patron ── */}
-            {myListing && onUpdateCompanyESPP && (() => {
-              const espp = myCompany.espp || {};
-              const isActive = espp.enabled || false;
-              const initDiscount = () => { setEsppDiscountEdit(String(espp.discountPercent || 10)); setEsppMaxEdit(String(espp.maxSharesPerPurchase || "")); };
-              return (
-                <Card title="Plan d'Actionnariat Salarié" icon={TrendingUp}>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-stone-700">Activer l'ESPP</div>
-                        <div className="text-[10px] text-stone-400 mt-0.5">Les employés pourront acheter des actions avec une remise, depuis leur compte entreprise.</div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const next = !isActive;
-                          const d = parseFloat(esppDiscountEdit) || espp.discountPercent || 10;
-                          const m = parseInt(esppMaxEdit) || espp.maxSharesPerPurchase || 0;
-                          onUpdateCompanyESPP(myCompany.id, { enabled: next, discountPercent: d, maxSharesPerPurchase: m });
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-colors ${isActive ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-stone-200 text-stone-500 hover:bg-stone-300"}`}
-                      >
-                        {isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                        {isActive ? "Actif" : "Inactif"}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Remise salarié (%)</label>
-                        <input
-                          type="number" min={1} max={90} step={1}
-                          className="w-full p-2 border rounded font-mono text-sm"
-                          placeholder="ex: 20"
-                          value={esppDiscountEdit}
-                          onFocus={() => { if (!esppDiscountEdit) initDiscount(); }}
-                          onChange={(e) => setEsppDiscountEdit(e.target.value)}
-                        />
-                        {esppDiscountEdit && (
-                          <div className="text-[9px] text-emerald-600 mt-1">
-                            Prix salarié : <span className="font-black">{formatMoney(Math.round(myListing.pricePerShare * (1 - (parseFloat(esppDiscountEdit) || 0) / 100) * 10) / 10)}</span>
-                            <span className="text-stone-400"> (marché : {formatMoney(myListing.pricePerShare)})</span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Max actions / achat (0 = illimité)</label>
-                        <input
-                          type="number" min={0} step={1}
-                          className="w-full p-2 border rounded font-mono text-sm"
-                          placeholder="0"
-                          value={esppMaxEdit}
-                          onFocus={() => { if (!esppMaxEdit) initDiscount(); }}
-                          onChange={(e) => setEsppMaxEdit(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        const d = Math.min(90, Math.max(1, parseFloat(esppDiscountEdit) || 10));
-                        const m = parseInt(esppMaxEdit) || 0;
-                        onUpdateCompanyESPP(myCompany.id, { enabled: isActive, discountPercent: d, maxSharesPerPurchase: m });
-                      }}
-                      disabled={!esppDiscountEdit}
-                      className="w-full py-2 bg-stone-800 text-white text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40"
-                    >
-                      Enregistrer la configuration
-                    </button>
-                    {isActive && (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-[10px] text-emerald-700 font-bold text-center">
-                        ESPP actif — remise de <span className="text-emerald-800">{espp.discountPercent}%</span> pour vos {(myCompany.employees || []).length} employé(s)
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })()}
+            {myListing && onUpdateCompanyESPP && (
+              <ESPPConfigCard
+                key={myCompany.id}
+                myCompany={myCompany}
+                myListing={myListing}
+                onUpdateCompanyESPP={onUpdateCompanyESPP}
+              />
+            )}
 
             {/* Actionnaires */}
             <Card title={`Actionnaires (${shareholders.length})`} icon={Users}>
