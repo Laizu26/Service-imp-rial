@@ -595,9 +595,13 @@ export default function App() {
             maisonHistory={state.maisonHistory || []}
             maisonReviews={state.maisonReviews || []}
             maisonDefaultDuration={state.maisonDefaultDuration || 60}
+            maisonServiceCategories={state.maisonServiceCategories || []}
+            maisonSubscriptions={state.maisonSubscriptions || []}
+            maisonSubscriptionPrice={state.maisonSubscriptionPrice || 50}
             onJoinMaisonQueue={actions.onJoinMaisonQueue}
             onLeaveMaisonQueue={actions.onLeaveMaisonQueue}
             onSubmitMaisonReview={actions.onSubmitMaisonReview}
+            onBuyMaisonSubscription={actions.onBuyMaisonSubscription}
             guilds={state.guilds || []}
             onCreateGuild={actions.onCreateGuild}
             onEditGuild={actions.onEditGuild}
@@ -1105,6 +1109,9 @@ export default function App() {
                       maisonHistory={state.maisonHistory || []}
                       maisonReviews={state.maisonReviews || []}
                       maisonDefaultDuration={state.maisonDefaultDuration || 60}
+                      maisonServiceCategories={state.maisonServiceCategories || []}
+                      maisonSubscriptions={state.maisonSubscriptions || []}
+                      maisonSubscriptionPrice={state.maisonSubscriptionPrice || 50}
                       jobs={state.jobContracts || []}
                       session={session}
                       roleInfo={roleInfo}
@@ -1119,6 +1126,13 @@ export default function App() {
                       onSaveJobContract={actions.onSaveJobContract}
                       onDeleteJobContract={actions.onDeleteJobContract}
                       onToggleJobContract={actions.onToggleJobContract}
+                      onToggleMaisonStaffAvailability={actions.onToggleMaisonStaffAvailability}
+                      onAddMaisonService={actions.onAddMaisonService}
+                      onUpdateMaisonService={actions.onUpdateMaisonService}
+                      onRemoveMaisonService={actions.onRemoveMaisonService}
+                      onSaveMaisonCategory={actions.onSaveMaisonCategory}
+                      onDeleteMaisonCategory={actions.onDeleteMaisonCategory}
+                      onSetMaisonSubscriptionPrice={actions.onSetMaisonSubscriptionPrice}
                     />
                   )}
                 </div>

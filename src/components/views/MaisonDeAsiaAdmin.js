@@ -26,10 +26,28 @@ import {
   ToggleLeft,
   ToggleRight,
   RefreshCw,
+  Layers,
+  Wrench,
+  ShieldCheck,
+  ShieldOff,
+  Crown,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import Card from "../ui/Card";
 import { formatMoney } from "../../lib/gameUtils";
+import { getMaisonVipRank } from "../../hooks/useGameActions";
+
+const PRESET_COLORS = ["#a855f7","#ec4899","#ef4444","#f59e0b","#10b981","#3b82f6","#6366f1","#64748b"];
+
+const VipBadge = ({ citizenId, maisonHistory }) => {
+  const vip = getMaisonVipRank(citizenId, maisonHistory);
+  if (!vip) return null;
+  return (
+    <span title={`VIP ${vip.label} — ${vip.visits} visite(s)`} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-black border ${vip.bg}`}>
+      <Crown size={8} /> {vip.label}
+    </span>
+  );
+};
 
 
 /* ───────────── Constantes contrats ───────────── */
@@ -149,6 +167,9 @@ const MaisonDeAsiaAdmin = ({
   maisonHistory = [],
   maisonReviews = [],
   maisonDefaultDuration = 60,
+  maisonServiceCategories = [],
+  maisonSubscriptions = [],
+  maisonSubscriptionPrice = 50,
   jobs = [],
   session,
   roleInfo,
@@ -163,6 +184,13 @@ const MaisonDeAsiaAdmin = ({
   onSaveJobContract,
   onDeleteJobContract,
   onToggleJobContract,
+  onToggleMaisonStaffAvailability,
+  onAddMaisonService,
+  onUpdateMaisonService,
+  onRemoveMaisonService,
+  onSaveMaisonCategory,
+  onDeleteMaisonCategory,
+  onSetMaisonSubscriptionPrice,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -198,6 +226,19 @@ const MaisonDeAsiaAdmin = ({
 
   // Filtre avis
   const [reviewFilter, setReviewFilter] = useState("all");
+
+  // Catégories
+  const [catName, setCatName] = useState("");
+  const [catColor, setCatColor] = useState("#a855f7");
+
+  // Services par staff
+  const [serviceExpandedId, setServiceExpandedId] = useState(null);
+  const [newSvcForm, setNewSvcForm] = useState({ name: "", categoryId: "", price: "", duration: "", description: "" });
+  const [editingSvcId, setEditingSvcId] = useState(null);
+  const [editingSvcForm, setEditingSvcForm] = useState({});
+
+  // Abonnement
+  const [draftSubPrice, setDraftSubPrice] = useState(String(maisonSubscriptionPrice));
 
   // --- FILTRER LES ESCLAVES DISPONIBLES ---
   const availableSlaves = useMemo(() => {
@@ -280,6 +321,8 @@ const MaisonDeAsiaAdmin = ({
       specialtyDescription: newStaffDescription || "",
       gallery: newStaffGallery.length > 0 ? [...newStaffGallery] : [],
       isBusy: false,
+      isAvailable: true,
+      services: [],
     };
 
     onUpdateStaff([...staff, newWorker]);
@@ -393,18 +436,9 @@ const MaisonDeAsiaAdmin = ({
   // --- TABS DEFINITION ---
   const tabs = [
     { id: "staff", label: "Pensionnaires", icon: Heart, count: staff.length },
-    {
-      id: "clients",
-      label: "Clients",
-      icon: Users,
-      count: houseRegistry.length,
-    },
-    {
-      id: "reviews",
-      label: "Avis",
-      icon: MessageSquare,
-      count: maisonReviews.length,
-    },
+    { id: "categories", label: "Catégories", icon: Layers, count: maisonServiceCategories.length || undefined },
+    { id: "clients", label: "Clients", icon: Users, count: houseRegistry.length },
+    { id: "reviews", label: "Avis", icon: MessageSquare, count: maisonReviews.length },
     { id: "finances", label: "Finances", icon: Wallet },
     {
       id: "contracts",
@@ -748,9 +782,16 @@ const MaisonDeAsiaAdmin = ({
                         </div>
                       ) : (
                         <>
-                          <p className="text-xs text-fuchsia-600 font-medium">
-                            {member.specialty}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs text-fuchsia-600 font-medium">
+                              {member.specialty}
+                            </p>
+                            {member.isAvailable === false && (
+                              <span className="text-[9px] bg-stone-200 text-stone-500 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5">
+                                <ShieldOff size={8} /> Indisponible
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-xs text-stone-400 font-mono">
                               {formatMoney(member.price)}
@@ -758,6 +799,11 @@ const MaisonDeAsiaAdmin = ({
                             <span className="text-[10px] text-stone-400 flex items-center gap-1">
                               <Clock size={10} /> {effectiveDuration} min
                             </span>
+                            {(member.services || []).length > 0 && (
+                              <span className="text-[9px] bg-fuchsia-100 text-fuchsia-600 px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5">
+                                <Wrench size={8} /> {member.services.length} svc
+                              </span>
+                            )}
                           </div>
                           {/* Contrat lié */}
                           {member.contractId && (
@@ -802,8 +848,22 @@ const MaisonDeAsiaAdmin = ({
                     {!isEditing && (
                       <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5">
                         <button
-                          onClick={() => setGalleryMemberId(galleryMemberId === member.id ? null : member.id)}
+                          onClick={() => onToggleMaisonStaffAvailability && onToggleMaisonStaffAvailability(member.id)}
+                          className={`p-1.5 rounded transition-colors ${member.isAvailable === false ? "bg-stone-200 text-stone-400 hover:bg-green-100 hover:text-green-700" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}
+                          title={member.isAvailable === false ? "Marquer disponible" : "Marquer indisponible"}
+                        >
+                          {member.isAvailable === false ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}
+                        </button>
+                        <button
+                          onClick={() => setServiceExpandedId(serviceExpandedId === member.id ? null : member.id)}
                           className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-fuchsia-100 hover:text-fuchsia-700 transition-colors"
+                          title="Gérer les services"
+                        >
+                          <Wrench size={12} />
+                        </button>
+                        <button
+                          onClick={() => setGalleryMemberId(galleryMemberId === member.id ? null : member.id)}
+                          className="p-1.5 bg-stone-100 text-stone-500 rounded hover:bg-fuchsia-100 hover:text-fuchsia-700 transition-colors relative"
                           title="Galerie photos"
                         >
                           <Images size={12} />
@@ -855,6 +915,94 @@ const MaisonDeAsiaAdmin = ({
                       onClose={() => setGalleryMemberId(null)}
                     />
                   )}
+
+                  {/* Panneau services */}
+                  {serviceExpandedId === member.id && (
+                    <div className="col-span-full bg-stone-50 rounded-xl border border-fuchsia-200 p-4 shadow-inner">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-xs font-black uppercase text-fuchsia-700 tracking-widest flex items-center gap-2">
+                          <Wrench size={14} /> Services — {member.name} ({(member.services || []).length})
+                        </h4>
+                        <button onClick={() => setServiceExpandedId(null)} className="text-stone-400 hover:text-stone-600"><X size={16} /></button>
+                      </div>
+
+                      {/* Liste services existants */}
+                      {(member.services || []).length === 0 ? (
+                        <p className="text-xs text-stone-400 italic mb-3">Aucun service spécifique. Le prix par défaut du pensionnaire est utilisé.</p>
+                      ) : (
+                        <div className="space-y-2 mb-3">
+                          {member.services.map((svc) => {
+                            const isEditingSvc = editingSvcId === svc.id;
+                            const cat = maisonServiceCategories.find((c) => c.id === svc.categoryId);
+                            return (
+                              <div key={svc.id} className="bg-white rounded-lg border border-stone-200 p-3">
+                                {isEditingSvc ? (
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <input className="p-1.5 border rounded text-xs outline-none focus:border-fuchsia-500" value={editingSvcForm.name || ""} onChange={(e) => setEditingSvcForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nom du service" />
+                                      <select className="p-1.5 border rounded text-xs outline-none focus:border-fuchsia-500" value={editingSvcForm.categoryId || ""} onChange={(e) => setEditingSvcForm((f) => ({ ...f, categoryId: e.target.value || null }))}>
+                                        <option value="">Aucune catégorie</option>
+                                        {maisonServiceCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                      </select>
+                                      <input type="number" step="0.1" className="p-1.5 border rounded text-xs font-mono outline-none focus:border-fuchsia-500" value={editingSvcForm.price || ""} onChange={(e) => setEditingSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="Prix" />
+                                      <input type="number" className="p-1.5 border rounded text-xs font-mono outline-none focus:border-fuchsia-500" value={editingSvcForm.duration || ""} onChange={(e) => setEditingSvcForm((f) => ({ ...f, duration: e.target.value }))} placeholder={`Durée (défaut: ${effectiveDuration} min)`} />
+                                    </div>
+                                    <input className="w-full p-1.5 border rounded text-xs outline-none focus:border-fuchsia-500" value={editingSvcForm.description || ""} onChange={(e) => setEditingSvcForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description courte" />
+                                    <div className="flex gap-1.5">
+                                      <button onClick={() => { if (onUpdateMaisonService) onUpdateMaisonService(member.id, svc.id, { name: editingSvcForm.name, categoryId: editingSvcForm.categoryId || null, price: parseFloat(editingSvcForm.price) || 0, duration: editingSvcForm.duration ? parseInt(editingSvcForm.duration) : null, description: editingSvcForm.description || "" }); setEditingSvcId(null); }} className="flex-1 bg-fuchsia-900 text-white py-1 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1 hover:bg-fuchsia-800"><Check size={10} /> OK</button>
+                                      <button onClick={() => setEditingSvcId(null)} className="px-2 py-1 bg-stone-100 text-stone-500 rounded text-[10px] hover:bg-stone-200"><X size={10} /></button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-bold text-sm text-stone-800">{svc.name}</span>
+                                        {cat && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: cat.color }}>{cat.name}</span>}
+                                      </div>
+                                      <div className="flex items-center gap-3 mt-0.5">
+                                        <span className="text-xs text-stone-400 font-mono">{formatMoney(svc.price || 0)}</span>
+                                        {svc.duration && <span className="text-[10px] text-stone-400 flex items-center gap-0.5"><Clock size={9} /> {svc.duration} min</span>}
+                                        {svc.description && <span className="text-[10px] text-stone-500 italic truncate">{svc.description}</span>}
+                                      </div>
+                                    </div>
+                                    <button onClick={() => { setEditingSvcId(svc.id); setEditingSvcForm({ name: svc.name, categoryId: svc.categoryId || "", price: String(svc.price || ""), duration: svc.duration ? String(svc.duration) : "", description: svc.description || "" }); }} className="p-1 text-stone-400 hover:text-fuchsia-600"><Pencil size={12} /></button>
+                                    <button onClick={() => onRemoveMaisonService && onRemoveMaisonService(member.id, svc.id)} className="p-1 text-stone-400 hover:text-red-600"><Trash2 size={12} /></button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Formulaire ajout service */}
+                      <div className="border-t border-fuchsia-200 pt-3">
+                        <div className="text-[10px] font-black uppercase text-fuchsia-600 tracking-widest mb-2">Ajouter un service</div>
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <input className="p-2 border rounded text-xs outline-none focus:border-fuchsia-500" value={newSvcForm.name} onChange={(e) => setNewSvcForm((f) => ({ ...f, name: e.target.value }))} placeholder="Nom du service *" />
+                          <select className="p-2 border rounded text-xs outline-none focus:border-fuchsia-500" value={newSvcForm.categoryId} onChange={(e) => setNewSvcForm((f) => ({ ...f, categoryId: e.target.value }))}>
+                            <option value="">Aucune catégorie</option>
+                            {maisonServiceCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                          <input type="number" step="0.1" className="p-2 border rounded text-xs font-mono outline-none focus:border-fuchsia-500" value={newSvcForm.price} onChange={(e) => setNewSvcForm((f) => ({ ...f, price: e.target.value }))} placeholder="Prix *" />
+                          <input type="number" className="p-2 border rounded text-xs font-mono outline-none focus:border-fuchsia-500" value={newSvcForm.duration} onChange={(e) => setNewSvcForm((f) => ({ ...f, duration: e.target.value }))} placeholder="Durée min (optionnel)" />
+                        </div>
+                        <input className="w-full p-2 border rounded text-xs mb-2 outline-none focus:border-fuchsia-500" value={newSvcForm.description} onChange={(e) => setNewSvcForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description courte (optionnel)" />
+                        <button
+                          onClick={() => {
+                            if (!newSvcForm.name.trim() || !newSvcForm.price) return;
+                            if (onAddMaisonService) onAddMaisonService(member.id, { name: newSvcForm.name.trim(), categoryId: newSvcForm.categoryId || null, price: parseFloat(newSvcForm.price) || 0, duration: newSvcForm.duration ? parseInt(newSvcForm.duration) : null, description: newSvcForm.description || "" });
+                            setNewSvcForm({ name: "", categoryId: "", price: "", duration: "", description: "" });
+                          }}
+                          disabled={!newSvcForm.name.trim() || !newSvcForm.price}
+                          className="w-full bg-fuchsia-900 text-white py-2 rounded text-[10px] font-bold uppercase hover:bg-fuchsia-800 disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                          <Plus size={12} /> Ajouter ce service
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </React.Fragment>
                 );
               })}
@@ -862,6 +1010,76 @@ const MaisonDeAsiaAdmin = ({
                 <div className="col-span-full text-center py-10 text-stone-400 italic">
                   Aucun personnel enregistré.
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════ ONGLET CATÉGORIES ════════════════ */}
+        {activeTab === "categories" && (
+          <div className="space-y-6">
+            {/* Formulaire ajout */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+              <h3 className="text-xs font-black uppercase text-stone-400 mb-4 flex items-center gap-2">
+                <Plus size={14} /> Nouvelle catégorie
+              </h3>
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Nom</label>
+                  <input
+                    className="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-fuchsia-500"
+                    value={catName}
+                    onChange={(e) => setCatName(e.target.value)}
+                    placeholder="Ex: Massage, Danse, Soins..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Couleur</label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {PRESET_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setCatColor(c)}
+                        className={`w-7 h-7 rounded-full border-2 transition-transform ${catColor === c ? "border-stone-800 scale-110" : "border-transparent"}`}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!catName.trim()) return;
+                    if (onSaveMaisonCategory) onSaveMaisonCategory({ name: catName.trim(), color: catColor });
+                    setCatName("");
+                  }}
+                  disabled={!catName.trim()}
+                  className="px-4 py-2.5 bg-fuchsia-900 text-white rounded-lg text-[10px] font-bold uppercase hover:bg-fuchsia-800 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Plus size={12} /> Créer
+                </button>
+              </div>
+            </div>
+
+            {/* Liste */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {maisonServiceCategories.length === 0 ? (
+                <div className="col-span-full text-center py-10 text-stone-400 italic">
+                  Aucune catégorie. Créez-en une pour organiser les services de vos pensionnaires.
+                </div>
+              ) : (
+                maisonServiceCategories.map((cat) => {
+                  const svcCount = staff.reduce((sum, s) => sum + (s.services || []).filter((sv) => sv.categoryId === cat.id).length, 0);
+                  return (
+                    <div key={cat.id} className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-4 shadow-sm">
+                      <div className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow" style={{ backgroundColor: cat.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-stone-800">{cat.name}</div>
+                        <div className="text-[10px] text-stone-400">{svcCount} service{svcCount !== 1 ? "s" : ""}</div>
+                      </div>
+                      <SecureDeleteButton onClick={() => onDeleteMaisonCategory && onDeleteMaisonCategory(cat.id)} />
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -927,7 +1145,10 @@ const MaisonDeAsiaAdmin = ({
                           }`}
                         >
                           <td className="p-4 font-bold text-stone-800">
-                            {client.name}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {client.name}
+                              <VipBadge citizenId={record.citizenId} maisonHistory={maisonHistory} />
+                            </div>
                           </td>
                           <td className="p-4 text-fuchsia-700 font-medium flex items-center gap-2">
                             <Heart size={12} /> {worker.name}
@@ -1011,7 +1232,10 @@ const MaisonDeAsiaAdmin = ({
                               </span>
                             </td>
                             <td className="p-4 font-bold text-stone-800">
-                              {client.name}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {client.name}
+                                <VipBadge citizenId={q.citizenId} maisonHistory={maisonHistory} />
+                              </div>
                             </td>
                             <td className="p-4 text-fuchsia-700 font-medium">
                               {worker.name}
@@ -1166,6 +1390,9 @@ const MaisonDeAsiaAdmin = ({
               0
             );
 
+            const now = Date.now();
+            const activeSubsCount = (maisonSubscriptions || []).filter((s) => s.expiresAt > now).length;
+
             return (
               <div className="space-y-6">
                 {/* Sélection de l'entreprise liée */}
@@ -1194,6 +1421,37 @@ const MaisonDeAsiaAdmin = ({
                           </option>
                         ))}
                       </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Abonnements */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                  <h3 className="text-xs font-black uppercase text-stone-400 mb-4 flex items-center gap-2">
+                    <Crown size={14} /> Abonnements VIP
+                  </h3>
+                  <div className="flex flex-wrap gap-6 items-end">
+                    <div className="bg-fuchsia-50 p-4 rounded-xl border border-fuchsia-200">
+                      <div className="text-[10px] font-black uppercase text-fuchsia-500 tracking-widest mb-1">Abonnés actifs</div>
+                      <div className="text-2xl font-black text-fuchsia-800">{activeSubsCount}</div>
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prix de l'abonnement (Écus / 30 jours)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number" step="0.1" min="1"
+                          className="flex-1 p-2.5 border rounded-lg text-sm font-mono outline-none focus:border-fuchsia-500"
+                          value={draftSubPrice}
+                          onChange={(e) => setDraftSubPrice(e.target.value)}
+                        />
+                        <button
+                          onClick={() => { if (onSetMaisonSubscriptionPrice) onSetMaisonSubscriptionPrice(draftSubPrice); }}
+                          className="px-3 py-2 bg-fuchsia-900 text-white rounded-lg text-[10px] font-bold uppercase hover:bg-fuchsia-800 flex items-center gap-1"
+                        >
+                          <Check size={12} /> OK
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-stone-400 mt-1">Les abonnés bénéficient de -10% sur toutes les réservations.</p>
                     </div>
                   </div>
                 </div>

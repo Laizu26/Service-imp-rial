@@ -675,9 +675,13 @@ const CitizenLayout = (props) => {
     maisonHistory = [],
     maisonReviews = [],
     maisonDefaultDuration = 60,
+    maisonServiceCategories = [],
+    maisonSubscriptions = [],
+    maisonSubscriptionPrice = 50,
     onJoinMaisonQueue,
     onLeaveMaisonQueue,
     onSubmitMaisonReview,
+    onBuyMaisonSubscription,
     guilds = [],
     onCreateGuild,
     onEditGuild,
@@ -1661,10 +1665,14 @@ const CitizenLayout = (props) => {
                 maisonHistory={maisonHistory}
                 maisonReviews={maisonReviews}
                 maisonDefaultDuration={maisonDefaultDuration}
+                maisonServiceCategories={maisonServiceCategories}
+                maisonSubscriptions={maisonSubscriptions}
+                maisonSubscriptionPrice={maisonSubscriptionPrice}
                 onBook={onBookMaison}
                 onJoinQueue={onJoinMaisonQueue}
                 onLeaveQueue={onLeaveMaisonQueue}
                 onSubmitReview={onSubmitMaisonReview}
+                onBuySubscription={onBuyMaisonSubscription}
                 userBalance={user.balance}
                 user={user}
               />

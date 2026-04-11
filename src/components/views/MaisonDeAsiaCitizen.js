@@ -3,8 +3,15 @@ import ReactDOM from "react-dom";
 import {
   Gem, Heart, LogOut, Star, Clock, Users, X, History,
   MessageCircle, Timer, User, ChevronRight, ChevronLeft, Images,
+  Crown, Percent, ShieldOff, Wrench,
 } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
+import {
+  getMaisonVipRank,
+  getMaisonLoyaltyDiscount,
+  getMaisonSubscription,
+  computeMaisonDiscount,
+} from "../../hooks/useGameActions";
 
 const MaisonDeAsiaCitizen = ({
   citizens,
@@ -14,10 +21,14 @@ const MaisonDeAsiaCitizen = ({
   maisonHistory = [],
   maisonReviews = [],
   maisonDefaultDuration = 60,
+  maisonServiceCategories = [],
+  maisonSubscriptions = [],
+  maisonSubscriptionPrice = 50,
   onBook,
   onJoinQueue,
   onLeaveQueue,
   onSubmitReview,
+  onBuySubscription,
   userBalance,
   user,
 }) => {
@@ -26,6 +37,8 @@ const MaisonDeAsiaCitizen = ({
   const [reviewTarget, setReviewTarget] = useState(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
+  const [servicePickerWorker, setServicePickerWorker] = useState(null);
+  const [selectedServiceId, setSelectedServiceId] = useState(null);
   const [, setTick] = useState(0);
   const onBookRef = useRef(onBook);
   onBookRef.current = onBook;
@@ -104,12 +117,31 @@ const MaisonDeAsiaCitizen = ({
     </div>
   );
 
-  const handleBooking = (worker) => {
-    if (userBalance < worker.price) return;
+  const handleBooking = (worker, serviceId = null) => {
+    const svc = serviceId ? (worker.services || []).find((s) => s.id === serviceId) : null;
+    const basePrice = svc ? (svc.price || 0) : (worker.price || 0);
+    const discountPct = computeMaisonDiscount(user?.id, worker.id, maisonHistory, maisonSubscriptions);
+    const finalPrice = Math.max(0, Math.round(basePrice * (1 - discountPct / 100)));
+    if (userBalance < finalPrice) return;
     if (houseRegistry.find((r) => r.staffId === worker.id)) return;
-    if (window.confirm(`Passer un moment avec ${worker.name} pour ${formatMoney(worker.price)} ?`)) {
-      onBook(worker.id);
+    const svcLabel = svc ? ` — ${svc.name}` : "";
+    const discountLabel = discountPct > 0 ? ` (remise ${discountPct}%)` : "";
+    if (window.confirm(`Passer un moment avec ${worker.name}${svcLabel} pour ${formatMoney(finalPrice)}${discountLabel} ?`)) {
+      onBook(worker.id, serviceId || null);
       setSelectedStaff(null);
+      setServicePickerWorker(null);
+      setSelectedServiceId(null);
+    }
+  };
+
+  const handleOpenBooking = (worker, e) => {
+    if (e) e.stopPropagation();
+    if (worker.isAvailable === false) return;
+    if ((worker.services || []).length > 0) {
+      setServicePickerWorker(worker);
+      setSelectedServiceId(null);
+    } else {
+      handleBooking(worker, null);
     }
   };
 
@@ -252,20 +284,37 @@ const MaisonDeAsiaCitizen = ({
 
             {/* Disponibilité + Action */}
             <div className="mb-6">
-              {!isOccupied ? (
-                <button
-                  onClick={() => handleBooking(worker)}
-                  disabled={userBalance < worker.price || myBooking}
-                  className={`w-full py-3 rounded-lg font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
-                    myBooking
-                      ? "bg-stone-800 text-stone-500 cursor-not-allowed"
-                      : userBalance < worker.price
-                      ? "bg-stone-800 text-red-400 cursor-not-allowed border border-red-900/30"
-                      : "bg-fuchsia-800 hover:bg-fuchsia-700 text-white border border-fuchsia-600"
-                  }`}
-                >
-                  <Heart size={14} fill="currentColor" /> Réserver — {formatMoney(worker.price)}
-                </button>
+              {worker.isAvailable === false ? (
+                <div className="w-full py-3 rounded-lg text-center text-[10px] uppercase font-black text-stone-500 bg-stone-800 border border-stone-700 flex items-center justify-center gap-2">
+                  <ShieldOff size={14} /> Indisponible pour le moment
+                </div>
+              ) : !isOccupied ? (
+                (() => {
+                  const hasWorkerSvcs = (worker.services || []).length > 0;
+                  const discPct = computeMaisonDiscount(user?.id, worker.id, maisonHistory, maisonSubscriptions);
+                  const baseP = hasWorkerSvcs ? Math.min(...worker.services.map((s) => s.price || 0)) : worker.price;
+                  const fp = Math.max(0, Math.round(baseP * (1 - discPct / 100)));
+                  return (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        if (hasWorkerSvcs) { setServicePickerWorker(worker); setSelectedServiceId(null); }
+                        else handleBooking(worker, null);
+                      }}
+                      disabled={userBalance < fp || myBooking}
+                      className={`w-full py-3 rounded-lg font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
+                        myBooking
+                          ? "bg-stone-800 text-stone-500 cursor-not-allowed"
+                          : userBalance < fp
+                          ? "bg-stone-800 text-red-400 cursor-not-allowed border border-red-900/30"
+                          : "bg-fuchsia-800 hover:bg-fuchsia-700 text-white border border-fuchsia-600"
+                      }`}
+                    >
+                      <Heart size={14} fill="currentColor" />
+                      {hasWorkerSvcs ? `Choisir un service (dès ${formatMoney(fp)})` : `Réserver — ${formatMoney(fp)}${discPct > 0 ? ` (-${discPct}%)` : ""}`}
+                    </button>
+                  );
+                })()
               ) : inMyQueue ? (
                 <button
                   onClick={() => { onLeaveQueue(worker.id); onClose(); }}
@@ -330,6 +379,20 @@ const MaisonDeAsiaCitizen = ({
         <p className="text-[10px] font-sans uppercase tracking-widest mt-1 text-fuchsia-400">
           Maison de Asia • Plaisirs Nocturnes
         </p>
+        {(() => {
+          const vip = getMaisonVipRank(user?.id, maisonHistory);
+          if (!vip) return null;
+          return (
+            <div className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full border text-xs font-black ${vip.bg} ${vip.color}`}>
+              <Crown size={11} /> {vip.emoji} {vip.label}
+              {vip.next && (
+                <span className="text-[9px] opacity-70 ml-1">
+                  · {vip.next.at - vip.visits} visites → {vip.next.label}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-fuchsia-900 scrollbar-track-transparent">
@@ -431,12 +494,61 @@ const MaisonDeAsiaCitizen = ({
               </div>
             )}
 
+            {/* Carte abonnement */}
+            {activeSection === "catalog" && (() => {
+              const sub = getMaisonSubscription(user?.id, maisonSubscriptions);
+              const isSubbed = !!sub;
+              return (
+                <div className={`mb-4 rounded-xl border p-4 flex items-center gap-4 ${isSubbed ? "bg-fuchsia-900/30 border-fuchsia-600/40" : "bg-stone-800/40 border-stone-600/30"}`}>
+                  <Crown size={24} className={isSubbed ? "text-fuchsia-400 shrink-0" : "text-stone-500 shrink-0"} />
+                  <div className="flex-1 min-w-0">
+                    {isSubbed ? (
+                      <>
+                        <div className="text-xs font-black text-fuchsia-300 uppercase tracking-widest">Abonné VIP</div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">
+                          -10% sur toutes les réservations · Expire le {new Date(sub.expiresAt).toLocaleDateString("fr-FR")}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs font-black text-stone-300 uppercase tracking-widest">Abonnement Mensuel</div>
+                        <div className="text-[10px] text-stone-500 mt-0.5">
+                          {formatMoney(maisonSubscriptionPrice)} / 30 jours · -10% sur toutes les réservations
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {!isSubbed && (
+                    <button
+                      onClick={() => onBuySubscription && onBuySubscription()}
+                      disabled={userBalance < maisonSubscriptionPrice}
+                      className="px-3 py-2 bg-fuchsia-800 text-white rounded-lg text-[9px] font-black uppercase hover:bg-fuchsia-700 disabled:opacity-50 shrink-0 flex items-center gap-1"
+                    >
+                      <Percent size={11} /> S'abonner
+                    </button>
+                  )}
+                  {isSubbed && (
+                    <button
+                      onClick={() => onBuySubscription && onBuySubscription()}
+                      disabled={userBalance < maisonSubscriptionPrice}
+                      className="px-3 py-2 bg-fuchsia-900/50 border border-fuchsia-700 text-fuchsia-300 rounded-lg text-[9px] font-black uppercase hover:bg-fuchsia-800/50 disabled:opacity-50 shrink-0 flex items-center gap-1"
+                    >
+                      <Crown size={11} /> Prolonger
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Queue info */}
             {myQueueEntry && (
               <div className="mb-4 bg-fuchsia-900/20 border border-fuchsia-700/30 rounded-lg p-3 flex justify-between items-center">
                 <div>
                   <span className="text-fuchsia-300 text-xs font-bold uppercase tracking-wider">
                     En file d'attente — Position {myQueueEntry.position}
+                    {getMaisonVipRank(user?.id, maisonHistory) && (
+                      <span className="text-[9px] text-fuchsia-500 ml-1">(priorité VIP)</span>
+                    )}
                   </span>
                   <span className="text-stone-500 text-[10px] ml-2">
                     pour {staff.find((s) => s.id === myQueueEntry.staffId)?.name || "?"}
@@ -461,19 +573,27 @@ const MaisonDeAsiaCitizen = ({
                 )}
                 {staff.map((worker) => {
                   const isOccupied = houseRegistry.some((r) => r.staffId === worker.id);
+                  const isUnavailable = worker.isAvailable === false;
                   const rating = getStaffRating(worker.id);
                   const queueCount = getQueueCount(worker.id);
                   const inMyQ = maisonQueue.some((q) => q.citizenId === user?.id && q.staffId === worker.id);
+                  const loyalty = getMaisonLoyaltyDiscount(user?.id, worker.id, maisonHistory);
+                  const discountPct = computeMaisonDiscount(user?.id, worker.id, maisonHistory, maisonSubscriptions);
+                  const hasServices = (worker.services || []).length > 0;
+                  const minSvcPrice = hasServices ? Math.min(...worker.services.map((s) => s.price || 0)) : worker.price;
+                  const displayPrice = discountPct > 0
+                    ? Math.max(0, Math.round(minSvcPrice * (1 - discountPct / 100)))
+                    : null;
 
                   return (
                     <div
                       key={worker.id}
                       className={`group relative bg-stone-900/80 rounded-xl overflow-hidden border transition-all duration-500 cursor-pointer ${
-                        isOccupied
+                        isUnavailable || isOccupied
                           ? "border-stone-800 opacity-60"
                           : "border-fuchsia-900/50 hover:border-fuchsia-500 hover:shadow-[0_0_30px_rgba(192,38,211,0.15)]"
                       }`}
-                      onClick={() => setSelectedStaff(worker)}
+                      onClick={() => !isUnavailable && setSelectedStaff(worker)}
                     >
                       <div className="h-56 overflow-hidden relative">
                         {worker.avatarUrl ? (
@@ -485,13 +605,31 @@ const MaisonDeAsiaCitizen = ({
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent opacity-90" />
 
-                        {/* Badges */}
-                        <div className="absolute top-3 right-3 bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-fuchsia-500/30 text-xs font-bold text-fuchsia-200">
-                          {formatMoney(worker.price)}
+                        {/* Badge prix / remise */}
+                        <div className="absolute top-3 right-3 text-right">
+                          {displayPrice !== null ? (
+                            <div>
+                              <div className="bg-fuchsia-900/80 backdrop-blur px-2 py-0.5 rounded-full text-xs font-bold text-fuchsia-200 line-through opacity-60">{formatMoney(hasServices ? minSvcPrice : worker.price)}</div>
+                              <div className="bg-green-900/80 backdrop-blur px-2 py-0.5 rounded-full text-xs font-bold text-green-300 flex items-center gap-1 mt-0.5">
+                                <Percent size={9} /> {formatMoney(displayPrice)}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-black/60 backdrop-blur px-3 py-1 rounded-full border border-fuchsia-500/30 text-xs font-bold text-fuchsia-200">
+                              {hasServices ? `dès ${formatMoney(minSvcPrice)}` : formatMoney(worker.price)}
+                            </div>
+                          )}
                         </div>
+                        {/* Badge note */}
                         {rating.count > 0 && (
                           <div className="absolute top-3 left-3 bg-black/60 backdrop-blur px-2 py-1 rounded-full text-[10px] font-bold text-yellow-300 flex items-center gap-1">
                             <Star size={10} className="fill-yellow-400 text-yellow-400" /> {rating.avg}
+                          </div>
+                        )}
+                        {/* Badge fidélité */}
+                        {loyalty.visits >= 5 && (
+                          <div className="absolute top-10 left-3 bg-black/60 backdrop-blur px-2 py-0.5 rounded-full text-[9px] font-bold text-amber-400 flex items-center gap-1 mt-0.5">
+                            <Heart size={8} fill="currentColor" /> {loyalty.visits} vis.
                           </div>
                         )}
                       </div>
@@ -501,20 +639,41 @@ const MaisonDeAsiaCitizen = ({
                           <h3 className="text-lg font-bold text-white group-hover:text-fuchsia-300 transition-colors truncate">
                             {worker.name}
                           </h3>
-                          {isOccupied && (
+                          {isUnavailable ? (
+                            <span className="text-[9px] font-black uppercase text-stone-400 bg-black/50 px-2 py-0.5 rounded shrink-0 ml-2 flex items-center gap-1">
+                              <ShieldOff size={8} /> N/D
+                            </span>
+                          ) : isOccupied && (
                             <span className="text-[9px] font-black uppercase text-red-400 bg-black/50 px-2 py-0.5 rounded shrink-0 ml-2">
                               Occupée{queueCount > 0 ? ` (${queueCount})` : ""}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-stone-400 italic mb-3">{worker.specialty}</p>
+                        <p className="text-xs text-stone-400 italic mb-1">{worker.specialty}</p>
+
+                        {/* Services preview */}
+                        {hasServices && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {worker.services.slice(0, 2).map((svc) => (
+                              <span key={svc.id} className="text-[9px] bg-fuchsia-900/50 text-fuchsia-300 px-1.5 py-0.5 rounded border border-fuchsia-800/50">
+                                {svc.name} · {formatMoney(svc.price)}
+                              </span>
+                            ))}
+                            {worker.services.length > 2 && (
+                              <span className="text-[9px] text-stone-500">+{worker.services.length - 2}</span>
+                            )}
+                          </div>
+                        )}
 
                         {/* Bouton d'action */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isOccupied && userBalance >= worker.price && !myQueueEntry) {
-                              handleBooking(worker);
+                            if (isUnavailable) return;
+                            if (!isOccupied && !myQueueEntry && !myBooking) {
+                              const baseP = hasServices ? minSvcPrice : worker.price;
+                              const fp = Math.max(0, Math.round(baseP * (1 - discountPct / 100)));
+                              if (userBalance >= fp) handleOpenBooking(worker, e);
                             } else if (isOccupied && !inMyQ && !myQueueEntry && !myBooking && onJoinQueue) {
                               onJoinQueue(worker.id);
                             } else if (inMyQ) {
@@ -522,34 +681,38 @@ const MaisonDeAsiaCitizen = ({
                             }
                           }}
                           className={`w-full py-2.5 rounded-lg font-black uppercase text-[9px] tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
-                            inMyQ
+                            isUnavailable
+                              ? "bg-stone-800 text-stone-500 cursor-not-allowed border border-stone-700"
+                              : inMyQ
                               ? "bg-yellow-900/50 text-yellow-300 border border-yellow-700"
-                              : !isOccupied && userBalance >= worker.price && !myQueueEntry
+                              : !isOccupied && !myQueueEntry && !myBooking && userBalance >= Math.max(0, Math.round((hasServices ? minSvcPrice : worker.price) * (1 - discountPct / 100)))
                               ? "bg-fuchsia-900 hover:bg-fuchsia-700 text-white border border-fuchsia-700"
                               : isOccupied && !myQueueEntry && !myBooking
                               ? "bg-stone-800 text-stone-300 border border-stone-600 hover:bg-stone-700"
                               : "bg-stone-800 text-stone-500 cursor-not-allowed border border-stone-700"
                           }`}
                         >
-                          {inMyQ ? (
+                          {isUnavailable ? (
+                            <><ShieldOff size={12} /> Indisponible</>
+                          ) : inMyQ ? (
                             "Quitter la file"
-                          ) : !isOccupied && userBalance >= worker.price && !myQueueEntry ? (
-                            <><Heart size={12} fill="currentColor" /> Choisir</>
+                          ) : !isOccupied && !myQueueEntry && !myBooking ? (
+                            hasServices ? <><Wrench size={12} /> Choisir un service</> : <><Heart size={12} fill="currentColor" /> Choisir</>
                           ) : isOccupied && !myQueueEntry && !myBooking ? (
                             <><Users size={12} /> File d'attente ({queueCount})</>
-                          ) : !isOccupied && userBalance < worker.price ? (
-                            "Fonds insuffisants"
                           ) : (
                             "Indisponible"
                           )}
                         </button>
 
                         {/* Voir profil */}
-                        <div className="text-center mt-2">
-                          <span className="text-[9px] text-stone-500 uppercase tracking-wider flex items-center justify-center gap-1 group-hover:text-fuchsia-400 transition-colors">
-                            Voir le profil <ChevronRight size={10} />
-                          </span>
-                        </div>
+                        {!isUnavailable && (
+                          <div className="text-center mt-2">
+                            <span className="text-[9px] text-stone-500 uppercase tracking-wider flex items-center justify-center gap-1 group-hover:text-fuchsia-400 transition-colors">
+                              Voir le profil <ChevronRight size={10} />
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -582,10 +745,16 @@ const MaisonDeAsiaCitizen = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-white text-sm">{visit.staffName}</div>
+                            {visit.serviceName && (
+                              <div className="text-[10px] text-fuchsia-400 italic mt-0.5">{visit.serviceName}</div>
+                            )}
                             <div className="flex gap-3 text-[10px] text-stone-400 mt-0.5">
                               <span>{new Date(visit.endTime).toLocaleDateString("fr-FR")}</span>
                               <span>{visit.duration || "?"} min</span>
                               <span className="text-fuchsia-400 font-bold">{formatMoney(visit.pricePaid)}</span>
+                              {(visit.discountApplied || 0) > 0 && (
+                                <span className="text-green-400 flex items-center gap-0.5"><Percent size={8} /> -{visit.discountApplied}%</span>
+                              )}
                             </div>
                             {visitReview && (
                               <div className="mt-1">
@@ -644,6 +813,76 @@ const MaisonDeAsiaCitizen = ({
 
       {/* Modal profil */}
       {selectedStaff && <ProfileModal worker={selectedStaff} onClose={() => setSelectedStaff(null)} />}
+
+      {/* Service picker modal */}
+      {servicePickerWorker && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={() => { setServicePickerWorker(null); setSelectedServiceId(null); }}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative bg-stone-900 border border-fuchsia-800 rounded-2xl max-w-md w-full shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { setServicePickerWorker(null); setSelectedServiceId(null); }} className="absolute top-4 right-4 text-stone-500 hover:text-white">
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-black text-white mb-1">{servicePickerWorker.name}</h3>
+            <p className="text-fuchsia-400 text-xs italic mb-4">Choisissez un service</p>
+
+            {(() => {
+              const discountPct = computeMaisonDiscount(user?.id, servicePickerWorker.id, maisonHistory, maisonSubscriptions);
+              return (
+                <>
+                  {discountPct > 0 && (
+                    <div className="mb-3 flex items-center gap-2 p-2 bg-green-900/30 border border-green-700/30 rounded-lg text-[10px] text-green-300 font-bold">
+                      <Percent size={11} /> Remise totale de {discountPct}% appliquée à vos prix
+                    </div>
+                  )}
+                  <div className="space-y-2 mb-4">
+                    {servicePickerWorker.services.map((svc) => {
+                      const fp = Math.max(0, Math.round((svc.price || 0) * (1 - discountPct / 100)));
+                      const cat = maisonServiceCategories.find((c) => c.id === svc.categoryId);
+                      const isSelected = selectedServiceId === svc.id;
+                      return (
+                        <button
+                          key={svc.id}
+                          onClick={() => setSelectedServiceId(svc.id)}
+                          className={`w-full text-left p-3 rounded-xl border transition-all ${isSelected ? "border-fuchsia-500 bg-fuchsia-900/40" : "border-stone-700 bg-stone-800/50 hover:border-fuchsia-700"}`}
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-white">{svc.name}</span>
+                            {cat && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: cat.color }}>{cat.name}</span>}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            {discountPct > 0 ? (
+                              <>
+                                <span className="text-xs text-stone-500 line-through">{formatMoney(svc.price)}</span>
+                                <span className="text-xs text-green-300 font-bold">{formatMoney(fp)}</span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-fuchsia-300 font-bold">{formatMoney(svc.price)}</span>
+                            )}
+                            {(svc.duration || servicePickerWorker.sessionDuration || maisonDefaultDuration) && (
+                              <span className="text-[10px] text-stone-500 flex items-center gap-0.5">
+                                <Clock size={9} /> {svc.duration || servicePickerWorker.sessionDuration || maisonDefaultDuration} min
+                              </span>
+                            )}
+                          </div>
+                          {svc.description && <p className="text-[10px] text-stone-500 italic mt-1">{svc.description}</p>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => selectedServiceId && handleBooking(servicePickerWorker, selectedServiceId)}
+                    disabled={!selectedServiceId || userBalance < Math.max(0, Math.round(((servicePickerWorker.services.find((s) => s.id === selectedServiceId)?.price || 0)) * (1 - discountPct / 100)))}
+                    className="w-full py-3 bg-fuchsia-800 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Heart size={14} fill="currentColor" /> Confirmer la réservation
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

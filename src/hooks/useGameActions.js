@@ -72,6 +72,41 @@ const applyMaisonPayment = (worker, price, citizens, companies, countries, treas
   return { newCitizens, updatedCompanies, updatedCountries, newTreasury, toName };
 };
 
+// ─── FONCTIONS PURES VIP / FIDÉLITÉ / ABONNEMENT ──────────────────────────────
+
+export function getMaisonVipRank(citizenId, maisonHistory) {
+  const visits = (maisonHistory || []).filter((h) => h.citizenId === citizenId).length;
+  if (visits >= 50) return { rank: "DIAMANT", label: "Diamant", emoji: "💎", color: "text-cyan-400", bg: "bg-cyan-900/30 border-cyan-500/40", visits, next: null };
+  if (visits >= 30) return { rank: "OR", label: "Or", emoji: "✨", color: "text-yellow-400", bg: "bg-yellow-900/30 border-yellow-500/40", visits, next: { label: "Diamant", at: 50 } };
+  if (visits >= 15) return { rank: "ARGENT", label: "Argent", emoji: "🥈", color: "text-gray-300", bg: "bg-gray-700/30 border-gray-400/40", visits, next: { label: "Or", at: 30 } };
+  if (visits >= 5)  return { rank: "BRONZE", label: "Bronze", emoji: "🥉", color: "text-amber-500", bg: "bg-amber-900/30 border-amber-500/40", visits, next: { label: "Argent", at: 15 } };
+  return null;
+}
+
+export function getMaisonLoyaltyDiscount(citizenId, staffId, maisonHistory) {
+  const visits = (maisonHistory || []).filter((h) => h.citizenId === citizenId && h.staffId === staffId).length;
+  if (visits >= 20) return { pct: 15, visits };
+  if (visits >= 10) return { pct: 10, visits };
+  if (visits >= 5)  return { pct: 5, visits };
+  return { pct: 0, visits };
+}
+
+export function hasMaisonSubscription(citizenId, maisonSubscriptions) {
+  return (maisonSubscriptions || []).some((s) => s.citizenId === citizenId && s.expiresAt > Date.now());
+}
+
+export function getMaisonSubscription(citizenId, maisonSubscriptions) {
+  return (maisonSubscriptions || []).find((s) => s.citizenId === citizenId && s.expiresAt > Date.now()) || null;
+}
+
+export function computeMaisonDiscount(citizenId, staffId, maisonHistory, maisonSubscriptions) {
+  const loyalty = getMaisonLoyaltyDiscount(citizenId, staffId, maisonHistory);
+  const sub = hasMaisonSubscription(citizenId, maisonSubscriptions);
+  return Math.min(loyalty.pct + (sub ? 10 : 0), 40);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export const useGameActions = (session, state, saveState, notify) => {
   return useMemo(() => {
     return wrapActions({
@@ -2096,12 +2131,38 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Vous êtes déjà dans une autre file.", "error");
           return;
         }
-        const position = queue.filter((q) => q.staffId === staffId).length + 1;
+        const newEntry = { citizenId: session.id, staffId, joinedAt: Date.now(), position: 0 };
+        const staffQueue = queue.filter((q) => q.staffId === staffId);
+        const otherQueue = queue.filter((q) => q.staffId !== staffId);
+        const isVip = getMaisonVipRank(session.id, state.maisonHistory || []) !== null;
+
+        let newStaffQueue;
+        if (isVip) {
+          // Insérer avant le premier non-VIP
+          const firstNonVipIdx = staffQueue.findIndex(
+            (q) => getMaisonVipRank(q.citizenId, state.maisonHistory || []) === null
+          );
+          if (firstNonVipIdx === -1) {
+            newStaffQueue = [...staffQueue, newEntry];
+          } else {
+            newStaffQueue = [
+              ...staffQueue.slice(0, firstNonVipIdx),
+              newEntry,
+              ...staffQueue.slice(firstNonVipIdx),
+            ];
+          }
+        } else {
+          newStaffQueue = [...staffQueue, newEntry];
+        }
+        // Renuméroter
+        let pos = 0;
+        newStaffQueue = newStaffQueue.map((q) => { pos++; return { ...q, position: pos }; });
+
         saveState({
           ...state,
-          maisonQueue: [...queue, { citizenId: session.id, staffId, joinedAt: Date.now(), position }],
+          maisonQueue: [...otherQueue, ...newStaffQueue],
         });
-        notify("Vous avez rejoint la file d'attente.", "success");
+        notify(isVip ? "Vous avez rejoint la file en priorité VIP." : "Vous avez rejoint la file d'attente.", "success");
       },
       onLeaveMaisonQueue: (staffId) => {
         if (!session) return;
@@ -2164,7 +2225,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- RÉSERVATION MAISON D'ASIA ---
-      onBookMaison: (staffId) => {
+      onBookMaison: (staffId, serviceId = null) => {
         if (!session) return;
         const registry = state.maisonRegistry || [];
         const queue = state.maisonQueue || [];
@@ -2176,6 +2237,9 @@ export const useGameActions = (session, state, saveState, notify) => {
           const myBooking = registry.find((r) => r.citizenId === session.id);
           if (!myBooking) return;
           const worker = (state.maisonStaff || []).find((s) => s.id === myBooking.staffId);
+          const svc = myBooking.serviceId
+            ? (worker?.services || []).find((sv) => sv.id === myBooking.serviceId)
+            : null;
 
           // Créer l'historique
           const historyEntry = {
@@ -2188,6 +2252,9 @@ export const useGameActions = (session, state, saveState, notify) => {
             endTime: Date.now(),
             duration: myBooking.duration || worker?.sessionDuration || defaultDur,
             pricePaid: myBooking.pricePaid || worker?.price || 0,
+            serviceId: myBooking.serviceId || null,
+            serviceName: svc?.name || null,
+            discountApplied: myBooking.discountApplied || 0,
             reviewed: false,
           };
 
@@ -2283,6 +2350,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         // === RÉSERVER ===
         const worker = (state.maisonStaff || []).find((s) => s.id === staffId);
         if (!worker) { notify("Personnel introuvable.", "error"); return; }
+        if (worker.isAvailable === false) {
+          notify("Ce membre du personnel n'est pas disponible.", "error"); return;
+        }
         if (registry.some((r) => r.staffId === staffId)) {
           notify("Cette personne est déjà occupée.", "error"); return;
         }
@@ -2290,9 +2360,17 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Vous êtes déjà en compagnie.", "error"); return;
         }
 
+        // Résoudre service et prix
+        const svcBooked = serviceId ? (worker.services || []).find((sv) => sv.id === serviceId) : null;
+        const basePrice = svcBooked ? (svcBooked.price || 0) : (worker.price || 0);
+        const svcDuration = svcBooked?.duration || worker.sessionDuration || defaultDur;
+
+        // Calculer remise
+        const discountPct = computeMaisonDiscount(session.id, staffId, history, state.maisonSubscriptions || []);
+        const price = Math.max(0, Math.round(basePrice * (1 - discountPct / 100)));
+
         const clientIdx = state.citizens.findIndex((c) => c.id === session.id);
         if (clientIdx === -1) return;
-        const price = worker.price || 0;
         if (state.citizens[clientIdx].balance < price) {
           notify("Fonds insuffisants.", "error"); return;
         }
@@ -2315,8 +2393,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           citizenId: session.id,
           staffId,
           startTime: Date.now(),
-          duration: worker.sessionDuration || defaultDur,
+          duration: svcDuration,
           pricePaid: price,
+          serviceId: svcBooked?.id || null,
+          discountApplied: discountPct,
         };
 
         const maisonLedger = {
@@ -2325,7 +2405,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           toName,
           amount: price,
           timestamp: Date.now(),
-          reason: `Réservation Maison d'Asia — ${worker.name || "Personnel"}`,
+          reason: `Réservation Maison d'Asia — ${worker.name || "Personnel"}${svcBooked ? ` (${svcBooked.name})` : ""}`,
           type: "MAISON",
         };
 
@@ -2443,6 +2523,136 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
         notify("Client retiré (historique créé).", "info");
       },
+
+      // --- NOUVELLES ACTIONS MAISON D'ASIA ---
+
+      onToggleMaisonStaffAvailability: (staffId) => {
+        const newStaff = (state.maisonStaff || []).map((s) =>
+          s.id === staffId ? { ...s, isAvailable: s.isAvailable === false ? true : false } : s
+        );
+        const member = newStaff.find((s) => s.id === staffId);
+        saveState({ ...state, maisonStaff: newStaff });
+        notify(
+          member?.isAvailable === false
+            ? `${member?.name} marqué(e) comme indisponible.`
+            : `${member?.name} de nouveau disponible.`,
+          "info"
+        );
+      },
+
+      onAddMaisonService: (staffId, service) => {
+        const newStaff = (state.maisonStaff || []).map((s) => {
+          if (s.id !== staffId) return s;
+          return {
+            ...s,
+            services: [...(s.services || []), { ...service, id: Date.now().toString() }],
+          };
+        });
+        saveState({ ...state, maisonStaff: newStaff });
+        notify("Service ajouté.", "success");
+      },
+
+      onUpdateMaisonService: (staffId, serviceId, updates) => {
+        const newStaff = (state.maisonStaff || []).map((s) => {
+          if (s.id !== staffId) return s;
+          return {
+            ...s,
+            services: (s.services || []).map((sv) =>
+              sv.id === serviceId ? { ...sv, ...updates } : sv
+            ),
+          };
+        });
+        saveState({ ...state, maisonStaff: newStaff });
+        notify("Service mis à jour.", "success");
+      },
+
+      onRemoveMaisonService: (staffId, serviceId) => {
+        const newStaff = (state.maisonStaff || []).map((s) => {
+          if (s.id !== staffId) return s;
+          return { ...s, services: (s.services || []).filter((sv) => sv.id !== serviceId) };
+        });
+        saveState({ ...state, maisonStaff: newStaff });
+        notify("Service supprimé.", "info");
+      },
+
+      onSaveMaisonCategory: (category) => {
+        const cats = state.maisonServiceCategories || [];
+        let newCats;
+        if (category.id && cats.some((c) => c.id === category.id)) {
+          newCats = cats.map((c) => (c.id === category.id ? { ...c, ...category } : c));
+        } else {
+          newCats = [...cats, { ...category, id: Date.now().toString() }];
+        }
+        saveState({ ...state, maisonServiceCategories: newCats });
+        notify("Catégorie enregistrée.", "success");
+      },
+
+      onDeleteMaisonCategory: (categoryId) => {
+        const newCats = (state.maisonServiceCategories || []).filter((c) => c.id !== categoryId);
+        // Désassocier la catégorie des services
+        const newStaff = (state.maisonStaff || []).map((s) => ({
+          ...s,
+          services: (s.services || []).map((sv) =>
+            sv.categoryId === categoryId ? { ...sv, categoryId: null } : sv
+          ),
+        }));
+        saveState({ ...state, maisonServiceCategories: newCats, maisonStaff: newStaff });
+        notify("Catégorie supprimée.", "info");
+      },
+
+      onBuyMaisonSubscription: () => {
+        if (!session) return;
+        const price = state.maisonSubscriptionPrice || 50;
+        const citizenIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (citizenIdx === -1) return;
+        if (state.citizens[citizenIdx].balance < price) {
+          notify("Fonds insuffisants pour l'abonnement.", "error");
+          return;
+        }
+        const now = Date.now();
+        const monthMs = 30 * 24 * 3600 * 1000;
+        const subs = state.maisonSubscriptions || [];
+        const existingIdx = subs.findIndex((s) => s.citizenId === session.id);
+        let newSubs;
+        if (existingIdx !== -1 && subs[existingIdx].expiresAt > now) {
+          // Prolonger
+          newSubs = subs.map((s, i) =>
+            i === existingIdx ? { ...s, expiresAt: s.expiresAt + monthMs } : s
+          );
+        } else if (existingIdx !== -1) {
+          // Renouveler
+          newSubs = subs.map((s, i) =>
+            i === existingIdx ? { ...s, purchasedAt: now, expiresAt: now + monthMs } : s
+          );
+        } else {
+          newSubs = [...subs, { citizenId: session.id, purchasedAt: now, expiresAt: now + monthMs }];
+        }
+        const newCitizens = [...state.citizens];
+        newCitizens[citizenIdx] = { ...newCitizens[citizenIdx], balance: newCitizens[citizenIdx].balance - price };
+        const ledgerEntry = {
+          id: now,
+          fromName: session.name,
+          toName: "Maison de Asia",
+          amount: price,
+          timestamp: now,
+          reason: "Abonnement mensuel Maison de Asia",
+          type: "MAISON_SUBSCRIPTION",
+        };
+        saveState({
+          ...state,
+          citizens: newCitizens,
+          maisonSubscriptions: newSubs,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify("Abonnement activé pour 30 jours.", "success");
+      },
+
+      onSetMaisonSubscriptionPrice: (price) => {
+        const val = Math.max(1, parseFloat(price) || 50);
+        saveState({ ...state, maisonSubscriptionPrice: val });
+        notify(`Prix d'abonnement : ${val} Écus.`, "success");
+      },
+
       onProposeDebt: (targetId, amount, interest, reason) => {
         if (!session) return;
         const val = parseFloat(amount);
