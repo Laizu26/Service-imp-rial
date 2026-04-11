@@ -159,6 +159,79 @@ function ESPPConfigCard({ myCompany, myListing, onUpdateCompanyESPP }) {
   );
 }
 
+// ── Contrats d'emploi médiévaux ──
+const DEFAULT_CONTRACT = { type: "MERCENARIAT", contractDurationDays: "", dimePercent: "", corveeFreeDaysPerMonth: "", buyoutAmount: "", migrationLocked: false, customClauses: "" };
+
+const CONTRACT_TYPE_META = {
+  MERCENARIAT: { label: "Mercenariat", badge: "bg-green-100 text-green-700 border-green-200", shortLabel: "MERCENAIRE", desc: "Contrat léger, résiliable librement" },
+  APPRENTISSAGE: { label: "Apprentissage", badge: "bg-blue-100 text-blue-700 border-blue-200", shortLabel: "APPRENTI", desc: "Durée fixe — apprend un métier" },
+  SERVAGE: { label: "Servage", badge: "bg-red-100 text-red-700 border-red-200", shortLabel: "SERF", desc: "Lien fort au seigneur, clause de rachat possible" },
+};
+
+const normalizeContractTerms = (t) => ({
+  type: t.type || "MERCENARIAT",
+  contractDurationDays: t.contractDurationDays ? parseInt(t.contractDurationDays) || null : null,
+  dimePercent: parseFloat(t.dimePercent) || 0,
+  corveeFreeDaysPerMonth: parseInt(t.corveeFreeDaysPerMonth) || 0,
+  buyoutAmount: parseFloat(t.buyoutAmount) || 0,
+  migrationLocked: t.migrationLocked || false,
+  customClauses: t.customClauses ? t.customClauses.split("\n").filter((s) => s.trim()) : [],
+});
+
+function ContractTermsForm({ terms, onChange }) {
+  const set = (key, val) => onChange({ ...terms, [key]: val });
+  const isServage = terms.type === "SERVAGE";
+  return (
+    <div className="space-y-3 text-xs bg-stone-50 border border-stone-200 rounded-xl p-4">
+      <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest mb-1">Type de contrat</div>
+      <div className="flex gap-2">
+        {Object.entries(CONTRACT_TYPE_META).map(([val, meta]) => (
+          <button key={val} type="button" onClick={() => set("type", val)}
+            className={`flex-1 py-2 px-2 rounded border text-[10px] font-black transition-all ${terms.type === val ? meta.badge + " border-current shadow-sm" : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"}`}
+          >{meta.label}</button>
+        ))}
+      </div>
+      <div className="text-[10px] text-stone-400 italic -mt-1">{CONTRACT_TYPE_META[terms.type]?.desc}</div>
+      {!isServage && (
+        <div>
+          <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Durée (jours RP) — laisser vide = illimité</label>
+          <input type="number" min={1} step={1} value={terms.contractDurationDays} onChange={(e) => set("contractDurationDays", e.target.value)}
+            className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="ex. 30" />
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Dîme (% par jour)</label>
+          <input type="number" min={0} max={100} step={1} value={terms.dimePercent} onChange={(e) => set("dimePercent", e.target.value)}
+            className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="0 = aucune" />
+        </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Corvée (jours/mois)</label>
+          <input type="number" min={0} max={30} step={1} value={terms.corveeFreeDaysPerMonth} onChange={(e) => set("corveeFreeDaysPerMonth", e.target.value)}
+            className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="0 = aucune" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 items-end">
+        <div>
+          <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Rachat de liberté (Écus)</label>
+          <input type="number" min={0} step={0.1} value={terms.buyoutAmount} onChange={(e) => set("buyoutAmount", e.target.value)}
+            className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="0 = libre" />
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none pb-2">
+          <input type="checkbox" checked={terms.migrationLocked} onChange={(e) => set("migrationLocked", e.target.checked)} className="w-4 h-4 accent-red-600" />
+          <span className="text-[10px] font-black uppercase text-stone-600 leading-tight">Interdit de migration</span>
+        </label>
+      </div>
+      <div>
+        <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Clauses libres (une par ligne)</label>
+        <textarea value={terms.customClauses} onChange={(e) => set("customClauses", e.target.value)}
+          className="w-full p-2 border rounded text-xs resize-none bg-white" rows={3}
+          placeholder="Ex. Le serf s'engage à fournir 5 lapins par mois..." />
+      </div>
+    </div>
+  );
+}
+
 const TYPE_RATES = {
   SERVICE: { emp: 12, slave: 9, label: "Services / Commerce" },
   MANUFACTURE: { emp: 10, slave: 8, label: "Manufacture / Artisanat" },
@@ -218,6 +291,8 @@ const MyCompanyView = ({
   onBoursePayDividends,
   onUpdateCompanyESPP,
   onEmployeeBuyShares,
+  onPayBuyout,
+  onClaimCorvee,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -241,6 +316,12 @@ const MyCompanyView = ({
   // Gestion des contrats (patron)
   const [contractForm, setContractForm] = useState(null);
   const [selectedContractId, setSelectedContractId] = useState(null);
+
+  // Contrats d'emploi médiévaux
+  const [hireContractTerms, setHireContractTerms] = useState(DEFAULT_CONTRACT);
+  const [showContractForm, setShowContractForm] = useState(false);
+  const [appContractTerms, setAppContractTerms] = useState(DEFAULT_CONTRACT);
+  const [expandedAppId, setExpandedAppId] = useState(null);
 
   // Salaires individuels
   const [salaryMap, setSalaryMap] = useState({});
@@ -523,6 +604,89 @@ const MyCompanyView = ({
                     </div>
                   </Card>
                 ) : null;
+              })()}
+
+              {/* ── Mon Contrat de Travail ── */}
+              {isEmployee && (() => {
+                const myContract = (workerCompany.employmentContracts || {})[user.id];
+                const ctMeta = myContract ? CONTRACT_TYPE_META[myContract.type] : null;
+                const seniority = (workerCompany.employeeSeniority || {})[user.id] || 0;
+                const canQuit = !myContract || !myContract.buyoutAmount;
+                return (
+                  <Card title="Mon Contrat de Travail" icon={ScrollText}>
+                    {myContract ? (
+                      <div className="space-y-3">
+                        {/* Type badge + durée */}
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${ctMeta?.badge || "bg-stone-100 text-stone-600 border-stone-200"}`}>
+                            {ctMeta?.label || myContract.type}
+                          </span>
+                          {myContract.contractDurationDays ? (
+                            <div className="flex-1">
+                              <div className="flex justify-between text-[10px] text-stone-400 mb-1">
+                                <span>Durée : Jour {seniority} / {myContract.contractDurationDays}</span>
+                                <span>{Math.round(seniority / myContract.contractDurationDays * 100)}%</span>
+                              </div>
+                              <div className="w-full bg-stone-200 rounded-full h-1.5">
+                                <div className={`h-1.5 rounded-full ${ctMeta?.badge?.includes("blue") ? "bg-blue-500" : ctMeta?.badge?.includes("green") ? "bg-green-500" : "bg-red-500"}`}
+                                  style={{ width: `${Math.min(100, Math.round(seniority / myContract.contractDurationDays * 100))}%` }} />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-stone-400">Durée indéterminée</span>
+                          )}
+                        </div>
+                        {/* Clauses actives */}
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          {myContract.dimePercent > 0 && (
+                            <div className="bg-red-50 border border-red-100 rounded px-2 py-1.5">
+                              <div className="font-black text-red-700 uppercase tracking-wide">Dîme</div>
+                              <div className="text-stone-600">{myContract.dimePercent}% de votre compte/jour</div>
+                            </div>
+                          )}
+                          {myContract.corveeFreeDaysPerMonth > 0 && (
+                            <div className="bg-amber-50 border border-amber-100 rounded px-2 py-1.5">
+                              <div className="font-black text-amber-700 uppercase tracking-wide">Corvée</div>
+                              <div className="text-stone-600">{myContract.corveeFreeDaysPerMonth} jour(s)/mois réclamables</div>
+                            </div>
+                          )}
+                          {myContract.migrationLocked && (
+                            <div className="bg-stone-100 border border-stone-200 rounded px-2 py-1.5">
+                              <div className="font-black text-stone-700 uppercase tracking-wide flex items-center gap-1"><Lock size={10} /> Migration</div>
+                              <div className="text-stone-600">Interdit de changer d'employeur</div>
+                            </div>
+                          )}
+                          {myContract.buyoutAmount > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                              <div className="font-black text-amber-700 uppercase tracking-wide">Rachat</div>
+                              <div className="text-stone-600">{formatMoney(myContract.buyoutAmount)} pour rompre le lien</div>
+                            </div>
+                          )}
+                        </div>
+                        {/* Clauses libres */}
+                        {myContract.customClauses?.length > 0 && (
+                          <div className="bg-stone-50 border border-stone-200 rounded p-2 space-y-1">
+                            <div className="text-[9px] font-black uppercase text-stone-400 tracking-wide">Clauses</div>
+                            {myContract.customClauses.map((cl, i) => (
+                              <div key={i} className="text-[10px] text-stone-600 flex gap-1.5"><span className="text-stone-300 font-bold">·</span>{cl}</div>
+                            ))}
+                          </div>
+                        )}
+                        {/* Bouton rachat de liberté */}
+                        {myContract.buyoutAmount > 0 && onPayBuyout && (
+                          <button
+                            onClick={() => onPayBuyout(workerCompany.id)}
+                            className="w-full bg-amber-500 text-white py-2 rounded font-black uppercase text-xs hover:bg-amber-400 flex items-center justify-center gap-2"
+                          >
+                            <Lock size={13} /> Payer ma liberté — {formatMoney(myContract.buyoutAmount)}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center text-stone-400 italic text-xs py-3">Aucun contrat formalisé.</div>
+                    )}
+                  </Card>
+                );
               })()}
 
               {/* ── Plan d'Actionnariat Salarié (ESPP) ── */}
@@ -850,26 +1014,38 @@ const MyCompanyView = ({
               )}
 
               {/* Démission (seulement employé, pas esclave) */}
-              {isEmployee && onQuitCompany && (
-                <Card title="Contrat de travail" icon={Briefcase}>
+              {isEmployee && onQuitCompany && (() => {
+                const myQuitContract = (workerCompany.employmentContracts || {})[user.id];
+                const isBlocked = myQuitContract && myQuitContract.buyoutAmount > 0;
+                return (
+                <Card title="Démission" icon={Briefcase}>
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs text-stone-600">
-                        Vous pouvez démissionner de votre poste. Cette action est immédiate.
-                      </p>
+                      {isBlocked ? (
+                        <p className="text-xs text-amber-700 font-bold flex items-center gap-1.5">
+                          <Lock size={13} /> Vous ne pouvez pas partir : un rachat de {formatMoney(myQuitContract.buyoutAmount)} est requis.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-stone-600">
+                          Vous pouvez démissionner de votre poste. Cette action est immédiate.
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => {
-                        if (window.confirm(`Voulez-vous vraiment quitter ${workerCompany.name} ?`)) {
+                        if (!isBlocked && window.confirm(`Voulez-vous vraiment quitter ${workerCompany.name} ?`)) {
                           onQuitCompany(workerCompany.id);
                         }
                       }}
-                      className="bg-red-600 text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-wide hover:bg-red-500 flex-shrink-0"
+                      disabled={isBlocked}
+                      className="bg-red-600 text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-wide hover:bg-red-500 flex-shrink-0 disabled:opacity-40"
                     >
                       Démissionner
                     </button>
                   </div>
                 </Card>
+                );
+              })() }
               )}
             </div>
           );
@@ -1139,30 +1315,41 @@ const MyCompanyView = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card title="Recrutement" icon={Users}>
             <div className="space-y-4">
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold uppercase text-stone-400 mb-1 block">
-                    Proposer un contrat
-                  </label>
-                  <UserSearchSelect
-                    users={citizens}
-                    onSelect={setHireTarget}
-                    placeholder="Rechercher un citoyen..."
-                    excludeIds={[user.id, ...(myCompany.employees || [])]}
-                  />
+              <div className="space-y-3">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase text-stone-400 mb-1 block">
+                      Proposer un contrat
+                    </label>
+                    <UserSearchSelect
+                      users={citizens}
+                      onSelect={setHireTarget}
+                      placeholder="Rechercher un citoyen..."
+                      excludeIds={[user.id, ...(myCompany.employees || [])]}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowContractForm((v) => !v)}
+                    className={`text-[10px] font-black uppercase px-3 py-2.5 rounded border mb-[1px] ${showContractForm ? "bg-stone-700 text-white border-stone-700" : "bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-400"}`}
+                  >
+                    <ScrollText size={13} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (hireTarget) {
+                        onSendJobOffer(myCompany.id, hireTarget, normalizeContractTerms(hireContractTerms));
+                        setHireTarget("");
+                      }
+                    }}
+                    disabled={!hireTarget}
+                    className="bg-stone-800 text-white px-4 py-2.5 rounded font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 flex items-center gap-2 mb-[1px]"
+                  >
+                    <Send size={14} /> Envoyer
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    if (hireTarget) {
-                      onSendJobOffer(myCompany.id, hireTarget);
-                      setHireTarget("");
-                    }
-                  }}
-                  disabled={!hireTarget}
-                  className="bg-stone-800 text-white px-4 py-2.5 rounded font-bold uppercase text-xs hover:bg-stone-700 disabled:opacity-50 flex items-center gap-2 mb-[1px]"
-                >
-                  <Send size={14} /> Envoyer
-                </button>
+                {showContractForm && (
+                  <ContractTermsForm terms={hireContractTerms} onChange={setHireContractTerms} />
+                )}
               </div>
 
               <div className="border-t border-stone-100 pt-2">
@@ -1183,32 +1370,39 @@ const MyCompanyView = ({
                     const emp = citizens.find((c) => c.id === empId);
                     const empRank = (myCompany.employeeRanks || {})[empId];
                     const empDays = (myCompany.employeeSeniority || {})[empId] || 0;
+                    const empContract = (myCompany.employmentContracts || {})[empId];
+                    const ctMeta = empContract ? CONTRACT_TYPE_META[empContract.type] : null;
                     return (
-                      <div
-                        key={empId}
-                        className="py-3 flex justify-between items-center"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-stone-700 text-sm">
-                            {emp ? emp.name : "Inconnu"}
-                          </span>
+                      <div key={empId} className="py-3 flex justify-between items-center">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-stone-700 text-sm">{emp ? emp.name : "Inconnu"}</span>
                           {empRank?.title && (
-                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">
-                              {empRank.title}
-                            </span>
+                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">{empRank.title}</span>
                           )}
-                          {empDays > 0 && (
+                          {ctMeta && (
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${ctMeta.badge}`}>{ctMeta.shortLabel}</span>
+                          )}
+                          {empContract?.contractDurationDays ? (
+                            <span className="text-[9px] text-stone-400 font-mono">J{empDays}/{empContract.contractDurationDays}</span>
+                          ) : empDays > 0 ? (
                             <span className="text-[9px] text-stone-400 font-mono">{empDays}j</span>
+                          ) : null}
+                          {empContract?.buyoutAmount > 0 && (
+                            <span className="text-[8px] text-amber-600 font-black flex items-center gap-0.5"><Lock size={9} />{formatMoney(empContract.buyoutAmount)}</span>
                           )}
                         </div>
-                        <button
-                          onClick={() =>
-                            onCompanyFire(myCompany.id, empId, "FIRE")
-                          }
-                          className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50"
-                        >
-                          Licencier
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {empContract?.corveeFreeDaysPerMonth > 0 && onClaimCorvee && (
+                            <button onClick={() => onClaimCorvee(myCompany.id, empId)}
+                              className="text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-[9px] font-black uppercase px-2 py-1 rounded">
+                              Corvée
+                            </button>
+                          )}
+                          <button onClick={() => onCompanyFire(myCompany.id, empId, "FIRE")}
+                            className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50">
+                            Licencier
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -2107,44 +2301,41 @@ const MyCompanyView = ({
                 Aucune candidature en attente.
               </div>
             ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              <div className="space-y-3 max-h-[480px] overflow-y-auto">
                 {(myCompany.applications || []).map((app) => {
                   const applicant = citizens.find((c) => c.id === app.citizenId);
                   const profile = applicant?.employeeProfile;
+                  const isExpanded = expandedAppId === app.id;
                   return (
-                    <div key={app.id} className="bg-white border border-stone-200 rounded-lg p-3">
+                    <div key={app.id} className="bg-white border border-stone-200 rounded-lg p-3 space-y-2">
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="font-bold text-sm text-stone-800">{app.citizenName}</div>
-                          <div className="text-[10px] text-stone-400">
-                            Reçu le {new Date(app.date).toLocaleDateString()}
-                          </div>
-                          {profile?.skills && (
-                            <div className="text-[10px] text-stone-500 mt-1">
-                              <span className="font-bold">Compétences :</span> {profile.skills}
-                            </div>
-                          )}
-                          {profile?.experience && (
-                            <div className="text-[10px] text-stone-500">
-                              <span className="font-bold">Expérience :</span> {profile.experience}
-                            </div>
-                          )}
+                          <div className="text-[10px] text-stone-400">Reçu le {new Date(app.date).toLocaleDateString()}</div>
+                          {profile?.skills && (<div className="text-[10px] text-stone-500 mt-1"><span className="font-bold">Compétences :</span> {profile.skills}</div>)}
+                          {profile?.experience && (<div className="text-[10px] text-stone-500"><span className="font-bold">Expérience :</span> {profile.experience}</div>)}
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
                           <button
-                            onClick={() => onRespondApplication && onRespondApplication(myCompany.id, app.id, true)}
-                            className="bg-green-600 text-white px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500"
+                            onClick={() => { setExpandedAppId(isExpanded ? null : app.id); setAppContractTerms(DEFAULT_CONTRACT); }}
+                            className={`px-2.5 py-1.5 rounded text-[10px] font-bold uppercase border ${isExpanded ? "bg-stone-700 text-white border-stone-700" : "bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-400"}`}
+                            title="Définir les clauses du contrat"
                           >
-                            Embaucher
+                            <ScrollText size={12} />
                           </button>
+                          <button
+                            onClick={() => { onRespondApplication && onRespondApplication(myCompany.id, app.id, true, normalizeContractTerms(isExpanded ? appContractTerms : DEFAULT_CONTRACT)); setExpandedAppId(null); }}
+                            className="bg-green-600 text-white px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500"
+                          >Embaucher</button>
                           <button
                             onClick={() => onRespondApplication && onRespondApplication(myCompany.id, app.id, false)}
                             className="bg-red-100 text-red-600 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-red-200"
-                          >
-                            Refuser
-                          </button>
+                          >Refuser</button>
                         </div>
                       </div>
+                      {isExpanded && (
+                        <ContractTermsForm terms={appContractTerms} onChange={setAppContractTerms} />
+                      )}
                     </div>
                   );
                 })}

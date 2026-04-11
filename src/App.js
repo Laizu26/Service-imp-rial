@@ -618,6 +618,8 @@ export default function App() {
             onBoursePayDividends={actions.onBoursePayDividends}
             onUpdateCompanyESPP={actions.onUpdateCompanyESPP}
             onEmployeeBuyShares={actions.onEmployeeBuyShares}
+            onPayBuyout={actions.onPayBuyout}
+            onClaimCorvee={actions.onClaimCorvee}
             onFamilyDeposit={actions.onFamilyDeposit}
             onFamilyWithdraw={actions.onFamilyWithdraw}
             onFamilyTreasuryTransfer={actions.onFamilyTreasuryTransfer}

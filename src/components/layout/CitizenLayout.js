@@ -697,6 +697,8 @@ const CitizenLayout = (props) => {
     onBoursePayDividends,
     onUpdateCompanyESPP,
     onEmployeeBuyShares,
+    onPayBuyout,
+    onClaimCorvee,
     onSetFamilyHead,
     onFamilyDeposit,
     onFamilyWithdraw,
@@ -1318,6 +1320,8 @@ const CitizenLayout = (props) => {
                 onBoursePayDividends={onBoursePayDividends}
                 onUpdateCompanyESPP={onUpdateCompanyESPP}
                 onEmployeeBuyShares={onEmployeeBuyShares}
+                onPayBuyout={onPayBuyout}
+                onClaimCorvee={onClaimCorvee}
               />
             )}
 

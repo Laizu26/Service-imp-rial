@@ -155,6 +155,46 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.companies[compIdx] = { ...ns.companies[compIdx], employeeSeniority: seniority };
         });
 
+        // --- Dîme et expiration des contrats d'emploi ---
+        (ns.companies || []).forEach((company, compIdx) => {
+          if (company.frozen) return;
+          const contracts = ns.companies[compIdx].employmentContracts || {};
+          if (Object.keys(contracts).length === 0) return;
+          const seniority = ns.companies[compIdx].employeeSeniority || {};
+          let newContracts = { ...contracts };
+          let newEmployees = [...(ns.companies[compIdx].employees || [])];
+          let compBalance = ns.companies[compIdx].balance || 0;
+          let workerBalances = { ...(ns.companies[compIdx].workerBalances || {}) };
+          const ts = Date.now();
+          let ledgerEntries = [];
+          Object.entries(contracts).forEach(([citizenId, contract], i) => {
+            // — Dîme —
+            if (contract.dimePercent > 0) {
+              const wbal = workerBalances[citizenId] || 0;
+              if (wbal > 0) {
+                const dime = Math.round(wbal * contract.dimePercent / 100 * 10) / 10;
+                if (dime > 0) {
+                  workerBalances[citizenId] = Math.round((wbal - dime) * 10) / 10;
+                  compBalance = Math.round((compBalance + dime) * 10) / 10;
+                  const cit = ns.citizens.find((c) => c.id === citizenId);
+                  ledgerEntries.push({ id: ts + i, fromName: cit?.name || citizenId, toName: company.name, amount: dime, timestamp: ts, reason: `Dîme ${contract.dimePercent}% — contrat ${contract.type}`, type: "DIME" });
+                }
+              }
+            }
+            // — Expiration (CDD/Apprentissage/Mercenariat) —
+            if (contract.contractDurationDays && (seniority[citizenId] || 0) >= contract.contractDurationDays) {
+              newEmployees = newEmployees.filter((id) => id !== citizenId);
+              delete newContracts[citizenId];
+              const cit = ns.citizens.find((c) => c.id === citizenId);
+              ledgerEntries.push({ id: ts + i + 1000, fromName: company.name, toName: cit?.name || citizenId, amount: 0, timestamp: ts, reason: `Fin de contrat ${contract.type} — durée atteinte (${contract.contractDurationDays} jours)`, type: "CONTRACT_EXPIRED" });
+            }
+          });
+          ns.companies[compIdx] = { ...ns.companies[compIdx], balance: compBalance, workerBalances, employees: newEmployees, employmentContracts: newContracts };
+          if (ledgerEntries.length > 0) {
+            ns.globalLedger = [...ledgerEntries, ...(ns.globalLedger || [])].slice(0, 1000);
+          }
+        });
+
         // --- Progression de niveau (mensuelle, 1er du mois) ---
         if (ns.gameDate.day === 1) {
           (ns.companies || []).forEach((company, compIdx) => {
@@ -725,7 +765,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- NOUVEAU : OFFRES D'EMPLOI ---
-      onSendJobOffer: (companyId, targetId) => {
+      onSendJobOffer: (companyId, targetId, contractTerms) => {
         const company = state.companies.find((c) => c.id === companyId);
         if (!company) return;
 
@@ -750,6 +790,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
+        const terms = contractTerms || { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
         newCitizens[targetIdx] = {
           ...target,
           jobOffers: [
@@ -759,6 +800,7 @@ export const useGameActions = (session, state, saveState, notify) => {
               companyId: company.id,
               companyName: company.name,
               date: Date.now(),
+              contractTerms: terms,
             },
           ],
         };
@@ -794,10 +836,15 @@ export const useGameActions = (session, state, saveState, notify) => {
             // Ajout à l'entreprise
             const seniorityData = { ...(company.employeeSeniority || {}) };
             seniorityData[user.id] = 0;
+            const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
             newCompanies[compIdx] = {
               ...company,
               employees: [...(company.employees || []), user.id],
               employeeSeniority: seniorityData,
+              employmentContracts: {
+                ...(company.employmentContracts || {}),
+                [user.id]: { ...(offer.contractTerms || defaultTerms), signedAt: Date.now() },
+              },
             };
             notify(`Vous avez rejoint ${company.name}.`, "success");
           } else {
@@ -817,11 +864,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCompanies = [...state.companies];
 
         if (action === "FIRE") {
+          const firedContracts = { ...(company.employmentContracts || {}) };
+          delete firedContracts[targetId];
           newCompanies[compIdx] = {
             ...company,
-            employees: (company.employees || []).filter(
-              (id) => id !== targetId
-            ),
+            employees: (company.employees || []).filter((id) => id !== targetId),
+            employmentContracts: firedContracts,
           };
           notify("Employé licencié.", "info");
         } else if (action === "ASSIGN_SLAVE") {
@@ -854,15 +902,80 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Vous n'êtes pas employé ici.", "error");
           return;
         }
+        // Vérifier clause de rachat
+        const myContract = (company.employmentContracts || {})[session.id];
+        if (myContract && myContract.buyoutAmount > 0) {
+          notify(`Votre contrat exige le paiement de ${formatMoney(myContract.buyoutAmount)} pour rompre le lien. Utilisez "Payer ma liberté".`, "error");
+          return;
+        }
         const newCompanies = [...state.companies];
+        const newContracts = { ...(company.employmentContracts || {}) };
+        delete newContracts[session.id];
         newCompanies[compIdx] = {
           ...company,
-          employees: (company.employees || []).filter(
-            (id) => id !== session.id
-          ),
+          employees: (company.employees || []).filter((id) => id !== session.id),
+          employmentContracts: newContracts,
         };
         saveState({ ...state, companies: newCompanies });
         notify(`Vous avez quitté ${company.name}.`, "info");
+      },
+
+      // --- RACHAT DE LIBERTÉ (serf paie pour rompre son contrat) ---
+      onPayBuyout: (companyId) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        const contract = (company.employmentContracts || {})[session.id];
+        if (!contract || !contract.buyoutAmount) { notify("Aucun rachat requis.", "info"); return; }
+        const amount = contract.buyoutAmount;
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const citizen = state.citizens[userIdx];
+        if ((citizen.balance || 0) < amount) {
+          notify(`Fonds insuffisants. Il vous faut ${formatMoney(amount)} pour acheter votre liberté.`, "error");
+          return;
+        }
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...citizen, balance: Math.round(((citizen.balance || 0) - amount) * 10) / 10 };
+        const newCompanies = [...state.companies];
+        const newContracts = { ...(company.employmentContracts || {}), [session.id]: { ...contract, buyoutAmount: 0 } };
+        newCompanies[compIdx] = { ...company, balance: Math.round(((company.balance || 0) + amount) * 10) / 10, employmentContracts: newContracts };
+        const ts = Date.now();
+        const ledgerEntry = { id: ts, fromName: citizen.name, toName: company.name, amount, timestamp: ts, reason: `Rachat de liberté — contrat ${contract.type}`, type: "BUYOUT" };
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`Liberté acquise ! ${formatMoney(amount)} versés à ${company.name}. Vous pouvez désormais quitter votre emploi.`, "success");
+      },
+
+      // --- RÉCLAMER LA CORVÉE (employeur prélève des jours de travail gratuit) ---
+      onClaimCorvee: (companyId, targetId) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (company.ownerId !== session.id) { notify("Action non autorisée.", "error"); return; }
+        const contract = (company.employmentContracts || {})[targetId];
+        if (!contract || !contract.corveeFreeDaysPerMonth || contract.corveeFreeDaysPerMonth <= 0) {
+          notify("Cet employé n'a pas de clause de corvée.", "error");
+          return;
+        }
+        const workerBalance = (company.workerBalances || {})[targetId] || 0;
+        if (workerBalance <= 0) { notify("Le compte de cet employé est vide, impossible de réclamer la corvée.", "error"); return; }
+        // La corvée prélève la valeur de N jours de travail gratuit (calculée sur le workerBalance disponible / 30 * corveeFreeDaysPerMonth)
+        const days = Math.min(contract.corveeFreeDaysPerMonth, 30);
+        const deduction = Math.min(workerBalance, Math.round(workerBalance / 30 * days * 10) / 10);
+        if (deduction <= 0) { notify("Montant de corvée nul.", "info"); return; }
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = {
+          ...company,
+          balance: Math.round(((company.balance || 0) + deduction) * 10) / 10,
+          workerBalances: { ...(company.workerBalances || {}), [targetId]: Math.round((workerBalance - deduction) * 10) / 10 },
+        };
+        const citizen = (state.citizens || []).find((c) => c.id === targetId);
+        const ts = Date.now();
+        const ledgerEntry = { id: ts, fromName: citizen?.name || targetId, toName: company.name, amount: deduction, timestamp: ts, reason: `Corvée ${days} jour(s) — contrat ${contract.type}`, type: "CORVEE" };
+        saveState({ ...state, companies: newCompanies, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`Corvée réclamée : ${formatMoney(deduction)} prélevés sur le compte de l'employé.`, "success");
       },
 
       // --- LE RESTE EST INCHANGÉ (POUR COMPATIBILITÉ) ---
@@ -2712,6 +2825,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Vous avez déjà un emploi.", "error");
           return;
         }
+        // Vérifier interdiction de migration
+        const isMigrationLocked = state.companies.some((c) => {
+          const contract = (c.employmentContracts || {})[session.id];
+          return contract && contract.migrationLocked;
+        });
+        if (isMigrationLocked) {
+          notify("Votre contrat de travail interdit de rejoindre une autre entreprise sans l'accord de votre seigneur.", "error");
+          return;
+        }
         if (company.ownerId === session.id) {
           notify("Vous êtes le dirigeant de cette entreprise.", "error");
           return;
@@ -2736,7 +2858,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Candidature envoyée.", "success");
       },
 
-      onRespondApplication: (companyId, applicationId, accept) => {
+      onRespondApplication: (companyId, applicationId, accept, contractTerms) => {
         if (!session) return;
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
@@ -2763,10 +2885,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
           const seniorityData = { ...(company.employeeSeniority || {}) };
           seniorityData[app.citizenId] = 0;
+          const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
           newCompanies[compIdx] = {
             ...newCompanies[compIdx],
             employees: [...(newCompanies[compIdx].employees || []), app.citizenId],
             employeeSeniority: seniorityData,
+            employmentContracts: {
+              ...(newCompanies[compIdx].employmentContracts || {}),
+              [app.citizenId]: { ...(contractTerms || defaultTerms), signedAt: Date.now() },
+            },
           };
           notify(`${app.citizenName} a été embauché.`, "success");
         } else {
