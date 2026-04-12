@@ -8,6 +8,11 @@ import {
   AlertTriangle,
   Pencil,
   FileText,
+  Pin,
+  ChevronUp,
+  ChevronDown,
+  Search,
+  Tag,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 
@@ -23,12 +28,16 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
   // Formulaire
   const [importTitle, setImportTitle] = useState("");
   const [importAuthor, setImportAuthor] = useState("");
+  const [importCategory, setImportCategory] = useState("");
   const [importContent, setImportContent] = useState("");
   const [gDocUrl, setGDocUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Édition
   const [editingId, setEditingId] = useState(null);
+
+  // Recherche dans la liste existante
+  const [listSearch, setListSearch] = useState("");
 
   const selectedCountry =
     countries.find((c) => c.id === selectedCountryId) || countries[0];
@@ -45,6 +54,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
   const resetForm = () => {
     setImportTitle("");
     setImportAuthor("");
+    setImportCategory("");
     setImportContent("");
     setGDocUrl("");
     setEditingId(null);
@@ -60,11 +70,12 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
     } else {
       setImportTitle(entry.title || "");
       setImportAuthor(entry.author || "");
+      setImportCategory(entry.category || "");
       setImportContent(entry.content || "");
     }
   };
 
-  // --- SUPPRESSION TOTALE (FIX : ne touche PAS à laws) ---
+  // --- SUPPRESSION TOTALE ---
   const handleClearAllDecrees = () => {
     const confirm1 = window.confirm(
       `ATTENTION : Vous allez supprimer TOUS les décrets de ${selectedCountry.name}.`
@@ -76,6 +87,23 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
     if (confirm2) {
       updateCountry({ decrees: [] });
     }
+  };
+
+  // --- ÉPINGLER / DÉSÉPINGLER UN DÉCRET ---
+  const handleTogglePin = (decreeId) => {
+    const updated = (selectedCountry.decrees || []).map((d) =>
+      d.id === decreeId ? { ...d, pinned: !d.pinned } : d
+    );
+    updateCountry({ decrees: updated });
+  };
+
+  // --- RÉORDONNER LES DÉCRETS ---
+  const handleMove = (idx, direction) => {
+    const decrees = [...(selectedCountry.decrees || [])];
+    const target = idx + direction;
+    if (target < 0 || target >= decrees.length) return;
+    [decrees[idx], decrees[target]] = [decrees[target], decrees[idx]];
+    updateCountry({ decrees });
   };
 
   // --- IMPORT GDOC ---
@@ -101,7 +129,6 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
 
     let content = importContent;
 
-    // Si mode GDoc, récupérer le contenu
     if (inputMode === "gdoc") {
       if (!gDocUrl) return;
       setIsLoading(true);
@@ -124,7 +151,6 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
       const currentDecrees = selectedCountry.decrees || [];
 
       if (editingId) {
-        // Édition
         const updated = currentDecrees.map((d) =>
           d.id === editingId
             ? { ...d, name: importTitle, content: content }
@@ -132,12 +158,12 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
         );
         updateCountry({ decrees: updated });
       } else {
-        // Création
         const newDecree = {
           id: Date.now(),
           name: importTitle,
           content: content,
           date: new Date().toISOString(),
+          pinned: false,
         };
         updateCountry({ decrees: [newDecree, ...currentDecrees] });
       }
@@ -145,24 +171,24 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
       const currentBooks = selectedCountry.books || [];
 
       if (editingId) {
-        // Édition
         const updated = currentBooks.map((b) =>
           b.id === editingId
             ? {
                 ...b,
                 title: importTitle,
                 author: importAuthor,
+                category: importCategory,
                 content: content,
               }
             : b
         );
         updateCountry({ books: updated });
       } else {
-        // Création
         const newBook = {
           id: Date.now(),
           title: importTitle,
           author: importAuthor,
+          category: importCategory,
           content: content,
           date: new Date().toISOString(),
         };
@@ -172,6 +198,35 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
 
     resetForm();
   };
+
+  // Filtrage de la liste
+  const filteredDecrees = (selectedCountry.decrees || []).filter(
+    (d) =>
+      !listSearch ||
+      d.name?.toLowerCase().includes(listSearch.toLowerCase()) ||
+      d.content?.toLowerCase().includes(listSearch.toLowerCase())
+  );
+
+  const filteredBooks = (selectedCountry.books || []).filter(
+    (b) =>
+      !listSearch ||
+      b.title?.toLowerCase().includes(listSearch.toLowerCase()) ||
+      b.author?.toLowerCase().includes(listSearch.toLowerCase()) ||
+      b.category?.toLowerCase().includes(listSearch.toLowerCase())
+  );
+
+  // Décrets épinglés en premier
+  const sortedDecrees = [
+    ...filteredDecrees.filter((d) => d.pinned),
+    ...filteredDecrees.filter((d) => !d.pinned),
+  ];
+
+  // Catégories utilisées (pour le datalist)
+  const usedCategories = [
+    ...new Set((selectedCountry.books || []).map((b) => b.category).filter(Boolean)),
+  ];
+
+  const isNew = (dateStr) => dateStr && Date.now() - new Date(dateStr).getTime() < 7 * 24 * 3600 * 1000;
 
   return (
     <div className="h-full flex flex-col bg-stone-100 rounded-xl overflow-hidden border border-stone-300">
@@ -191,6 +246,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
             onChange={(e) => {
               setSelectedCountryId(e.target.value);
               resetForm();
+              setListSearch("");
             }}
           >
             {countries.map((c) => (
@@ -207,6 +263,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
             onClick={() => {
               setActiveTab("decrees");
               resetForm();
+              setListSearch("");
             }}
             className={`px-6 py-3 rounded-t-lg font-bold uppercase text-xs tracking-widest flex items-center gap-2 transition-colors ${
               activeTab === "decrees"
@@ -215,11 +272,17 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
             }`}
           >
             <Scroll size={16} /> Gestion des Décrets
+            {(selectedCountry.decrees || []).length > 0 && (
+              <span className="bg-stone-600 text-stone-200 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                {(selectedCountry.decrees || []).length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => {
               setActiveTab("books");
               resetForm();
+              setListSearch("");
             }}
             className={`px-6 py-3 rounded-t-lg font-bold uppercase text-xs tracking-widest flex items-center gap-2 transition-colors ${
               activeTab === "books"
@@ -228,6 +291,11 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
             }`}
           >
             <Book size={16} /> Édition de Livres
+            {(selectedCountry.books || []).length > 0 && (
+              <span className="bg-stone-600 text-stone-200 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                {(selectedCountry.books || []).length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -301,18 +369,37 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
               />
             </div>
 
-            {/* AUTEUR (livres uniquement) */}
+            {/* AUTEUR + CATÉGORIE (livres uniquement) */}
             {activeTab === "books" && (
-              <div>
-                <label className="text-[10px] font-bold uppercase text-stone-500 mb-1 block">
-                  Auteur
-                </label>
-                <input
-                  className="w-full p-3 border border-stone-300 rounded-lg text-sm outline-none focus:border-stone-800"
-                  placeholder="Ex: Chroniqueur Royal Théodore..."
-                  value={importAuthor}
-                  onChange={(e) => setImportAuthor(e.target.value)}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-stone-500 mb-1 block">
+                    Auteur
+                  </label>
+                  <input
+                    className="w-full p-3 border border-stone-300 rounded-lg text-sm outline-none focus:border-stone-800"
+                    placeholder="Ex: Chroniqueur Royal Théodore..."
+                    value={importAuthor}
+                    onChange={(e) => setImportAuthor(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-stone-500 mb-1 flex items-center gap-1">
+                    <Tag size={10} /> Catégorie / Genre
+                  </label>
+                  <input
+                    list="category-suggestions"
+                    className="w-full p-3 border border-stone-300 rounded-lg text-sm outline-none focus:border-stone-800"
+                    placeholder="Ex: Histoire, Loi, Roman, Poésie..."
+                    value={importCategory}
+                    onChange={(e) => setImportCategory(e.target.value)}
+                  />
+                  <datalist id="category-suggestions">
+                    {usedCategories.map((cat) => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
+                </div>
               </div>
             )}
 
@@ -328,6 +415,11 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
                   value={importContent}
                   onChange={(e) => setImportContent(e.target.value)}
                 />
+                {importContent && (
+                  <div className="text-[9px] text-stone-400 mt-1 text-right">
+                    {importContent.length} caractères · {importContent.split(/\s+/).filter(Boolean).length} mots
+                  </div>
+                )}
               </div>
             )}
 
@@ -393,71 +485,138 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
 
         {/* LISTE DU CONTENU EXISTANT */}
         <div className="grid gap-4">
-          <div className="flex justify-between items-end mb-2">
+          <div className="flex flex-wrap justify-between items-end gap-3 mb-2">
             <h3 className="text-sm font-black uppercase text-stone-400 tracking-widest">
               Archives Actuelles ({selectedCountry.name})
             </h3>
-
-            {activeTab === "decrees" &&
-              (selectedCountry.decrees || []).length > 0 && (
-                <button
-                  onClick={handleClearAllDecrees}
-                  className="text-[10px] font-bold uppercase text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded flex items-center gap-1 transition-colors"
-                >
-                  <AlertTriangle size={12} /> Tout effacer
-                </button>
-              )}
+            <div className="flex items-center gap-2">
+              {/* BARRE DE RECHERCHE */}
+              <div className="relative">
+                <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+                <input
+                  className="pl-8 pr-3 py-1.5 border border-stone-300 rounded-lg text-[11px] font-medium outline-none bg-white focus:border-stone-600 w-44"
+                  placeholder="Chercher..."
+                  value={listSearch}
+                  onChange={(e) => setListSearch(e.target.value)}
+                />
+              </div>
+              {activeTab === "decrees" &&
+                (selectedCountry.decrees || []).length > 0 && (
+                  <button
+                    onClick={handleClearAllDecrees}
+                    className="text-[10px] font-bold uppercase text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded flex items-center gap-1 transition-colors border border-red-200"
+                  >
+                    <AlertTriangle size={12} /> Tout effacer
+                  </button>
+                )}
+            </div>
           </div>
 
           {/* LISTE DES DÉCRETS */}
           {activeTab === "decrees" && (
             <div className="space-y-2">
-              {(selectedCountry.decrees || []).map((decree, idx) => (
-                <div
-                  key={decree.id || idx}
-                  className={`bg-white p-4 rounded-lg border flex justify-between items-center group transition-colors ${
-                    editingId === decree.id
-                      ? "border-yellow-500 bg-yellow-50"
-                      : "border-stone-200"
-                  }`}
-                >
-                  <div className="flex flex-col flex-1 min-w-0 mr-4">
-                    <span className="font-bold text-stone-800">
-                      {decree.name}
-                    </span>
-                    {decree.content && (
-                      <span className="text-[10px] text-stone-400 italic truncate">
-                        {decree.content.substring(0, 80)}...
-                      </span>
-                    )}
-                    {decree.date && (
-                      <span className="text-[9px] text-stone-300 font-mono mt-1">
-                        {new Date(decree.date).toLocaleDateString()}
-                      </span>
-                    )}
+              {sortedDecrees.map((decree, displayIdx) => {
+                // L'index réel dans le tableau source pour le reorder
+                const realIdx = (selectedCountry.decrees || []).findIndex(
+                  (d) => d.id === decree.id
+                );
+                return (
+                  <div
+                    key={decree.id || displayIdx}
+                    className={`bg-white p-4 rounded-lg border flex justify-between items-center group transition-colors ${
+                      editingId === decree.id
+                        ? "border-yellow-500 bg-yellow-50"
+                        : decree.pinned
+                        ? "border-stone-400 bg-stone-50"
+                        : "border-stone-200"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 flex-1 min-w-0 mr-4">
+                      {decree.pinned && (
+                        <Pin size={14} className="text-yellow-600 mt-1 shrink-0" fill="#ca8a04" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-stone-800">
+                            {decree.name}
+                          </span>
+                          {isNew(decree.date) && (
+                            <span className="text-[8px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                              Nouveau
+                            </span>
+                          )}
+                        </div>
+                        {decree.content && (
+                          <span className="text-[10px] text-stone-400 italic truncate block">
+                            {decree.content.substring(0, 90)}…
+                          </span>
+                        )}
+                        {decree.date && (
+                          <span className="text-[9px] text-stone-300 font-mono mt-1 block">
+                            {new Date(decree.date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 items-center shrink-0">
+                      {/* Reorder */}
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => handleMove(realIdx, -1)}
+                          disabled={realIdx === 0}
+                          className="p-1 text-stone-300 hover:text-stone-600 disabled:opacity-20 transition-colors"
+                          title="Monter"
+                        >
+                          <ChevronUp size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleMove(realIdx, 1)}
+                          disabled={realIdx === (selectedCountry.decrees || []).length - 1}
+                          className="p-1 text-stone-300 hover:text-stone-600 disabled:opacity-20 transition-colors"
+                          title="Descendre"
+                        >
+                          <ChevronDown size={13} />
+                        </button>
+                      </div>
+                      {/* Épingler */}
+                      <button
+                        onClick={() => handleTogglePin(decree.id)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          decree.pinned
+                            ? "text-yellow-600 hover:text-yellow-800 bg-yellow-50"
+                            : "text-stone-300 hover:text-stone-600 hover:bg-stone-100"
+                        }`}
+                        title={decree.pinned ? "Désépingler" : "Épingler"}
+                      >
+                        <Pin size={14} />
+                      </button>
+                      <button
+                        onClick={() => startEditing(decree)}
+                        className="p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors"
+                        title="Modifier"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <SecureDeleteButton
+                        onClick={() => {
+                          const newDecrees = (
+                            selectedCountry.decrees || []
+                          ).filter((d) => d.id !== decree.id);
+                          updateCountry({ decrees: newDecrees });
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-2 items-center shrink-0">
-                    <button
-                      onClick={() => startEditing(decree)}
-                      className="p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-lg transition-colors"
-                      title="Modifier"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <SecureDeleteButton
-                      onClick={() => {
-                        const newDecrees = (
-                          selectedCountry.decrees || []
-                        ).filter((d) => d.id !== decree.id);
-                        updateCountry({ decrees: newDecrees });
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {(selectedCountry.decrees || []).length === 0 && (
                 <p className="text-stone-400 italic text-sm">
                   Aucun décret.
+                </p>
+              )}
+              {(selectedCountry.decrees || []).length > 0 && filteredDecrees.length === 0 && (
+                <p className="text-stone-400 italic text-sm">
+                  Aucun résultat pour « {listSearch} ».
                 </p>
               )}
             </div>
@@ -466,26 +625,38 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
           {/* LISTE DES LIVRES */}
           {activeTab === "books" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(selectedCountry.books || []).map((book, idx) => (
+              {filteredBooks.map((book, idx) => (
                 <div
                   key={book.id || idx}
-                  className={`bg-white p-6 rounded-lg border shadow-sm flex flex-col justify-between group h-52 transition-colors ${
+                  className={`bg-white p-6 rounded-lg border shadow-sm flex flex-col justify-between group transition-colors ${
                     editingId === book.id
                       ? "border-yellow-500 bg-yellow-50"
                       : "border-stone-200"
                   }`}
                 >
                   <div>
-                    <h4 className="font-serif font-bold text-xl text-stone-900 mb-1 line-clamp-2">
-                      {book.title}
-                    </h4>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h4 className="font-serif font-bold text-xl text-stone-900 line-clamp-2 flex-1">
+                        {book.title}
+                      </h4>
+                      {isNew(book.date) && (
+                        <span className="text-[8px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full shrink-0 mt-1">
+                          Nouveau
+                        </span>
+                      )}
+                    </div>
+                    {book.category && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full mb-2">
+                        <Tag size={8} /> {book.category}
+                      </span>
+                    )}
                     {book.author && (
                       <p className="text-xs text-stone-500 font-medium mb-2">
                         par {book.author}
                       </p>
                     )}
                     <p className="text-xs text-stone-500 line-clamp-3 font-serif italic">
-                      {(book.content || "").substring(0, 150)}...
+                      {(book.content || "").substring(0, 150)}…
                     </p>
                   </div>
                   <div className="flex justify-between items-end mt-4 pt-4 border-t border-stone-100">
@@ -515,6 +686,11 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
               {(selectedCountry.books || []).length === 0 && (
                 <p className="text-stone-400 italic text-sm col-span-2">
                   Aucun ouvrage dans la bibliothèque.
+                </p>
+              )}
+              {(selectedCountry.books || []).length > 0 && filteredBooks.length === 0 && (
+                <p className="text-stone-400 italic text-sm col-span-2">
+                  Aucun résultat pour « {listSearch} ».
                 </p>
               )}
             </div>
