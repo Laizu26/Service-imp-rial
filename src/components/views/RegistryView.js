@@ -13,6 +13,8 @@ import {
   Package,
   Search,
   Trash2,
+  Crown,
+  Filter,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -41,6 +43,8 @@ const RegistryView = ({
   const [motherSearch, setMotherSearch] = useState("");
   const [showMotherDropdown, setShowMotherDropdown] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterRole, setFilterRole] = useState("");
   const isGlobal = roleInfo.scope === "GLOBAL";
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeCountries = Array.isArray(countries) ? countries : [];
@@ -60,7 +64,9 @@ const RegistryView = ({
         c.countryId === session.countryId ||
         (diplomatHostCountryId && c.countryId === diplomatHostCountryId)) &&
       ((c.name || "").toLowerCase().includes(search.toLowerCase()) ||
-        (c.id || "").includes(search))
+        (c.id || "").includes(search)) &&
+      (!filterStatus || c.status === filterStatus) &&
+      (!filterRole || c.role === filterRole)
   );
   const selected = safeCitizens.find((c) => c.id === selectedId);
   const canCreate = isGlobal || roleInfo.level >= 40;
@@ -156,56 +162,106 @@ const RegistryView = ({
             </button>
           )}
         </div>
-        <div className="p-3 border-b bg-white/50">
+        <div className="p-3 border-b bg-white/50 space-y-2">
           <input
             className="w-full p-3 border-2 border-stone-200 rounded-xl text-xs outline-none bg-white focus:border-stone-500 shadow-inner transition-colors font-medium font-sans"
             placeholder="Filtrer un sujet..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Filter size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+              <select
+                className="w-full pl-6 pr-2 py-2 border border-stone-200 rounded-lg text-[10px] font-bold bg-white/70 outline-none appearance-none cursor-pointer"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="">Tous statuts</option>
+                {BASE_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative flex-1">
+              <Filter size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
+              <select
+                className="w-full pl-6 pr-2 py-2 border border-stone-200 rounded-lg text-[10px] font-bold bg-white/70 outline-none appearance-none cursor-pointer"
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+              >
+                <option value="">Tous rôles</option>
+                {Object.entries(ROLES).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {(filterStatus || filterRole) && (
+            <button
+              onClick={() => { setFilterStatus(""); setFilterRole(""); }}
+              className="text-[9px] font-bold text-stone-400 hover:text-stone-600 uppercase tracking-widest w-full text-center"
+            >
+              ✕ Réinitialiser les filtres ({filtered.length} résultat{filtered.length !== 1 ? "s" : ""})
+            </button>
+          )}
         </div>
         <div className="overflow-y-auto flex-1 p-3 space-y-2">
-          {filtered.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => setSelectedId(c.id)}
-              className={`p-5 border-b border-stone-50 cursor-pointer hover:bg-white rounded-xl transition-all flex items-center gap-4 ${
-                selectedId === c.id
-                  ? "bg-stone-800 text-white shadow-xl border-l-8 border-yellow-600 translate-x-1"
-                  : "bg-white/40 shadow-sm"
-              }`}
-            >
-              {c.avatarUrl ? (
-                <img
-                  src={c.avatarUrl}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-white/20"
-                  alt=""
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                  <User size={20} />
-                </div>
-              )}
-              <div className="overflow-hidden">
-                <div className="font-black text-sm uppercase truncate font-sans">
-                  {c.name}
-                </div>
-                <div className="text-[10px] mt-1 tracking-[0.2em] font-bold font-mono opacity-60 font-sans">
-                  {c.id} — {ROLES[c.role]?.label || c.role}
-                </div>
-                <div className="text-[11px] mt-1 text-stone-500 truncate">
-                  {safeCountries.find(
-                    (ct) =>
-                      ct.id ===
-                      (c.locationCountryId || c.countryId)
-                  )?.name || ""}{" "}
-                  {c.currentPosition
-                    ? `— ${c.currentPosition}`
-                    : ""}
+          {filtered.map((c) => {
+            const statusDot =
+              !c.status || c.status === "Actif" ? "bg-green-500"
+              : c.status === "Décédé" ? "bg-red-500"
+              : c.status === "Malade" || c.status === "Blessé" ? "bg-yellow-400"
+              : "bg-stone-400";
+            const roleLevel = ROLES[c.role]?.level || 0;
+            const rolePill =
+              roleLevel >= 60
+                ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                : roleLevel >= 40
+                ? "bg-stone-200 text-stone-700 border border-stone-300"
+                : "bg-white/20 text-stone-400 border border-stone-200";
+            return (
+              <div
+                key={c.id}
+                onClick={() => setSelectedId(c.id)}
+                className={`p-4 border-b border-stone-50 cursor-pointer hover:bg-white rounded-xl transition-all flex items-center gap-3 relative ${
+                  selectedId === c.id
+                    ? "bg-stone-800 text-white shadow-xl border-l-8 border-yellow-600 translate-x-1"
+                    : "bg-white/40 shadow-sm"
+                }`}
+              >
+                {/* Status dot */}
+                <span className={`absolute top-3 right-3 w-2 h-2 rounded-full ${statusDot} ${selectedId === c.id ? "opacity-80" : ""}`} />
+                {c.avatarUrl ? (
+                  <img
+                    src={c.avatarUrl}
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shrink-0"
+                    alt=""
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                    <User size={20} />
+                  </div>
+                )}
+                <div className="overflow-hidden min-w-0">
+                  <div className="font-black text-sm uppercase truncate font-sans pr-4">
+                    {c.name}
+                  </div>
+                  <div className="text-[10px] mt-0.5 tracking-[0.15em] font-bold font-mono opacity-60 font-sans">
+                    {c.id}
+                  </div>
+                  <div className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${rolePill} ${selectedId === c.id ? "!bg-white/10 !text-white !border-white/20" : ""}`}>
+                    {ROLES[c.role]?.label || c.role}
+                  </div>
+                  <div className="text-[10px] mt-1 opacity-60 truncate">
+                    {safeCountries.find(
+                      (ct) => ct.id === (c.locationCountryId || c.countryId)
+                    )?.name || ""}{c.currentPosition ? ` — ${c.currentPosition}` : ""}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -244,6 +300,11 @@ const RegistryView = ({
                   <h2 className="text-3xl md:text-4xl font-black font-serif uppercase tracking-tight text-stone-900 font-serif">
                     {(editForm || selected).name}
                   </h2>
+                  {(editForm || selected).title && (
+                    <p className="text-sm font-medium text-stone-500 italic mt-1 pl-1 font-serif">
+                      {(editForm || selected).title}
+                    </p>
+                  )}
                   <div className="text-[10px] uppercase font-black tracking-[0.3em] text-stone-400 mt-3 pl-1 font-sans font-sans">
                     Matricule: {(editForm || selected).id}
                   </div>
@@ -856,6 +917,54 @@ const RegistryView = ({
                     </div>
                   </div>
                 </Card>
+                <Card title="Identité & Personnalité" icon={Crown}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Titre / Honorifique
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                        value={editForm.title || ""}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        placeholder="Ex : Seigneur, Dame, Magister…"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Lieu d'origine
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                        value={editForm.origin || ""}
+                        onChange={(e) => setEditForm({ ...editForm, origin: e.target.value })}
+                        placeholder="Ex : Vallée des Vents…"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Religion / Croyance
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
+                        value={editForm.religion || ""}
+                        onChange={(e) => setEditForm({ ...editForm, religion: e.target.value })}
+                        placeholder="Ex : Culte de l'Éternel…"
+                      />
+                    </div>
+                    <div className="col-span-1 md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Devise personnelle
+                      </label>
+                      <input
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold italic"
+                        value={editForm.motto || ""}
+                        onChange={(e) => setEditForm({ ...editForm, motto: e.target.value })}
+                        placeholder='Ex : « Par le feu et la foi »'
+                      />
+                    </div>
+                  </div>
+                </Card>
                 <Card title="Contrôle d'Accès" icon={Lock}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
                     <div>
@@ -1098,6 +1207,36 @@ const RegistryView = ({
                       })()}
                     </div>
                   </Card>
+                  {(selected.title || selected.origin || selected.religion || selected.motto) && (
+                    <Card title="Identité & Personnalité" icon={Crown}>
+                      <div className="grid grid-cols-2 gap-4 text-sm font-sans">
+                        {selected.title && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Titre</span>
+                            <span className="text-stone-900 font-bold uppercase">{selected.title}</span>
+                          </div>
+                        )}
+                        {selected.origin && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Origine</span>
+                            <span className="text-stone-900 font-bold uppercase">{selected.origin}</span>
+                          </div>
+                        )}
+                        {selected.religion && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Religion</span>
+                            <span className="text-stone-900 font-bold uppercase">{selected.religion}</span>
+                          </div>
+                        )}
+                        {selected.motto && (
+                          <div className="col-span-2">
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Devise</span>
+                            <span className="text-stone-700 italic font-serif text-base">« {selected.motto} »</span>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  )}
                   <Card
                     title="Avoirs Impériaux"
                     icon={Coins}
