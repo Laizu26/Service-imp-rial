@@ -156,6 +156,7 @@ const MarriageView = ({
   onSharedAccountWithdraw,
   gameDate,
   notify,
+  readOnly = false,
 }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
 
@@ -294,20 +295,27 @@ const MarriageView = ({
                       {ct?.emoji || "💍"} {ct?.label || "Mariage Sacré"}
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => onAcceptMarriage && onAcceptMarriage(proposal.fromId)}
-                      className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-rose-500 flex items-center gap-1"
-                    >
-                      <Heart size={11} /> Consentir
-                    </button>
-                    <button
-                      onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
-                      className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500"
-                    >
-                      Décliner
-                    </button>
-                  </div>
+                  {!readOnly && (
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => onAcceptMarriage && onAcceptMarriage(proposal.fromId)}
+                        className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-rose-500 flex items-center gap-1"
+                      >
+                        <Heart size={11} /> Consentir
+                      </button>
+                      <button
+                        onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
+                        className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500"
+                      >
+                        Décliner
+                      </button>
+                    </div>
+                  )}
+                  {readOnly && (
+                    <span className="text-[9px] italic text-stone-400 shrink-0">
+                      Décision réservée à votre tuteur légal
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-rose-100 text-xs">
                   <div>
@@ -386,12 +394,14 @@ const MarriageView = ({
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => onDivorce && onDivorce(spouse.id)}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors shrink-0"
-                    >
-                      <HeartOff size={12} /> Rompre
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => onDivorce && onDivorce(spouse.id)}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors shrink-0"
+                      >
+                        <HeartOff size={12} /> Rompre
+                      </button>
+                    )}
                   </div>
 
                   {/* Contrat détaillé */}
@@ -461,7 +471,7 @@ const MarriageView = ({
         )}
 
         {/* ── FORMULAIRE DE PROPOSITION ── */}
-        {canProposeNewMarriage && (
+        {!readOnly && canProposeNewMarriage && (
           !showMarryForm ? (
             <button
               onClick={() => { setShowMarryForm(true); setMarryFiliation(marriageDefaultFiliation); }}
@@ -677,9 +687,14 @@ const MarriageView = ({
           )
         )}
 
-        {!canProposeNewMarriage && currentSpouses.length > 0 && (
+        {!readOnly && !canProposeNewMarriage && currentSpouses.length > 0 && (
           <p className="text-[10px] text-stone-400 italic text-center">
             Les coutumes de {userCountry?.name || "votre royaume"} ({MARRIAGE_STRUCTURES[marriageStructure]?.label}) ne permettent pas de contracter un nouveau lien.
+          </p>
+        )}
+        {readOnly && (
+          <p className="text-[10px] text-stone-400 italic text-center border border-stone-200 rounded-lg p-3 bg-stone-50">
+            En tant que personne en servitude, votre tuteur légal (propriétaire) gère vos unions — propositions, acceptations et ruptures.
           </p>
         )}
       </div>
@@ -763,7 +778,7 @@ const MarriageView = ({
         )}
 
         {/* Bouton / formulaire déclaration enfant */}
-        {!showChildForm ? (
+        {!readOnly && (!showChildForm ? (
           <button
             onClick={() => setShowChildForm(true)}
             className="w-full py-2.5 border-2 border-dashed border-amber-300 text-amber-700 text-[10px] font-black uppercase rounded-xl hover:bg-amber-50 flex items-center justify-center gap-2 transition-colors"
@@ -955,7 +970,7 @@ const MarriageView = ({
               </button>
             </div>
           </div>
-        )}
+        ) )}
       </div>
     </div>
   );
