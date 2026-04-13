@@ -915,7 +915,7 @@ const CitizenLayout = (props) => {
     { id: "asia", label: "Maison Asia", icon: Gem },
     isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
     mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
-    !isSlave && { id: "mariage", label: "Mariage & Famille", icon: Heart },
+    { id: "mariage", label: "Mariage & Famille", icon: Heart },
     !isSlave && { id: "famille", label: "Ma Dynastie", icon: HeartHandshake },
     { id: "properties", label: "Propriétés", icon: MapPin },
     { id: "guilds", label: "Guildes", icon: Users },
@@ -2259,7 +2259,7 @@ const CitizenLayout = (props) => {
             )}
 
             {/* === MARIAGE & FAMILLE === */}
-            {active === "mariage" && !isSlave && (
+            {active === "mariage" && (
               <MarriageView
                 user={user}
                 safeUsers={safeUsers}
@@ -2275,6 +2275,7 @@ const CitizenLayout = (props) => {
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
                 gameDate={gameDate}
                 notify={notify}
+                readOnly={isSlave}
               />
             )}
 
