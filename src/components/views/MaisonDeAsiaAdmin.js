@@ -31,6 +31,10 @@ import {
   ShieldCheck,
   ShieldOff,
   Crown,
+  Search,
+  History,
+  ArrowUpDown,
+  CalendarDays,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import Card from "../ui/Card";
@@ -191,6 +195,7 @@ const MaisonDeAsiaAdmin = ({
   onSaveMaisonCategory,
   onDeleteMaisonCategory,
   onSetMaisonSubscriptionPrice,
+  onAdminRemoveFromQueue,
 }) => {
   const [activeTab, setActiveTab] = useState("staff");
 
@@ -239,6 +244,14 @@ const MaisonDeAsiaAdmin = ({
 
   // Abonnement
   const [draftSubPrice, setDraftSubPrice] = useState(String(maisonSubscriptionPrice));
+
+  // Staff search + sort
+  const [staffSearch, setStaffSearch] = useState("");
+  const [staffSort, setStaffSort] = useState("name"); // name | rating | visits | price
+
+  // Historique
+  const [histStaffFilter, setHistStaffFilter] = useState("all");
+  const [histSearch, setHistSearch] = useState("");
 
   // --- FILTRER LES ESCLAVES DISPONIBLES ---
   const availableSlaves = useMemo(() => {
@@ -438,6 +451,7 @@ const MaisonDeAsiaAdmin = ({
     { id: "staff", label: "Pensionnaires", icon: Heart, count: staff.length },
     { id: "categories", label: "Catégories", icon: Layers, count: maisonServiceCategories.length || undefined },
     { id: "clients", label: "Clients", icon: Users, count: houseRegistry.length },
+    { id: "history", label: "Historique", icon: History, count: maisonHistory.length || undefined },
     { id: "reviews", label: "Avis", icon: MessageSquare, count: maisonReviews.length },
     { id: "finances", label: "Finances", icon: Wallet },
     {
@@ -505,6 +519,23 @@ const MaisonDeAsiaAdmin = ({
             ))}
           </div>
         </div>
+      </div>
+
+      {/* KPI BAR */}
+      <div className="bg-fuchsia-950/40 border-b border-fuchsia-800/50 px-6 py-2 flex flex-wrap gap-4 text-[11px]">
+        {[
+          { label: "Disponibles", value: staff.filter((s) => s.isAvailable !== false && !houseRegistry.find((r) => r.staffId === s.id)).length, color: "text-green-300" },
+          { label: "Occupés", value: houseRegistry.length, color: "text-red-300" },
+          { label: "En attente", value: maisonQueue.length, color: "text-amber-300" },
+          { label: "Total visites", value: maisonHistory.length, color: "text-fuchsia-300" },
+          ...(stats.totalReviews > 0 ? [{ label: "Note moy.", value: `★ ${stats.avgRating.toFixed(1)}`, color: "text-yellow-300" }] : []),
+          { label: "Abonnés actifs", value: (maisonSubscriptions || []).filter((s) => s.expiresAt > Date.now()).length, color: "text-sky-300" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="flex items-center gap-1.5">
+            <span className="text-fuchsia-400/60">{kpi.label}</span>
+            <span className={`font-black ${kpi.color}`}>{kpi.value}</span>
+          </div>
+        ))}
       </div>
 
       {/* CONTENU */}
@@ -682,9 +713,72 @@ const MaisonDeAsiaAdmin = ({
               )}
             </div>
 
+            {/* Barre de recherche + tri du staff */}
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search size={14} className="absolute left-3 top-3 text-stone-400" />
+                <input
+                  className="w-full p-2.5 pl-9 border rounded-xl text-sm bg-white outline-none focus:border-fuchsia-500"
+                  placeholder="Rechercher un pensionnaire..."
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
+                />
+                {staffSearch && (
+                  <button onClick={() => setStaffSearch("")} className="absolute right-3 top-3 text-stone-400 hover:text-stone-600">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <ArrowUpDown size={13} className="text-stone-400" />
+                <select
+                  className="p-2.5 border rounded-xl text-sm bg-white outline-none focus:border-fuchsia-500"
+                  value={staffSort}
+                  onChange={(e) => setStaffSort(e.target.value)}
+                >
+                  <option value="name">Trier par nom</option>
+                  <option value="rating">Trier par note</option>
+                  <option value="visits">Trier par visites</option>
+                  <option value="price">Trier par prix</option>
+                  <option value="available">Disponibles en tête</option>
+                </select>
+              </div>
+            </div>
+
             {/* Liste du Staff */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {staff.map((member) => {
+              {(() => {
+                const staffReviewMap = {};
+                const staffVisitMap = {};
+                maisonReviews.forEach((r) => {
+                  if (!staffReviewMap[r.staffId]) staffReviewMap[r.staffId] = [];
+                  staffReviewMap[r.staffId].push(r.rating);
+                });
+                maisonHistory.forEach((h) => {
+                  staffVisitMap[h.staffId] = (staffVisitMap[h.staffId] || 0) + 1;
+                });
+                const avg = (sid) => {
+                  const ratings = staffReviewMap[sid] || [];
+                  return ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : -1;
+                };
+                const sortedFiltered = [...staff]
+                  .filter((s) => {
+                    if (!staffSearch) return true;
+                    const q = staffSearch.toLowerCase();
+                    return (s.name || "").toLowerCase().includes(q) || (s.specialty || "").toLowerCase().includes(q);
+                  })
+                  .sort((a, b) => {
+                    if (staffSort === "rating") return avg(b.id) - avg(a.id);
+                    if (staffSort === "visits") return (staffVisitMap[b.id] || 0) - (staffVisitMap[a.id] || 0);
+                    if (staffSort === "price") return (b.price || 0) - (a.price || 0);
+                    if (staffSort === "available") {
+                      const aBusy = houseRegistry.some((r) => r.staffId === a.id) ? 1 : 0;
+                      const bBusy = houseRegistry.some((r) => r.staffId === b.id) ? 1 : 0;
+                      return aBusy - bBusy;
+                    }
+                    return (a.name || "").localeCompare(b.name || "");
+                  });
+                return sortedFiltered.map((member) => {
                 const isEditing = editingId === member.id;
                 const queueCount = maisonQueue.filter(
                   (q) => q.staffId === member.id
@@ -811,6 +905,17 @@ const MaisonDeAsiaAdmin = ({
                               📄 {jobs.find((j) => j.id === member.contractId)?.name || member.contractId}
                             </div>
                           )}
+                          {/* Propriétaire */}
+                          {(() => {
+                            const citizenProfile = citizens.find((c) => c.id === member.id);
+                            const owner = citizenProfile?.ownerId ? citizens.find((c) => c.id === citizenProfile.ownerId) : null;
+                            if (!owner) return null;
+                            return (
+                              <div className="text-[9px] text-stone-400 mt-0.5 truncate">
+                                Propriétaire : <span className="font-bold text-stone-500">{owner.name}</span>
+                              </div>
+                            );
+                          })()}
                           {/* Note moyenne + queue */}
                           <div className="flex items-center gap-3 mt-1.5">
                             {avgRating !== null && (
@@ -1005,11 +1110,19 @@ const MaisonDeAsiaAdmin = ({
                   )}
                 </React.Fragment>
                 );
-              })}
+              });
+              })()}
               {staff.length === 0 && (
                 <div className="col-span-full text-center py-10 text-stone-400 italic">
                   Aucun personnel enregistré.
                 </div>
+              )}
+              {staff.length > 0 && staffSearch && (
+                <p className="col-span-full text-xs text-stone-400 italic text-center pt-2">
+                  {staff.filter((s) => (s.name || "").toLowerCase().includes(staffSearch.toLowerCase()) || (s.specialty || "").toLowerCase().includes(staffSearch.toLowerCase())).length === 0
+                    ? "Aucun pensionnaire ne correspond à la recherche."
+                    : null}
+                </p>
               )}
             </div>
           </div>
@@ -1201,13 +1314,14 @@ const MaisonDeAsiaAdmin = ({
                     <th className="p-4">Client</th>
                     <th className="p-4">Pour</th>
                     <th className="p-4">Depuis</th>
+                    <th className="p-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {maisonQueue.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="4"
+                        colSpan="5"
                         className="p-6 text-center text-stone-400 italic"
                       >
                         Aucune file d'attente.
@@ -1248,6 +1362,13 @@ const MaisonDeAsiaAdmin = ({
                                   )
                                 : "—"}
                             </td>
+                            <td className="p-4 text-right">
+                              <SecureDeleteButton
+                                label="Retirer"
+                                icon={X}
+                                onClick={() => onAdminRemoveFromQueue && onAdminRemoveFromQueue(q.citizenId, q.staffId)}
+                              />
+                            </td>
                           </tr>
                         );
                       })
@@ -1258,9 +1379,156 @@ const MaisonDeAsiaAdmin = ({
           </div>
         )}
 
+        {/* ════════════════ ONGLET HISTORIQUE ════════════════ */}
+        {activeTab === "history" && (
+          <div className="space-y-6">
+            {/* Filtres */}
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search size={14} className="absolute left-3 top-3 text-stone-400" />
+                <input
+                  className="w-full p-2.5 pl-9 border rounded-xl text-sm bg-white outline-none focus:border-fuchsia-500"
+                  placeholder="Rechercher un client..."
+                  value={histSearch}
+                  onChange={(e) => setHistSearch(e.target.value)}
+                />
+                {histSearch && (
+                  <button onClick={() => setHistSearch("")} className="absolute right-3 top-3 text-stone-400 hover:text-stone-600"><X size={14} /></button>
+                )}
+              </div>
+              <select
+                className="p-2.5 border rounded-xl text-sm bg-white outline-none focus:border-fuchsia-500"
+                value={histStaffFilter}
+                onChange={(e) => setHistStaffFilter(e.target.value)}
+              >
+                <option value="all">Tous les pensionnaires</option>
+                {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+
+            {/* Table historique */}
+            <div className="bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden">
+              <div className="bg-stone-50 px-4 py-3 border-b border-stone-200 flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest flex items-center gap-2">
+                  <History size={14} /> Sessions passées ({maisonHistory.length})
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-stone-100 text-stone-500 uppercase text-[10px] tracking-widest font-black">
+                    <tr>
+                      <th className="p-4">Date</th>
+                      <th className="p-4">Client</th>
+                      <th className="p-4">Pensionnaire</th>
+                      <th className="p-4 text-center">Durée</th>
+                      <th className="p-4 text-right">Prix payé</th>
+                      <th className="p-4 text-center">Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {(() => {
+                      const filtered = [...maisonHistory]
+                        .filter((h) => {
+                          const matchStaff = histStaffFilter === "all" || h.staffId === histStaffFilter;
+                          const matchSearch = !histSearch || (h.citizenName || "").toLowerCase().includes(histSearch.toLowerCase());
+                          return matchStaff && matchSearch;
+                        })
+                        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="6" className="p-8 text-center text-stone-400 italic">
+                              {maisonHistory.length === 0 ? "Aucune session enregistrée." : "Aucun résultat pour ces filtres."}
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map((h) => {
+                        const review = maisonReviews.find((r) => r.citizenId === h.citizenId && r.staffId === h.staffId && Math.abs((r.timestamp || 0) - (h.timestamp || 0)) < 86400000);
+                        const citizenProfile = citizens.find((c) => c.id === h.citizenId);
+                        return (
+                          <tr key={h.id || `${h.citizenId}-${h.timestamp}`} className="hover:bg-stone-50">
+                            <td className="p-4 text-xs text-stone-500 font-mono whitespace-nowrap">
+                              {h.timestamp
+                                ? new Date(h.timestamp).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
+                                : "—"}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                {(citizenProfile?.avatarUrl || h.citizenAvatarUrl) && (
+                                  <img src={citizenProfile?.avatarUrl || h.citizenAvatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-stone-200" />
+                                )}
+                                <div>
+                                  <div className="font-bold text-stone-800 flex items-center gap-1.5 flex-wrap">
+                                    {h.citizenName || "Inconnu"}
+                                    <VipBadge citizenId={h.citizenId} maisonHistory={maisonHistory} />
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 text-fuchsia-700 font-medium">{h.staffName || "—"}</td>
+                            <td className="p-4 text-center text-xs text-stone-500 font-mono">
+                              {h.duration ? `${h.duration} min` : "—"}
+                            </td>
+                            <td className="p-4 text-right font-mono font-bold text-green-700">
+                              {h.pricePaid != null ? formatMoney(h.pricePaid) : "—"}
+                            </td>
+                            <td className="p-4 text-center">
+                              {review ? (
+                                <span className="flex items-center justify-center gap-1" title={review.comment || ""}>
+                                  <Stars rating={review.rating} size={10} />
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-stone-300 italic">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ════════════════ ONGLET 3 : AVIS ════════════════ */}
         {activeTab === "reviews" && (
           <div className="space-y-6">
+            {/* Histogramme des notes */}
+            {maisonReviews.length > 0 && (
+              <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-5">
+                <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3 flex items-center gap-2">
+                  <BarChart3 size={12} /> Distribution des notes
+                </div>
+                <div className="space-y-2">
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = maisonReviews.filter((r) => Math.round(r.rating) === star).length;
+                    const pct = maisonReviews.length > 0 ? (count / maisonReviews.length) * 100 : 0;
+                    return (
+                      <div key={star} className="flex items-center gap-3">
+                        <div className="flex items-center gap-0.5 w-14 shrink-0">
+                          {[...Array(star)].map((_, i) => <Star key={i} size={10} className="text-amber-400 fill-amber-400" />)}
+                        </div>
+                        <div className="flex-1 bg-stone-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full bg-amber-400 rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-stone-500 font-mono w-14 shrink-0 text-right">
+                          {count} ({Math.round(pct)}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Filtre par staff */}
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">
@@ -1454,6 +1722,39 @@ const MaisonDeAsiaAdmin = ({
                       <p className="text-[10px] text-stone-400 mt-1">Les abonnés bénéficient de -10% sur toutes les réservations.</p>
                     </div>
                   </div>
+
+                  {/* Liste des abonnés */}
+                  {(maisonSubscriptions || []).length > 0 && (
+                    <div className="mt-4 border-t border-stone-200 pt-4">
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3 flex items-center gap-2">
+                        <Users size={12} /> Liste des abonnés ({(maisonSubscriptions || []).length})
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                        {[...(maisonSubscriptions || [])]
+                          .sort((a, b) => (b.expiresAt || 0) - (a.expiresAt || 0))
+                          .map((sub) => {
+                            const citizen = citizens.find((c) => c.id === sub.citizenId);
+                            const isActive = sub.expiresAt > Date.now();
+                            const expiresDate = new Date(sub.expiresAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+                            return (
+                              <div key={sub.citizenId} className={`flex items-center gap-3 p-3 rounded-lg border ${isActive ? "bg-fuchsia-50 border-fuchsia-200" : "bg-stone-50 border-stone-200 opacity-60"}`}>
+                                {citizen?.avatarUrl && <img src={citizen.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-fuchsia-200 shrink-0" />}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-sm text-stone-800 truncate">{citizen?.name || sub.citizenId}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <CalendarDays size={9} className={isActive ? "text-fuchsia-400" : "text-stone-400"} />
+                                    <span className={`text-[10px] font-mono ${isActive ? "text-fuchsia-600" : "text-stone-400"}`}>
+                                      {isActive ? `Expire le ${expiresDate}` : `Expiré le ${expiresDate}`}
+                                    </span>
+                                  </div>
+                                </div>
+                                {isActive && <Crown size={12} className="text-fuchsia-400 shrink-0" />}
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Fiche de l'entreprise liée */}

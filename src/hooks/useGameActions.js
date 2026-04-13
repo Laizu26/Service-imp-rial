@@ -2344,6 +2344,23 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Vous avez quitté la file.", "info");
       },
 
+      // --- SUPPRESSION ADMIN DE LA FILE ---
+      onAdminRemoveFromQueue: (citizenId, staffId) => {
+        const filtered = (state.maisonQueue || []).filter(
+          (q) => !(q.citizenId === citizenId && q.staffId === staffId)
+        );
+        let pos = 0;
+        const reindexed = filtered.map((q) => {
+          if (q.staffId === staffId) {
+            pos++;
+            return { ...q, position: pos };
+          }
+          return q;
+        });
+        saveState({ ...state, maisonQueue: reindexed });
+        notify("Client retiré de la file.", "info");
+      },
+
       // --- AVIS ---
       onSubmitMaisonReview: (staffId, rating, comment) => {
         if (!session) return;

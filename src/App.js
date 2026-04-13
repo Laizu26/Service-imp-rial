@@ -1137,6 +1137,7 @@ export default function App() {
                       onSaveMaisonCategory={actions.onSaveMaisonCategory}
                       onDeleteMaisonCategory={actions.onDeleteMaisonCategory}
                       onSetMaisonSubscriptionPrice={actions.onSetMaisonSubscriptionPrice}
+                      onAdminRemoveFromQueue={actions.onAdminRemoveFromQueue}
                     />
                   )}
                 </div>
