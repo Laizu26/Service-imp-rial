@@ -1918,6 +1918,169 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("La proposition d'union a été déclinée.", "info");
       },
 
+      // --- MARIAGE DES ESCLAVES (tutelle du propriétaire) ---
+
+      onOwnerProposeMarriage: (slaveId, targetId, contractData = {}) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        const targetIdx = newCitizens.findIndex((c) => c.id === targetId);
+        if (slaveIdx === -1 || targetIdx === -1) return;
+        const slave = newCitizens[slaveIdx];
+        const target = newCitizens[targetIdx];
+        const isOwner = slave.ownerId === session.id || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (!isOwner) { notify("Vous n'êtes pas le tuteur légal de cet esclave.", "error"); return; }
+
+        const slaveCountry = (state.countries || []).find((c) => c.id === slave.countryId);
+        const structure = slaveCountry?.laws?.marriageStructure || "monogamie";
+        const slaveSpouses = slave.spouses || (slave.spouseId ? [{ id: slave.spouseId }] : []);
+        const targetSpouses = target.spouses || (target.spouseId ? [{ id: target.spouseId }] : []);
+        if (structure === "monogamie") {
+          if (slaveSpouses.length >= 1) { notify(`${slave.name} est déjà lié(e) par les vœux.`, "error"); return; }
+          if (targetSpouses.length >= 1) { notify(`${target.name} est déjà lié(e) par les vœux.`, "error"); return; }
+        }
+        if (slaveSpouses.some((s) => s.id === targetId)) { notify("Leurs destins sont déjà liés.", "error"); return; }
+        if ((target.marriageProposals || []).some((p) => p.fromId === slaveId)) { notify("Une proposition a déjà été envoyée.", "error"); return; }
+
+        const defaultFiliation = slaveCountry?.laws?.marriageDefaultFiliation || "patrilineaire";
+        newCitizens[targetIdx] = {
+          ...target,
+          marriageProposals: [...(target.marriageProposals || []), {
+            fromId: slaveId,
+            fromName: slave.name,
+            timestamp: Date.now(),
+            contractType: contractData.contractType || "sacre",
+            regime: contractData.regime || "separation",
+            dotType: "aucune",
+            dot: 0,
+            dominance: contractData.dominance || "egal",
+            filiation: contractData.filiation || defaultFiliation,
+            clauses: contractData.clauses || "",
+          }],
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Proposition d'union envoyée à ${target.name} au nom de ${slave.name}.`, "success");
+      },
+
+      onOwnerAcceptMarriage: (slaveId, proposerId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        const proposerIdx = newCitizens.findIndex((c) => c.id === proposerId);
+        if (slaveIdx === -1 || proposerIdx === -1) return;
+        const slave = newCitizens[slaveIdx];
+        const proposer = newCitizens[proposerIdx];
+        const isOwner = slave.ownerId === session.id || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (!isOwner) { notify("Vous n'êtes pas le tuteur légal de cet esclave.", "error"); return; }
+
+        const proposal = (slave.marriageProposals || []).find((p) => p.fromId === proposerId);
+        if (!proposal) return;
+
+        const contractType = proposal.contractType || "sacre";
+        const regime = proposal.regime || "separation";
+        const dotType = proposal.dotType || "aucune";
+        const dot = proposal.dot || 0;
+        const dominance = proposal.dominance || "egal";
+        const clauses = proposal.clauses || "";
+        const date = Date.now();
+
+        let filiation = proposal.filiation || "patrilineaire";
+        if (dominance === "epoux_dominant" && filiation !== "bilineaire" && filiation !== "cognatique") filiation = "patrilineaire";
+        else if (dominance === "epouse_dominante" && filiation !== "bilineaire" && filiation !== "cognatique") filiation = "matrilineaire";
+
+        const dominantIdForSlave = dominance === "proposant_dominant" ? proposerId : null;
+        const dominantIdForProposer = dominance === "proposant_dominant" ? proposerId : null;
+
+        if (dot > 0 && dotType !== "aucune") {
+          if (dotType === "dotal_epouse") {
+            if ((newCitizens[slaveIdx].balance || 0) < dot) { notify("Trésor insuffisant pour la dot.", "error"); return; }
+            newCitizens[slaveIdx] = { ...newCitizens[slaveIdx], balance: (newCitizens[slaveIdx].balance || 0) - dot };
+            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (newCitizens[proposerIdx].balance || 0) + dot };
+          } else if (dotType === "dotal_epoux") {
+            if ((newCitizens[proposerIdx].balance || 0) < dot) { notify("Trésor du prétendant insuffisant.", "error"); return; }
+            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (newCitizens[proposerIdx].balance || 0) - dot };
+            newCitizens[slaveIdx] = { ...newCitizens[slaveIdx], balance: (newCitizens[slaveIdx].balance || 0) + dot };
+          }
+        }
+
+        const pairKey = [slaveId, proposerId].sort().join("_");
+        const spouseEntryForSlave = { id: proposerId, name: proposer.name, contractType, regime, dotType, dot, dominance, dominantId: dominantIdForSlave, filiation, clauses, date,
+          ...(regime === "communaute" ? { sharedBalanceKey: pairKey } : {}),
+          ...(regime === "fief_conjoint" ? { fiefBalanceKey: pairKey } : {}),
+        };
+        const spouseEntryForProposer = { id: slaveId, name: slave.name, contractType, regime, dotType, dot, dominance, dominantId: dominantIdForProposer, filiation, clauses, date,
+          ...(regime === "communaute" ? { sharedBalanceKey: pairKey } : {}),
+          ...(regime === "fief_conjoint" ? { fiefBalanceKey: pairKey } : {}),
+        };
+
+        const slaveSpouses = [...(newCitizens[slaveIdx].spouses || []), spouseEntryForSlave];
+        const proposerSpouses = [...(newCitizens[proposerIdx].spouses || []), spouseEntryForProposer];
+
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (regime === "communaute" && !(pairKey in sharedAccounts))
+          sharedAccounts[pairKey] = { type: "commun", balance: 0, members: [slaveId, proposerId] };
+        if (regime === "fief_conjoint" && !(pairKey in sharedAccounts)) {
+          const fiefDominantId = dominance === "proposant_dominant" ? proposerId : null;
+          sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [slaveId, proposerId], dominance, fiefDominantId };
+        }
+
+        newCitizens[slaveIdx] = { ...newCitizens[slaveIdx], spouseId: slaveSpouses[0]?.id || proposerId, spouses: slaveSpouses,
+          marriageProposals: (slave.marriageProposals || []).filter((p) => p.fromId !== proposerId) };
+        newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], spouseId: proposerSpouses[0]?.id || slaveId, spouses: proposerSpouses };
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
+        const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
+        notify(`${slave.name} est désormais uni(e) à ${proposer.name} par ${ctLabel}.`, "success");
+      },
+
+      onOwnerRejectMarriage: (slaveId, proposerId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        if (slaveIdx === -1) return;
+        const slave = newCitizens[slaveIdx];
+        const isOwner = slave.ownerId === session.id || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (!isOwner) { notify("Vous n'êtes pas le tuteur légal de cet esclave.", "error"); return; }
+        newCitizens[slaveIdx] = { ...slave,
+          marriageProposals: (slave.marriageProposals || []).filter((p) => p.fromId !== proposerId) };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Proposition déclinée au nom de ${slave.name}.`, "info");
+      },
+
+      onOwnerBreakMarriage: (slaveId, spouseId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const slaveIdx = newCitizens.findIndex((c) => c.id === slaveId);
+        if (slaveIdx === -1) return;
+        const slave = newCitizens[slaveIdx];
+        const isOwner = slave.ownerId === session.id || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (!isOwner) { notify("Vous n'êtes pas le tuteur légal de cet esclave.", "error"); return; }
+
+        const spouseIdx = newCitizens.findIndex((c) => c.id === spouseId);
+        const spouseEntry = (slave.spouses || []).find((s) => s.id === spouseId);
+        const pairKey = spouseEntry?.sharedBalanceKey || spouseEntry?.fiefBalanceKey;
+
+        const newSlaveSpouses = (slave.spouses || []).filter((s) => s.id !== spouseId);
+        newCitizens[slaveIdx] = { ...slave, spouseId: newSlaveSpouses[0]?.id || null, spouses: newSlaveSpouses };
+        if (spouseIdx !== -1) {
+          const spouse = newCitizens[spouseIdx];
+          const newSpouseSpouses = (spouse.spouses || []).filter((s) => s.id !== slaveId);
+          newCitizens[spouseIdx] = { ...spouse, spouseId: newSpouseSpouses[0]?.id || null, spouses: newSpouseSpouses };
+        }
+
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (pairKey && sharedAccounts[pairKey]) {
+          const remaining = sharedAccounts[pairKey].balance || 0;
+          if (remaining > 0) {
+            const half = Math.floor(remaining / 2);
+            newCitizens[slaveIdx] = { ...newCitizens[slaveIdx], balance: (newCitizens[slaveIdx].balance || 0) + half };
+            if (spouseIdx !== -1) newCitizens[spouseIdx] = { ...newCitizens[spouseIdx], balance: (newCitizens[spouseIdx].balance || 0) + (remaining - half) };
+          }
+          delete sharedAccounts[pairKey];
+        }
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
+        notify(`L'union de ${slave.name} a été rompue par décision tutoriale.`, "info");
+      },
+
       onDivorce: (spouseId) => {
         if (!session) return;
         const newCitizens = [...state.citizens];

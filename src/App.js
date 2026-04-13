@@ -489,6 +489,10 @@ export default function App() {
             onBuySlave={actions.onBuySlave}
             onConfiscateSlaveMoney={actions.onConfiscateSlaveMoney}
             onSelfManumit={actions.onSelfManumit}
+            onOwnerProposeMarriage={actions.onOwnerProposeMarriage}
+            onOwnerAcceptMarriage={actions.onOwnerAcceptMarriage}
+            onOwnerRejectMarriage={actions.onOwnerRejectMarriage}
+            onOwnerBreakMarriage={actions.onOwnerBreakMarriage}
             onSend={actions.onSendPost}
             onTransfer={actions.onTransfer}
             onProposeDebt={actions.onProposeDebt}

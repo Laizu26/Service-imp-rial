@@ -586,6 +586,10 @@ const CitizenLayout = (props) => {
     onBuySlave,
     onConfiscateSlaveMoney,
     onSelfManumit,
+    onOwnerProposeMarriage,
+    onOwnerAcceptMarriage,
+    onOwnerRejectMarriage,
+    onOwnerBreakMarriage,
     notify,
     isGraded,
     onSwitchBack,
@@ -1692,12 +1696,17 @@ const CitizenLayout = (props) => {
             {active === "slaves" && (
               <SlaveManagementView
                 slaves={mySlaves}
+                citizens={safeUsers}
                 onUpdateCitizen={onUpdateUser}
                 onConfiscateSlaveMoney={onConfiscateSlaveMoney}
                 onBuySlave={onBuySlave}
                 onSelfManumit={onSelfManumit}
                 onDismissSlaveAlert={onDismissSlaveAlert}
                 onRestoreHiddenTransfer={onRestoreHiddenTransfer}
+                onOwnerProposeMarriage={onOwnerProposeMarriage}
+                onOwnerAcceptMarriage={onOwnerAcceptMarriage}
+                onOwnerRejectMarriage={onOwnerRejectMarriage}
+                onOwnerBreakMarriage={onOwnerBreakMarriage}
                 notify={notify}
                 catalog={catalog}
                 session={user}

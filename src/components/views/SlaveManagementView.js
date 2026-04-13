@@ -12,18 +12,27 @@ import {
   AlertTriangle,
   X,
   RotateCcw,
+  Heart,
+  HeartCrack,
+  Search,
+  Trash2,
 } from "lucide-react";
 import Card from "../ui/Card";
-import { ROLES } from "../../lib/constants";
+import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { formatMoney } from "../../lib/gameUtils";
 
 const SlaveManagementView = ({
   slaves,
+  citizens = [],
   onUpdateCitizen,
   onConfiscateSlaveMoney,
   onSelfManumit,
   onDismissSlaveAlert,
   onRestoreHiddenTransfer,
+  onOwnerProposeMarriage,
+  onOwnerAcceptMarriage,
+  onOwnerRejectMarriage,
+  onOwnerBreakMarriage,
   notify,
   catalog,
   session,
@@ -31,6 +40,13 @@ const SlaveManagementView = ({
 }) => {
   const [selectedSlave, setSelectedSlave] = useState(null);
   const [price, setPrice] = useState("");
+
+  // État civil
+  const [propSearch, setPropSearch] = useState("");
+  const [showPropDropdown, setShowPropDropdown] = useState(false);
+  const [propTargetId, setPropTargetId] = useState(null);
+  const [propTargetName, setPropTargetName] = useState("");
+  const [propContractType, setPropContractType] = useState("sacre");
 
   const defaultLaws = {
     allowExternalDebits: false,
@@ -719,6 +735,206 @@ const SlaveManagementView = ({
                       La mise en vente rendra ce sujet visible dans le marché
                       global.
                     </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* ÉTAT CIVIL */}
+              <div className="col-span-1 md:col-span-2">
+                <Card title="État Civil & Mariage" icon={Heart}>
+                  <div className="space-y-5">
+                    {/* --- Mariages en cours --- */}
+                    {(() => {
+                      const spouses = selectedSlave.spouses || (selectedSlave.spouseId ? [{ id: selectedSlave.spouseId }] : []);
+                      if (spouses.length === 0) return (
+                        <p className="text-xs text-stone-400 italic text-center py-2">Aucune union enregistrée.</p>
+                      );
+                      return (
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Unions actuelles</div>
+                          {spouses.map((sp) => {
+                            const spouseData = citizens.find((c) => c.id === sp.id);
+                            const ctLabel = (MARRIAGE_CONTRACT_TYPES || []).find((t) => t.id === sp.contractType)?.label || sp.contractType || "Union";
+                            return (
+                              <div key={sp.id} className="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                {spouseData?.avatarUrl ? (
+                                  <img src={spouseData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-rose-300 shrink-0" alt="" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                                    <Heart size={14} className="text-rose-400" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-bold text-sm text-stone-800 truncate">{spouseData?.name || sp.name || sp.id}</div>
+                                  <div className="text-[9px] text-stone-500 uppercase tracking-widest">{ctLabel}{sp.regime && sp.regime !== "separation" ? ` · ${sp.regime}` : ""}</div>
+                                </div>
+                                {canManage(selectedSlave) && onOwnerBreakMarriage && (
+                                  <button
+                                    onClick={() => {
+                                      if (!window.confirm(`Rompre l'union de ${selectedSlave.name} avec ${spouseData?.name || sp.id} ? Cette action est irréversible.`)) return;
+                                      onOwnerBreakMarriage(selectedSlave.id, sp.id);
+                                      setSelectedSlave({ ...selectedSlave, spouses: (selectedSlave.spouses || []).filter((s) => s.id !== sp.id), spouseId: null });
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-300 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                                    title="Rompre l'union"
+                                  >
+                                    <HeartCrack size={12} /> Rompre
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* --- Propositions reçues --- */}
+                    {(selectedSlave.marriageProposals || []).length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Propositions reçues</div>
+                        {(selectedSlave.marriageProposals || []).map((p) => {
+                          const proposerData = citizens.find((c) => c.id === p.fromId);
+                          const ctLabel = (MARRIAGE_CONTRACT_TYPES || []).find((t) => t.id === p.contractType)?.label || p.contractType || "Union";
+                          return (
+                            <div key={p.fromId} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                              {proposerData?.avatarUrl ? (
+                                <img src={proposerData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-amber-300 shrink-0" alt="" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                  <User size={14} className="text-amber-500" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-sm text-stone-800 truncate">{proposerData?.name || p.fromName || p.fromId}</div>
+                                <div className="text-[9px] text-stone-500 uppercase tracking-widest">{ctLabel}</div>
+                              </div>
+                              {canManage(selectedSlave) && (
+                                <div className="flex gap-1.5 shrink-0">
+                                  {onOwnerAcceptMarriage && (
+                                    <button
+                                      onClick={() => {
+                                        onOwnerAcceptMarriage(selectedSlave.id, p.fromId);
+                                        setSelectedSlave({
+                                          ...selectedSlave,
+                                          marriageProposals: (selectedSlave.marriageProposals || []).filter((x) => x.fromId !== p.fromId),
+                                        });
+                                      }}
+                                      className="px-2 py-1.5 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-700 transition-colors"
+                                    >
+                                      Accepter
+                                    </button>
+                                  )}
+                                  {onOwnerRejectMarriage && (
+                                    <button
+                                      onClick={() => {
+                                        onOwnerRejectMarriage(selectedSlave.id, p.fromId);
+                                        setSelectedSlave({
+                                          ...selectedSlave,
+                                          marriageProposals: (selectedSlave.marriageProposals || []).filter((x) => x.fromId !== p.fromId),
+                                        });
+                                      }}
+                                      className="px-2 py-1.5 bg-white border border-stone-300 text-stone-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-50 transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* --- Proposer un mariage --- */}
+                    {canManage(selectedSlave) && onOwnerProposeMarriage && (
+                      <div className="border-t border-stone-200 pt-4 space-y-3">
+                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Proposer une union</div>
+
+                        {/* Recherche de la cible */}
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Destinataire</label>
+                          {propTargetId ? (
+                            <div className="flex items-center gap-3 p-2.5 bg-white border-2 border-green-300 rounded-xl">
+                              <User size={14} className="text-stone-400 shrink-0" />
+                              <span className="font-bold text-sm text-stone-800 flex-1">{propTargetName}</span>
+                              <button
+                                onClick={() => { setPropTargetId(null); setPropTargetName(""); }}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-500">
+                                <Search size={13} className="text-stone-400 shrink-0" />
+                                <input
+                                  className="flex-1 p-2 outline-none text-sm font-bold bg-transparent"
+                                  placeholder="Chercher un citoyen…"
+                                  value={propSearch}
+                                  onChange={(e) => { setPropSearch(e.target.value); setShowPropDropdown(true); }}
+                                  onFocus={() => setShowPropDropdown(true)}
+                                />
+                              </div>
+                              {showPropDropdown && propSearch && (
+                                <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-1.5 space-y-1">
+                                  {citizens
+                                    .filter((c) =>
+                                      c.id !== selectedSlave.id &&
+                                      (c.name?.toLowerCase().includes(propSearch.toLowerCase()) || c.id?.includes(propSearch))
+                                    )
+                                    .slice(0, 8)
+                                    .map((c) => (
+                                      <button
+                                        key={c.id}
+                                        onClick={() => { setPropTargetId(c.id); setPropTargetName(c.name); setPropSearch(""); setShowPropDropdown(false); }}
+                                        className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                                      >
+                                        {c.avatarUrl ? (
+                                          <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" />
+                                        ) : (
+                                          <User size={12} className="text-stone-400 shrink-0" />
+                                        )}
+                                        <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                        <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
+                                      </button>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Type de contrat */}
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Type d'union</label>
+                          <select
+                            className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none text-sm font-bold"
+                            value={propContractType}
+                            onChange={(e) => setPropContractType(e.target.value)}
+                          >
+                            {(MARRIAGE_CONTRACT_TYPES || []).map((ct) => (
+                              <option key={ct.id} value={ct.id}>{ct.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <button
+                          disabled={!propTargetId}
+                          onClick={() => {
+                            if (!propTargetId) return;
+                            onOwnerProposeMarriage(selectedSlave.id, propTargetId, { contractType: propContractType });
+                            setPropTargetId(null);
+                            setPropTargetName("");
+                            setPropContractType("sacre");
+                          }}
+                          className="w-full py-2.5 bg-stone-900 text-yellow-400 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow"
+                        >
+                          Envoyer la proposition
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </div>
