@@ -16,6 +16,11 @@ import {
   Flag,
   RefreshCw,
   AlertTriangle,
+  Search,
+  Copy,
+  Tag,
+  FileText,
+  SlidersHorizontal,
 } from "lucide-react";
 import Card from "../ui/Card";
 import { formatMoney } from "../../lib/gameUtils";
@@ -34,6 +39,16 @@ const SOURCE_TYPES = [
   { value: "COMPANY", label: "Trésor Entreprise", icon: Building2 },
 ];
 
+const TAGS = [
+  { value: "", label: "Sans étiquette", color: "" },
+  { value: "Salaire", label: "Salaire", color: "bg-blue-100 text-blue-700" },
+  { value: "Pension", label: "Pension", color: "bg-purple-100 text-purple-700" },
+  { value: "Prime", label: "Prime", color: "bg-amber-100 text-amber-700" },
+  { value: "Subvention", label: "Subvention", color: "bg-green-100 text-green-700" },
+  { value: "Loyer", label: "Loyer", color: "bg-orange-100 text-orange-700" },
+  { value: "Autre", label: "Autre", color: "bg-stone-100 text-stone-600" },
+];
+
 const emptyJob = () => ({
   id: "JOB-" + Date.now().toString().slice(-6),
   name: "",
@@ -43,6 +58,8 @@ const emptyJob = () => ({
   source: { type: "COUNTRY", id: "" },
   sourceName: "",
   recipients: [],
+  tag: "",
+  description: "",
 });
 
 const JobsAdminView = ({
@@ -60,6 +77,9 @@ const JobsAdminView = ({
   const [form, setForm] = useState(null);
   const [recipientSearch, setRecipientSearch] = useState("");
   const [recipientType, setRecipientType] = useState("CITIZEN");
+  const [listSearch, setListSearch] = useState("");
+  const [listFilter, setListFilter] = useState("all"); // all | active | inactive
+  const [listSort, setListSort] = useState("name"); // name | amount
 
   const isGlobal = roleInfo?.scope === "GLOBAL";
 
@@ -164,6 +184,29 @@ const JobsAdminView = ({
     if (selectedJob === jobId) { setSelectedJob(null); setForm(null); }
   };
 
+  const duplicateJob = (job) => {
+    const copy = {
+      ...JSON.parse(JSON.stringify(job)),
+      id: "JOB-" + Date.now().toString().slice(-6),
+      name: job.name + " (copie)",
+    };
+    setForm(copy);
+    setSelectedJob(null);
+  };
+
+  const autoBalance = () => {
+    if (!form || form.recipients.length === 0) return;
+    const each = Math.floor(100 / form.recipients.length);
+    const remainder = 100 - each * form.recipients.length;
+    setForm((f) => ({
+      ...f,
+      recipients: f.recipients.map((r, i) => ({
+        ...r,
+        percent: i === f.recipients.length - 1 ? each + remainder : each,
+      })),
+    }));
+  };
+
   // Résolution du nom de source pour affichage
   const resolveSourceLabel = (job) => {
     if (!job.source) return "—";
@@ -173,6 +216,22 @@ const JobsAdminView = ({
     if (job.source.type === "COMPANY") return "🏭 " + (companies.find((c) => c.id === job.source.id)?.name || job.source.id);
     return "—";
   };
+
+  const filteredJobs = jobs
+    .filter((j) => {
+      const matchSearch = !listSearch || (j.name || "").toLowerCase().includes(listSearch.toLowerCase());
+      const matchFilter = listFilter === "all" || (listFilter === "active" ? j.active : !j.active);
+      return matchSearch && matchFilter;
+    })
+    .sort((a, b) => {
+      if (listSort === "amount") return (b.amount || 0) - (a.amount || 0);
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+  const totalMonthlyActive = jobs
+    .filter((j) => j.active && j.frequency === "monthly")
+    .reduce((s, j) => s + (j.amount || 0), 0);
+  const activeCount = jobs.filter((j) => j.active).length;
 
   // Candidats selon le type sélectionné
   const filteredCandidates = (() => {
@@ -201,15 +260,54 @@ const JobsAdminView = ({
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans min-h-0">
       {/* ── LISTE DES CONTRATS ── masquée sur mobile quand un formulaire est ouvert */}
       <div className={`w-full md:w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md min-h-0 ${form ? "hidden md:flex" : "flex"}`}>
-        {/* En-tête */}
-        <div className="p-4 bg-stone-100 border-b flex justify-between items-center font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500">
-          <span>Contrats d'Emploi</span>
-          <button
-            onClick={openNew}
-            className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"
-          >
-            <Plus size={16} />
-          </button>
+        {/* En-tête + stats */}
+        <div className="p-4 bg-stone-100 border-b border-stone-200 space-y-3">
+          <div className="flex justify-between items-center font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500">
+            <span>Contrats ({filteredJobs.length}/{jobs.length})</span>
+            <button
+              onClick={openNew}
+              className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          {/* Mini stats */}
+          <div className="flex gap-3 text-[10px]">
+            <span className="text-stone-500">Actifs : <span className="font-black text-green-700">{activeCount}</span></span>
+            {totalMonthlyActive > 0 && (
+              <span className="text-stone-500">Budget/mois : <span className="font-black text-stone-800">{formatMoney(totalMonthlyActive)}</span></span>
+            )}
+          </div>
+          {/* Recherche */}
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-2.5 text-stone-400" />
+            <input
+              className="w-full pl-8 pr-2 py-1.5 border border-stone-200 rounded-lg text-xs bg-white outline-none focus:border-stone-500"
+              placeholder="Rechercher..."
+              value={listSearch}
+              onChange={(e) => setListSearch(e.target.value)}
+            />
+          </div>
+          {/* Filtres statut + tri */}
+          <div className="flex gap-1.5 items-center flex-wrap">
+            {[["all", "Tous"], ["active", "Actifs"], ["inactive", "Inactifs"]].map(([val, lbl]) => (
+              <button
+                key={val}
+                onClick={() => setListFilter(val)}
+                className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border transition-all ${listFilter === val ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
+              >
+                {lbl}
+              </button>
+            ))}
+            <select
+              className="ml-auto px-1.5 py-0.5 rounded border border-stone-200 text-[9px] bg-white outline-none"
+              value={listSort}
+              onChange={(e) => setListSort(e.target.value)}
+            >
+              <option value="name">A→Z</option>
+              <option value="amount">Montant ↓</option>
+            </select>
+          </div>
         </div>
 
         {/* Liste */}
@@ -221,7 +319,7 @@ const JobsAdminView = ({
               <span className="text-[10px]">Cliquez sur + pour en créer un.</span>
             </div>
           )}
-          {jobs.map((job) => (
+          {filteredJobs.map((job) => (
             <div
               key={job.id}
               className={`p-3 rounded-xl border cursor-pointer transition-all ${
@@ -247,6 +345,13 @@ const JobsAdminView = ({
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
+                    onClick={(e) => { e.stopPropagation(); duplicateJob(job); }}
+                    className="p-1 text-stone-400 hover:text-stone-600 rounded transition-colors"
+                    title="Dupliquer"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  <button
                     onClick={(e) => { e.stopPropagation(); if (onToggleJobContract) onToggleJobContract(job.id); }}
                     className={`p-1 rounded transition-colors ${job.active ? "text-green-500 hover:text-green-700" : "text-stone-400 hover:text-stone-600"}`}
                     title={job.active ? "Actif — cliquer pour désactiver" : "Inactif — cliquer pour activer"}
@@ -269,6 +374,10 @@ const JobsAdminView = ({
                     {r.name} {r.percent}%
                   </span>
                 ))}
+                {job.tag && (() => {
+                  const t = TAGS.find((t) => t.value === job.tag);
+                  return t ? <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold mt-1 inline-block ${t.color}`}>{t.label}</span> : null;
+                })()}
               </div>
             </div>
           ))}
@@ -351,6 +460,27 @@ const JobsAdminView = ({
                       <option key={f.value} value={f.value}>{f.label}</option>
                     ))}
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1"><Tag size={10} /> Étiquette</label>
+                  <select
+                    className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold"
+                    value={form.tag || ""}
+                    onChange={(e) => setForm((f) => ({ ...f, tag: e.target.value }))}
+                  >
+                    {TAGS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1"><FileText size={10} /> Description / Note interne</label>
+                  <textarea
+                    className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-800 resize-none text-sm"
+                    rows={2}
+                    value={form.description || ""}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Note interne sur ce contrat (optionnel)…"
+                    maxLength={300}
+                  />
                 </div>
                 <div className="md:col-span-2 flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200">
                   <button
@@ -449,16 +579,26 @@ const JobsAdminView = ({
                       Total réparti
                     </span>
                   </div>
-                  <span className={`font-black text-lg font-mono ${
-                    totalPercent === 100 ? "text-green-700" : totalPercent > 100 ? "text-red-700" : "text-amber-700"
-                  }`}>
-                    {totalPercent}%
-                    {totalPercent !== 100 && (
-                      <span className="text-[10px] font-bold ml-1">
-                        {totalPercent < 100 ? `(manque ${100 - totalPercent}%)` : `(excède de ${totalPercent - 100}%)`}
-                      </span>
-                    )}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className={`font-black text-lg font-mono ${
+                      totalPercent === 100 ? "text-green-700" : totalPercent > 100 ? "text-red-700" : "text-amber-700"
+                    }`}>
+                      {totalPercent}%
+                      {totalPercent !== 100 && (
+                        <span className="text-[10px] font-bold ml-1">
+                          {totalPercent < 100 ? `(manque ${100 - totalPercent}%)` : `(excède de ${totalPercent - 100}%)`}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      onClick={autoBalance}
+                      disabled={form.recipients.length === 0}
+                      className="px-2 py-1 bg-stone-700 text-white rounded text-[9px] font-black uppercase hover:bg-stone-600 disabled:opacity-40 flex items-center gap-1"
+                      title="Répartir équitablement"
+                    >
+                      <SlidersHorizontal size={10} /> Équilibrer
+                    </button>
+                  </div>
                 </div>
 
                 {/* Avertissement si total ≠ 100 */}
@@ -478,9 +618,14 @@ const JobsAdminView = ({
                       const type = r.type || "CITIZEN";
                       const TypeIcon = type === "COUNTRY" ? Flag : type === "COMPANY" ? Building2 : type === "GLOBAL" ? Globe : User;
                       const typeLabel = type === "COUNTRY" ? "Pays" : type === "COMPANY" ? "Entreprise" : type === "GLOBAL" ? "Empire" : "Citoyen";
+                      const citizenData = type === "CITIZEN" ? citizens.find((c) => c.id === r.id) : null;
                       return (
                         <div key={r.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
-                          <TypeIcon size={14} className="text-stone-400 shrink-0" />
+                          {citizenData?.avatar ? (
+                            <img src={citizenData.avatar} alt={citizenData.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <TypeIcon size={14} className="text-stone-400 shrink-0" />
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-sm text-stone-800 truncate">{r.name}</div>
                             <div className="text-[10px] text-stone-400 font-mono flex items-center gap-2">
