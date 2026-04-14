@@ -12,6 +12,7 @@ import {
   Stamp,
   ChevronLeft,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 /* --- SELECTEUR DE CITOYEN (CORRIGÉ Z-INDEX) --- */
@@ -397,7 +398,8 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
               id: "inbox",
               label: "Boîte de Réception",
               icon: Inbox,
-              count: inboxMessages.length,
+              count: inboxMessages.filter(m => !m.isRead).length,
+              total: inboxMessages.length,
             },
             { id: "sent", label: "Archives d'Envoi", icon: Send, count: 0 },
             {
@@ -433,10 +435,10 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                 {item.label}
                 {item.count > 0 && (
                   <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                       activeFolder === item.id
                         ? "bg-[#b8860b] text-stone-900"
-                        : "bg-stone-700 text-stone-400"
+                        : "bg-red-600 text-white"
                     }`}
                   >
                     {item.count}
@@ -481,25 +483,36 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                 onClick={() => {
                   setSelectedMsg(msg);
                   setIsComposing(false);
+                  if (!msg.isRead) handleUpdateMsg(msg.id, { isRead: true });
                 }}
-                className="p-5 border-b border-stone-200 cursor-pointer transition-all hover:bg-white relative bg-transparent"
+                className={`p-4 border-b border-stone-200 cursor-pointer transition-all hover:bg-white relative flex items-start gap-3 ${!msg.isRead && activeFolder !== "sent" ? "bg-amber-50/60" : "bg-transparent"}`}
               >
-                <div className="flex justify-between items-start mb-1">
-                  <div className="text-sm font-bold truncate pr-2 text-stone-700">
-                    {activeFolder === "sent"
-                      ? `À: ${msg.toName || "Inconnu"}`
-                      : msg.from}
+                {/* Avatar initiales */}
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black shrink-0 mt-0.5 ${!msg.isRead && activeFolder !== "sent" ? "bg-stone-800 text-[#b8860b]" : "bg-stone-200 text-stone-600"}`}>
+                  {(activeFolder === "sent" ? (msg.toName || "?") : (msg.from || "?"))[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-0.5">
+                    <div className={`text-sm truncate pr-2 ${!msg.isRead && activeFolder !== "sent" ? "font-black text-stone-900" : "font-bold text-stone-700"}`}>
+                      {activeFolder === "sent" ? `À: ${msg.toName || "Inconnu"}` : msg.from}
+                    </div>
+                    <div className="text-[10px] text-stone-400 font-mono whitespace-nowrap shrink-0">{msg.date}</div>
                   </div>
-                  <div className="text-[10px] text-stone-400 font-mono whitespace-nowrap pt-1">
-                    {msg.date}
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-bold text-[#b8860b] truncate font-serif tracking-wide flex-1">{msg.subject}</div>
+                    {msg.seal && msg.seal !== "NORMAL" && (
+                      <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase shrink-0 ${
+                        msg.seal === "URGENT" ? "bg-red-100 text-red-700" :
+                        msg.seal === "SECRET" ? "bg-stone-800 text-stone-200" :
+                        "bg-blue-100 text-blue-700"
+                      }`}>{msg.seal}</span>
+                    )}
                   </div>
+                  <div className="text-[10px] text-stone-500 opacity-70 truncate mt-0.5">{msg.content?.substring(0, 60)}...</div>
                 </div>
-                <div className="text-xs font-bold text-[#b8860b] mb-1 truncate font-serif tracking-wide">
-                  {msg.subject}
-                </div>
-                <div className="text-[10px] text-stone-500 opacity-70 truncate">
-                  {msg.content.substring(0, 50)}...
-                </div>
+                {!msg.isRead && activeFolder !== "sent" && (
+                  <div className="w-2 h-2 rounded-full bg-[#b8860b] shrink-0 mt-2" />
+                )}
               </div>
             ))
           )}
