@@ -651,6 +651,10 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                     }
                   />
                 </div>
+                <div className="flex justify-between items-center text-[10px] text-stone-400 mt-2">
+                  <span>{draft.content.length} caractère{draft.content.length !== 1 ? "s" : ""}</span>
+                  {draft.content.length > 2000 && <span className="text-amber-600 font-bold">Message long — pensez à synthétiser</span>}
+                </div>
                 <div className="flex justify-end gap-3 pt-6 mt-4 border-t border-stone-100">
                   <button
                     onClick={handleSend}
@@ -718,6 +722,22 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                 >
                   <AlertOctagon size={16} />
                 </button>
+                {activeFolder !== "sent" && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Supprimer définitivement ce message ?")) {
+                        const newMessages = rawMessages.filter((m) => m.id !== selectedMsg.id);
+                        onUpdateUser({ ...session, messages: newMessages });
+                        setSelectedMsg(null);
+                        if (notify) notify("Message supprimé.", "info");
+                      }
+                    }}
+                    className="p-2 rounded-full bg-stone-100 text-stone-400 hover:bg-red-100 hover:text-red-600 transition-colors"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
             </div>
 
