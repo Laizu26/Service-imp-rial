@@ -16,6 +16,8 @@ import {
   TrendingDown,
   ArrowDownLeft,
   ArrowUpRight,
+  Crown,
+  Shield,
 } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
 
@@ -129,7 +131,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   const [view,        setView]        = useState("list");
   const [editingId,   setEditingId]   = useState(null);
   const [detailId,    setDetailId]    = useState(null);
-  const [detailTab,   setDetailTab]   = useState("members"); // "members" | "treasury"
+  const [detailTab,   setDetailTab]   = useState("members"); // "members" | "treasury" | "governance"
   const [form,        setForm]        = useState(EMPTY_FORM);
   const [search,      setSearch]      = useState("");
   const [addMemberId, setAddMemberId] = useState("");
@@ -141,6 +143,9 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   const [transferToFamId, setTransferToFamId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferReason, setTransferReason] = useState("");
+  // Governance tab
+  const [govNewHead, setGovNewHead] = useState("");
+  const [govNewRegent, setGovNewRegent] = useState("");
 
   const generateId = () => `FAM-${Date.now().toString(36).toUpperCase()}`;
   const openCreate = () => { setForm(EMPTY_FORM); setEditingId(null); setView("form"); };
@@ -315,6 +320,9 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
             <div>
               <Label>Blason / Symbole</Label>
               <Input value={form.coat} onChange={(e) => setForm({ ...form, coat: e.target.value })} placeholder="Emoji : 🦁 🐍 ⚔️ 🌹…" />
+              {form.coat && (
+                <div className="mt-2 text-5xl text-center p-3 bg-stone-800/30 rounded-lg">{form.coat}</div>
+              )}
             </div>
           </div>
         )}
@@ -334,6 +342,9 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               <div>
                 <Label>Blason / Symbole</Label>
                 <Input value={form.coat} onChange={(e) => setForm({ ...form, coat: e.target.value })} placeholder="Emoji : 🦁 🐍 ⚔️ 🌹…" />
+                {form.coat && (
+                  <div className="mt-2 text-5xl text-center p-3 bg-stone-800/30 rounded-lg">{form.coat}</div>
+                )}
               </div>
             </div>
 
@@ -544,6 +555,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           {[
             { id: "members", label: "Membres", icon: <Users size={12} /> },
             { id: "treasury", label: "Trésorerie", icon: <Coins size={12} /> },
+            { id: "governance", label: "Gouvernance", icon: <Crown size={12} /> },
           ].map((tab) => (
             <button key={tab.id} onClick={() => setDetailTab(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 -mb-px transition-all ${
@@ -575,14 +587,18 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                       <div className="space-y-1.5 max-h-40 overflow-y-auto">
                         {branchMembers.map((c) => (
                           <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
-                            <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
-                              {(c.firstName || c.name || "?")[0].toUpperCase()}
-                            </div>
+                            {c.avatarUrl
+                              ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                              : <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
+                                  {(c.firstName || c.name || "?")[0].toUpperCase()}
+                                </div>
+                            }
                             <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                               {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                             </span>
                             <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
-                            {c.id === detailFam.headId && <span className="text-amber-400 text-[9px]">👑</span>}
+                            {c.id === detailFam.headId && <Crown size={10} className="text-amber-400 shrink-0" />}
+                            {c.id === detailFam.regentId && <Shield size={10} className="text-purple-400 shrink-0" />}
                           </div>
                         ))}
                       </div>
@@ -603,13 +619,18 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                       const isExtra = extraIds.includes(c.id);
                       return (
                         <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
-                          <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
-                            {(c.firstName || c.name || "?")[0].toUpperCase()}
-                          </div>
+                          {c.avatarUrl
+                            ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                            : <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
+                                {(c.firstName || c.name || "?")[0].toUpperCase()}
+                              </div>
+                          }
                           <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                             {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                           </span>
                           <span className="text-[9px] text-stone-500 shrink-0">{c.occupation || "Citoyen"}</span>
+                          {c.id === detailFam.headId && <Crown size={10} className="text-amber-400 shrink-0" />}
+                          {c.id === detailFam.regentId && <Shield size={10} className="text-purple-400 shrink-0" />}
                           {isExtra ? (
                             <button onClick={() => removeExtraMember(detailFam.id, c.id)} className="text-red-500/50 hover:text-red-400 transition-colors shrink-0"><X size={12} /></button>
                           ) : (
@@ -634,9 +655,12 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                     if (!c) return null;
                     return (
                       <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
-                        <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
-                          {(c.firstName || c.name || "?")[0].toUpperCase()}
-                        </div>
+                        {c.avatarUrl
+                          ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          : <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
+                              {(c.firstName || c.name || "?")[0].toUpperCase()}
+                            </div>
+                        }
                         <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                           {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                         </span>
@@ -756,6 +780,121 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
             </div>
           </div>
         )}
+
+        {/* === TAB GOUVERNANCE === */}
+        {detailTab === "governance" && (
+          <div className="space-y-4">
+
+            {/* Chef actuel */}
+            <div className="bg-stone-800/40 border border-amber-900/40 rounded-xl p-4 space-y-3">
+              <div className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
+                <Crown size={11} /> Chef de famille
+              </div>
+              {detailFam.headId ? (() => {
+                const head = safeCitizens.find((c) => c.id === detailFam.headId);
+                return (
+                  <div className="flex items-center gap-3 px-3 py-2.5 bg-amber-900/20 border border-amber-800/40 rounded-lg">
+                    {head?.avatarUrl
+                      ? <img src={head.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      : <div className="w-8 h-8 bg-amber-900/40 rounded-full flex items-center justify-center text-sm font-black text-amber-400 shrink-0">
+                          {(head?.firstName || head?.name || "?")[0].toUpperCase()}
+                        </div>
+                    }
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-black text-amber-300 truncate">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Inconnu"}</div>
+                      <div className="text-[9px] text-amber-600 uppercase font-bold">Chef en exercice</div>
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div className="text-xs text-stone-600 italic">Aucun chef désigné</div>
+              )}
+              <div className="space-y-2">
+                <Label>Nommer un nouveau chef</Label>
+                <div className="flex gap-2">
+                  <select value={govNewHead} onChange={(e) => setGovNewHead(e.target.value)}
+                    className="flex-1 bg-stone-800 border border-stone-700 rounded-lg p-2 text-xs text-stone-200 outline-none focus:border-amber-500/50">
+                    <option value="">— Choisir un membre —</option>
+                    {allMembers.map((c) => (
+                      <option key={c.id} value={c.id}>{c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}</option>
+                    ))}
+                  </select>
+                  <BtnPrimary
+                    onClick={() => {
+                      if (!govNewHead) return;
+                      const c = safeCitizens.find((x) => x.id === govNewHead);
+                      const headName = c ? (c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name) : "";
+                      onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === detailFam.id ? { ...f, headId: govNewHead, headName } : f) });
+                      notify(`Chef changé : ${headName}`, "success");
+                      setGovNewHead("");
+                    }}
+                    disabled={!govNewHead}
+                    className="px-3"
+                  ><Crown size={13} /> Désigner</BtnPrimary>
+                </div>
+              </div>
+            </div>
+
+            {/* Régent (nobles uniquement) */}
+            {detailFam.type === "noble" && (
+              <div className="bg-stone-800/40 border border-purple-900/40 rounded-xl p-4 space-y-3">
+                <div className="text-[9px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-1.5">
+                  <Shield size={11} /> Régent
+                </div>
+                {detailFam.regentId ? (() => {
+                  const rg = safeCitizens.find((c) => c.id === detailFam.regentId);
+                  return (
+                    <div className="flex items-center gap-3 px-3 py-2.5 bg-purple-900/20 border border-purple-800/40 rounded-lg">
+                      {rg?.avatarUrl
+                        ? <img src={rg.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                        : <div className="w-8 h-8 bg-purple-900/40 rounded-full flex items-center justify-center text-sm font-black text-purple-400 shrink-0">
+                            {(rg?.firstName || rg?.name || "?")[0].toUpperCase()}
+                          </div>
+                      }
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-black text-purple-300 truncate">{rg ? (rg.firstName ? `${rg.firstName} ${rg.lastName || ""}`.trim() : rg.name) : "Inconnu"}</div>
+                        <div className="text-[9px] text-purple-600 uppercase font-bold">Régent en exercice</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === detailFam.id ? { ...f, regentId: null, regentName: null } : f) });
+                          notify("Régent révoqué.", "info");
+                        }}
+                        className="text-red-500/50 hover:text-red-400 transition-colors text-[9px] uppercase font-black px-2 py-1 rounded border border-red-900/40 hover:bg-red-900/20 shrink-0"
+                      >Révoquer</button>
+                    </div>
+                  );
+                })() : (
+                  <div className="text-xs text-stone-600 italic">Aucun régent en exercice</div>
+                )}
+                <div className="space-y-2">
+                  <Label>Nommer un régent</Label>
+                  <div className="flex gap-2">
+                    <select value={govNewRegent} onChange={(e) => setGovNewRegent(e.target.value)}
+                      className="flex-1 bg-stone-800 border border-stone-700 rounded-lg p-2 text-xs text-stone-200 outline-none focus:border-purple-500/50">
+                      <option value="">— Choisir un membre —</option>
+                      {allMembers.map((c) => (
+                        <option key={c.id} value={c.id}>{c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}</option>
+                      ))}
+                    </select>
+                    <BtnPrimary
+                      onClick={() => {
+                        if (!govNewRegent) return;
+                        const c = safeCitizens.find((x) => x.id === govNewRegent);
+                        const regentName = c ? (c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name) : "";
+                        onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === detailFam.id ? { ...f, regentId: govNewRegent, regentName } : f) });
+                        notify(`Régent nommé : ${regentName}`, "success");
+                        setGovNewRegent("");
+                      }}
+                      disabled={!govNewRegent}
+                      className="px-3"
+                    ><Shield size={13} /> Nommer</BtnPrimary>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -771,6 +910,15 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           <p className="text-[9px] text-stone-500 mt-0.5 uppercase tracking-widest">Gestion HRP — non visible des personnages</p>
         </div>
         <BtnPrimary onClick={openCreate} className="px-4 shrink-0"><Plus size={14} /> Nouvelle famille</BtnPrimary>
+      </div>
+
+      {/* Stats globales */}
+      <div className="flex gap-4 text-[10px] text-stone-400 border border-stone-700 rounded-lg px-4 py-2.5 bg-stone-800/30">
+        <span>Familles : <strong className="text-stone-200">{safeFamilies.length}</strong></span>
+        <span>Nobles : <strong className="text-yellow-400">{safeFamilies.filter((f) => f.type === "noble").length}</strong></span>
+        <span>Communes : <strong className="text-stone-300">{safeFamilies.filter((f) => f.type === "commune").length}</strong></span>
+        <span>Membres : <strong className="text-stone-200">{new Set(safeFamilies.flatMap((f) => getFamilyMembers(f, safeCitizens).map((m) => m.id))).size}</strong></span>
+        <span className="ml-auto text-amber-500 font-mono font-bold">{formatMoney(safeFamilies.reduce((s, f) => s + (f.treasury || 0), 0))} total</span>
       </div>
 
       <div className="relative">
