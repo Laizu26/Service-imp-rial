@@ -382,6 +382,29 @@ html.text-lg {
   background: #a8a29e;
 }
 
+/* ===== TEXTE VISIBLE — FIX GLOBAL ===== */
+/*
+ * CitizenLayout pose `text-stone-200` sur son div racine (sidebar sombre).
+ * Les inputs/selects/textareas avec bg-white héritent de cette couleur claire
+ * → texte invisible sur fond blanc.
+ * Ces règles d'élément (spécificité 0,0,1) sont toujours écrasées par les
+ * classes Tailwind .text-* (spécificité 0,1,0), donc aucun conflit.
+ */
+input,
+select,
+textarea,
+option {
+  color: #1c1917;       /* stone-900 : lisible sur fond clair */
+}
+input::placeholder,
+textarea::placeholder {
+  color: #a8a29e;       /* stone-400 */
+  opacity: 1;
+}
+
+/* Dark-mode : les règles .dark input/select/textarea { color: var() !important }
+   ci-dessus (ligne ~167) rétablissent déjà la couleur correcte. */
+
 /* ===== COLOR THEME OVERRIDES (light mode only) =====
    Ces règles appliquent les CSS variables aux classes Tailwind hardcodées.
    Elles sont ignorées en dark mode (le .dark prend le dessus).
