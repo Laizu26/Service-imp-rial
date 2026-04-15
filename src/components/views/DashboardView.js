@@ -4,7 +4,6 @@ import {
   Users,
   History,
   Newspaper,
-  Send,
   Edit3,
   Save,
   Flag,
@@ -15,7 +14,6 @@ import {
   Leaf, // Printemps
   Hammer, // Frappe monnaie
   ArrowRightCircle, // Pour le bouton jour suivant
-  Trash2,
 } from "lucide-react";
 import Card from "../ui/Card";
 import { formatMoney } from "../../lib/gameUtils";
@@ -29,7 +27,6 @@ const DashboardView = ({
   onAddTreasury,
   onPassDay,
 }) => {
-  const [newArticle, setNewArticle] = useState({ title: "", content: "" });
   const [editingDate, setEditingDate] = useState(false);
   const [mintAmount, setMintAmount] = useState("");
 
@@ -107,27 +104,6 @@ const DashboardView = ({
       setMintAmount("");
     }
   };
-
-  const handlePublishNews = () => {
-    if (!newArticle.title || !newArticle.content) return;
-    const dateStr = `Le ${currentDate.day}/${currentDate.month}/${currentDate.year}`;
-    const article = {
-      id: Date.now(),
-      date: dateStr,
-      author: session.name,
-      authorRole: roleInfo.label,
-      title: newArticle.title,
-      content: newArticle.content,
-      scope: isGlobal ? "GLOBAL" : "LOCAL",
-      countryId: isGlobal ? null : session.countryId,
-    };
-    onUpdateState({ ...state, gazette: [article, ...(state.gazette || [])] });
-    setNewArticle({ title: "", content: "" });
-  };
-
-  const visibleNews = (state.gazette || []).filter(
-    (n) => isGlobal || n.scope === "GLOBAL" || n.countryId === session.countryId
-  );
 
   return (
     <div className="space-y-6 font-sans pb-20 animate-fadeIn">
@@ -304,78 +280,15 @@ const DashboardView = ({
             </Card>
           )}
 
-          <Card title="Gazette Officielle (Rédaction)" icon={Newspaper}>
-            <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 mb-6">
-              <div className="text-xs font-bold uppercase text-stone-400 mb-2 tracking-widest">
-                Rédiger un décret ou une annonce
+          <Card title="Gazette Impériale" icon={Newspaper}>
+            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+              <Newspaper size={32} className="text-stone-300" />
+              <p className="text-sm text-stone-500 font-serif italic">
+                La rédaction de la Gazette est désormais disponible dans l'onglet dédié.
+              </p>
+              <div className="text-[9px] text-stone-400 uppercase tracking-widest font-bold">
+                {(state.gazette || []).length} article{(state.gazette || []).length !== 1 ? "s" : ""} publiés
               </div>
-              <input
-                className="w-full p-2 mb-2 border rounded font-serif font-bold"
-                placeholder="Titre de l'annonce..."
-                value={newArticle.title}
-                onChange={(e) =>
-                  setNewArticle({ ...newArticle, title: e.target.value })
-                }
-              />
-              <textarea
-                className="w-full p-2 mb-2 border rounded text-sm min-h-[80px]"
-                placeholder="Contenu..."
-                value={newArticle.content}
-                onChange={(e) =>
-                  setNewArticle({ ...newArticle, content: e.target.value })
-                }
-              />
-              <div className="flex justify-end">
-                <button
-                  onClick={handlePublishNews}
-                  disabled={!newArticle.title || !newArticle.content}
-                  className="bg-stone-900 text-yellow-500 px-4 py-2 rounded text-[10px] font-black uppercase flex items-center gap-2 hover:bg-stone-800 disabled:opacity-50"
-                >
-                  <Send size={12} /> Publier
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {visibleNews.map((n) => (
-                <div
-                  key={n.id}
-                  className="border-b border-stone-100 pb-4 last:border-0 relative pl-4 group"
-                >
-                  <div
-                    className={`absolute left-0 top-0 bottom-0 w-1 rounded-full ${
-                      n.scope === "GLOBAL" ? "bg-yellow-500" : "bg-blue-500"
-                    }`}
-                  ></div>
-                  <div className="flex justify-between items-start mb-1 gap-2">
-                    <h4 className="font-bold text-lg font-serif flex-1">{n.title}</h4>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] uppercase font-bold text-stone-400 bg-stone-100 px-2 py-1 rounded">
-                        {n.date}
-                      </span>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Supprimer « ${n.title} » ?`)) {
-                            onUpdateState({
-                              ...state,
-                              gazette: (state.gazette || []).filter((g) => g.id !== n.id),
-                            });
-                          }
-                        }}
-                        className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                        title="Supprimer cet article"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-sm text-stone-600 leading-relaxed italic">
-                    {n.content}
-                  </p>
-                  <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-stone-300">
-                    Par {n.author} ({n.authorRole})
-                  </div>
-                </div>
-              ))}
             </div>
           </Card>
         </div>

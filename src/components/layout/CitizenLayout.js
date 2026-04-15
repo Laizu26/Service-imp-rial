@@ -1252,7 +1252,7 @@ const CitizenLayout = (props) => {
           </div>
 
           <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-            {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} />}
+            {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
             {active === "library" && (

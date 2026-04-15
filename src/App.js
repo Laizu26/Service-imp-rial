@@ -26,6 +26,7 @@ import {
   MapPin,
   Scale,
   TrendingUp,
+  Newspaper,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -60,6 +61,7 @@ import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. I
 import GuardAdminView from "./components/views/GuardAdminView";
 import JobsAdminView from "./components/views/JobsAdminView";
 import FamiliesAdminView from "./components/views/FamiliesAdminView";
+import GazetteAdminView from "./components/views/GazetteAdminView";
 import BourseView from "./components/views/BourseView";
 import PropertiesAdminView from "./components/views/PropertiesAdminView";
 import TribunalAdminView from "./components/views/TribunalAdminView";
@@ -245,6 +247,8 @@ export default function App() {
         icon: Crown,
       });
     tabs.push({ id: "country", label: "Atlas", icon: Globe });
+    if (effectiveLevel >= 30 || effectiveScope === "LOCAL")
+      tabs.push({ id: "gazette_admin", label: "Gazette", icon: Newspaper });
 
     // --- 3. AJOUT DE L'ONGLET BIBLIOTHÈQUE ---
     if (effectiveLevel >= 40) {
@@ -841,7 +845,7 @@ export default function App() {
                     grouped={adminGrouped}
                     unreadCount={adminUnreadCount}
                     onNavigate={(route) => {
-                      const adminRoutes = { msg: "post", bank: "bank", gazette: "dashboard" };
+                      const adminRoutes = { msg: "post", bank: "bank", gazette: "gazette_admin" };
                       if (adminRoutes[route]) {
                         setActiveTab(adminRoutes[route]);
                       } else {
@@ -1057,6 +1061,16 @@ export default function App() {
                   {activeTab === "families_admin" && (
                     <FamiliesAdminView
                       state={state}
+                      onUpdateState={saveState}
+                      notify={notify}
+                    />
+                  )}
+
+                  {activeTab === "gazette_admin" && (
+                    <GazetteAdminView
+                      state={state}
+                      roleInfo={roleInfo}
+                      session={session}
                       onUpdateState={saveState}
                       notify={notify}
                     />
