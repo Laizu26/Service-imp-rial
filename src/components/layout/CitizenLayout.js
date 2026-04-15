@@ -906,32 +906,52 @@ const CitizenLayout = (props) => {
     (c) => (c.employees || []).includes(user.id) || (c.slaves || []).includes(user.id)
   );
 
+  const menuGroups = [
+    {
+      id: "monde",
+      label: "Information & Monde",
+      items: [
+        { id: "gazette",  label: "Gazette",       icon: Scroll },
+        { id: "library",  label: "Bibliothèque",  icon: Book },
+        { id: "annuaire", label: "Annuaire",       icon: Eye },
+        (!isBanned && !isPrisoner && canUseTravel) && { id: "travel", label: "Voyage", icon: Map },
+      ].filter(Boolean),
+    },
+    {
+      id: "perso",
+      label: "Personnelle",
+      items: [
+        { id: "profil", label: "Mon Registre", icon: User },
+        (!isBanned && canUsePost) && { id: "msg", label: "Poste Impériale", icon: Mail },
+        { id: "mariage", label: "Mariage & Famille", icon: Heart },
+        !isSlave && { id: "famille", label: "Ma Dynastie", icon: HeartHandshake },
+        { id: "physique_magie", label: "Physique & Magie", icon: Zap },
+        isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
+      ].filter(Boolean),
+    },
+    {
+      id: "travail",
+      label: "Travail & Économie",
+      items: [
+        { id: "my_company", label: "Mon Entreprise", icon: Briefcase },
+        { id: "inventory",  label: "Inventaire",     icon: Box },
+        canUseBank && { id: "bank", label: "Banque", icon: Landmark },
+        { id: "bourse",     label: "Bourse",         icon: TrendingUp },
+        { id: "properties", label: "Propriétés",     icon: MapPin },
+        { id: "guilds",     label: "Guildes",        icon: Users },
+        { id: "asia",       label: "Maison Asia",    icon: Gem },
+        { id: "contracts",  label: "Contrats",       icon: Scroll },
+        isGuard && { id: "garde", label: "Garde Impériale", icon: Shield },
+        mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
+      ].filter(Boolean),
+    },
+  ];
+
+  // Liste plate utilisée pour la barre mobile
   const menuItems = [
-    { id: "gazette", label: "Gazette", icon: Scroll },
-    { id: "library", label: "Bibliothèque", icon: Book },
-    { id: "profil", label: "Mon Registre", icon: User },
-    { id: "my_company", label: "Mon Entreprise", icon: Briefcase },
-    { id: "inventory", label: "Inventaire", icon: Box },
-    canUseBank && { id: "bank", label: "Banque", icon: Landmark },
-    !isBanned &&
-      canUsePost && { id: "msg", label: "Poste Impériale", icon: Mail },
-    !isBanned &&
-      !isPrisoner &&
-      canUseTravel && { id: "travel", label: "Voyage", icon: Map },
-    { id: "asia", label: "Maison Asia", icon: Gem },
-    isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
-    mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
-    { id: "mariage", label: "Mariage & Famille", icon: Heart },
-    !isSlave && { id: "famille", label: "Ma Dynastie", icon: HeartHandshake },
-    { id: "properties", label: "Propriétés", icon: MapPin },
-    { id: "guilds", label: "Guildes", icon: Users },
-    { id: "bourse", label: "Bourse", icon: TrendingUp },
-    { id: "contracts", label: "Contrats", icon: Scroll },
-    { id: "annuaire", label: "Annuaire", icon: Eye },
-    { id: "physique_magie", label: "Physique & Magie", icon: Zap },
-    isGuard && { id: "garde", label: "Garde Impériale", icon: Shield },
+    ...menuGroups.flatMap((g) => g.items),
     { id: "notifications", label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ""}`, icon: Bell },
-  ].filter(Boolean);
+  ];
 
   // --- 4. RENDU ---
   return (
@@ -993,33 +1013,79 @@ const CitizenLayout = (props) => {
           )}
         </div>
 
-        <nav className={`flex-1 overflow-y-auto ${settings.sidebarCollapsed ? "p-2 space-y-1" : "p-4 space-y-1"}`}>
-          {menuItems.map((item) => (
+        <nav className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-transparent ${settings.sidebarCollapsed ? "p-2" : "p-4"}`}>
+          {menuGroups.map((group, gIdx) => (
+            <div key={group.id} className={gIdx > 0 ? "mt-4" : ""}>
+              {/* Séparateur de groupe */}
+              {!settings.sidebarCollapsed ? (
+                <div className="flex items-center gap-2 px-1 mb-1.5">
+                  <div className="flex-1 h-px bg-stone-800" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-600 whitespace-nowrap">{group.label}</span>
+                  <div className="flex-1 h-px bg-stone-800" />
+                </div>
+              ) : (
+                gIdx > 0 && <div className="h-px bg-stone-800 mx-1 mb-2 mt-2" />
+              )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActive(item.id)}
+                    title={settings.sidebarCollapsed ? item.label : undefined}
+                    className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
+                      active === item.id
+                        ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
+                        : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
+                    }`}
+                  >
+                    <item.icon
+                      size={16}
+                      className={`shrink-0 transition-colors ${
+                        active === item.id
+                          ? "text-stone-900"
+                          : "text-stone-500 group-hover:text-stone-300"
+                      }`}
+                    />
+                    {!settings.sidebarCollapsed && (
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {item.label}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Notifications — hors catégories */}
+          <div className="mt-4">
+            {!settings.sidebarCollapsed && <div className="flex items-center gap-2 px-1 mb-1.5"><div className="flex-1 h-px bg-stone-800" /></div>}
             <button
-              key={item.id}
-              onClick={() => setActive(item.id)}
-              title={settings.sidebarCollapsed ? item.label : undefined}
-              className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-4 px-4 py-3.5"} rounded-xl transition-all duration-300 group ${
-                active === item.id
+              onClick={() => setActive("notifications")}
+              title={settings.sidebarCollapsed ? "Notifications" : undefined}
+              className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
+                active === "notifications"
                   ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
                   : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
               }`}
             >
-              <item.icon
-                size={18}
-                className={`shrink-0 transition-colors ${
-                  active === item.id
-                    ? "text-stone-900"
-                    : "text-stone-500 group-hover:text-stone-300"
-                }`}
+              <Bell
+                size={16}
+                className={`shrink-0 transition-colors ${active === "notifications" ? "text-stone-900" : "text-stone-500 group-hover:text-stone-300"}`}
               />
               {!settings.sidebarCollapsed && (
-                <span className="text-xs font-black uppercase tracking-widest">
-                  {item.label}
+                <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="bg-red-600 text-white text-[8px] font-black rounded-full px-1.5 py-0.5 leading-none">{unreadCount}</span>
+                  )}
                 </span>
               )}
+              {settings.sidebarCollapsed && unreadCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+              )}
             </button>
-          ))}
+          </div>
         </nav>
 
         <div className={`${settings.sidebarCollapsed ? "p-2" : "p-4"} border-t border-stone-800 space-y-2`}>
