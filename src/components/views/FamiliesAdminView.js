@@ -62,7 +62,7 @@ export const normalizeBranches = (fam) => {
   if (Array.isArray(fam.branches) && fam.branches.length > 0) return fam.branches;
   // Format legacy : houseName + dynastyName sans branches[]
   if (fam.type === "noble") {
-    const dynName = fam.dynastyName || fam.lastName;
+    const dynName = fam.dynastyName || fam.lastName || "";
     const main = { name: dynName, lastName: dynName, isMain: true };
     if (fam.houseName && fam.houseName.toLowerCase() !== dynName.toLowerCase()) {
       return [main, { name: fam.houseName, lastName: fam.lastName || fam.houseName, isMain: false }];
@@ -181,7 +181,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
     } else {
       const checkName = form.type === "noble" ? form.dynastyName.trim() : form.lastName.trim();
       const dup = safeFamilies.find((f) => {
-        const existing = f.type === "noble" ? (f.dynastyName || f.lastName) : f.lastName;
+        const existing = f.type === "noble" ? (f.dynastyName || f.lastName || "") : (f.lastName || "");
         return existing.toLowerCase() === checkName.toLowerCase();
       });
       if (dup) { notify("Une famille/dynastie avec ce nom existe déjà.", "error"); return; }

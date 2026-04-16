@@ -325,7 +325,7 @@ const RegistryView = ({
                 </div>
               </div>
               <div className="flex gap-3 font-sans">
-                {canDelete && !(session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId)) && (
+                {canDelete && !(session.status === "Esclave" && selected && (selected.id === session.id || selected.id === session.ownerId)) && (
                   <SecureDeleteButton
                     onClick={() => {
                       onDelete(editForm || selected);
@@ -335,7 +335,7 @@ const RegistryView = ({
                     className="font-sans"
                   />
                 )}
-                {session.status === "Esclave" && (selected.id === session.id || selected.id === session.ownerId) && (
+                {session.status === "Esclave" && selected && (selected.id === session.id || selected.id === session.ownerId) && (
                   <div className="flex items-center gap-2 text-red-600 text-[10px] font-black uppercase tracking-widest bg-red-50 border border-red-200 px-4 py-2 rounded-xl">
                     <Lock size={14} /> {selected.id === session.id ? "Votre dossier" : "Dossier de votre maître"} — Modification interdite
                   </div>
@@ -1160,7 +1160,7 @@ const RegistryView = ({
                             const branches = Array.isArray(f.branches) && f.branches.length > 0
                               ? f.branches
                               : (() => {
-                                  const dn = f.dynastyName || f.lastName;
+                                  const dn = f.dynastyName || f.lastName || "";
                                   const main = { name: dn, lastName: dn, isMain: true };
                                   if (f.houseName && f.houseName.toLowerCase() !== dn.toLowerCase()) {
                                     return [main, { name: f.houseName, lastName: f.lastName || f.houseName, isMain: false }];

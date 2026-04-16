@@ -36,7 +36,7 @@ const getRoleTheme = (role) => {
 const normalizeBranches = (fam) => {
   if (Array.isArray(fam.branches) && fam.branches.length > 0) return fam.branches;
   if (fam.type === "noble") {
-    const dynName = fam.dynastyName || fam.lastName;
+    const dynName = fam.dynastyName || fam.lastName || "";
     const main = { name: dynName, lastName: dynName, isMain: true };
     if (fam.houseName && fam.houseName.toLowerCase() !== dynName.toLowerCase()) {
       return [main, { name: fam.houseName, lastName: fam.lastName || fam.houseName, isMain: false }];
