@@ -3,15 +3,15 @@ import { Loader2 } from "lucide-react";
 
 const VARIANTS = {
   primary:
-    "bg-stone-900 text-imperial-50 hover:bg-stone-800 border border-stone-900 shadow-card",
+    "bg-imperial-700 text-white hover:bg-imperial-800 border border-imperial-800 shadow-card",
   secondary:
     "bg-surface text-ink border border-outline hover:bg-surface-hover shadow-card",
   ghost:
     "bg-transparent text-ink-soft hover:bg-surface-hover border border-transparent",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 border border-red-600 shadow-card",
+    "bg-red-600 text-white hover:bg-red-700 border border-red-700 shadow-card",
   subtle:
-    "bg-surface-2 text-ink-soft hover:bg-surface-hover border border-hairline",
+    "bg-imperial-50 text-imperial-800 border border-imperial-200 hover:bg-imperial-100",
   link:
     "bg-transparent text-imperial-700 hover:text-imperial-900 underline-offset-2 hover:underline border border-transparent",
 };
