@@ -1,6 +1,43 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ===== BASE TYPOGRAPHY ===== */
+@layer base {
+  body {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    color: var(--text-primary);
+  }
+  h1, h2, h3, h4 {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+}
+
+@layer utilities {
+  .text-eyebrow {
+    font-size: 0.625rem;
+    line-height: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .text-numeric {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 3px rgba(194, 138, 42, 0.35);
+    border-radius: inherit;
+  }
+}
 
 /* ===== THEME VARIABLES ===== */
 :root {
