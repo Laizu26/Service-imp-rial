@@ -1300,7 +1300,7 @@ const CitizenLayout = (props) => {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-app text-ink scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
           <div className="md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x">
             {menuItems.map((item) => (
               <button
