@@ -226,23 +226,23 @@ const CitizenBankView = ({
 
   // ─── HERO (solde + onglets) ──────────────────────────────────────────
   const hero = (
-    <Section variant="dark" padded={false} className="relative overflow-hidden">
-      <div className="absolute inset-0 opacity-[0.04] pointer-events-none">
+    <Section variant="highlighted" padded={false} className="relative overflow-hidden">
+      <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
         <div
           className="w-full h-full"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,0.1) 35px, rgba(255,255,255,0.1) 36px)",
+              "repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(180,140,60,0.25) 35px, rgba(180,140,60,0.25) 36px)",
           }}
         />
       </div>
       <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-imperial-600/20 rounded-lg">
-              <PiggyBank size={20} className="text-imperial-400" />
+            <div className="p-2 bg-imperial-100 text-imperial-700 rounded-lg">
+              <PiggyBank size={20} />
             </div>
-            <div className="text-eyebrow text-imperial-400/90">
+            <div className="text-eyebrow text-imperial-800">
               Avoirs Personnels
             </div>
             <IconButton
@@ -253,21 +253,21 @@ const CitizenBankView = ({
               size="sm"
             />
           </div>
-          <div className="font-display text-5xl md:text-6xl font-bold text-imperial-400 tracking-tighter">
+          <div className="font-display text-5xl md:text-6xl font-bold text-imperial-800 tracking-tighter">
             {showBalance ? (
-              <MoneyAmount value={user?.balance || 0} size="lg" className="text-5xl md:text-6xl text-imperial-400" />
+              <MoneyAmount value={user?.balance || 0} size="lg" tone="imperial" className="text-5xl md:text-6xl" />
             ) : (
-              <span className="text-imperial-400/40">••••••</span>
+              <span className="text-imperial-300">••••••</span>
             )}
           </div>
           {showBalance && (
-            <div className="flex items-center gap-4 mt-3 text-[10px] text-imperial-400/70">
+            <div className="flex items-center gap-4 mt-3 text-[10px] text-ink-soft">
               <span className="flex items-center gap-1">
-                <TrendingUp size={10} className="text-green-400" />
+                <TrendingUp size={10} className="text-green-600" />
                 Reçu : <MoneyAmount value={totalReceived} short tone="positive" size="sm" />
               </span>
               <span className="flex items-center gap-1">
-                <TrendingDown size={10} className="text-red-400" />
+                <TrendingDown size={10} className="text-red-600" />
                 Envoyé : <MoneyAmount value={totalSent} short tone="negative" size="sm" />
               </span>
             </div>
@@ -276,7 +276,7 @@ const CitizenBankView = ({
         <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} variant="pills" />
         <Coins
           size={140}
-          className="absolute -right-8 -bottom-10 opacity-[0.06] text-imperial-50 pointer-events-none"
+          className="absolute -right-8 -bottom-10 opacity-[0.08] text-imperial-600 pointer-events-none"
         />
       </div>
     </Section>

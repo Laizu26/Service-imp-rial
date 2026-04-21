@@ -66,8 +66,8 @@ const Tabs = ({
               text-[10px] font-black uppercase tracking-widest transition-all focus-ring
               ${
                 isActive
-                  ? "bg-stone-900 text-imperial-400 shadow-card"
-                  : "bg-surface-2 text-ink-mute hover:bg-surface-hover hover:text-ink"
+                  ? "bg-imperial-700 text-white shadow-card"
+                  : "bg-surface-2 text-ink-soft hover:bg-surface-hover hover:text-ink border border-hairline"
               }
             `}
           >
