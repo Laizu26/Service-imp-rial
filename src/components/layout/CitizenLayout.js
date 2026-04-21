@@ -956,9 +956,7 @@ const CitizenLayout = (props) => {
   // --- 4. RENDU ---
   return (
     <div
-      className={`flex h-screen font-serif text-stone-200 overflow-hidden ${
-        isSlave ? "bg-stone-950" : "bg-stone-950"
-      }`}
+      className={`flex h-screen font-serif bg-app text-ink overflow-hidden`}
     >
       <aside className={`hidden md:flex flex-col ${settings.sidebarCollapsed ? "w-20" : "w-72"} bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl relative transition-all duration-300`}>
         <div className={`${settings.sidebarCollapsed ? "p-3 pb-3" : "p-8 pb-4"} flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50 transition-all duration-300`}>

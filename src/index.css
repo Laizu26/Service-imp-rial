@@ -6,6 +6,9 @@
 
 /* ===== BASE TYPOGRAPHY ===== */
 @layer base {
+  html, body, #root {
+    background-color: var(--bg-app);
+  }
   body {
     font-family: "Inter", system-ui, -apple-system, sans-serif;
     color: var(--text-primary);
