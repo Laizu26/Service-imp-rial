@@ -35,7 +35,7 @@ const Avatar = ({
       onClick={onClick}
       className={`
         inline-flex items-center justify-center rounded-full
-        bg-stone-800 text-imperial-200 font-black uppercase
+        bg-imperial-100 text-imperial-800 font-black uppercase
         overflow-hidden shrink-0
         ${SIZES[size] || SIZES.md}
         ${ring ? `ring-2 ${ring}` : ""}

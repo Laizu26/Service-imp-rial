@@ -1102,15 +1102,15 @@ const CitizenLayout = (props) => {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 bg-[#e6e2d6]/5 relative">
-        <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-app relative">
+        <header className="h-16 bg-header/95 backdrop-blur border-b border-outline flex items-center justify-between px-4 md:px-8 shadow-card sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-3 md:invisible">
             <button
               onClick={() => onGmTrigger && onGmTrigger()}
-              className={`w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border overflow-hidden relative shrink-0 cursor-default focus:outline-none transition-all ${
+              className={`w-9 h-9 bg-surface-2 rounded-full flex items-center justify-center border overflow-hidden relative shrink-0 cursor-default focus:outline-none transition-all ${
                 gmBoostActive
                   ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
-                  : "border-stone-700"
+                  : "border-outline"
               }`}
               tabIndex={-1}
               title=""
@@ -1122,7 +1122,7 @@ const CitizenLayout = (props) => {
                   alt=""
                 />
               ) : (
-                <User className="text-yellow-600" size={18} />
+                <User className="text-imperial-700" size={18} />
               )}
               {isSlave && !gmBoostActive && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -1130,20 +1130,20 @@ const CitizenLayout = (props) => {
                 </div>
               )}
               {gmBoostActive && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center border-2 border-stone-900">
-                  <Zap size={8} className="text-stone-900" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center border-2 border-surface">
+                  <Zap size={8} className="text-ink" />
                 </div>
               )}
             </button>
             <div className="font-sans">
-              <div className="font-bold text-sm text-stone-200">
+              <div className="font-bold text-sm text-ink">
                 {user.name}
               </div>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 text-stone-400">
-            <Scroll size={14} className="text-yellow-600/60" />
+          <div className="hidden md:flex items-center gap-2 text-ink-mute">
+            <Scroll size={14} className="text-imperial-600" />
             <span className="text-[10px] font-black uppercase tracking-widest">
               {formatRPDate(gd)}
             </span>
@@ -1160,14 +1160,14 @@ const CitizenLayout = (props) => {
             />
             <div className="relative">
               <button
-                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg transition-all border shadow-lg ${
+                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg transition-all border shadow-card ${
                   isAccountMenuOpen
-                    ? "bg-stone-700 text-white border-stone-500"
-                    : "bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-700 hover:text-white"
+                    ? "bg-imperial-700 text-white border-imperial-800"
+                    : "bg-surface text-ink-soft border-outline hover:bg-surface-hover hover:text-ink"
                 }`}
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
               >
-                <Users size={16} className="text-yellow-600" />
+                <Users size={16} className="text-imperial-600" />
                 <span className="hidden sm:inline">
                   Comptes ({connectedAccounts.length})
                 </span>
@@ -1185,8 +1185,8 @@ const CitizenLayout = (props) => {
                     className="fixed inset-0 z-40 cursor-default"
                     onClick={() => setIsAccountMenuOpen(false)}
                   ></div>
-                  <div className="absolute right-0 top-full mt-3 w-72 bg-stone-900 border border-stone-600 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="py-3 px-4 text-[9px] uppercase font-black text-stone-500 border-b border-stone-800 bg-stone-950">
+                  <div className="absolute right-0 top-full mt-3 w-72 bg-surface border border-outline rounded-xl shadow-elev overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="py-3 px-4 text-[9px] uppercase font-black text-ink-mute border-b border-hairline bg-surface-2">
                       Identités Mémorisées
                     </div>
                     <div className="max-h-80 overflow-y-auto scrollbar-hide">
@@ -1194,7 +1194,7 @@ const CitizenLayout = (props) => {
                         connectedAccounts.map((acc) => (
                           <div
                             key={acc.id}
-                            className="flex items-center group hover:bg-stone-800 transition-colors border-b border-stone-800 last:border-0 relative"
+                            className="flex items-center group hover:bg-surface-hover transition-colors border-b border-hairline last:border-0 relative"
                           >
                             <button
                               onClick={() => {
@@ -1206,8 +1206,8 @@ const CitizenLayout = (props) => {
                               <div
                                 className={`w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border-2 shrink-0 ${
                                   acc.id === user.id
-                                    ? "border-yellow-500"
-                                    : "border-stone-600"
+                                    ? "border-imperial-500"
+                                    : "border-outline"
                                 }`}
                               >
                                 {acc.avatarUrl ? (
@@ -1217,25 +1217,25 @@ const CitizenLayout = (props) => {
                                     alt=""
                                   />
                                 ) : (
-                                  <User size={16} className="text-stone-400" />
+                                  <User size={16} className="text-ink-mute" />
                                 )}
                               </div>
                               <div className="flex flex-col min-w-0">
                                 <span
                                   className={`text-xs font-bold truncate ${
                                     acc.id === user.id
-                                      ? "text-yellow-500"
-                                      : "text-stone-200"
+                                      ? "text-imperial-700"
+                                      : "text-ink"
                                   }`}
                                 >
                                   {acc.name}
                                 </span>
-                                <span className="text-[9px] text-stone-500 font-mono truncate">
+                                <span className="text-[9px] text-ink-mute font-mono truncate">
                                   {acc.role || "Citoyen"}
                                 </span>
                               </div>
                               {acc.id === user.id && (
-                                <div className="w-2 h-2 bg-yellow-500 rounded-full ml-auto shadow-[0_0_10px_#eab308]"></div>
+                                <div className="w-2 h-2 bg-imperial-500 rounded-full ml-auto shadow-[0_0_10px_rgba(194,138,42,0.7)]"></div>
                               )}
                             </button>
                             {acc.id !== user.id && (
@@ -1244,7 +1244,7 @@ const CitizenLayout = (props) => {
                                   e.stopPropagation();
                                   if (onLogoutAccount) onLogoutAccount(acc.id);
                                 }}
-                                className="p-3 text-stone-600 hover:text-red-500 hover:bg-stone-950/50 transition-colors absolute right-0 h-full border-l border-stone-800"
+                                className="p-3 text-ink-mute hover:text-red-600 hover:bg-red-50 transition-colors absolute right-0 h-full border-l border-hairline"
                                 title="Oublier"
                               >
                                 <Trash2 size={14} />
@@ -1253,7 +1253,7 @@ const CitizenLayout = (props) => {
                           </div>
                         ))
                       ) : (
-                        <div className="p-6 text-center text-stone-500 text-xs italic">
+                        <div className="p-6 text-center text-ink-mute text-xs italic">
                           Aucun autre compte.
                         </div>
                       )}
@@ -1263,7 +1263,7 @@ const CitizenLayout = (props) => {
                         setIsAccountMenuOpen(false);
                         if (onAddAccount) onAddAccount();
                       }}
-                      className="w-full text-left px-4 py-4 text-xs font-bold uppercase text-green-500 hover:bg-stone-800 hover:text-green-400 flex items-center justify-center gap-2 border-t border-stone-700 transition-colors bg-stone-900"
+                      className="w-full text-left px-4 py-4 text-xs font-bold uppercase text-green-700 hover:bg-green-50 hover:text-green-800 flex items-center justify-center gap-2 border-t border-hairline transition-colors bg-surface-2"
                     >
                       <PlusCircle size={16} /> Ajouter un compte
                     </button>
@@ -1275,7 +1275,7 @@ const CitizenLayout = (props) => {
             {isGraded && (
               <button
                 onClick={onSwitchBack}
-                className="bg-yellow-600 hover:bg-yellow-500 text-stone-900 px-3 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2 transition-all active:scale-95"
+                className="bg-imperial-600 hover:bg-imperial-700 text-white px-3 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest shadow-card flex items-center gap-2 transition-all active:scale-95"
               >
                 <Shield size={16} />{" "}
                 <span className="hidden sm:inline">Admin</span>
@@ -1283,7 +1283,7 @@ const CitizenLayout = (props) => {
             )}
             <button
               onClick={onLogout}
-              className="bg-stone-800 hover:bg-red-900/80 text-stone-400 hover:text-white transition-all flex items-center justify-center w-9 h-9 rounded-lg border border-stone-700 shadow-md"
+              className="bg-surface hover:bg-red-50 text-ink-mute hover:text-red-600 transition-all flex items-center justify-center w-9 h-9 rounded-lg border border-outline shadow-card"
               title="Déconnexion"
             >
               <LogOut size={16} />
@@ -1292,22 +1292,22 @@ const CitizenLayout = (props) => {
         </header>
 
         {isSlave && (
-          <div className="bg-stone-800 text-stone-400 text-xs p-2 text-center uppercase tracking-widest font-black flex items-center justify-center gap-2 border-b border-stone-700 shadow-inner shrink-0">
+          <div className="bg-surface-2 text-ink-soft text-xs p-2 text-center uppercase tracking-widest font-black flex items-center justify-center gap-2 border-b border-hairline shadow-inner shrink-0">
             <Lock size={12} /> Propriété de :{" "}
             {owner ? owner.name : "L'État (Sans maître)"}
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-app text-ink scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
-          <div className="md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-app text-ink">
+          <div className="md:hidden flex mb-6 bg-surface/80 backdrop-blur-sm p-1.5 rounded-2xl border border-outline shadow-card overflow-x-auto scrollbar-hide snap-x">
             {menuItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActive(item.id)}
                 className={`flex-1 py-2.5 px-5 text-[10px] font-black uppercase rounded-xl transition-all whitespace-nowrap tracking-widest snap-center ${
                   active === item.id
-                    ? "bg-[#e6dcc3] text-stone-900 shadow-md transform scale-105"
-                    : "text-stone-500 hover:text-stone-300 hover:bg-stone-800/50"
+                    ? "bg-imperial-700 text-white shadow-card transform scale-105"
+                    : "text-ink-mute hover:text-ink hover:bg-surface-hover"
                 }`}
               >
                 {item.label}
