@@ -198,11 +198,17 @@ const FamilyHeadActions = ({ family, members, user, isHead, isRegent, onEditFami
         <div className={`border-t pt-3 space-y-2 ${isHead ? "border-amber-200" : "border-purple-200"}`}>
           <div className={`text-[9px] font-bold uppercase ${labelColor}`}>Régent</div>
           {family.regentId ? (
-            <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-              <div className="text-sm">
+            <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 gap-2">
+              <div className="text-sm min-w-0">
                 <span className="font-bold text-purple-700">{family.regentName || "Régent"}</span>
                 <span className="text-[9px] text-purple-400 uppercase font-bold ml-2">Régent en exercice</span>
               </div>
+              {isHead && (
+                <button
+                  onClick={() => onRemoveFamilyRegent(family.id)}
+                  className="text-[9px] font-bold uppercase text-red-500 hover:text-red-400 border border-red-300 hover:border-red-400 px-2 py-1 rounded transition-colors shrink-0"
+                >Révoquer</button>
+              )}
             </div>
           ) : !showRegent ? (
             <button onClick={() => setShowRegent(true)} className="text-purple-600 text-[10px] font-bold uppercase underline hover:text-purple-500">
@@ -226,7 +232,7 @@ const FamilyHeadActions = ({ family, members, user, isHead, isRegent, onEditFami
               </div>
             </div>
           )}
-          <div className="text-[9px] text-stone-400 italic">Le régent exerce tous les pouvoirs à la place du chef. Seul un administrateur peut révoquer un régent.</div>
+          <div className="text-[9px] text-stone-400 italic">Le régent exerce tous les pouvoirs à la place du chef. Seul le chef peut nommer ou révoquer un régent.</div>
         </div>
       )}
 
@@ -2496,6 +2502,57 @@ const CitizenLayout = (props) => {
                   ══════════════════════════════════════ */}
                   {familyTab === "members" && (
                     <div className="space-y-4">
+                      {(() => {
+                        const memberIds = new Set(members.map((m) => m.id));
+                        const memberById = Object.fromEntries(members.map((m) => [m.id, m]));
+                        const seen = new Set();
+                        const parentLinks = [];
+                        const spouseLinks = [];
+                        members.forEach((m) => {
+                          if (m.fatherId && memberIds.has(m.fatherId)) {
+                            const key = `${m.fatherId}-${m.id}-p`;
+                            if (!seen.has(key)) { seen.add(key); parentLinks.push({ parent: memberById[m.fatherId], child: m, rel: "père" }); }
+                          }
+                          if (m.motherId && memberIds.has(m.motherId)) {
+                            const key = `${m.motherId}-${m.id}-p`;
+                            if (!seen.has(key)) { seen.add(key); parentLinks.push({ parent: memberById[m.motherId], child: m, rel: "mère" }); }
+                          }
+                          const spouseIds = Array.isArray(m.spouses) ? m.spouses : (m.spouseId ? [m.spouseId] : []);
+                          spouseIds.forEach((sid) => {
+                            if (memberIds.has(sid)) {
+                              const key = [m.id, sid].sort().join("-") + "-s";
+                              if (!seen.has(key)) { seen.add(key); spouseLinks.push({ a: m, b: memberById[sid] }); }
+                            }
+                          });
+                        });
+                        if (parentLinks.length === 0 && spouseLinks.length === 0) return null;
+                        const fmtName = (c) => c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : (c.name || "?");
+                        return (
+                          <div className="bg-white border border-stone-200 rounded-xl p-4">
+                            <div className="text-[9px] text-stone-400 uppercase font-black tracking-widest mb-3">Liens de parenté</div>
+                            <div className="space-y-1.5">
+                              {spouseLinks.map((l, i) => (
+                                <div key={`s-${i}`} className="flex items-center gap-2 text-xs py-1 border-b border-stone-50 last:border-0 flex-wrap">
+                                  <Avatar citizen={l.a} size={6} />
+                                  <span className="font-bold text-stone-700 max-w-[100px] truncate">{fmtName(l.a)}</span>
+                                  <span className="text-[9px] text-rose-400 shrink-0">♥ époux·se de</span>
+                                  <Avatar citizen={l.b} size={6} />
+                                  <span className="font-bold text-stone-700 max-w-[100px] truncate">{fmtName(l.b)}</span>
+                                </div>
+                              ))}
+                              {parentLinks.map((l, i) => (
+                                <div key={`p-${i}`} className="flex items-center gap-2 text-xs py-1 border-b border-stone-50 last:border-0 flex-wrap">
+                                  <Avatar citizen={l.parent} size={6} />
+                                  <span className="font-bold text-stone-700 max-w-[100px] truncate">{fmtName(l.parent)}</span>
+                                  <span className="text-[9px] text-stone-400 shrink-0">↳ {l.rel} de</span>
+                                  <Avatar citizen={l.child} size={6} />
+                                  <span className="font-bold text-stone-700 max-w-[100px] truncate">{fmtName(l.child)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {myFamily.type === "noble" ? (
                         <div className="space-y-3">
                           {branches.map((branch, bIdx) => {
@@ -3003,14 +3060,14 @@ const CitizenLayout = (props) => {
                           })
                           .sort((a, b) => ((a.dynastyName || a.lastName || "").localeCompare(b.dynastyName || b.lastName || "")))
                           .map((fam) => {
-                            const memberCount = safeUsers.filter((u) => u.familyId === fam.id).length;
+                            const memberCount = getFamilyMembers(fam, safeUsers).length;
                             const famName = fam.dynastyName || fam.lastName || "Famille sans nom";
                             return (
                               <button key={fam.id} onClick={() => setSelectedFamilyId(selectedFamilyId === fam.id ? null : fam.id)}
                                 className={`flex items-center gap-3 p-3 rounded-lg border-2 ${selectedFamilyId === fam.id ? "border-stone-700" : "border-stone-200"} bg-white hover:shadow-md transition-all text-left`}>
                                 <div className="w-10 h-10 rounded-lg border-2 border-stone-300 bg-stone-100 overflow-hidden flex items-center justify-center shrink-0">
-                                  {fam.blasonUrl ? (
-                                    <img src={fam.blasonUrl} className="w-full h-full object-contain" alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                                  {fam.coat ? (
+                                    <span className="text-2xl leading-none">{fam.coat}</span>
                                   ) : (
                                     <Shield size={18} className="text-stone-400" />
                                   )}
@@ -3033,13 +3090,13 @@ const CitizenLayout = (props) => {
                         const fam = families.find((f) => f.id === selectedFamilyId);
                         if (!fam) return null;
                         const famName = fam.dynastyName || fam.lastName || "Famille sans nom";
-                        const members = safeUsers.filter((u) => u.familyId === fam.id);
+                        const members = getFamilyMembers(fam, safeUsers);
                         return (
                           <div className="mt-4 bg-white border-2 border-stone-300 rounded-xl p-5 space-y-4">
                             <div className="flex items-center gap-4">
                               <div className="w-14 h-14 rounded-xl border-2 border-stone-300 bg-stone-50 overflow-hidden flex items-center justify-center shrink-0">
-                                {fam.blasonUrl ? (
-                                  <img src={fam.blasonUrl} className="w-full h-full object-contain" alt="" onError={(e) => { e.target.style.display = "none"; }} />
+                                {fam.coat ? (
+                                  <span className="text-4xl leading-none">{fam.coat}</span>
                                 ) : (
                                   <Shield size={28} className="text-stone-300" />
                                 )}

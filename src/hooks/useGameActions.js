@@ -1133,14 +1133,31 @@ export const useGameActions = (session, state, saveState, notify) => {
         const index = freshCitizens.findIndex((x) => x.id === formData.id);
 
         if (index !== -1) {
-          // Cas 1 : Le citoyen existe, on le met à jour
           freshCitizens[index] = { ...freshCitizens[index], ...formData };
         } else {
-          // Cas 2 : Le citoyen n'existe pas (nouveau), on l'ajoute
           freshCitizens.push(formData);
         }
 
-        saveState({ ...state, citizens: freshCitizens });
+        // Succession automatique si le citoyen décède en étant chef de famille
+        let freshFamilies = [...(state.families || [])];
+        if (formData.status === "Décédé") {
+          const fIdx = freshFamilies.findIndex((f) => f.headId === formData.id);
+          if (fIdx !== -1) {
+            const fam = freshFamilies[fIdx];
+            const famLabel = fam.dynastyName || fam.lastName || "la famille";
+            if (fam.regentId) {
+              const regent = freshCitizens.find((c) => c.id === fam.regentId);
+              const newHeadName = regent ? (regent.firstName ? `${regent.firstName} ${regent.lastName || ""}`.trim() : regent.name) : fam.regentName;
+              freshFamilies[fIdx] = { ...fam, headId: fam.regentId, headName: newHeadName, regentId: null, regentName: null };
+              notify(`Succession : ${fam.regentName || "le régent"} devient chef de ${famLabel}.`, "info");
+            } else {
+              freshFamilies[fIdx] = { ...fam, headId: null, headName: null };
+              notify(`Vacance du titre de chef de ${famLabel} : aucun régent désigné.`, "info");
+            }
+          }
+        }
+
+        saveState({ ...state, citizens: freshCitizens, families: freshFamilies });
         notify("Registres mis à jour.", "success");
       },
       onBuyItem: (itemId, quantity) => {
@@ -4602,11 +4619,13 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       onRemoveFamilyRegent: (familyId) => {
-        // Admin uniquement — pas de check session/headId
         const families = [...(state.families || [])];
         const fIdx = families.findIndex((f) => f.id === familyId);
         if (fIdx === -1) return;
-        families[fIdx] = { ...families[fIdx], regentId: null, regentName: null };
+        const fam = families[fIdx];
+        const isAdmin = session?.role === "ADMIN" || session?.isAdmin;
+        if (!isAdmin && fam.headId !== session?.id) { notify("Seul le chef de famille peut révoquer un régent.", "error"); return; }
+        families[fIdx] = { ...fam, regentId: null, regentName: null };
         saveState({ ...state, families });
         notify("Le régent a été révoqué.", "info");
       },
