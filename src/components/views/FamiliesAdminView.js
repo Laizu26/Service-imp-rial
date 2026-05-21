@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   HeartHandshake,
   Search,
@@ -229,7 +229,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   };
 
   const adminAdjustTreasury = (famId, delta, reason) => {
-    const amt = parseInt(delta);
+    const amt = parseFloat(delta);
     if (!amt || amt === 0) { notify("Montant invalide.", "error"); return; }
     const ts = Date.now();
     const type = amt > 0 ? "admin_add" : "admin_remove";
@@ -270,6 +270,11 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
     notify(`${formatMoney(amt)} transférés de ${fromName} vers ${toName}.`, "success");
     setTransferToFamId(""); setTransferAmount(""); setTransferReason("");
   };
+
+  const familyMembersMap = useMemo(() =>
+    Object.fromEntries(safeFamilies.map((f) => [f.id, getFamilyMembers(f, safeCitizens)])),
+    [safeFamilies, safeCitizens]
+  );
 
   const filtered = safeFamilies.filter((f) =>
     getFamilyDisplayName(f).toLowerCase().includes(search.toLowerCase()) ||
@@ -342,9 +347,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               <div>
                 <Label>Blason / Symbole</Label>
                 <Input value={form.coat} onChange={(e) => setForm({ ...form, coat: e.target.value })} placeholder="Emoji : 🦁 🐍 ⚔️ 🌹…" />
-                {form.coat && (
-                  <div className="mt-2 text-5xl text-center p-3 bg-stone-800/30 rounded-lg">{form.coat}</div>
-                )}
+                {form.coat && <div className="mt-2 text-5xl text-center p-3 bg-stone-800/30 rounded-lg">{form.coat}</div>}
               </div>
             </div>
 
@@ -468,7 +471,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
   /* ── DÉTAIL ── */
   if (view === "detail" && detailFam) {
     const branches = normalizeBranches(detailFam);
-    const allMembers = getFamilyMembers(detailFam, safeCitizens);
+    const allMembers = familyMembersMap[detailFam.id] || [];
     const extraIds = detailFam.extraMemberIds || [];
     const nonMembers = safeCitizens.filter((c) => !allMembers.find((m) => m.id === c.id));
     const otherFamilies = safeFamilies.filter((f) => f.id !== detailFam.id);
@@ -917,7 +920,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         <span>Familles : <strong className="text-stone-200">{safeFamilies.length}</strong></span>
         <span>Nobles : <strong className="text-yellow-400">{safeFamilies.filter((f) => f.type === "noble").length}</strong></span>
         <span>Communes : <strong className="text-stone-300">{safeFamilies.filter((f) => f.type === "commune").length}</strong></span>
-        <span>Membres : <strong className="text-stone-200">{new Set(safeFamilies.flatMap((f) => getFamilyMembers(f, safeCitizens).map((m) => m.id))).size}</strong></span>
+        <span>Membres : <strong className="text-stone-200">{new Set(safeFamilies.flatMap((f) => (familyMembersMap[f.id] || []).map((m) => m.id))).size}</strong></span>
         <span className="ml-auto text-amber-500 font-mono font-bold">{formatMoney(safeFamilies.reduce((s, f) => s + (f.treasury || 0), 0))} total</span>
       </div>
 
@@ -936,7 +939,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((fam) => {
-            const members = getFamilyMembers(fam, safeCitizens);
+            const members = familyMembersMap[fam.id] || [];
             const branches = normalizeBranches(fam);
             return (
               <div key={fam.id} className={`bg-stone-800/40 border rounded-xl p-4 flex flex-col gap-3 hover:border-stone-600 transition-all ${

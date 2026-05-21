@@ -23,12 +23,11 @@ const EMPTY_FORM = {
   pinned: false,
 };
 
-const catInfo = (catId) => GAZETTE_CATEGORIES.find((c) => c.id === catId) || GAZETTE_CATEGORIES[1];
+const catInfo = (catId) => GAZETTE_CATEGORIES.find((c) => c.id === catId) || GAZETTE_CATEGORIES.find((c) => c.id === "ANNONCE");
 
 /* ── Preview card (light theme) ── */
 const PreviewCard = ({ form, author, authorRole, date, isGlobal }) => {
   const cat = catInfo(form.category);
-  const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
   return (
     <div className="bg-[#fdf6e3] rounded-xl p-5 font-serif text-stone-800 space-y-3 border border-stone-300">
       <div className="flex items-center gap-2 flex-wrap">
@@ -117,7 +116,7 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
         id: Date.now(),
         date: dateStr,
         rpDate: { ...currentDate },
-        author: session.name,
+        author: session?.name || "Administrateur",
         authorRole: roleInfo.label,
         title: form.title,
         subtitle: form.subtitle,
@@ -248,14 +247,14 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
 
               {/* Épingler */}
               <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer" onClick={() => setForm({ ...form, pinned: !form.pinned })}>
+                <button type="button" onClick={() => setForm({ ...form, pinned: !form.pinned })} className="flex items-center gap-2 cursor-pointer">
                   <div className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${form.pinned ? "bg-amber-600" : "bg-stone-700"}`}>
                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.pinned ? "translate-x-4" : "translate-x-0.5"}`} />
                   </div>
                   <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest select-none">
                     📌 Épingler en Une
                   </span>
-                </label>
+                </button>
               </div>
 
               <button

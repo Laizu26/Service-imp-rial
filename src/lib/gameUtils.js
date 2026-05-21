@@ -77,6 +77,17 @@ export function formatMoney(val) {
 }
 
 /**
+ * Formate le nom complet d'un citoyen.
+ * Utilise prénom+nom si disponibles, sinon le champ name legacy.
+ */
+export function formatName(citizen) {
+  if (!citizen) return "";
+  return citizen.firstName
+    ? `${citizen.firstName} ${citizen.lastName || ""}`.trim()
+    : (citizen.name || "");
+}
+
+/**
  * Formate un montant compact (pour les espaces réduits).
  * Exemples : 12.5 → "12 É 5 L" | 10 → "10 É" | 0.3 → "3 L"
  */

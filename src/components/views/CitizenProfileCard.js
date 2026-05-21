@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
 import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
+import { normalizeBranches, getFamilyForCitizen, getBranchForCitizen, getFamilyDisplayName } from "./FamiliesAdminView";
 
 const getRoleTheme = (role) => {
   switch (role) {
@@ -31,45 +32,6 @@ const getRoleTheme = (role) => {
     default:
       return { border: "border-stone-400", badge: "bg-stone-100 text-stone-700 border-stone-300" };
   }
-};
-
-const normalizeBranches = (fam) => {
-  if (Array.isArray(fam.branches) && fam.branches.length > 0) return fam.branches;
-  if (fam.type === "noble") {
-    const dynName = fam.dynastyName || fam.lastName || "";
-    const main = { name: dynName, lastName: dynName, isMain: true };
-    if (fam.houseName && fam.houseName.toLowerCase() !== dynName.toLowerCase()) {
-      return [main, { name: fam.houseName, lastName: fam.lastName || fam.houseName, isMain: false }];
-    }
-    return [main];
-  }
-  return [];
-};
-
-const getFamilyForCitizen = (citizen, families) => {
-  if (!Array.isArray(families)) return null;
-  return families.find((f) => {
-    if (f.type === "noble") {
-      const branches = normalizeBranches(f);
-      const byBranch = branches.some((b) => citizen.lastName && b.lastName && citizen.lastName.toLowerCase() === b.lastName.toLowerCase());
-      return byBranch || (f.extraMemberIds || []).includes(citizen.id);
-    }
-    const byName = citizen.lastName && f.lastName && citizen.lastName.toLowerCase() === f.lastName.toLowerCase();
-    return byName || (f.extraMemberIds || []).includes(citizen.id);
-  }) || null;
-};
-
-const getBranchForCitizen = (citizen, fam) => {
-  if (!fam || fam.type !== "noble") return null;
-  const branches = normalizeBranches(fam);
-  return branches.find((b) => citizen.lastName && b.lastName && citizen.lastName.toLowerCase() === b.lastName.toLowerCase()) || null;
-};
-
-const getFamilyDisplayName = (fam) => {
-  if (fam.type === "noble") {
-    return `Dynastie ${fam.dynastyName || fam.lastName}`;
-  }
-  return `Famille ${fam.lastName}`;
 };
 
 const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], families = [], onClose, gameDate }) => {

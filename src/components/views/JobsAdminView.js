@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Briefcase,
   Plus,
@@ -38,6 +38,13 @@ const SOURCE_TYPES = [
   { value: "CITIZEN", label: "Compte Citoyen", icon: User },
   { value: "COMPANY", label: "Trésor Entreprise", icon: Building2 },
 ];
+
+const RECIPIENT_TYPE_META = {
+  COUNTRY: { icon: Flag,      label: "Pays" },
+  COMPANY: { icon: Building2, label: "Entreprise" },
+  GLOBAL:  { icon: Globe,     label: "Empire" },
+  CITIZEN: { icon: User,      label: "Citoyen" },
+};
 
 const TAGS = [
   { value: "", label: "Sans étiquette", color: "" },
@@ -217,7 +224,7 @@ const JobsAdminView = ({
     return "—";
   };
 
-  const filteredJobs = jobs
+  const filteredJobs = useMemo(() => jobs
     .filter((j) => {
       const matchSearch = !listSearch || (j.name || "").toLowerCase().includes(listSearch.toLowerCase());
       const matchFilter = listFilter === "all" || (listFilter === "active" ? j.active : !j.active);
@@ -226,15 +233,15 @@ const JobsAdminView = ({
     .sort((a, b) => {
       if (listSort === "amount") return (b.amount || 0) - (a.amount || 0);
       return (a.name || "").localeCompare(b.name || "");
-    });
+    }), [jobs, listSearch, listFilter, listSort]);
 
-  const totalMonthlyActive = jobs
-    .filter((j) => j.active && j.frequency === "monthly")
-    .reduce((s, j) => s + (j.amount || 0), 0);
-  const activeCount = jobs.filter((j) => j.active).length;
+  const { totalMonthlyActive, activeCount } = useMemo(() => ({
+    totalMonthlyActive: jobs.filter((j) => j.active && j.frequency === "monthly").reduce((s, j) => s + (j.amount || 0), 0),
+    activeCount: jobs.filter((j) => j.active).length,
+  }), [jobs]);
 
   // Candidats selon le type sélectionné
-  const filteredCandidates = (() => {
+  const filteredCandidates = useMemo(() => {
     const alreadyIn = (id) => (form?.recipients || []).some((r) => r.id === id);
     const q = recipientSearch.toLowerCase();
     if (recipientType === "CITIZEN") {
@@ -254,7 +261,7 @@ const JobsAdminView = ({
       );
     }
     return [];
-  })();
+  }, [form?.recipients, recipientSearch, recipientType, citizens, countries, companies]);
 
   return (
     <div className="flex flex-col md:flex-row h-full gap-6 font-sans min-h-0">
@@ -616,8 +623,7 @@ const JobsAdminView = ({
                     {form.recipients.map((r) => {
                       const share = Math.floor((form.amount || 0) * r.percent / 100);
                       const type = r.type || "CITIZEN";
-                      const TypeIcon = type === "COUNTRY" ? Flag : type === "COMPANY" ? Building2 : type === "GLOBAL" ? Globe : User;
-                      const typeLabel = type === "COUNTRY" ? "Pays" : type === "COMPANY" ? "Entreprise" : type === "GLOBAL" ? "Empire" : "Citoyen";
+                      const { icon: TypeIcon, label: typeLabel } = RECIPIENT_TYPE_META[type] || RECIPIENT_TYPE_META.CITIZEN;
                       const citizenData = type === "CITIZEN" ? citizens.find((c) => c.id === r.id) : null;
                       return (
                         <div key={r.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
