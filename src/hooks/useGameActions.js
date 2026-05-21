@@ -4630,6 +4630,25 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Le régent a été révoqué.", "info");
       },
 
+      onSubmitBook: (countryId, bookData) => {
+        if (!session) return;
+        const countries = [...(state.countries || [])];
+        const cIdx = countries.findIndex((c) => c.id === countryId);
+        if (cIdx === -1) return;
+        const pending = countries[cIdx].pendingBooks || [];
+        const newPending = {
+          ...bookData,
+          id: Date.now(),
+          authorId: session.id,
+          authorName: session.firstName ? `${session.firstName} ${session.lastName || ""}`.trim() : session.name,
+          date: new Date().toISOString(),
+          status: "pending",
+        };
+        countries[cIdx] = { ...countries[cIdx], pendingBooks: [newPending, ...pending] };
+        saveState({ ...state, countries });
+        notify("Votre texte a été soumis et sera examiné par l'administration.", "success");
+      },
+
       onFamilyDeposit: (familyId, amount) => {
         if (!session) return;
         const amt = parseFloat(amount);

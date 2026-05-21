@@ -724,6 +724,7 @@ const CitizenLayout = (props) => {
     onTransferFamilyHead,
     onSetFamilyRegent,
     onRemoveFamilyRegent,
+    onSubmitBook,
     contracts = [],
     onCreateContract,
     onSignContract,
@@ -1315,7 +1316,12 @@ const CitizenLayout = (props) => {
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
             {active === "library" && (
-              <LibraryView countries={safeCountries} session={user} />
+              <LibraryView
+                countries={safeCountries}
+                session={user}
+                users={safeUsers}
+                onSubmitBook={onSubmitBook}
+              />
             )}
             {/* ------------------------- */}
 
