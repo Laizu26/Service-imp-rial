@@ -903,6 +903,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
           {filtered.map((fam) => {
             const members = familyMembersMap[fam.id] || [];
             const branches = normalizeBranches(fam);
+            const famHead = fam.headId ? safeCitizens.find((c) => c.id === fam.headId) : null;
             return (
               <div key={fam.id} className={`bg-stone-800/40 border rounded-xl p-4 flex flex-col gap-3 hover:border-stone-600 transition-all ${
                 fam.type === "noble" ? "border-yellow-900/60" : "border-stone-700"
@@ -944,14 +945,11 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                         <span className="text-[9px] text-amber-500 font-mono font-bold">{formatMoney((fam.treasury || 0))}</span>
                       )}
                     </div>
-                    {fam.headId && (() => {
-                      const head = safeCitizens.find((c) => c.id === fam.headId);
-                      return head ? (
-                        <div className="text-[9px] text-amber-400 mt-0.5 flex items-center gap-1">
-                          👑 Chef : {head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name}
-                        </div>
-                      ) : null;
-                    })()}
+                    {famHead && (
+                      <div className="text-[9px] text-amber-400 mt-0.5 flex items-center gap-1">
+                        👑 Chef : {famHead.firstName ? `${famHead.firstName} ${famHead.lastName || ""}`.trim() : famHead.name}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1.5 pt-1 border-t border-stone-700/60">

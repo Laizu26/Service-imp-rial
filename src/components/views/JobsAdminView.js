@@ -16,13 +16,13 @@ import {
   Flag,
   RefreshCw,
   AlertTriangle,
-  Search,
   Copy,
   Tag,
   FileText,
   SlidersHorizontal,
 } from "lucide-react";
 import Card from "../ui/Card";
+import SearchInput from "../ui/SearchInput";
 import { formatMoney } from "../../lib/gameUtils";
 
 const FREQUENCIES = [
@@ -286,15 +286,7 @@ const JobsAdminView = ({
             )}
           </div>
           {/* Recherche */}
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-2.5 text-stone-400" />
-            <input
-              className="w-full pl-8 pr-2 py-1.5 border border-stone-200 rounded-lg text-xs bg-white outline-none focus:border-stone-500"
-              placeholder="Rechercher..."
-              value={listSearch}
-              onChange={(e) => setListSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput value={listSearch} onChange={(e) => setListSearch(e.target.value)} placeholder="Rechercher..." />
           {/* Filtres statut + tri */}
           <div className="flex gap-1.5 items-center flex-wrap">
             {[["all", "Tous"], ["active", "Actifs"], ["inactive", "Inactifs"]].map(([val, lbl]) => (

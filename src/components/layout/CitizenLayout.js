@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   User,
   Lock,
@@ -44,8 +44,9 @@ import {
 
 
 import NotificationCenter from "../ui/NotificationCenter";
+import Avatar from "../ui/Avatar";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
-import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
@@ -811,6 +812,12 @@ const CitizenLayout = (props) => {
     }
   }, [user]);
 
+  // Reset des états de vue famille lors d'un changement de session utilisateur
+  useEffect(() => {
+    setFamilyTab("presentation");
+    setShowFullLog(false);
+  }, [user?.id]);
+
   // --- CENTRE DE NOTIFICATIONS ---
   const {
     grouped,
@@ -829,24 +836,9 @@ const CitizenLayout = (props) => {
     gd
   );
 
-  // --- 2. SÉCURITÉ CRITIQUE ---
-  // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#e6e2d6] text-stone-500 font-serif animate-pulse">
-        Chargement de l'identité...
-      </div>
-    );
-  }
-
   // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
   // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
   const isSlave = user?.status === "Esclave";
-
-  const owner =
-    isSlave && user?.ownerId
-      ? (users || []).find((u) => u.id === user.ownerId)
-      : null;
 
   const permissions = user?.permissions || {};
 
@@ -856,57 +848,17 @@ const CitizenLayout = (props) => {
 
   // Sécurité sur users
   const safeUsers = Array.isArray(users) ? users : [];
-  const mySlaves = safeUsers.filter((u) => u.ownerId === user.id);
+  const mySlaves = safeUsers.filter((u) => u.ownerId === user?.id);
 
   const safeCountries = Array.isArray(countries) ? countries : [];
 
-  // Dérivés mariage
-  const currentSpouses = user?.spouses || (user?.spouseId ? [{ id: user.spouseId, name: safeUsers.find(u => u.id === user.spouseId)?.name || "…" }] : []);
-
-  // Sécurité sur travelRequests
-  const safeRequests = Array.isArray(travelRequests) ? travelRequests : [];
-  const myPendingRequests = safeRequests.filter(
-    (r) => r.citizenId === user.id && r.status === "PENDING"
-  );
-
-  // Helper: couleur de thème selon le rôle
-  const getRoleTheme = (role) => {
-    switch (role) {
-      case "EMPEREUR":
-        return { border: "border-yellow-500", bg: "bg-yellow-50", accent: "text-yellow-700", badge: "bg-yellow-100 text-yellow-800 border-yellow-300" };
-      case "ROI":
-        return { border: "border-purple-500", bg: "bg-purple-50", accent: "text-purple-700", badge: "bg-purple-100 text-purple-800 border-purple-300" };
-      case "GRAND_FONC_GLOBAL":
-      case "GRAND_FONC_LOCAL":
-        return { border: "border-blue-500", bg: "bg-blue-50", accent: "text-blue-700", badge: "bg-blue-100 text-blue-800 border-blue-300" };
-      case "INTENDANT":
-        return { border: "border-emerald-500", bg: "bg-emerald-50", accent: "text-emerald-700", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" };
-      case "FONCTIONNAIRE":
-      case "POSTIERE":
-        return { border: "border-sky-500", bg: "bg-sky-50", accent: "text-sky-700", badge: "bg-sky-100 text-sky-800 border-sky-300" };
-      default:
-        return { border: "border-stone-400", bg: "bg-stone-50", accent: "text-stone-600", badge: "bg-stone-100 text-stone-700 border-stone-300" };
-    }
-  };
-
-  const theme = getRoleTheme(user.role);
-  const roleInfo = ROLES[user.role] || ROLES.CITOYEN;
-
   // Garde
-  const myCountryData = (safeCountries || []).find((c) => c.id === user.countryId);
+  const myCountryData = (safeCountries || []).find((c) => c.id === user?.countryId);
   const myGuard = myCountryData?.guard || {};
-  const myGuardMember = (myGuard.members || []).find((m) => m.citizenId === user.id);
+  const myGuardMember = (myGuard.members || []).find((m) => m.citizenId === user?.id);
   const isGuard = !!myGuardMember;
-  const myGuardRank = isGuard ? (myGuard.ranks || []).find((r) => r.id === myGuardMember.rankId) : null;
 
-  // Badges du citoyen
-  const safeCompanies = Array.isArray(companies) ? companies : [];
-  const ownedCompany = safeCompanies.find((c) => c.ownerId === user.id);
-  const employedCompany = safeCompanies.find(
-    (c) => (c.employees || []).includes(user.id) || (c.slaves || []).includes(user.id)
-  );
-
-  const menuGroups = [
+  const menuGroups = useMemo(() => [
     {
       id: "monde",
       label: "Information & Monde",
@@ -945,7 +897,44 @@ const CitizenLayout = (props) => {
         mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
       ].filter(Boolean),
     },
-  ];
+  ], [isSlave, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, mySlaves.length]);
+
+  // --- 2. SÉCURITÉ CRITIQUE ---
+  // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#e6e2d6] text-stone-500 font-serif animate-pulse">
+        Chargement de l'identité...
+      </div>
+    );
+  }
+
+  // Autres variables qui nécessitent user non-null
+  const owner =
+    isSlave && user.ownerId
+      ? (users || []).find((u) => u.id === user.ownerId)
+      : null;
+
+  // Dérivés mariage
+  const currentSpouses = user.spouses || (user.spouseId ? [{ id: user.spouseId, name: safeUsers.find(u => u.id === user.spouseId)?.name || "…" }] : []);
+
+  // Sécurité sur travelRequests
+  const safeRequests = Array.isArray(travelRequests) ? travelRequests : [];
+  const myPendingRequests = safeRequests.filter(
+    (r) => r.citizenId === user.id && r.status === "PENDING"
+  );
+
+  const theme = getRoleTheme(user.role);
+  const roleInfo = ROLES[user.role] || ROLES.CITOYEN;
+
+  const myGuardRank = isGuard ? (myGuard.ranks || []).find((r) => r.id === myGuardMember.rankId) : null;
+
+  // Badges du citoyen
+  const safeCompanies = Array.isArray(companies) ? companies : [];
+  const ownedCompany = safeCompanies.find((c) => c.ownerId === user.id);
+  const employedCompany = safeCompanies.find(
+    (c) => (c.employees || []).includes(user.id) || (c.slaves || []).includes(user.id)
+  );
 
   // Liste plate utilisée pour la barre mobile
   const menuItems = [
@@ -2376,9 +2365,7 @@ const CitizenLayout = (props) => {
               const displayName = getFamilyDisplayName(myFamily);
               const treasury = myFamily.treasury || 0;
               const treasuryLog = myFamily.treasuryLog || [];
-              const logTypeColor = (t) => (t === "deposit" || t === "transfer_in" || t === "admin_add") ? "text-green-600" : "text-red-500";
-              const logSign = (t) => (t === "deposit" || t === "transfer_in" || t === "admin_add") ? "+" : "-";
-              const logIcon = (t) => (t === "deposit" || t === "transfer_in" || t === "admin_add")
+              const logIcon = (t) => logEntryIsPositive(t)
                 ? <ArrowDownLeft size={10} className="text-green-500 shrink-0" />
                 : <ArrowUpRight size={10} className="text-red-400 shrink-0" />;
 
@@ -2527,12 +2514,7 @@ const CitizenLayout = (props) => {
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {branchMembers.map((m) => (
                                       <div key={m.id} className="flex items-center gap-3 p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm transition-all">
-                                        {m.avatarUrl
-                                          ? <img src={m.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-stone-200 shrink-0" />
-                                          : <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center font-black text-stone-500 text-sm shrink-0">
-                                              {(m.firstName || m.name || "?")[0].toUpperCase()}
-                                            </div>
-                                        }
+                                        <Avatar citizen={m} size={10} className="border-2 border-stone-200" />
                                         <div className="min-w-0 flex-1">
                                           <div className="font-bold text-stone-800 text-sm truncate flex items-center gap-1">
                                             {m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}
@@ -2558,12 +2540,7 @@ const CitizenLayout = (props) => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                               {members.map((m) => (
                                 <div key={m.id} className="flex items-center gap-3 p-3 bg-white border border-stone-100 rounded-xl hover:shadow-sm transition-all">
-                                  {m.avatarUrl
-                                    ? <img src={m.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-stone-200 shrink-0" />
-                                    : <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center font-black text-stone-500 text-sm shrink-0">
-                                        {(m.firstName || m.name || "?")[0].toUpperCase()}
-                                      </div>
-                                  }
+                                  <Avatar citizen={m} size={10} className="border-2 border-stone-200" />
                                   <div className="min-w-0 flex-1">
                                     <div className="font-bold text-stone-800 text-sm truncate flex items-center gap-1">
                                       {m.firstName ? `${m.firstName} ${m.lastName || ""}`.trim() : m.name}
@@ -2616,8 +2593,8 @@ const CitizenLayout = (props) => {
                                   <div className="text-[10px] text-stone-600 truncate">{entry.label}</div>
                                   <div className="text-[9px] text-stone-400">{new Date(entry.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
                                 </div>
-                                <div className={`font-black font-mono text-xs shrink-0 ${logTypeColor(entry.type)}`}>
-                                  {logSign(entry.type)}{formatMoney(entry.amount)}
+                                <div className={`font-black font-mono text-xs shrink-0 ${logEntryColor(entry.type)}`}>
+                                  {logEntrySign(entry.type)}{formatMoney(entry.amount)}
                                 </div>
                               </div>
                             ))}
@@ -2662,12 +2639,7 @@ const CitizenLayout = (props) => {
                           <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Gouvernance actuelle</div>
                           {head && (
                             <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-amber-100 rounded-lg">
-                              {head.avatarUrl
-                                ? <img src={head.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-amber-200 shrink-0" />
-                                : <div className="w-9 h-9 bg-amber-100 rounded-full flex items-center justify-center text-sm font-black text-amber-600 shrink-0">
-                                    {(head.firstName || head.name || "?")[0].toUpperCase()}
-                                  </div>
-                              }
+                              <Avatar citizen={head} size={9} className="border-2 border-amber-200" />
                               <div className="flex-1 min-w-0">
                                 <div className="text-xs font-black text-stone-700 truncate">{head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name}</div>
                                 <div className="text-[9px] text-amber-600 font-bold uppercase">👑 Chef de famille</div>
@@ -2676,12 +2648,7 @@ const CitizenLayout = (props) => {
                           )}
                           {regent && (
                             <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-purple-100 rounded-lg">
-                              {regent.avatarUrl
-                                ? <img src={regent.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-purple-200 shrink-0" />
-                                : <div className="w-9 h-9 bg-purple-100 rounded-full flex items-center justify-center text-sm font-black text-purple-600 shrink-0">
-                                    {(regent.firstName || regent.name || "?")[0].toUpperCase()}
-                                  </div>
-                              }
+                              <Avatar citizen={regent} size={9} className="border-2 border-purple-200" />
                               <div className="flex-1 min-w-0">
                                 <div className="text-xs font-black text-stone-700 truncate">{regent.firstName ? `${regent.firstName} ${regent.lastName || ""}`.trim() : regent.name}</div>
                                 <div className="text-[9px] text-purple-600 font-bold uppercase">🛡️ Régent</div>

@@ -1,17 +1,19 @@
 import React, { useState, useMemo } from "react";
 import {
-  Newspaper, Plus, Save, X, Edit3, Trash2, Search,
+  Newspaper, Plus, Save, X, Edit3, Trash2,
   Eye, EyeOff, Globe, Flag, Calendar,
 } from "lucide-react";
+import { GAZETTE_CATEGORY_LABELS } from "../../lib/gazetteConstants";
+import SearchInput from "../ui/SearchInput";
 
 /* ── Catégories ── */
 export const GAZETTE_CATEGORIES = [
-  { id: "DÉCRET",     label: "Décret Impérial",   color: "text-red-400",    bg: "bg-red-900/30",      border: "border-red-800/40" },
-  { id: "ANNONCE",    label: "Annonce Officielle", color: "text-amber-400",  bg: "bg-amber-900/30",    border: "border-amber-800/40" },
-  { id: "CHRONIQUE",  label: "Chronique",          color: "text-blue-400",   bg: "bg-blue-900/30",     border: "border-blue-800/40" },
-  { id: "NÉCROLOGIE", label: "Nécrologie",         color: "text-stone-400",  bg: "bg-stone-700",       border: "border-stone-600" },
-  { id: "AVIS",       label: "Avis de Recherche",  color: "text-orange-400", bg: "bg-orange-900/30",   border: "border-orange-800/40" },
-  { id: "COMMUNIQUÉ", label: "Communiqué",         color: "text-green-400",  bg: "bg-green-900/30",    border: "border-green-800/40" },
+  { id: "DÉCRET",     label: GAZETTE_CATEGORY_LABELS.DÉCRET,     color: "text-red-400",    bg: "bg-red-900/30",      border: "border-red-800/40" },
+  { id: "ANNONCE",    label: GAZETTE_CATEGORY_LABELS.ANNONCE,    color: "text-amber-400",  bg: "bg-amber-900/30",    border: "border-amber-800/40" },
+  { id: "CHRONIQUE",  label: GAZETTE_CATEGORY_LABELS.CHRONIQUE,  color: "text-blue-400",   bg: "bg-blue-900/30",     border: "border-blue-800/40" },
+  { id: "NÉCROLOGIE", label: GAZETTE_CATEGORY_LABELS.NÉCROLOGIE, color: "text-stone-400",  bg: "bg-stone-700",       border: "border-stone-600" },
+  { id: "AVIS",       label: GAZETTE_CATEGORY_LABELS.AVIS,       color: "text-orange-400", bg: "bg-orange-900/30",   border: "border-orange-800/40" },
+  { id: "COMMUNIQUÉ", label: GAZETTE_CATEGORY_LABELS.COMMUNIQUÉ, color: "text-green-400",  bg: "bg-green-900/30",    border: "border-green-800/40" },
 ];
 
 const EMPTY_FORM = {
@@ -271,11 +273,7 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
         {/* ── Liste des articles ── */}
         <div className="space-y-3">
           <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher un article…"
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg pl-7 pr-3 py-2 text-xs text-stone-200 outline-none focus:border-amber-500/50" />
-            </div>
+            <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher un article…" className="flex-1" />
             <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)}
               className="bg-stone-800 border border-stone-700 rounded-lg px-2 py-2 text-xs text-stone-300 outline-none focus:border-amber-500/50 shrink-0">
               <option value="ALL">Toutes</option>

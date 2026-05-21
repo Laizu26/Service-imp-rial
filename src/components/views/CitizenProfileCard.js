@@ -12,27 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
-import { getCitizenAge, formatRPDate } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, getRoleTheme } from "../../lib/gameUtils";
 import { normalizeBranches, getFamilyForCitizen, getBranchForCitizen, getFamilyDisplayName } from "./FamiliesAdminView";
-
-const getRoleTheme = (role) => {
-  switch (role) {
-    case "EMPEREUR":
-      return { border: "border-yellow-500", badge: "bg-yellow-100 text-yellow-800 border-yellow-300" };
-    case "ROI":
-      return { border: "border-purple-500", badge: "bg-purple-100 text-purple-800 border-purple-300" };
-    case "GRAND_FONC_GLOBAL":
-    case "GRAND_FONC_LOCAL":
-      return { border: "border-blue-500", badge: "bg-blue-100 text-blue-800 border-blue-300" };
-    case "INTENDANT":
-      return { border: "border-emerald-500", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" };
-    case "FONCTIONNAIRE":
-    case "POSTIERE":
-      return { border: "border-sky-500", badge: "bg-sky-100 text-sky-800 border-sky-300" };
-    default:
-      return { border: "border-stone-400", badge: "bg-stone-100 text-stone-700 border-stone-300" };
-  }
-};
 
 const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], families = [], onClose, gameDate }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };

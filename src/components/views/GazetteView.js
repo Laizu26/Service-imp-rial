@@ -1,19 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { Newspaper, Calendar, Search } from "lucide-react";
-
-const MONTHS = [
-  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
-];
+import { GAZETTE_CATEGORY_LABELS } from "../../lib/gazetteConstants";
+import { formatRPDate } from "../../lib/gameUtils";
 
 /* ── Styles par catégorie ── */
 const CAT_META = {
-  DÉCRET:     { label: "Décret Impérial",   dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",          bar: "bg-red-600",    tab: "text-red-700 border-red-600" },
-  ANNONCE:    { label: "Annonce Officielle", dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200",    bar: "bg-amber-500",  tab: "text-amber-700 border-amber-600" },
-  CHRONIQUE:  { label: "Chronique",         dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",       bar: "bg-blue-500",   tab: "text-blue-700 border-blue-600" },
-  NÉCROLOGIE: { label: "Nécrologie",        dot: "bg-stone-400",  badge: "bg-stone-100 text-stone-600 border-stone-300",   bar: "bg-stone-500",  tab: "text-stone-600 border-stone-500" },
-  AVIS:       { label: "Avis de Recherche", dot: "bg-orange-500", badge: "bg-orange-50 text-orange-700 border-orange-200", bar: "bg-orange-500", tab: "text-orange-700 border-orange-600" },
-  COMMUNIQUÉ: { label: "Communiqué",        dot: "bg-green-500",  badge: "bg-green-50 text-green-700 border-green-200",    bar: "bg-green-500",  tab: "text-green-700 border-green-600" },
+  DÉCRET:     { label: GAZETTE_CATEGORY_LABELS.DÉCRET,     dot: "bg-red-500",    badge: "bg-red-50 text-red-700 border-red-200",          bar: "bg-red-600",    tab: "text-red-700 border-red-600" },
+  ANNONCE:    { label: GAZETTE_CATEGORY_LABELS.ANNONCE,    dot: "bg-amber-500",  badge: "bg-amber-50 text-amber-700 border-amber-200",    bar: "bg-amber-500",  tab: "text-amber-700 border-amber-600" },
+  CHRONIQUE:  { label: GAZETTE_CATEGORY_LABELS.CHRONIQUE,  dot: "bg-blue-500",   badge: "bg-blue-50 text-blue-700 border-blue-200",       bar: "bg-blue-500",   tab: "text-blue-700 border-blue-600" },
+  NÉCROLOGIE: { label: GAZETTE_CATEGORY_LABELS.NÉCROLOGIE, dot: "bg-stone-400",  badge: "bg-stone-100 text-stone-600 border-stone-300",   bar: "bg-stone-500",  tab: "text-stone-600 border-stone-500" },
+  AVIS:       { label: GAZETTE_CATEGORY_LABELS.AVIS,       dot: "bg-orange-500", badge: "bg-orange-50 text-orange-700 border-orange-200", bar: "bg-orange-500", tab: "text-orange-700 border-orange-600" },
+  COMMUNIQUÉ: { label: GAZETTE_CATEGORY_LABELS.COMMUNIQUÉ, dot: "bg-green-500",  badge: "bg-green-50 text-green-700 border-green-200",    bar: "bg-green-500",  tab: "text-green-700 border-green-600" },
 };
 
 const getCat = (catId) => CAT_META[catId] || { label: catId || "Annonce", dot: "bg-stone-400", badge: "bg-stone-100 text-stone-600 border-stone-200", bar: "bg-stone-400", tab: "text-stone-600 border-stone-400" };
@@ -31,7 +28,7 @@ const FILTER_TABS = [
 const GazetteView = ({ gazette, gameDate, userCountryId }) => {
   const safeGazette = gazette || [];
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
-  const rpDateStr = `${gd.day} ${MONTHS[(gd.month - 1) % 12]} ${gd.year}`;
+  const rpDateStr = formatRPDate(gd);
 
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [search, setSearch] = useState("");
