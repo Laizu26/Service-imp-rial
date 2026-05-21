@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Book,
   Gavel,
@@ -6,42 +6,135 @@ import {
   Bookmark,
   Globe,
   Library,
-  Search,
   Pin,
   Tag,
   ArrowLeft,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { formatMoney } from "../../lib/gameUtils";
+import { formatMoney, toRoman, isNewEntry } from "../../lib/gameUtils";
+import SearchInput from "../ui/SearchInput";
+
+function generateLegalCode(laws) {
+  const articles = [];
+  let count = 1;
+  const addArt = (text) => articles.push(`ARTICLE ${toRoman(count++)} : ${text}`);
+
+  if (laws.closeBorders)
+    addArt("Fermeture totale des frontières. Aucun visa d'entrée ne sera délivré jusqu'à nouvel ordre.");
+  else
+    addArt("La libre circulation est autorisée sous réserve d'obtention d'un visa valide.");
+
+  if (laws.forbidExit)
+    addArt("Il est strictement interdit aux citoyens de quitter le territoire national (Visa de sortie suspendu).");
+
+  if (laws.entryVisaFee > 0)
+    addArt(`Tout étranger souhaitant pénétrer sur le territoire devra s'acquitter d'une taxe douanière de ${formatMoney(laws.entryVisaFee)}.`);
+
+  if (laws.allowWeapons === false)
+    addArt("La possession d'armes est strictement prohibée (Classe A). Tout contrevenant s'expose à une confiscation immédiate.");
+  else
+    addArt("Le port d'arme est autorisé pour les citoyens libres disposant de leurs droits civiques.");
+
+  if (laws.closedCurrency)
+    addArt("Protectionnisme Monétaire : La monnaie nationale est fermée. Les transferts entrants depuis l'étranger sont bloqués.");
+
+  if (laws.taxForeignTransfers)
+    addArt("Loi de Protection Économique : Tout transfert financier provenant de l'étranger est soumis à une taxe impériale de 10%.");
+
+  if (laws.freezeAssets)
+    addArt("État d'Urgence Financière : Les avoirs bancaires sont gelés. Aucun retrait ni virement sortant n'est autorisé.");
+
+  if (laws.allowExternalDebits)
+    addArt("Accords de Recouvrement : Les entités étrangères accréditées sont autorisées à effectuer des prélèvements sur les comptes nationaux.");
+
+  if (laws.allowLocalConfiscation)
+    addArt("Droit de Réquisition : L'Administration locale se réserve le droit de confisquer les biens et fonds pour l'intérêt supérieur de la Nation.");
+
+  if (laws.allowLocalSales === false)
+    addArt("Le commerce entre particuliers est suspendu. Seules les transactions d'État sont autorisées.");
+
+  if (laws.requireRulerApprovalForSales)
+    addArt("Contrôle des Marchés : Toute mise en vente de biens ou de contrats nécessite l'approbation du sceau royal.");
+
+  if (laws.militaryServitude)
+    addArt("Mobilisation Servile : La population servile (esclaves) est réquisitionnée pour l'effort de guerre et la sécurité.");
+
+  if (laws.banPublicSlaveMarket)
+    addArt("Éthique Commerciale : La vente publique d'êtres humains est interdite sur les places de marché.");
+
+  if (laws.allowSelfManumission)
+    addArt("Droit de Rachat : Tout esclave disposant des fonds nécessaires a le droit légal d'acheter sa propre liberté (Auto-affranchissement).");
+  else
+    addArt("Perpétuité : L'affranchissement par rachat personnel est interdit. Seul le maître peut octroyer la liberté.");
+
+  if (laws.mailCensorship)
+    addArt("Loi de Vigilance : La Poste Impériale est mandatée pour inspecter et censurer toute correspondance jugée subversive.");
+
+  return articles;
+}
 
 const LibraryView = ({ countries, session }) => {
   const [activeTab, setActiveTab] = useState("codes");
-  const [viewingCountryId, setViewingCountryId] = useState(
-    session?.countryId
-  );
+  const [viewingCountryId, setViewingCountryId] = useState(session?.countryId);
   const [search, setSearch] = useState("");
-  const [readingBook, setReadingBook] = useState(null);   // null | book object
+  const [readingBook, setReadingBook] = useState(null);
   const [expandedDecreeId, setExpandedDecreeId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
 
   const safeCountries = Array.isArray(countries) ? countries : [];
+  const currentCountry = safeCountries.find((c) => c.id === viewingCountryId) || safeCountries[0];
 
-  const currentCountry =
-    safeCountries.find((c) => c.id === viewingCountryId) || safeCountries[0];
-
-  useEffect(() => {
-    if (!viewingCountryId && session?.countryId) {
-      setViewingCountryId(session.countryId);
-    }
-  }, [session, viewingCountryId]);
-
-  // Réinitialiser la recherche et la lecture quand on change de pays ou d'onglet
   useEffect(() => {
     setSearch("");
     setReadingBook(null);
     setExpandedDecreeId(null);
+    setActiveCategory(null);
   }, [viewingCountryId, activeTab]);
+
+  const allDecrees = currentCountry?.decrees || [];
+  const allBooks = currentCountry?.books || [];
+
+  const legalCode = useMemo(
+    () => generateLegalCode(currentCountry?.laws || {}),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentCountry?.laws]
+  );
+
+  const sortedDecrees = useMemo(() => {
+    const pinned = allDecrees.filter((d) => d.pinned);
+    const unpinned = allDecrees.filter((d) => !d.pinned);
+    return [...pinned, ...unpinned];
+  }, [allDecrees]);
+
+  const filteredDecrees = useMemo(() => {
+    if (!search) return sortedDecrees;
+    const q = search.toLowerCase();
+    return sortedDecrees.filter(
+      (d) => d.name?.toLowerCase().includes(q) || d.content?.toLowerCase().includes(q)
+    );
+  }, [sortedDecrees, search]);
+
+  const bookCategories = useMemo(
+    () => [...new Set(allBooks.map((b) => b.category).filter(Boolean))],
+    [allBooks]
+  );
+
+  const filteredBooks = useMemo(() => {
+    if (!search) return allBooks;
+    const q = search.toLowerCase();
+    return allBooks.filter(
+      (b) =>
+        b.title?.toLowerCase().includes(q) ||
+        b.author?.toLowerCase().includes(q) ||
+        b.category?.toLowerCase().includes(q)
+    );
+  }, [allBooks, search]);
+
+  const displayedBooks = useMemo(
+    () => (activeCategory ? filteredBooks.filter((b) => b.category === activeCategory) : filteredBooks),
+    [filteredBooks, activeCategory]
+  );
 
   if (!currentCountry)
     return (
@@ -50,155 +143,9 @@ const LibraryView = ({ countries, session }) => {
       </div>
     );
 
-  // --- GÉNÉRATEUR DE TEXTE JURIDIQUE ---
-  const generateLegalCode = () => {
-    const laws = currentCountry.laws || {};
-    const articles = [];
-    let count = 1;
-    const addArt = (text) =>
-      articles.push(`ARTICLE ${toRoman(count++)} : ${text}`);
-
-    if (laws.closeBorders)
-      addArt(
-        "Fermeture totale des frontières. Aucun visa d'entrée ne sera délivré jusqu'à nouvel ordre."
-      );
-    else
-      addArt(
-        "La libre circulation est autorisée sous réserve d'obtention d'un visa valide."
-      );
-
-    if (laws.forbidExit)
-      addArt(
-        "Il est strictement interdit aux citoyens de quitter le territoire national (Visa de sortie suspendu)."
-      );
-
-    if (laws.entryVisaFee > 0)
-      addArt(
-        `Tout étranger souhaitant pénétrer sur le territoire devra s'acquitter d'une taxe douanière de ${formatMoney(laws.entryVisaFee)}.`
-      );
-
-    if (laws.allowWeapons === false)
-      addArt(
-        "La possession d'armes est strictement prohibée (Classe A). Tout contrevenant s'expose à une confiscation immédiate."
-      );
-    else
-      addArt(
-        "Le port d'arme est autorisé pour les citoyens libres disposant de leurs droits civiques."
-      );
-
-    if (laws.closedCurrency)
-      addArt(
-        "Protectionnisme Monétaire : La monnaie nationale est fermée. Les transferts entrants depuis l'étranger sont bloqués."
-      );
-
-    if (laws.taxForeignTransfers)
-      addArt(
-        "Loi de Protection Économique : Tout transfert financier provenant de l'étranger est soumis à une taxe impériale de 10%."
-      );
-
-    if (laws.freezeAssets)
-      addArt(
-        "État d'Urgence Financière : Les avoirs bancaires sont gelés. Aucun retrait ni virement sortant n'est autorisé."
-      );
-
-    if (laws.allowExternalDebits)
-      addArt(
-        "Accords de Recouvrement : Les entités étrangères accréditées sont autorisées à effectuer des prélèvements sur les comptes nationaux."
-      );
-
-    if (laws.allowLocalConfiscation)
-      addArt(
-        "Droit de Réquisition : L'Administration locale se réserve le droit de confisquer les biens et fonds pour l'intérêt supérieur de la Nation."
-      );
-
-    if (laws.allowLocalSales === false)
-      addArt(
-        "Le commerce entre particuliers est suspendu. Seules les transactions d'État sont autorisées."
-      );
-
-    if (laws.requireRulerApprovalForSales)
-      addArt(
-        "Contrôle des Marchés : Toute mise en vente de biens ou de contrats nécessite l'approbation du sceau royal."
-      );
-
-    if (laws.militaryServitude)
-      addArt(
-        "Mobilisation Servile : La population servile (esclaves) est réquisitionnée pour l'effort de guerre et la sécurité."
-      );
-
-    if (laws.banPublicSlaveMarket)
-      addArt(
-        "Éthique Commerciale : La vente publique d'êtres humains est interdite sur les places de marché."
-      );
-
-    if (laws.allowSelfManumission)
-      addArt(
-        "Droit de Rachat : Tout esclave disposant des fonds nécessaires a le droit légal d'acheter sa propre liberté (Auto-affranchissement)."
-      );
-    else
-      addArt(
-        "Perpétuité : L'affranchissement par rachat personnel est interdit. Seul le maître peut octroyer la liberté."
-      );
-
-    if (laws.mailCensorship)
-      addArt(
-        "Loi de Vigilance : La Poste Impériale est mandatée pour inspecter et censurer toute correspondance jugée subversive."
-      );
-
-    return articles;
-  };
-
-  const toRoman = (num) => {
-    const lookup = {
-      M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90,
-      L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1,
-    };
-    let roman = "", i;
-    for (i in lookup) {
-      while (num >= lookup[i]) { roman += i; num -= lookup[i]; }
-    }
-    return roman;
-  };
-
-  const isNew = (dateStr) =>
-    dateStr && Date.now() - new Date(dateStr).getTime() < 7 * 24 * 3600 * 1000;
-
-  const legalCode = generateLegalCode();
-
-  const allDecrees = currentCountry.decrees || [];
-  const pinnedDecrees = allDecrees.filter((d) => d.pinned);
-  const unpinnedDecrees = allDecrees.filter((d) => !d.pinned);
-  const sortedDecrees = [...pinnedDecrees, ...unpinnedDecrees];
-
-  const filteredDecrees = sortedDecrees.filter(
-    (d) =>
-      !search ||
-      d.name?.toLowerCase().includes(search.toLowerCase()) ||
-      d.content?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const allBooks = currentCountry.books || [];
-  const filteredBooks = allBooks.filter(
-    (b) =>
-      !search ||
-      b.title?.toLowerCase().includes(search.toLowerCase()) ||
-      b.author?.toLowerCase().includes(search.toLowerCase()) ||
-      b.category?.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Catégories utilisées pour les filtres-rapides livres
-  const bookCategories = [
-    ...new Set(allBooks.map((b) => b.category).filter(Boolean)),
-  ];
-  const displayedBooks = activeCategory
-    ? filteredBooks.filter((b) => b.category === activeCategory)
-    : filteredBooks;
-
-  // --- VUE LECTURE DE LIVRE ---
   if (readingBook) {
     return (
       <div className="h-full flex flex-col font-serif bg-[#fdf6e3] rounded-2xl shadow-xl overflow-hidden border border-stone-300">
-        {/* HEADER lecture */}
         <div className="bg-stone-900 text-stone-200 px-6 py-4 flex items-center gap-4 shrink-0 border-b-4 border-yellow-600">
           <button
             onClick={() => setReadingBook(null)}
@@ -219,7 +166,6 @@ const LibraryView = ({ countries, session }) => {
             </span>
           )}
         </div>
-        {/* CONTENU LECTURE */}
         <div className="flex-1 overflow-y-auto p-6 md:p-12">
           <div className="max-w-3xl mx-auto bg-white/90 p-8 md:p-16 shadow-2xl border border-stone-200 relative">
             <div className="absolute left-6 top-0 bottom-0 w-px bg-stone-300 border-l border-dashed border-stone-400" />
@@ -234,7 +180,7 @@ const LibraryView = ({ countries, session }) => {
                 {readingBook.content}
               </div>
               <div className="mt-16 pt-6 border-t border-stone-200 text-right text-[10px] uppercase font-bold text-stone-400 tracking-widest">
-                Archivé le {new Date(readingBook.date || Date.now()).toLocaleDateString()}
+                Archivé le {new Date(readingBook.date || Date.now()).toLocaleDateString("fr-FR")}
               </div>
             </div>
           </div>
@@ -263,11 +209,7 @@ const LibraryView = ({ countries, session }) => {
                 onChange={(e) => setViewingCountryId(e.target.value)}
               >
                 {safeCountries.map((c) => (
-                  <option
-                    key={c.id}
-                    value={c.id}
-                    className="bg-stone-800 text-stone-200"
-                  >
+                  <option key={c.id} value={c.id} className="bg-stone-800 text-stone-200">
                     Archives : {c.name}
                   </option>
                 ))}
@@ -321,26 +263,15 @@ const LibraryView = ({ countries, session }) => {
         </div>
       </div>
 
-      {/* BARRE DE RECHERCHE (décrets & ouvrages) */}
+      {/* BARRE DE RECHERCHE */}
       {(activeTab === "decrees" || activeTab === "books") && (
         <div className="bg-stone-800/50 px-6 py-3 flex items-center gap-3 border-b border-stone-700/50 shrink-0">
-          <div className="relative flex-1 max-w-md">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
-            <input
-              className="w-full pl-9 pr-4 py-2 bg-stone-900/70 text-white text-sm rounded-lg border border-stone-600 outline-none placeholder-stone-500 focus:border-yellow-500 transition-colors font-sans"
-              placeholder={activeTab === "decrees" ? "Chercher dans les décrets…" : "Chercher un ouvrage…"}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-white transition-colors text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={activeTab === "decrees" ? "Chercher dans les décrets…" : "Chercher un ouvrage…"}
+            className="flex-1 max-w-md"
+          />
           {activeTab === "books" && bookCategories.length > 0 && (
             <div className="flex gap-1.5 overflow-x-auto">
               {bookCategories.map((cat) => (
@@ -368,7 +299,6 @@ const LibraryView = ({ countries, session }) => {
 
       {/* CONTENU */}
       <div className="flex-1 overflow-hidden flex relative bg-[#fdf6e3]">
-        {/* Texture papier */}
         <div
           className="absolute inset-0 opacity-10 pointer-events-none"
           style={{
@@ -378,10 +308,8 @@ const LibraryView = ({ countries, session }) => {
 
         <div className="flex-1 p-6 md:p-12 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-400 scrollbar-track-transparent z-10">
           <div className="max-w-4xl mx-auto bg-white/90 backdrop-blur-md p-8 md:p-16 shadow-2xl min-h-[600px] border border-stone-200 relative">
-            {/* Reliure décorative */}
             <div className="absolute left-6 top-0 bottom-0 w-px bg-stone-300 border-l border-dashed border-stone-400" />
 
-            {/* --- ONGLET 1 : CODE CIVIL --- */}
             {activeTab === "codes" && (
               <div className="pl-8 animate-fadeIn">
                 <div className="text-center border-b-2 border-stone-900 pb-6 mb-8">
@@ -395,10 +323,7 @@ const LibraryView = ({ countries, session }) => {
                 <div className="space-y-8 text-justify leading-relaxed text-lg text-stone-800 font-serif">
                   {legalCode.length > 0 ? (
                     legalCode.map((law, idx) => (
-                      <div
-                        key={idx}
-                        className="relative hover:bg-yellow-50/50 p-2 rounded transition-colors"
-                      >
+                      <div key={idx} className="relative hover:bg-yellow-50/50 p-2 rounded transition-colors">
                         <p className="first-letter:text-4xl first-letter:font-black first-letter:mr-2 first-letter:float-left first-letter:leading-none text-stone-900">
                           {law}
                         </p>
@@ -416,7 +341,6 @@ const LibraryView = ({ countries, session }) => {
               </div>
             )}
 
-            {/* --- ONGLET 2 : DÉCRETS --- */}
             {activeTab === "decrees" && (
               <div className="pl-8 animate-fadeIn">
                 <div className="text-center border-b-2 border-stone-900 pb-6 mb-8">
@@ -447,7 +371,6 @@ const LibraryView = ({ countries, session }) => {
                             d.pinned ? "border-yellow-600/60" : "border-yellow-600/20 hover:border-yellow-600/40"
                           }`}
                         >
-                          {/* En-tête cliquable */}
                           <button
                             onClick={() => setExpandedDecreeId(expanded ? null : (d.id || i))}
                             className="w-full text-left flex items-start justify-between gap-4 pl-8 pr-4 py-3 group"
@@ -458,13 +381,11 @@ const LibraryView = ({ countries, session }) => {
                                 size={20}
                                 fill="#ca8a04"
                               />
-                              {d.pinned && (
-                                <Pin size={12} className="text-yellow-600 shrink-0" fill="#ca8a04" />
-                              )}
+                              {d.pinned && <Pin size={12} className="text-yellow-600 shrink-0" fill="#ca8a04" />}
                               <span className="font-bold text-sm text-stone-700 uppercase tracking-[0.2em] font-sans truncate">
                                 {d.name || `Proclamation N°${i + 1}`}
                               </span>
-                              {isNew(d.date) && (
+                              {isNewEntry(d.date) && (
                                 <span className="text-[8px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full shrink-0">
                                   Nouveau
                                 </span>
@@ -473,7 +394,7 @@ const LibraryView = ({ countries, session }) => {
                             <div className="flex items-center gap-2 shrink-0">
                               {d.date && (
                                 <span className="text-[9px] text-stone-400 font-mono">
-                                  {new Date(d.date).toLocaleDateString()}
+                                  {new Date(d.date).toLocaleDateString("fr-FR")}
                                 </span>
                               )}
                               {expanded
@@ -483,7 +404,6 @@ const LibraryView = ({ countries, session }) => {
                             </div>
                           </button>
 
-                          {/* Contenu */}
                           {expanded && (
                             <div className="pl-8 pr-4 pb-6">
                               <div className="text-lg text-stone-900 leading-loose font-serif whitespace-pre-line text-justify border-t border-stone-100 pt-4">
@@ -499,7 +419,6 @@ const LibraryView = ({ countries, session }) => {
               </div>
             )}
 
-            {/* --- ONGLET 3 : OUVRAGES --- */}
             {activeTab === "books" && (
               <div className="pl-8 animate-fadeIn">
                 <div className="text-center border-b-2 border-stone-900 pb-6 mb-8">
@@ -512,7 +431,6 @@ const LibraryView = ({ countries, session }) => {
                 </div>
 
                 <div className="space-y-8">
-                  {/* Livres statiques (toujours visibles si pas de recherche) */}
                   {!search && !activeCategory && (
                     <>
                       <div className="bg-[#fcfbf7] p-6 border border-stone-200 shadow-sm rounded-sm">
@@ -527,9 +445,7 @@ const LibraryView = ({ countries, session }) => {
                         {currentCountry.specialty && (
                           <div className="mt-4 pt-4 border-t border-stone-100 text-sm font-sans uppercase tracking-widest text-stone-500">
                             Spécialité Nationale :{" "}
-                            <span className="text-stone-800 font-bold">
-                              {currentCountry.specialty}
-                            </span>
+                            <span className="text-stone-800 font-bold">{currentCountry.specialty}</span>
                           </div>
                         )}
                       </div>
@@ -541,9 +457,7 @@ const LibraryView = ({ countries, session }) => {
                         </h3>
                         <p className="mb-4 font-serif text-stone-700">
                           Cette terre est actuellement sous la gouvernance de{" "}
-                          <strong className="text-stone-900">
-                            {currentCountry.rulerName}
-                          </strong>
+                          <strong className="text-stone-900">{currentCountry.rulerName}</strong>
                           . Sa population s'élève à{" "}
                           <strong>{currentCountry.population || 0}</strong> âmes recensées.
                         </p>
@@ -565,22 +479,19 @@ const LibraryView = ({ countries, session }) => {
                     </>
                   )}
 
-                  {/* Livres ajoutés par l'admin */}
-                  {allBooks.length === 0 && !search && !activeCategory ? null :
+                  {(allBooks.length > 0 || search || activeCategory) && (
                     displayedBooks.length === 0 ? (
                       <div className="text-center py-12 text-stone-400 italic font-serif text-base">
-                        {search || activeCategory
-                          ? `Aucun ouvrage ne correspond à votre recherche.`
-                          : "Aucun ouvrage référencé."}
+                        Aucun ouvrage ne correspond à votre recherche.
                       </div>
                     ) : (
                       displayedBooks.map((book) => (
-                        <div
+                        <button
                           key={book.id}
-                          className="bg-[#fcfbf7] border border-stone-200 shadow-sm rounded-sm overflow-hidden group cursor-pointer hover:shadow-md transition-shadow"
+                          type="button"
+                          className="bg-[#fcfbf7] border border-stone-200 shadow-sm rounded-sm overflow-hidden group hover:shadow-md transition-shadow w-full text-left"
                           onClick={() => setReadingBook(book)}
                         >
-                          {/* Marque-page déco */}
                           <div className="relative">
                             <div className="absolute top-0 right-8 w-6 h-10 bg-red-900 shadow-sm" />
                             <div className="p-6 md:p-8 pr-16">
@@ -588,7 +499,7 @@ const LibraryView = ({ countries, session }) => {
                                 <h3 className="font-serif font-bold text-2xl text-stone-900 flex-1">
                                   {book.title}
                                 </h3>
-                                {isNew(book.date) && (
+                                {isNewEntry(book.date) && (
                                   <span className="text-[8px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-2 py-1 rounded-full shrink-0 mt-1">
                                     Nouveau
                                   </span>
@@ -609,7 +520,7 @@ const LibraryView = ({ countries, session }) => {
                               </div>
                               <div className="mt-4 pt-3 border-t border-stone-100 flex justify-between items-center">
                                 <span className="text-[10px] uppercase font-bold text-stone-400">
-                                  Archivé le {new Date(book.date || Date.now()).toLocaleDateString()}
+                                  Archivé le {new Date(book.date || Date.now()).toLocaleDateString("fr-FR")}
                                 </span>
                                 <span className="text-[10px] uppercase font-bold text-stone-500 group-hover:text-stone-900 transition-colors tracking-widest">
                                   Lire →
@@ -617,10 +528,10 @@ const LibraryView = ({ countries, session }) => {
                               </div>
                             </div>
                           </div>
-                        </div>
+                        </button>
                       ))
                     )
-                  }
+                  )}
                 </div>
               </div>
             )}

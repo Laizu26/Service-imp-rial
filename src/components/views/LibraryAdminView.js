@@ -15,6 +15,7 @@ import {
   Tag,
 } from "lucide-react";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { isNewEntry } from "../../lib/gameUtils";
 
 const LibraryAdminView = ({ countries, onUpdate }) => {
   const [selectedCountryId, setSelectedCountryId] = useState(
@@ -226,7 +227,6 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
     ...new Set((selectedCountry.books || []).map((b) => b.category).filter(Boolean)),
   ];
 
-  const isNew = (dateStr) => dateStr && Date.now() - new Date(dateStr).getTime() < 7 * 24 * 3600 * 1000;
 
   return (
     <div className="h-full flex flex-col bg-stone-100 rounded-xl overflow-hidden border border-stone-300">
@@ -540,7 +540,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
                           <span className="font-bold text-stone-800">
                             {decree.name}
                           </span>
-                          {isNew(decree.date) && (
+                          {isNewEntry(decree.date) && (
                             <span className="text-[8px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
                               Nouveau
                             </span>
@@ -553,7 +553,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
                         )}
                         {decree.date && (
                           <span className="text-[9px] text-stone-300 font-mono mt-1 block">
-                            {new Date(decree.date).toLocaleDateString()}
+                            {new Date(decree.date).toLocaleDateString("fr-FR")}
                           </span>
                         )}
                       </div>
@@ -639,7 +639,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
                       <h4 className="font-serif font-bold text-xl text-stone-900 line-clamp-2 flex-1">
                         {book.title}
                       </h4>
-                      {isNew(book.date) && (
+                      {isNewEntry(book.date) && (
                         <span className="text-[8px] font-black uppercase tracking-widest bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full shrink-0 mt-1">
                           Nouveau
                         </span>
@@ -661,7 +661,7 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
                   </div>
                   <div className="flex justify-between items-end mt-4 pt-4 border-t border-stone-100">
                     <span className="text-[10px] uppercase font-bold text-stone-400">
-                      {new Date(book.date || Date.now()).toLocaleDateString()}
+                      {new Date(book.date || Date.now()).toLocaleDateString("fr-FR")}
                     </span>
                     <div className="flex gap-2 items-center">
                       <button
