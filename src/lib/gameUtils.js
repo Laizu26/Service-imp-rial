@@ -117,3 +117,51 @@ export function splitMoney(val) {
   const v = Math.round((val || 0) * 10);
   return { ecus: Math.floor(v / 10), liards: v % 10 };
 }
+
+// ── Thème de rôle ────────────────────────────────────────────────────────────
+
+/**
+ * Retourne les classes CSS correspondant au rôle d'un citoyen.
+ * Version complète (border, bg, accent, badge).
+ */
+export function getRoleTheme(role) {
+  switch (role) {
+    case "EMPEREUR":
+      return { border: "border-yellow-500", bg: "bg-yellow-50", accent: "text-yellow-700", badge: "bg-yellow-100 text-yellow-800 border-yellow-300" };
+    case "ROI":
+      return { border: "border-purple-500", bg: "bg-purple-50", accent: "text-purple-700", badge: "bg-purple-100 text-purple-800 border-purple-300" };
+    case "GRAND_FONC_GLOBAL":
+    case "GRAND_FONC_LOCAL":
+      return { border: "border-blue-500", bg: "bg-blue-50", accent: "text-blue-700", badge: "bg-blue-100 text-blue-800 border-blue-300" };
+    case "INTENDANT":
+      return { border: "border-emerald-500", bg: "bg-emerald-50", accent: "text-emerald-700", badge: "bg-emerald-100 text-emerald-800 border-emerald-300" };
+    case "FONCTIONNAIRE":
+    case "POSTIERE":
+      return { border: "border-sky-500", bg: "bg-sky-50", accent: "text-sky-700", badge: "bg-sky-100 text-sky-800 border-sky-300" };
+    default:
+      return { border: "border-stone-400", bg: "bg-stone-50", accent: "text-stone-600", badge: "bg-stone-100 text-stone-700 border-stone-300" };
+  }
+}
+
+// ── Helpers log de trésorerie ─────────────────────────────────────────────────
+
+/**
+ * Retourne true si le type d'entrée de log est positif (crédit).
+ */
+export function logEntryIsPositive(type) {
+  return type === "deposit" || type === "transfer_in" || type === "admin_add";
+}
+
+/**
+ * Retourne la classe CSS de couleur pour un type de log de trésorerie.
+ */
+export function logEntryColor(type) {
+  return logEntryIsPositive(type) ? "text-green-600" : "text-red-500";
+}
+
+/**
+ * Retourne le signe (+/-) pour un type de log de trésorerie.
+ */
+export function logEntrySign(type) {
+  return logEntryIsPositive(type) ? "+" : "-";
+}

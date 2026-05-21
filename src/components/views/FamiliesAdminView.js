@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   HeartHandshake,
-  Search,
   Plus,
   Save,
   X,
@@ -19,7 +18,9 @@ import {
   Crown,
   Shield,
 } from "lucide-react";
-import { formatMoney } from "../../lib/gameUtils";
+import { formatMoney, logEntryColor, logEntrySign } from "../../lib/gameUtils";
+import Avatar from "../ui/Avatar";
+import SearchInput from "../ui/SearchInput";
 
 /* ── Helpers communs ── */
 const Label = ({ children }) => (
@@ -486,11 +487,9 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
       if (type === "admin_remove") return <TrendingDown size={11} className="text-rose-400" />;
       return <Coins size={11} className="text-stone-400" />;
     };
-    const logColor = (type) => {
-      if (type === "deposit" || type === "transfer_in" || type === "admin_add") return "text-green-400";
-      return "text-red-400";
-    };
-    const logSign = (type) => (type === "deposit" || type === "transfer_in" || type === "admin_add") ? "+" : "-";
+
+    const detailHead = detailFam.headId ? safeCitizens.find((c) => c.id === detailFam.headId) : null;
+    const detailRegent = detailFam.regentId ? safeCitizens.find((c) => c.id === detailFam.regentId) : null;
 
     return (
       <div className="space-y-4 max-w-4xl">
@@ -530,26 +529,24 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
 
         {/* Chef / Régent */}
         <div className="flex gap-2 flex-wrap">
-          {detailFam.headId && (() => {
-            const head = safeCitizens.find((c) => c.id === detailFam.headId);
-            return <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
+          {detailHead && (
+            <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
               <span className="text-amber-400 text-xs">👑</span>
               <div>
                 <div className="text-[8px] text-amber-600 uppercase font-black">Chef de famille</div>
-                <div className="text-xs text-amber-300 font-bold">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Inconnu"}</div>
+                <div className="text-xs text-amber-300 font-bold">{detailHead.firstName ? `${detailHead.firstName} ${detailHead.lastName || ""}`.trim() : detailHead.name}</div>
               </div>
-            </div>;
-          })()}
-          {detailFam.regentId && (() => {
-            const rg = safeCitizens.find((c) => c.id === detailFam.regentId);
-            return <div className="bg-purple-900/20 border border-purple-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
+            </div>
+          )}
+          {detailRegent && (
+            <div className="bg-purple-900/20 border border-purple-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
               <span className="text-purple-400 text-xs">🛡️</span>
               <div>
                 <div className="text-[8px] text-purple-600 uppercase font-black">Régent</div>
-                <div className="text-xs text-purple-300 font-bold">{rg ? (rg.firstName ? `${rg.firstName} ${rg.lastName || ""}`.trim() : rg.name) : "Inconnu"}</div>
+                <div className="text-xs text-purple-300 font-bold">{detailRegent.firstName ? `${detailRegent.firstName} ${detailRegent.lastName || ""}`.trim() : detailRegent.name}</div>
               </div>
-            </div>;
-          })()}
+            </div>
+          )}
           {detailFam.description && <div className="text-[10px] text-stone-400 italic flex-1 min-w-0 self-center">{detailFam.description}</div>}
         </div>
 
@@ -590,12 +587,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                       <div className="space-y-1.5 max-h-40 overflow-y-auto">
                         {branchMembers.map((c) => (
                           <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
-                            {c.avatarUrl
-                              ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                              : <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
-                                  {(c.firstName || c.name || "?")[0].toUpperCase()}
-                                </div>
-                            }
+                            <Avatar citizen={c} size={6} />
                             <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                               {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                             </span>
@@ -622,12 +614,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                       const isExtra = extraIds.includes(c.id);
                       return (
                         <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
-                          {c.avatarUrl
-                            ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                            : <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
-                                {(c.firstName || c.name || "?")[0].toUpperCase()}
-                              </div>
-                          }
+                          <Avatar citizen={c} size={6} />
                           <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                             {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                           </span>
@@ -658,12 +645,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                     if (!c) return null;
                     return (
                       <div key={c.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-stone-800/50">
-                        {c.avatarUrl
-                          ? <img src={c.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                          : <div className="w-6 h-6 rounded bg-stone-700 flex items-center justify-center text-[10px] font-black text-stone-400 shrink-0">
-                              {(c.firstName || c.name || "?")[0].toUpperCase()}
-                            </div>
-                        }
+                        <Avatar citizen={c} size={6} />
                         <span className="text-xs text-stone-200 font-bold flex-1 truncate">
                           {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
                         </span>
@@ -773,8 +755,8 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                         <div className="text-xs text-stone-300 truncate">{entry.label}</div>
                         <div className="text-[9px] text-stone-600">{new Date(entry.timestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>
                       </div>
-                      <div className={`font-black font-mono text-xs shrink-0 ${logColor(entry.type)}`}>
-                        {logSign(entry.type)}{formatMoney(entry.amount)}
+                      <div className={`font-black font-mono text-xs shrink-0 ${logEntryColor(entry.type)}`}>
+                        {logEntrySign(entry.type)}{formatMoney(entry.amount)}
                       </div>
                     </div>
                   ))}
@@ -793,23 +775,15 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
               <div className="text-[9px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-1.5">
                 <Crown size={11} /> Chef de famille
               </div>
-              {detailFam.headId ? (() => {
-                const head = safeCitizens.find((c) => c.id === detailFam.headId);
-                return (
-                  <div className="flex items-center gap-3 px-3 py-2.5 bg-amber-900/20 border border-amber-800/40 rounded-lg">
-                    {head?.avatarUrl
-                      ? <img src={head.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      : <div className="w-8 h-8 bg-amber-900/40 rounded-full flex items-center justify-center text-sm font-black text-amber-400 shrink-0">
-                          {(head?.firstName || head?.name || "?")[0].toUpperCase()}
-                        </div>
-                    }
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-black text-amber-300 truncate">{head ? (head.firstName ? `${head.firstName} ${head.lastName || ""}`.trim() : head.name) : "Inconnu"}</div>
-                      <div className="text-[9px] text-amber-600 uppercase font-bold">Chef en exercice</div>
-                    </div>
+              {detailHead ? (
+                <div className="flex items-center gap-3 px-3 py-2.5 bg-amber-900/20 border border-amber-800/40 rounded-lg">
+                  <Avatar citizen={detailHead} size={8} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-black text-amber-300 truncate">{detailHead.firstName ? `${detailHead.firstName} ${detailHead.lastName || ""}`.trim() : detailHead.name}</div>
+                    <div className="text-[9px] text-amber-600 uppercase font-bold">Chef en exercice</div>
                   </div>
-                );
-              })() : (
+                </div>
+              ) : (
                 <div className="text-xs text-stone-600 italic">Aucun chef désigné</div>
               )}
               <div className="space-y-2">
@@ -844,30 +818,22 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
                 <div className="text-[9px] font-black uppercase tracking-widest text-purple-400 flex items-center gap-1.5">
                   <Shield size={11} /> Régent
                 </div>
-                {detailFam.regentId ? (() => {
-                  const rg = safeCitizens.find((c) => c.id === detailFam.regentId);
-                  return (
-                    <div className="flex items-center gap-3 px-3 py-2.5 bg-purple-900/20 border border-purple-800/40 rounded-lg">
-                      {rg?.avatarUrl
-                        ? <img src={rg.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
-                        : <div className="w-8 h-8 bg-purple-900/40 rounded-full flex items-center justify-center text-sm font-black text-purple-400 shrink-0">
-                            {(rg?.firstName || rg?.name || "?")[0].toUpperCase()}
-                          </div>
-                      }
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-black text-purple-300 truncate">{rg ? (rg.firstName ? `${rg.firstName} ${rg.lastName || ""}`.trim() : rg.name) : "Inconnu"}</div>
-                        <div className="text-[9px] text-purple-600 uppercase font-bold">Régent en exercice</div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === detailFam.id ? { ...f, regentId: null, regentName: null } : f) });
-                          notify("Régent révoqué.", "info");
-                        }}
-                        className="text-red-500/50 hover:text-red-400 transition-colors text-[9px] uppercase font-black px-2 py-1 rounded border border-red-900/40 hover:bg-red-900/20 shrink-0"
-                      >Révoquer</button>
+                {detailRegent ? (
+                  <div className="flex items-center gap-3 px-3 py-2.5 bg-purple-900/20 border border-purple-800/40 rounded-lg">
+                    <Avatar citizen={detailRegent} size={8} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-black text-purple-300 truncate">{detailRegent.firstName ? `${detailRegent.firstName} ${detailRegent.lastName || ""}`.trim() : detailRegent.name}</div>
+                      <div className="text-[9px] text-purple-600 uppercase font-bold">Régent en exercice</div>
                     </div>
-                  );
-                })() : (
+                    <button
+                      onClick={() => {
+                        onUpdateState({ ...state, families: safeFamilies.map((f) => f.id === detailFam.id ? { ...f, regentId: null, regentName: null } : f) });
+                        notify("Régent révoqué.", "info");
+                      }}
+                      className="text-red-500/50 hover:text-red-400 transition-colors text-[9px] uppercase font-black px-2 py-1 rounded border border-red-900/40 hover:bg-red-900/20 shrink-0"
+                    >Révoquer</button>
+                  </div>
+                ) : (
                   <div className="text-xs text-stone-600 italic">Aucun régent en exercice</div>
                 )}
                 <div className="space-y-2">
@@ -924,11 +890,7 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         <span className="ml-auto text-amber-500 font-mono font-bold">{formatMoney(safeFamilies.reduce((s, f) => s + (f.treasury || 0), 0))} total</span>
       </div>
 
-      <div className="relative">
-        <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher une famille, dynastie ou nom…"
-          className="w-full bg-stone-800 border border-stone-700 rounded-lg pl-8 pr-3 py-2 text-xs text-stone-200 outline-none focus:border-amber-500/50" />
-      </div>
+      <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher une famille, dynastie ou nom…" />
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-stone-600 gap-3 border border-dashed border-stone-700 rounded-xl">
