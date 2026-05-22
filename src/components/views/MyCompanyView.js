@@ -1834,6 +1834,32 @@ const MyCompanyView = ({
               </div>
             )}
           </Card>
+
+          {globalLedger.filter(e => e.fromId === myCompany.id || e.toId === myCompany.id || e.companyId === myCompany.id || e.fromName === myCompany.name || e.toName === myCompany.name).length > 0 && (
+            <Card title="Historique des Transactions" icon={History}>
+              <div className="divide-y divide-stone-100 max-h-72 overflow-y-auto">
+                {globalLedger
+                  .filter(e => e.fromId === myCompany.id || e.toId === myCompany.id || e.companyId === myCompany.id || e.fromName === myCompany.name || e.toName === myCompany.name)
+                  .slice(0, 30)
+                  .map(entry => {
+                    const isOut = entry.fromId === myCompany.id || entry.fromName === myCompany.name;
+                    return (
+                      <div key={entry.id} className="py-2.5 flex justify-between items-center">
+                        <div>
+                          <div className="text-xs font-bold text-stone-700">{entry.reason || entry.type || "Transaction"}</div>
+                          <div className="text-[10px] text-stone-400">
+                            {isOut ? `→ ${entry.toName || "?"}` : `← ${entry.fromName || "?"}`} · {new Date(entry.timestamp).toLocaleDateString("fr-FR")}
+                          </div>
+                        </div>
+                        <span className={`font-mono font-bold text-sm ${isOut ? "text-red-500" : "text-green-600"}`}>
+                          {isOut ? "-" : "+"}{formatMoney(entry.amount || 0)}
+                        </span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </Card>
+          )}
         </div>
       )}
 
