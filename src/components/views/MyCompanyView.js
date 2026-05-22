@@ -1289,9 +1289,9 @@ const MyCompanyView = ({
       {/* ONGLETS */}
       <div className="flex gap-2 border-b border-stone-200 pb-2 overflow-x-auto">
         {[
-          { id: "hr", label: "Personnel" },
+          { id: "hr", label: "Personnel", badge: (myCompany.applications || []).length || null },
           { id: "finance", label: "Banque & Salaires" },
-          { id: "contracts", label: "Contrats", icon: ScrollText },
+          { id: "contracts", label: "Contrats" },
           { id: "management", label: "Gestion" },
           { id: "bourse", label: "Bourse" },
           { id: "customize", label: "Personnalisation" },
@@ -1306,12 +1306,14 @@ const MyCompanyView = ({
             }`}
           >
             {tab.label}
+            {tab.badge ? <span className="ml-1 bg-red-500 text-white rounded-full text-[9px] font-black px-1.5 py-0.5">{tab.badge}</span> : null}
           </button>
         ))}
       </div>
 
       {/* ONGLET PERSONNEL */}
       {activeTab === "hr" && (
+        <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card title="Recrutement" icon={Users}>
             <div className="space-y-4">
@@ -1463,6 +1465,56 @@ const MyCompanyView = ({
             </div>
           </Card>
         </div>
+
+          {/* Candidatures reçues */}
+          <Card title={`Candidatures (${(myCompany.applications || []).length})`} icon={UserPlus}>
+            {(myCompany.applications || []).length === 0 ? (
+              <div className="text-center text-stone-400 italic py-4 text-xs">
+                Aucune candidature en attente.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[480px] overflow-y-auto">
+                {(myCompany.applications || []).map((app) => {
+                  const applicant = citizens.find((c) => c.id === app.citizenId);
+                  const profile = applicant?.employeeProfile;
+                  const isExpanded = expandedAppId === app.id;
+                  return (
+                    <div key={app.id} className="bg-white border border-stone-200 rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold text-sm text-stone-800">{app.citizenName}</div>
+                          <div className="text-[10px] text-stone-400">Reçu le {new Date(app.date).toLocaleDateString()}</div>
+                          {profile?.skills && (<div className="text-[10px] text-stone-500 mt-1"><span className="font-bold">Compétences :</span> {profile.skills}</div>)}
+                          {profile?.experience && (<div className="text-[10px] text-stone-500"><span className="font-bold">Expérience :</span> {profile.experience}</div>)}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => { setExpandedAppId(isExpanded ? null : app.id); setAppContractTerms(DEFAULT_CONTRACT); }}
+                            className={`px-2.5 py-1.5 rounded text-[10px] font-bold uppercase border ${isExpanded ? "bg-stone-700 text-white border-stone-700" : "bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-400"}`}
+                            title="Définir les clauses du contrat"
+                          >
+                            <ScrollText size={12} />
+                          </button>
+                          <button
+                            onClick={() => { onRespondApplication && onRespondApplication(myCompany.id, app.id, true, normalizeContractTerms(isExpanded ? appContractTerms : DEFAULT_CONTRACT)); setExpandedAppId(null); }}
+                            className="bg-green-600 text-white px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500"
+                          >Embaucher</button>
+                          <button
+                            onClick={() => onRespondApplication && onRespondApplication(myCompany.id, app.id, false)}
+                            className="bg-red-100 text-red-600 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-red-200"
+                          >Refuser</button>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <ContractTermsForm terms={appContractTerms} onChange={setAppContractTerms} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
       )}
 
       {/* ONGLET FINANCE */}
@@ -1537,6 +1589,11 @@ const MyCompanyView = ({
                   Retirer
                 </button>
               </div>
+              {withdrawAmount && parseFloat(withdrawAmount) > (myCompany.balance || 0) && (
+                <div className="mt-2 text-xs font-bold text-red-500">
+                  Fonds insuffisants — la trésorerie ne contient que {formatMoney(myCompany.balance || 0)}.
+                </div>
+              )}
             </Card>
           </div>
 
@@ -2292,55 +2349,6 @@ const MyCompanyView = ({
                 )}
               </div>
             </div>
-          </Card>
-
-          {/* Candidatures reçues */}
-          <Card title={`Candidatures (${(myCompany.applications || []).length})`} icon={UserPlus}>
-            {(myCompany.applications || []).length === 0 ? (
-              <div className="text-center text-stone-400 italic py-4 text-xs">
-                Aucune candidature en attente.
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[480px] overflow-y-auto">
-                {(myCompany.applications || []).map((app) => {
-                  const applicant = citizens.find((c) => c.id === app.citizenId);
-                  const profile = applicant?.employeeProfile;
-                  const isExpanded = expandedAppId === app.id;
-                  return (
-                    <div key={app.id} className="bg-white border border-stone-200 rounded-lg p-3 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-bold text-sm text-stone-800">{app.citizenName}</div>
-                          <div className="text-[10px] text-stone-400">Reçu le {new Date(app.date).toLocaleDateString()}</div>
-                          {profile?.skills && (<div className="text-[10px] text-stone-500 mt-1"><span className="font-bold">Compétences :</span> {profile.skills}</div>)}
-                          {profile?.experience && (<div className="text-[10px] text-stone-500"><span className="font-bold">Expérience :</span> {profile.experience}</div>)}
-                        </div>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => { setExpandedAppId(isExpanded ? null : app.id); setAppContractTerms(DEFAULT_CONTRACT); }}
-                            className={`px-2.5 py-1.5 rounded text-[10px] font-bold uppercase border ${isExpanded ? "bg-stone-700 text-white border-stone-700" : "bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-400"}`}
-                            title="Définir les clauses du contrat"
-                          >
-                            <ScrollText size={12} />
-                          </button>
-                          <button
-                            onClick={() => { onRespondApplication && onRespondApplication(myCompany.id, app.id, true, normalizeContractTerms(isExpanded ? appContractTerms : DEFAULT_CONTRACT)); setExpandedAppId(null); }}
-                            className="bg-green-600 text-white px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-green-500"
-                          >Embaucher</button>
-                          <button
-                            onClick={() => onRespondApplication && onRespondApplication(myCompany.id, app.id, false)}
-                            className="bg-red-100 text-red-600 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-red-200"
-                          >Refuser</button>
-                        </div>
-                      </div>
-                      {isExpanded && (
-                        <ContractTermsForm terms={appContractTerms} onChange={setAppContractTerms} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </Card>
 
           {/* Inventaire d'entreprise */}

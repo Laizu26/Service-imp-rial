@@ -16,6 +16,12 @@ import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { formatMoney } from "../../lib/gameUtils";
 
+const TYPE_LABELS = {
+  SERVICE: "Services / Commerce",
+  MANUFACTURE: "Manufacture / Artisanat",
+  EXTRACTION: "Extraction / Ferme",
+};
+
 const CompaniesAdminView = ({
   companies,
   citizens,
@@ -29,6 +35,8 @@ const CompaniesAdminView = ({
   const [newOwner, setNewOwner] = useState("");
   const [newCountry, setNewCountry] = useState("");
   const [startBalance, setStartBalance] = useState("1000");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("name");
 
   // État édition
   const [editingId, setEditingId] = useState(null);
@@ -69,14 +77,36 @@ const CompaniesAdminView = ({
     setEditForm({});
   };
 
-  const TYPE_LABELS = {
-    SERVICE: "Services / Commerce",
-    MANUFACTURE: "Manufacture / Artisanat",
-    EXTRACTION: "Extraction / Ferme",
-  };
+  const filtered = (companies || []).filter(c => {
+    const owner = citizens.find(ci => ci.id === c.ownerId);
+    const country = countries.find(co => co.id === c.countryId);
+    const q = searchTerm.toLowerCase();
+    return !q || c.name?.toLowerCase().includes(q) || owner?.name?.toLowerCase().includes(q) || country?.name?.toLowerCase().includes(q);
+  });
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "level") return (b.level || 1) - (a.level || 1);
+    if (sortBy === "balance") return (b.balance || 0) - (a.balance || 0);
+    if (sortBy === "employees") return (b.employees || []).length - (a.employees || []).length;
+    return (a.name || "").localeCompare(b.name || "");
+  });
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {(companies || []).length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Entreprises", value: (companies || []).length },
+            { label: "Gelées", value: (companies || []).filter(c => c.frozen).length },
+            { label: "Employés (total)", value: (companies || []).reduce((sum, c) => sum + (c.employees || []).length, 0) },
+            { label: "Trésor total", value: formatMoney((companies || []).reduce((sum, c) => sum + (c.balance || 0), 0)) },
+          ].map((s, i) => (
+            <div key={i} className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5 text-center">
+              <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">{s.label}</div>
+              <div className="text-lg font-black text-stone-800 mt-0.5">{s.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Formulaire de Création (Charte) */}
         <div className="lg:col-span-1">
@@ -168,13 +198,31 @@ const CompaniesAdminView = ({
         {/* Liste des Entreprises */}
         <div className="lg:col-span-2">
           <Card title="Registre du Commerce" icon={Building2}>
+            <div className="flex flex-col sm:flex-row gap-2 mb-3">
+              <input
+                className="flex-1 p-2 border rounded text-sm"
+                placeholder="Rechercher par nom, propriétaire, pays..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+              <select
+                className="p-2 border rounded text-sm bg-white"
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+              >
+                <option value="name">Trier: Nom</option>
+                <option value="level">Trier: Niveau</option>
+                <option value="balance">Trier: Trésorerie</option>
+                <option value="employees">Trier: Employés</option>
+              </select>
+            </div>
             <div className="space-y-3">
               {(companies || []).length === 0 && (
                 <div className="p-6 text-center text-stone-400 italic">
                   Aucune entreprise enregistrée.
                 </div>
               )}
-              {(companies || []).map((comp) => {
+              {sorted.map((comp) => {
                 const owner = citizens.find((c) => c.id === comp.ownerId);
                 const country = countries.find(
                   (c) => c.id === comp.countryId
