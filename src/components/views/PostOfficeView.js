@@ -153,7 +153,7 @@ const PostOfficeView = ({
           req.citizenId,
           req.toCountry,
           req.toRegion,
-          otherRequests
+          [...otherRequests, updatedReq]
         );
       } else {
         // Ancien comportement (risque de bug)
