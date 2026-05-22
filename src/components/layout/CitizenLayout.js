@@ -563,6 +563,10 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
                 const value = listing.pricePerShare * qty;
                 const pct = listing.initialPrice ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice * 100) : 0;
                 const sQty = parseInt(sellQty[lid] || 1);
+                const now = Date.now();
+                const lockedQty = (user.esppLocks || [])
+                  .filter(l => l.listingId === lid && l.unlocksAt > now)
+                  .reduce((sum, l) => sum + l.qty, 0);
                 return (
                   <div key={lid} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
                     <div className="flex items-center gap-3 px-4 py-3">
@@ -582,13 +586,18 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
                     </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-stone-50 border-t border-stone-100">
                       <span className="text-[9px] text-stone-400 flex-1">Cours : {formatMoney(listing.pricePerShare)}/action</span>
-                      <input type="number" min={1} max={qty}
+                      {lockedQty > 0 && (
+                        <span className="text-[9px] text-amber-600 font-bold shrink-0">
+                          🔒 {lockedQty} bloquée(s)
+                        </span>
+                      )}
+                      <input type="number" min={1} max={qty - lockedQty}
                         className="w-16 p-1.5 border border-stone-200 rounded text-sm font-mono text-center bg-white focus:border-red-400 outline-none"
                         value={sellQty[lid] || 1}
                         onChange={(e) => setSellQty((q) => ({ ...q, [lid]: e.target.value }))}
                       />
                       <button
-                        disabled={sQty <= 0 || sQty > qty}
+                        disabled={sQty <= 0 || sQty > (qty - lockedQty)}
                         onClick={() => { onBourseSellShares(lid, sQty); setSellQty((q) => ({ ...q, [lid]: 1 })); }}
                         className="bg-red-500 text-white px-4 py-1.5 rounded text-[10px] font-black uppercase hover:bg-red-400 disabled:opacity-40 transition-colors">
                         Vendre
@@ -601,6 +610,40 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
           )}
         </div>
       )}
+      {/* === HISTORIQUE DES TRANSACTIONS === */}
+      {bourseTab === "history" && (() => {
+        const myBourseHistory = (globalLedger || [])
+          .filter(e => ["BOURSE_BUY", "BOURSE_SELL", "BOURSE_DIVIDEND", "ESPP_BUY"].includes(e.type) &&
+            (e.fromName === user.name || e.toName === user.name))
+          .slice(0, 40);
+        const typeLabel = { BOURSE_BUY: "Achat", BOURSE_SELL: "Vente", BOURSE_DIVIDEND: "Dividende", ESPP_BUY: "ESPP" };
+        const typeColor = { BOURSE_BUY: "text-green-600 bg-green-50 border-green-200", BOURSE_SELL: "text-red-600 bg-red-50 border-red-200", BOURSE_DIVIDEND: "text-blue-600 bg-blue-50 border-blue-200", ESPP_BUY: "text-emerald-600 bg-emerald-50 border-emerald-200" };
+        return myBourseHistory.length === 0 ? (
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-8 text-center text-stone-400 italic text-xs">
+            Aucune transaction boursière enregistrée.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {myBourseHistory.map(e => {
+              const isIn = e.toName === user.name;
+              return (
+                <div key={e.id} className="bg-white border border-stone-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${typeColor[e.type] || "text-stone-600 bg-stone-50 border-stone-200"}`}>
+                    {typeLabel[e.type] || e.type}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-stone-700 truncate">{e.reason || "Transaction"}</div>
+                    <div className="text-[9px] text-stone-400">{new Date(e.timestamp).toLocaleDateString("fr-FR")}</div>
+                  </div>
+                  <span className={`font-mono font-black text-sm shrink-0 ${isIn ? "text-green-600" : "text-red-500"}`}>
+                    {isIn ? "+" : "-"}{formatMoney(e.amount || 0)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -2769,6 +2812,7 @@ const CitizenLayout = (props) => {
                 bourseListings={bourseListings}
                 onBourseBuyShares={onBourseBuyShares}
                 onBourseSellShares={onBourseSellShares}
+                globalLedger={globalLedger}
               />
             )}
 
