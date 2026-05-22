@@ -390,17 +390,36 @@ const BoostCountdown = ({ expiresAt }) => {
 };
 
 /* ── Bourse citoyenne ── */
-const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellShares }) => {
+const Sparkline = ({ history }) => {
+  if (!history || history.length < 2) return null;
+  const prices = history.slice(0, 12).map(h => h.price).reverse();
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const range = max - min || 1;
+  const w = 48, h = 16;
+  const points = prices.map((p, i) => `${(i / (prices.length - 1)) * w},${h - ((p - min) / range) * h}`).join(" ");
+  const color = prices[prices.length - 1] >= prices[0] ? "#10b981" : "#ef4444";
+  return <svg width={w} height={h} className="opacity-70 shrink-0"><polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" /></svg>;
+};
+
+const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellShares, globalLedger = [] }) => {
   const [bourseTab, setBourseTab] = useState("market");
   const [buyQty, setBuyQty] = useState({});
   const [sellQty, setSellQty] = useState({});
+  const [bourseSearch, setBourseSearch] = useState("");
 
   const activeListing = bourseListings.filter((l) => l.isActive);
-  const myHoldings = Object.entries(user.stockholdings || {});
+  const myHoldings = Object.entries(user.stockholdings || {}).filter(([lid, qty]) =>
+    qty > 0 && bourseListings.some(l => l.id === lid)
+  );
   const portfolioValue = myHoldings.reduce((sum, [lid, qty]) => {
     const l = bourseListings.find((x) => x.id === lid);
     return sum + (l ? l.pricePerShare * qty : 0);
   }, 0);
+
+  const filteredListings = activeListing.filter(l => {
+    const q = bourseSearch.toLowerCase();
+    return !q || l.symbol.toLowerCase().includes(q) || l.companyName.toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-4 animate-fadeIn">
@@ -434,6 +453,7 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
         {[
           { id: "market", label: "Marché", icon: <TrendingUp size={12} /> },
           { id: "portfolio", label: "Mon Portefeuille", icon: <BarChart2 size={12} /> },
+          { id: "history", label: "Mes Transactions", icon: <History size={12} /> },
         ].map((t) => (
           <button key={t.id} onClick={() => setBourseTab(t.id)}
             className={`flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 -mb-px transition-all ${
@@ -452,58 +472,72 @@ const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellSh
               <TrendingUp size={36} className="mx-auto text-stone-300 mb-3" />
               <p className="text-sm text-stone-500">Aucune société n'est cotée pour le moment.</p>
             </div>
-          ) : activeListing.map((listing) => {
-            const pct = listing.initialPrice ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice * 100) : 0;
-            const myShares = (user.stockholdings || {})[listing.id] || 0;
-            const qty = parseInt(buyQty[listing.id] || 1);
-            const canAfford = (user.balance || 0) >= qty * listing.pricePerShare;
-            return (
-              <div key={listing.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100">
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 min-w-[60px] text-center shrink-0">
-                    <div className="font-black font-mono text-emerald-700 text-sm">{listing.symbol}</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-stone-800 text-sm truncate">{listing.companyName}</div>
-                    {listing.description && <div className="text-[10px] text-stone-400 truncate">{listing.description}</div>}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-black font-mono text-stone-800 text-base">{formatMoney(listing.pricePerShare)}</div>
-                    <div className={`text-[10px] font-black flex items-center justify-end gap-0.5 ${pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-stone-400"}`}>
-                      {pct > 0 ? <TrendingUp size={10} /> : pct < 0 ? <TrendingDown size={10} /> : null}
-                      {pct !== 0 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 px-4 py-2.5 bg-stone-50/50">
-                  <div className="text-[9px] text-stone-500 flex gap-3 flex-wrap">
-                    <span>{listing.sharesOnMarket.toLocaleString()} dispo</span>
-                    <span className="text-stone-300">|</span>
-                    <span>{listing.totalShares.toLocaleString()} total</span>
-                    {myShares > 0 && <><span className="text-stone-300">|</span><span className="text-amber-600 font-bold">Vous: {myShares}</span></>}
-                  </div>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <input type="number" min={1} max={listing.sharesOnMarket}
-                      className="w-16 p-1.5 border border-stone-200 rounded text-sm font-mono text-center bg-white focus:border-emerald-400 outline-none"
-                      value={buyQty[listing.id] || 1}
-                      onChange={(e) => setBuyQty((q) => ({ ...q, [listing.id]: e.target.value }))}
-                    />
-                    <button
-                      disabled={!listing.isActive || listing.sharesOnMarket < 1 || !canAfford || qty <= 0}
-                      onClick={() => { onBourseBuyShares(listing.id, qty); setBuyQty((q) => ({ ...q, [listing.id]: 1 })); }}
-                      className="bg-emerald-600 text-white px-4 py-1.5 rounded text-[10px] font-black uppercase hover:bg-emerald-500 disabled:opacity-40 transition-colors">
-                      Acheter
-                    </button>
-                  </div>
-                </div>
-                {!canAfford && qty > 0 && (
-                  <div className="px-4 py-1 bg-red-50 text-red-500 text-[9px] font-bold border-t border-red-100">
-                    Fonds insuffisants — coût : {formatMoney((qty * listing.pricePerShare))} / solde : {formatMoney((user.balance || 0))}
-                  </div>
-                )}
+          ) : (
+            <>
+              <div className="relative mb-1">
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input value={bourseSearch} onChange={e => setBourseSearch(e.target.value)}
+                  placeholder="Rechercher un symbole ou une société..."
+                  className="w-full pl-8 pr-3 py-2 border border-stone-200 rounded-lg text-xs bg-white outline-none focus:border-emerald-400" />
               </div>
-            );
-          })}
+              {filteredListings.length === 0 && activeListing.length > 0 && (
+                <div className="text-center text-stone-400 italic text-xs py-6">Aucun résultat pour "{bourseSearch}"</div>
+              )}
+              {filteredListings.map((listing) => {
+                const pct = listing.initialPrice ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice * 100) : 0;
+                const myShares = (user.stockholdings || {})[listing.id] || 0;
+                const qty = parseInt(buyQty[listing.id] || 1);
+                const canAfford = (user.balance || 0) >= qty * listing.pricePerShare;
+                return (
+                  <div key={listing.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100">
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 min-w-[60px] text-center shrink-0">
+                        <div className="font-black font-mono text-emerald-700 text-sm">{listing.symbol}</div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-stone-800 text-sm truncate">{listing.companyName}</div>
+                        {listing.description && <div className="text-[10px] text-stone-400 truncate">{listing.description}</div>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-black font-mono text-stone-800 text-base">{formatMoney(listing.pricePerShare)}</div>
+                        <div className={`text-[10px] font-black flex items-center justify-end gap-0.5 ${pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-stone-400"}`}>
+                          {pct > 0 ? <TrendingUp size={10} /> : pct < 0 ? <TrendingDown size={10} /> : null}
+                          {pct !== 0 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
+                        </div>
+                        <Sparkline history={listing.priceHistory} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 px-4 py-2.5 bg-stone-50/50">
+                      <div className="text-[9px] text-stone-500 flex gap-3 flex-wrap">
+                        <span>{listing.sharesOnMarket.toLocaleString()} dispo</span>
+                        <span className="text-stone-300">|</span>
+                        <span>{listing.totalShares.toLocaleString()} total</span>
+                        {myShares > 0 && <><span className="text-stone-300">|</span><span className="text-amber-600 font-bold">Vous: {myShares}</span></>}
+                      </div>
+                      <div className="flex items-center gap-2 ml-auto">
+                        <input type="number" min={1} max={listing.sharesOnMarket}
+                          className="w-16 p-1.5 border border-stone-200 rounded text-sm font-mono text-center bg-white focus:border-emerald-400 outline-none"
+                          value={buyQty[listing.id] || 1}
+                          onChange={(e) => setBuyQty((q) => ({ ...q, [listing.id]: e.target.value }))}
+                        />
+                        <button
+                          disabled={!listing.isActive || listing.sharesOnMarket < 1 || !canAfford || qty <= 0 || qty > listing.sharesOnMarket}
+                          onClick={() => { onBourseBuyShares(listing.id, qty); setBuyQty((q) => ({ ...q, [listing.id]: 1 })); }}
+                          className="bg-emerald-600 text-white px-4 py-1.5 rounded text-[10px] font-black uppercase hover:bg-emerald-500 disabled:opacity-40 transition-colors">
+                          Acheter
+                        </button>
+                      </div>
+                    </div>
+                    {!canAfford && qty > 0 && (
+                      <div className="px-4 py-1 bg-red-50 text-red-500 text-[9px] font-bold border-t border-red-100">
+                        Fonds insuffisants — coût : {formatMoney((qty * listing.pricePerShare))} / solde : {formatMoney((user.balance || 0))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
 

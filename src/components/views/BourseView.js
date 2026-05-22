@@ -353,6 +353,7 @@ const BourseView = ({
   const [tab, setTab] = useState("market"); // "market" | "ipo" | "history"
   const [detailId, setDetailId] = useState(null);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("symbol");
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -360,6 +361,19 @@ const BourseView = ({
       l.symbol.toLowerCase().includes(q) || l.companyName.toLowerCase().includes(q)
     );
   }, [bourseListings, search]);
+
+  const sortedFiltered = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "price") return b.pricePerShare - a.pricePerShare;
+      if (sortBy === "variation") {
+        const pa = a.initialPrice ? (a.pricePerShare - a.initialPrice) / a.initialPrice : 0;
+        const pb = b.initialPrice ? (b.pricePerShare - b.initialPrice) / b.initialPrice : 0;
+        return pb - pa;
+      }
+      if (sortBy === "volume") return b.sharesOnMarket - a.sharesOnMarket;
+      return a.symbol.localeCompare(b.symbol);
+    });
+  }, [filtered, sortBy]);
 
   const bourseHistory = useMemo(() =>
     (globalLedger || []).filter((e) => ["BOURSE_BUY", "BOURSE_SELL", "BOURSE_IPO", "BOURSE_DIVIDEND"].includes(e.type)).slice(0, 100),
@@ -383,7 +397,7 @@ const BourseView = ({
 
   // Statistiques globales
   const totalCapitalization = bourseListings.reduce((s, l) => s + l.totalShares * l.pricePerShare, 0);
-  const totalHolders = new Set(citizens.flatMap((c) => Object.keys(c.stockholdings || {}))).size;
+  const totalHolders = citizens.filter((c) => Object.values(c.stockholdings || {}).some((v) => v > 0)).length;
 
   if (tab === "ipo" && !detailId) {
     return (
@@ -433,7 +447,7 @@ const BourseView = ({
         </div>
         <div className="bg-stone-800/40 border border-stone-700 rounded-xl px-4 py-3">
           <div className="text-[8px] text-stone-500 uppercase font-black tracking-widest">Capitalisation totale</div>
-          <div className="text-lg font-black font-mono text-amber-300 mt-1">{totalCapitalization.toLocaleString()}</div>
+          <div className="text-lg font-black font-mono text-amber-300 mt-1">{formatMoney(totalCapitalization)}</div>
           <div className="text-[9px] text-stone-500">Écus</div>
         </div>
         <div className="bg-stone-800/40 border border-stone-700 rounded-xl px-4 py-3">
@@ -475,6 +489,15 @@ const BourseView = ({
             </div>
           ) : (
             <div className="space-y-2">
+              <div className="flex justify-end mb-1">
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                  className="bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-[10px] text-stone-300 outline-none">
+                  <option value="symbol">Trier : Symbole</option>
+                  <option value="price">Trier : Cours</option>
+                  <option value="variation">Trier : Variation</option>
+                  <option value="volume">Trier : Volume</option>
+                </select>
+              </div>
               {/* En-tête de colonne */}
               <div className="grid grid-cols-12 gap-2 px-3 text-[8px] font-black uppercase tracking-widest text-stone-600">
                 <div className="col-span-2">Symbole</div>
@@ -484,7 +507,7 @@ const BourseView = ({
                 <div className="col-span-2 text-right">En vente</div>
                 <div className="col-span-1"></div>
               </div>
-              {filtered.map((listing) => {
+              {sortedFiltered.map((listing) => {
                 const pctChange = listing.initialPrice
                   ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice) * 100
                   : 0;
