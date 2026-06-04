@@ -16,9 +16,10 @@ const PostOfficeView = ({
   countries,
   citizens,
   session,
+  isGlobalScope = false,
   onUpdateRequests,
   onUpdateCitizen,
-  onVisaGranted, // <--- NOUVELLE PROP
+  onVisaGranted,
   notify,
 }) => {
   const myCountryId = session.countryId;
@@ -40,9 +41,9 @@ const PostOfficeView = ({
       const isIntra = req.fromCountry === req.toCountry;
       const isDeparture = req.fromCountry === myCountryId;
       const isArrival = req.toCountry === myCountryId;
-      const isGlobalAdmin = ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(
-        session.role
-      );
+      const isGlobalAdmin =
+        isGlobalScope ||
+        ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role);
 
       if (isGlobalAdmin) return true;
 

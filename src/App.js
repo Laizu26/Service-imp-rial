@@ -978,6 +978,7 @@ export default function App() {
                       countries={state.countries}
                       citizens={state.citizens}
                       session={currentUser}
+                      isGlobalScope={effectiveScope === "GLOBAL"}
                       notify={notify}
                       onUpdateRequests={(reqs) =>
                         saveState({ ...state, travelRequests: reqs })
