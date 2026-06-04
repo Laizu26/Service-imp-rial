@@ -977,7 +977,7 @@ export default function App() {
                       travelRequests={state.travelRequests}
                       countries={state.countries}
                       citizens={state.citizens}
-                      session={session}
+                      session={currentUser}
                       notify={notify}
                       onUpdateRequests={(reqs) =>
                         saveState({ ...state, travelRequests: reqs })

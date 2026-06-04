@@ -25,6 +25,8 @@ const PostOfficeView = ({
 
   const [activeTab, setActiveTab] = useState("pending"); // pending | history
   const [pendingSearch, setPendingSearch] = useState("");
+  const [rejectTarget, setRejectTarget] = useState(null); // { req, reason }
+  const [rejectReason, setRejectReason] = useState("");
 
   // Filtrer les requêtes pertinentes
   const relevantRequests = useMemo(() => {
@@ -77,20 +79,25 @@ const PostOfficeView = ({
   }, [relevantRequests, pendingSearch, countries]);
 
   // Action : REJET
-  const handleReject = (req) => {
-    const reason = prompt("Motif du refus (sera transmis au citoyen) :");
-    if (!reason) return; // Annulation
+  const openReject = (req) => {
+    setRejectTarget(req);
+    setRejectReason("");
+  };
 
+  const confirmReject = () => {
+    if (!rejectTarget) return;
     const updatedReq = {
-      ...req,
+      ...rejectTarget,
       status: "REJECTED",
-      rejectionReason: reason,
+      rejectionReason: rejectReason || "Refus sans motif",
       rejectedBy: session.name,
+      processedAt: Date.now(),
     };
-
-    const otherRequests = travelRequests.filter((r) => r.id !== req.id);
+    const otherRequests = travelRequests.filter((r) => r.id !== rejectTarget.id);
     onUpdateRequests([...otherRequests, updatedReq]);
     if (notify) notify("Demande de visa rejetée.", "info");
+    setRejectTarget(null);
+    setRejectReason("");
   };
 
   // Action : VALIDATION
@@ -176,6 +183,53 @@ const PostOfficeView = ({
 
   return (
     <div className="h-full bg-[#fdf6e3] rounded-2xl border border-stone-300 flex flex-col p-6 md:p-8 font-sans">
+      {/* Modal de rejet */}
+      {rejectTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-stone-800 uppercase tracking-widest text-sm flex items-center gap-2">
+                <XCircle size={16} className="text-red-500" /> Refuser le visa
+              </h3>
+              <button onClick={() => setRejectTarget(null)} className="text-stone-400 hover:text-stone-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 text-xs text-stone-600">
+              Demande de <span className="font-black">{rejectTarget.citizenName}</span> —{" "}
+              {countries.find(c => c.id === rejectTarget.fromCountry)?.name} → {countries.find(c => c.id === rejectTarget.toCountry)?.name}
+            </div>
+            <div>
+              <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">
+                Motif du refus
+              </label>
+              <textarea
+                className="w-full p-3 border border-stone-200 rounded-xl text-sm bg-white outline-none focus:border-red-400 resize-none"
+                rows={3}
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="Expliquez le motif du refus (optionnel)..."
+                maxLength={300}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={confirmReject}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-red-500 flex items-center justify-center gap-2"
+              >
+                <XCircle size={14} /> Confirmer le refus
+              </button>
+              <button
+                onClick={() => setRejectTarget(null)}
+                className="px-4 py-2.5 border border-stone-200 rounded-xl text-xs font-bold text-stone-500 hover:bg-stone-100"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="border-b-2 border-stone-200 pb-4 mb-6 space-y-4">
         <div className="flex items-center gap-4">
           <div className="bg-stone-800 text-white p-3 rounded-full shadow-lg">
@@ -349,7 +403,7 @@ const PostOfficeView = ({
 
                 <div className="flex gap-2 pl-2">
                   <button
-                    onClick={() => handleReject(req)}
+                    onClick={() => openReject(req)}
                     className="px-3 py-2 bg-white border border-stone-200 text-stone-500 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors text-[10px] font-bold uppercase tracking-widest flex items-center gap-1"
                     title="Refuser le visa"
                   >
