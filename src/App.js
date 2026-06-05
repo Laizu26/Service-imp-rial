@@ -99,34 +99,6 @@ export default function App() {
   const { settings, isDark, updateSetting, resetSettings } = useSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // ── Sync paramètres UI ↔ Firestore ──────────────────────────────────────
-  // Référence pour savoir si on a déjà chargé les settings depuis le cloud
-  const settingsLoadedForUser = useRef(null);
-  const settingsSaveTimer = useRef(null);
-
-  // Chargement cloud → local (une fois par compte)
-  useEffect(() => {
-    if (!currentUser?.id || settingsLoadedForUser.current === currentUser.id) return;
-    settingsLoadedForUser.current = currentUser.id;
-    if (currentUser.uiSettings) {
-      Object.entries(currentUser.uiSettings).forEach(([k, v]) => updateSetting(k, v));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser?.id]);
-
-  // Sauvegarde local → cloud (débounce 2s, uniquement si valeur différente)
-  useEffect(() => {
-    if (!currentUser?.id || settingsLoadedForUser.current !== currentUser.id) return;
-    if (JSON.stringify(settings) === JSON.stringify(currentUser.uiSettings || {})) return;
-    clearTimeout(settingsSaveTimer.current);
-    settingsSaveTimer.current = setTimeout(() => {
-      actions.onUpdateCitizen({ ...currentUser, uiSettings: settings });
-    }, 2000);
-    return () => clearTimeout(settingsSaveTimer.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings]);
-  // ────────────────────────────────────────────────────────────────────────
-
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
@@ -239,6 +211,33 @@ export default function App() {
     if (!currentUser) return;
     actions.onUpdateCitizen({ ...currentUser, bookmarks: arr });
   }, [currentUser, actions]);
+
+  // ── Sync paramètres UI ↔ Firestore ──────────────────────────────────────
+  const settingsLoadedForUser = useRef(null);
+  const settingsSaveTimer = useRef(null);
+
+  // Chargement cloud → local (une fois par compte, après que currentUser soit défini)
+  useEffect(() => {
+    if (!currentUser?.id || settingsLoadedForUser.current === currentUser.id) return;
+    settingsLoadedForUser.current = currentUser.id;
+    if (currentUser.uiSettings) {
+      Object.entries(currentUser.uiSettings).forEach(([k, v]) => updateSetting(k, v));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
+  // Sauvegarde local → cloud (débounce 2s)
+  useEffect(() => {
+    if (!currentUser?.id || settingsLoadedForUser.current !== currentUser.id) return;
+    if (JSON.stringify(settings) === JSON.stringify(currentUser.uiSettings || {})) return;
+    clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = setTimeout(() => {
+      actions.onUpdateCitizen({ ...currentUser, uiSettings: settings });
+    }, 2000);
+    return () => clearTimeout(settingsSaveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings]);
+  // ────────────────────────────────────────────────────────────────────────
 
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
