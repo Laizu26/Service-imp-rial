@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Shield,
   LogOut,
@@ -99,6 +99,34 @@ export default function App() {
   const { settings, isDark, updateSetting, resetSettings } = useSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // ── Sync paramètres UI ↔ Firestore ──────────────────────────────────────
+  // Référence pour savoir si on a déjà chargé les settings depuis le cloud
+  const settingsLoadedForUser = useRef(null);
+  const settingsSaveTimer = useRef(null);
+
+  // Chargement cloud → local (une fois par compte)
+  useEffect(() => {
+    if (!currentUser?.id || settingsLoadedForUser.current === currentUser.id) return;
+    settingsLoadedForUser.current = currentUser.id;
+    if (currentUser.uiSettings) {
+      Object.entries(currentUser.uiSettings).forEach(([k, v]) => updateSetting(k, v));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
+  // Sauvegarde local → cloud (débounce 2s, uniquement si valeur différente)
+  useEffect(() => {
+    if (!currentUser?.id || settingsLoadedForUser.current !== currentUser.id) return;
+    if (JSON.stringify(settings) === JSON.stringify(currentUser.uiSettings || {})) return;
+    clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = setTimeout(() => {
+      actions.onUpdateCitizen({ ...currentUser, uiSettings: settings });
+    }, 2000);
+    return () => clearTimeout(settingsSaveTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings]);
+  // ────────────────────────────────────────────────────────────────────────
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
@@ -191,11 +219,26 @@ export default function App() {
     return ROLES.CITOYEN;
   }, [currentUser, state.countries]);
 
+  // Callback partagé : persiste les IDs rejetés dans le citoyen Firestore
+  const handleDismissedChange = useCallback((ids) => {
+    if (!currentUser) return;
+    actions.onUpdateCitizen({ ...currentUser, dismissedNotifs: ids });
+  }, [currentUser, actions]);
+
   const { grouped: adminGrouped, unreadCount: adminUnreadCount, dismiss: adminDismiss, dismissAll: adminDismissAll } = useNotifications(
     currentUser,
     state.citizens || [],
-    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [] }
+    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [] },
+    undefined,
+    undefined,
+    handleDismissedChange
   );
+
+  // Callback signets → Firestore
+  const handleBookmarksChange = useCallback((arr) => {
+    if (!currentUser) return;
+    actions.onUpdateCitizen({ ...currentUser, bookmarks: arr });
+  }, [currentUser, actions]);
 
   const currentStatus = currentUser?.status || "Actif";
   const isDead = currentStatus === "Décédé";
@@ -647,6 +690,9 @@ export default function App() {
             onBreachContract={actions.onBreachContract}
             onDeleteContract={actions.onDeleteContract}
             trials={state.trials || []}
+            bookmarks={currentUser?.bookmarks}
+            onBookmarksChange={handleBookmarksChange}
+            onDismissedChange={handleDismissedChange}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">

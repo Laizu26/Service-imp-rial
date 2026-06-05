@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Book,
   Gavel,
@@ -128,7 +128,7 @@ function AccessBadge({ book, countries }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const LibraryView = ({ countries, session, users = [], onSubmitBook }) => {
+const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: cloudBookmarks, onBookmarksChange }) => {
   const [activeTab, setActiveTab] = useState("empire");
   const [viewingCountryId, setViewingCountryId] = useState(session?.countryId);
   const [search, setSearch] = useState("");
@@ -136,13 +136,23 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook }) => {
   const [expandedDecreeId, setExpandedDecreeId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
   const [sortBooks, setSortBooks] = useState("date");
+
+  // Signets : cloud en priorité, localStorage en fallback
   const [bookmarks, setBookmarks] = useState(() => {
+    if (Array.isArray(cloudBookmarks)) return new Set(cloudBookmarks.map(String));
     try {
       return new Set(JSON.parse(localStorage.getItem("imperial_bookmarks") || "[]"));
     } catch {
       return new Set();
     }
   });
+
+  // Sync depuis le cloud si les signets changent sur un autre appareil
+  useEffect(() => {
+    if (!Array.isArray(cloudBookmarks)) return;
+    setBookmarks(new Set(cloudBookmarks.map(String)));
+  }, [cloudBookmarks]);
+
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeCategory, setWriteCategory] = useState("");
@@ -160,7 +170,12 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook }) => {
       const next = new Set(prev);
       if (next.has(String(id))) next.delete(String(id));
       else next.add(String(id));
-      localStorage.setItem("imperial_bookmarks", JSON.stringify([...next]));
+      const arr = [...next];
+      if (onBookmarksChange) {
+        onBookmarksChange(arr);
+      } else {
+        localStorage.setItem("imperial_bookmarks", JSON.stringify(arr));
+      }
       return next;
     });
   };

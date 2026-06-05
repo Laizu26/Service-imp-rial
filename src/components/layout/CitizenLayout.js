@@ -824,6 +824,9 @@ const CitizenLayout = (props) => {
     onGuardCompleteOrder,
     onGuardImprison,
     onGuardRelease,
+    bookmarks,
+    onBookmarksChange,
+    onDismissedChange,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -917,7 +920,8 @@ const CitizenLayout = (props) => {
     users,
     { debtRegistry: debtRegistry || [], gazette: gazette || [] },
     settings.notifPrefs,
-    gd
+    gd,
+    onDismissedChange
   );
 
   // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
@@ -1398,6 +1402,8 @@ const CitizenLayout = (props) => {
                 session={user}
                 users={safeUsers}
                 onSubmitBook={onSubmitBook}
+                bookmarks={bookmarks}
+                onBookmarksChange={onBookmarksChange}
               />
             )}
             {/* ------------------------- */}

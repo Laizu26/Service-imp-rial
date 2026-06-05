@@ -1,34 +1,80 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { formatMoney } from "../lib/gameUtils";
 
 /**
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
  * Chaque notification a : { id, type, category, title, description, timestamp, route, icon }
+ *
+ * onDismissedChange(ids) — callback appelé quand la liste des IDs rejetés change.
+ * Si fourni, les IDs sont persistés dans le citoyen (Firestore) plutôt qu'en localStorage.
  */
-export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
+export const useNotifications = (user, users, state, notifPrefs, gameDate, onDismissedChange) => {
   const prefs = notifPrefs || {};
   const [dismissed, setDismissed] = useState([]);
 
-  // Charger depuis localStorage à chaque changement d'utilisateur
+  // Seed depuis le citoyen Firestore (ou localStorage en fallback)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(`notif_dismissed_${user?.id}`);
-      setDismissed(stored ? JSON.parse(stored) : []);
-    } catch {
-      setDismissed([]);
+    if (!user?.id) { setDismissed([]); return; }
+
+    if (Array.isArray(user.dismissedNotifs)) {
+      // Migration one-shot : fusionner avec localStorage s'il reste des données
+      try {
+        const lsKey = `notif_dismissed_${user.id}`;
+        const stored = localStorage.getItem(lsKey);
+        if (stored) {
+          const lsIds = JSON.parse(stored);
+          if (lsIds.length > 0) {
+            const merged = [...new Set([...user.dismissedNotifs, ...lsIds])].slice(-500);
+            setDismissed(merged);
+            if (onDismissedChange) onDismissedChange(merged);
+            localStorage.removeItem(lsKey);
+            return;
+          }
+          localStorage.removeItem(lsKey);
+        }
+      } catch {}
+      setDismissed(user.dismissedNotifs);
+    } else {
+      // Fallback localStorage (compte sans cloud ou hors ligne)
+      try {
+        const stored = localStorage.getItem(`notif_dismissed_${user.id}`);
+        setDismissed(stored ? JSON.parse(stored) : []);
+      } catch {
+        setDismissed([]);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Sync temps réel depuis un autre appareil : merge quand le cloud reçoit de nouvelles entrées
+  const cloudKeyRef = useRef("");
+  useEffect(() => {
+    if (!Array.isArray(user?.dismissedNotifs) || !onDismissedChange) return;
+    const key = user.dismissedNotifs.join(",");
+    if (key === cloudKeyRef.current) return;
+    cloudKeyRef.current = key;
+    setDismissed((prev) => {
+      const newItems = user.dismissedNotifs.filter((id) => !prev.includes(id));
+      if (newItems.length === 0) return prev;
+      return [...new Set([...prev, ...user.dismissedNotifs])].slice(-500);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.dismissedNotifs]);
 
   const saveDismissed = useCallback(
     (ids) => {
-      try {
-        localStorage.setItem(
-          `notif_dismissed_${user?.id}`,
-          JSON.stringify(ids.slice(-500))
-        );
-      } catch {}
+      if (onDismissedChange) {
+        onDismissedChange(ids.slice(-500));
+      } else {
+        try {
+          localStorage.setItem(
+            `notif_dismissed_${user?.id}`,
+            JSON.stringify(ids.slice(-500))
+          );
+        } catch {}
+      }
     },
-    [user?.id]
+    [user?.id, onDismissedChange]
   );
 
   const dismiss = useCallback(
@@ -202,9 +248,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
       });
     }
 
-    // Trier par timestamp desc
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, users, state?.debtRegistry, state?.gazette, prefs, gameDate]);
@@ -216,7 +260,6 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
 
   const unreadCount = unreadNotifications.length;
 
-  // Grouper par catégorie (toutes les notifs, avec isRead)
   const grouped = useMemo(() => {
     const groups = {};
     notifications.forEach((n) => {
@@ -226,7 +269,6 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
     return groups;
   }, [notifications, dismissed]);
 
-  // Liste plate avec isRead
   const allWithStatus = useMemo(
     () =>
       notifications.map((n) => ({
@@ -236,7 +278,6 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate) => {
     [notifications, dismissed]
   );
 
-  // Catégories disponibles
   const categories = useMemo(
     () => [...new Set(notifications.map((n) => n.category))],
     [notifications]
