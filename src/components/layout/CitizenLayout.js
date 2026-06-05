@@ -834,6 +834,23 @@ const CitizenLayout = (props) => {
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
   const [active, setActive] = useState("gazette");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [showRestorePanel, setShowRestorePanel] = useState(false);
+
+  // Onglets non-fermables (essentiels)
+  const NON_CLOSEABLE = new Set(["profil", "notifications", "settings"]);
+
+  const hiddenTabs = settings.hiddenTabs || [];
+
+  const closeTab = (tabId) => {
+    const next = [...hiddenTabs, tabId];
+    updateSetting("hiddenTabs", next);
+    // Si l'onglet actif est fermé, basculer sur gazette
+    if (active === tabId) setActive("gazette");
+  };
+
+  const restoreTab = (tabId) => {
+    updateSetting("hiddenTabs", hiddenTabs.filter((id) => id !== tabId));
+  };
 
 
   // Formulaires (avec valeurs par défaut vides)
@@ -1102,31 +1119,44 @@ const CitizenLayout = (props) => {
                 gIdx > 0 && <div className="h-px bg-stone-800 mx-1 mb-2 mt-2" />
               )}
               <div className="space-y-0.5">
-                {group.items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActive(item.id)}
-                    title={settings.sidebarCollapsed ? item.label : undefined}
-                    className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
-                      active === item.id
-                        ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
-                        : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
-                    }`}
-                  >
-                    <item.icon
-                      size={16}
-                      className={`shrink-0 transition-colors ${
+                {group.items
+                  .filter((item) => !hiddenTabs.includes(item.id))
+                  .map((item) => (
+                  <div key={item.id} className="relative group/tab">
+                    <button
+                      onClick={() => setActive(item.id)}
+                      title={settings.sidebarCollapsed ? item.label : undefined}
+                      className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
                         active === item.id
-                          ? "text-stone-900"
-                          : "text-stone-500 group-hover:text-stone-300"
+                          ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
+                          : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
                       }`}
-                    />
-                    {!settings.sidebarCollapsed && (
-                      <span className="text-[10px] font-black uppercase tracking-widest">
-                        {item.label}
-                      </span>
+                    >
+                      <item.icon
+                        size={16}
+                        className={`shrink-0 transition-colors ${
+                          active === item.id
+                            ? "text-stone-900"
+                            : "text-stone-500 group-hover:text-stone-300"
+                        }`}
+                      />
+                      {!settings.sidebarCollapsed && (
+                        <span className="text-[10px] font-black uppercase tracking-widest flex-1 text-left">
+                          {item.label}
+                        </span>
+                      )}
+                    </button>
+                    {/* Bouton fermer — visible au survol, sauf sidebar réduite et non-closeables */}
+                    {!settings.sidebarCollapsed && !NON_CLOSEABLE.has(item.id) && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); closeTab(item.id); }}
+                        title={`Fermer « ${item.label} »`}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/tab:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 z-10"
+                      >
+                        <X size={11} />
+                      </button>
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1161,6 +1191,47 @@ const CitizenLayout = (props) => {
               )}
             </button>
           </div>
+
+          {/* ── Bouton restaurer onglets fermés ── */}
+          {!settings.sidebarCollapsed && hiddenTabs.length > 0 && (
+            <div className="mt-3">
+              <button
+                onClick={() => setShowRestorePanel((v) => !v)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-stone-600 hover:text-stone-300 hover:bg-stone-800 transition-all"
+              >
+                <PlusCircle size={13} className="shrink-0" />
+                <span className="text-[9px] font-black uppercase tracking-widest">
+                  {hiddenTabs.length} onglet{hiddenTabs.length > 1 ? "s" : ""} masqué{hiddenTabs.length > 1 ? "s" : ""}
+                </span>
+              </button>
+
+              {showRestorePanel && (
+                <div className="mt-1 mx-1 bg-stone-800 rounded-xl border border-stone-700 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-stone-700 flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Restaurer</span>
+                    <button onClick={() => setShowRestorePanel(false)} className="text-stone-600 hover:text-stone-300">
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="p-1">
+                    {menuGroups.flatMap((g) => g.items)
+                      .filter((item) => hiddenTabs.includes(item.id))
+                      .map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => restoreTab(item.id)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-stone-400 hover:bg-stone-700 hover:text-stone-100 transition-colors"
+                        >
+                          <item.icon size={13} className="shrink-0 text-stone-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-wide flex-1 text-left">{item.label}</span>
+                          <PlusCircle size={12} className="text-stone-600 hover:text-stone-300 shrink-0" />
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         <div className={`${settings.sidebarCollapsed ? "p-2" : "p-4"} border-t border-stone-800 space-y-2`}>
@@ -1377,7 +1448,7 @@ const CitizenLayout = (props) => {
 
         <main className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
           <div className={`${active === "msg" ? "hidden" : ""} md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x`}>
-            {menuItems.map((item) => (
+            {menuItems.filter((item) => !hiddenTabs.includes(item.id)).map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActive(item.id)}

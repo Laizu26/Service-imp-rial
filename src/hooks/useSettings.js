@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   compact: false,
   animations: true,
   sidebarCollapsed: false,
+  hiddenTabs: [],       // IDs des onglets masqués par le citoyen
 };
 
 // Palettes de couleurs — CSS variables appliquées sur <html>
