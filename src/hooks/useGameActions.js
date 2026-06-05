@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney } from "../lib/gameUtils";
+import { formatMoney, toRoman } from "../lib/gameUtils";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -1072,14 +1072,17 @@ export const useGameActions = (session, state, saveState, notify) => {
       onSendPost: (targetId, subject, content, ccList, seal) => {
         if (!session) return;
         const safeCitizens = state.citizens || [];
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const dateStr = `${gd.day}/${toRoman(gd.month)}/${toRoman(gd.year)}`;
         const newMessage = {
           id: Date.now(),
           from: session.name,
           fromId: session.id,
-          date: `J${state.dayCycle}`,
+          date: dateStr,
           subject,
           content,
           seal,
+          cc: Array.isArray(ccList) ? ccList : [],
           censored: false,
         };
         const newCitizens = safeCitizens.map((c) =>
