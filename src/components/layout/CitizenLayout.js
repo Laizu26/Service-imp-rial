@@ -1375,8 +1375,8 @@ const CitizenLayout = (props) => {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
-          <div className="md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x">
+        <main className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
+          <div className={`${active === "msg" ? "hidden" : ""} md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x`}>
             {menuItems.map((item) => (
               <button
                 key={item.id}
@@ -1392,7 +1392,7 @@ const CitizenLayout = (props) => {
             ))}
           </div>
 
-          <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+          <div className={active === "msg" ? "h-full w-full" : "max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
