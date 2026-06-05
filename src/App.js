@@ -216,6 +216,14 @@ export default function App() {
   const settingsLoadedForUser = useRef(null);
   const settingsSaveTimer = useRef(null);
 
+  // Refs toujours à jour pour éviter les closures périmées dans le setTimeout
+  const currentUserRef = useRef(currentUser);
+  const actionsRef = useRef(actions);
+  const settingsRef = useRef(settings);
+  useEffect(() => { currentUserRef.current = currentUser; });
+  useEffect(() => { actionsRef.current = actions; });
+  useEffect(() => { settingsRef.current = settings; });
+
   // Chargement cloud → local (une fois par compte, après que currentUser soit défini)
   useEffect(() => {
     if (!currentUser?.id || settingsLoadedForUser.current === currentUser.id) return;
@@ -226,13 +234,16 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
 
-  // Sauvegarde local → cloud (débounce 2s)
+  // Sauvegarde local → cloud (débounce 2s) — utilise les refs pour toujours
+  // opérer sur l'état le plus récent et éviter d'écraser des données fraîches
   useEffect(() => {
     if (!currentUser?.id || settingsLoadedForUser.current !== currentUser.id) return;
     if (JSON.stringify(settings) === JSON.stringify(currentUser.uiSettings || {})) return;
     clearTimeout(settingsSaveTimer.current);
     settingsSaveTimer.current = setTimeout(() => {
-      actions.onUpdateCitizen({ ...currentUser, uiSettings: settings });
+      const cu = currentUserRef.current;
+      if (!cu?.id) return;
+      actionsRef.current.onUpdateCitizen({ ...cu, uiSettings: settingsRef.current });
     }, 2000);
     return () => clearTimeout(settingsSaveTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
