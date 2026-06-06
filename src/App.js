@@ -561,6 +561,7 @@ export default function App() {
             onCancelDebt={actions.onCancelDebt}
             onBuyItem={actions.onBuyItem}
             onGiveItem={actions.onGiveItem}
+            onUseItem={actions.onUseItem}
             notify={notify}
             isGraded={canAccessAdmin}
             isBanned={gmBoostActive ? false : isBanned}

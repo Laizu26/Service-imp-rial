@@ -671,6 +671,7 @@ const CitizenLayout = (props) => {
     onCancelDebt,
     onBuyItem,
     onGiveItem,
+    onUseItem,
     onBuySlave,
     onConfiscateSlaveMoney,
     onSelfManumit,
@@ -1507,6 +1508,7 @@ const CitizenLayout = (props) => {
                 catalog={catalog}
                 onBuyItem={onBuyItem}
                 onGiveItem={onGiveItem}
+                onUseItem={onUseItem}
                 onBuySlave={onBuySlave}
                 gameDate={gd}
                 onListItemForSale={onListItemForSale}

@@ -44,6 +44,7 @@ const CitizenInventoryView = ({
   catalog,
   onBuyItem,
   onGiveItem,
+  onUseItem,
   onBuySlave,
   gameDate,
   onListItemForSale,
@@ -422,13 +423,24 @@ const CitizenInventoryView = ({
                       <span className="bg-stone-100 text-stone-700 px-2.5 py-1 rounded font-black text-sm font-mono">
                         x{item.qty}
                       </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); openAction(item, "GIVE"); }}
-                        className="text-stone-400 hover:text-stone-800 p-2 rounded-lg hover:bg-stone-100 transition-colors"
-                        title="Donner"
-                      >
-                        <Gift size={18} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {item.usable && onUseItem && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onUseItem(item.id); }}
+                            className="text-emerald-600 hover:text-emerald-800 p-2 rounded-lg hover:bg-emerald-50 transition-colors"
+                            title="Utiliser"
+                          >
+                            <Zap size={18} />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openAction(item, "GIVE"); }}
+                          className="text-stone-400 hover:text-stone-800 p-2 rounded-lg hover:bg-stone-100 transition-colors"
+                          title="Donner"
+                        >
+                          <Gift size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 

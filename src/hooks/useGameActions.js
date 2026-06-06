@@ -1349,6 +1349,52 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
         notify(`${qty}x ${itemName} donné(s).`, "success");
       },
+
+      onUseItem: (itemId) => {
+        if (!session) return;
+        const catalog = state.inventoryCatalog || [];
+        const itemDef = catalog.find((i) => i.id === itemId);
+        if (!itemDef?.usable) { notify("Cet objet ne peut pas être utilisé.", "error"); return; }
+
+        const userIdx = state.citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const citizen = state.citizens[userIdx];
+        const inv = [...(citizen.inventory || [])];
+        const slotIdx = inv.findIndex((e) => e.itemId === itemId);
+        if (slotIdx === -1) { notify("Objet introuvable.", "error"); return; }
+
+        // Consommer 1 unité
+        const slot = inv[slotIdx];
+        if (slot.quantity <= 1) {
+          inv.splice(slotIdx, 1);
+        } else {
+          inv[slotIdx] = { ...slot, quantity: slot.quantity - 1 };
+        }
+
+        // Appliquer effets HP / Mana sur les stats de combat
+        const cs = { ...(citizen.combatStats || {}) };
+        const hpGain   = itemDef.hpRestore   || 0;
+        const manaGain = itemDef.manaRestore  || 0;
+        if (hpGain > 0) {
+          cs.currentHp = Math.min(cs.maxHp || 30, (cs.currentHp ?? cs.maxHp ?? 30) + hpGain);
+        }
+        if (manaGain > 0) {
+          cs.currentMana = Math.min(cs.maxMana || 10, (cs.currentMana ?? cs.maxMana ?? 10) + manaGain);
+        }
+
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = {
+          ...citizen,
+          inventory: inv,
+          ...((hpGain > 0 || manaGain > 0) ? { combatStats: cs } : {}),
+        };
+        saveState({ ...state, citizens: newCitizens });
+
+        const gains = [hpGain > 0 && `+${hpGain} PV`, manaGain > 0 && `+${manaGain} Mana`].filter(Boolean).join(", ");
+        const msg = itemDef.useEffect?.trim() || (gains || "Aucun effet défini.");
+        notify(`${itemDef.name} utilisé${gains ? ` (${gains})` : ""}. ${msg}`, "success");
+      },
+
       onBuySlave: (slaveId, price) => {
         if (!session) return;
         const newCitizens = [...state.citizens];

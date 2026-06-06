@@ -652,6 +652,42 @@ const InventoryView = ({ items, onUpdate, session, roleInfo, companies = [], cou
                       <Zap size={12} /> Utilisable
                     </label>
                   </div>
+                  {editForm.usable && (
+                    <div className="space-y-3 pt-1 pl-1 border-l-2 border-emerald-200">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1 block">Effet (texte)</label>
+                        <input
+                          type="text"
+                          value={editForm.useEffect || ""}
+                          onChange={(e) => setEditForm({ ...editForm, useEffect: e.target.value })}
+                          placeholder="Description de l'effet…"
+                          className="w-full border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1 block">PV restaurés</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editForm.hpRestore || 0}
+                            onChange={(e) => setEditForm({ ...editForm, hpRestore: parseInt(e.target.value) || 0 })}
+                            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1 block">Mana restauré</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editForm.manaRestore || 0}
+                            onChange={(e) => setEditForm({ ...editForm, manaRestore: parseInt(e.target.value) || 0 })}
+                            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-xs text-stone-800 focus:outline-none focus:border-stone-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-2 pt-4">
                     <button
                       onClick={() => setEditForm(null)}
