@@ -925,9 +925,9 @@ export default function CombatAdminView({
                                   {p.isCreature && <span className="ml-1 text-[7px] font-black text-red-400">★</span>}
                                 </span>
                                 {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black animate-pulse">SON TOUR</span>}
-                                {/* Roll MJ — masqué pour les créatures en mode observateur */}
+                                {/* Roll MJ — champ éditable masqué pour les créatures en mode observateur, VIT toujours visible */}
                                 {maskedInit ? (
-                                  <span className="text-[8px] font-mono text-stone-400 italic shrink-0">??</span>
+                                  <span className="text-[8px] font-mono text-stone-500 shrink-0">VIT {initTotal}</span>
                                 ) : (
                                   <div className="flex items-center gap-1 shrink-0">
                                     <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
