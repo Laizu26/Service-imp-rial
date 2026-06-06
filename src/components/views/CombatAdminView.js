@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
   Swords, Sword, Shield, Zap, Heart, Plus, Trash2, Edit3, X,
-  SkipForward, FileText, Save, RefreshCw, Search, Users, Flag,
+  SkipForward, FileText, Save, RefreshCw, Search, Users, Flag, EyeOff, Eye,
 } from "lucide-react";
 
 /* ─── CONSTANTES ───────────────────────────────────────────────── */
@@ -169,6 +169,7 @@ export default function CombatAdminView({
   const [addCamp, setAddCamp] = useState("A");
   const [addMode, setAddMode] = useState("citizen");
   const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
+  const [hideCreatureStats, setHideCreatureStats] = useState(false);
   const [logForm, setLogForm] = useState({ actor: "", action: "Attaque", detail: "" });
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
@@ -693,6 +694,14 @@ export default function CombatAdminView({
                           </button>
                         </>
                       )}
+                      <button
+                        onClick={() => setHideCreatureStats(v => !v)}
+                        title={hideCreatureStats ? "Afficher les stats des créatures" : "Masquer les stats des créatures"}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${hideCreatureStats ? "bg-stone-800 text-stone-200 border-stone-700" : "bg-stone-100 text-stone-500 border-stone-200 hover:border-stone-400"}`}
+                      >
+                        {hideCreatureStats ? <EyeOff size={11} /> : <Eye size={11} />}
+                        Créatures
+                      </button>
                       <button onClick={() => { onDeleteCombatSession(selSession.id); setSelSessionId(null); }}
                         className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-all">
                         <Trash2 size={13} />
@@ -821,12 +830,21 @@ export default function CombatAdminView({
                                   const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
                                   const isDead = p.currentHp <= 0;
                                   const initTotal = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
+                                  const masked = hideCreatureStats && p.isCreature;
+                                  // État lisible sans chiffres
+                                  const hpState = isDead ? { label: "Mort", cls: "bg-stone-600 text-stone-300" }
+                                    : hpPct > 66 ? { label: "Intact", cls: "bg-green-900/60 text-green-300" }
+                                    : hpPct > 33 ? { label: "Blessé", cls: "bg-amber-900/60 text-amber-300" }
+                                    : { label: "Critique", cls: "bg-red-900/60 text-red-300" };
                                   return (
                                     <div key={p.citizenId} className={`bg-stone-900/70 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""}`}>
                                       <div className="flex items-center justify-between gap-2 mb-1">
-                                        <span className={`text-xs font-black text-stone-100 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className={`text-xs font-black text-stone-100 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
+                                          {p.isCreature && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-red-900/50 text-red-300 shrink-0">Créature</span>}
+                                        </div>
                                         <div className="flex items-center gap-1.5 shrink-0">
-                                          <span className="text-[7px] font-mono text-stone-300">VIT {initTotal}</span>
+                                          {!masked && <span className="text-[7px] font-mono text-stone-300">VIT {initTotal}</span>}
                                           {selSession.status !== "ended" && (
                                             <button onClick={() => onUpdateCombatSession(selSession.id, { participants: selSession.participants.filter(x => String(x.citizenId) !== String(p.citizenId)) })}
                                               className="p-0.5 rounded hover:bg-red-900/50 text-stone-500 hover:text-red-400 transition-all">
@@ -836,21 +854,28 @@ export default function CombatAdminView({
                                         </div>
                                       </div>
                                       {/* HP */}
-                                      <div className="flex items-center gap-1.5">
-                                        <Heart size={8} className="text-red-400 shrink-0" />
-                                        <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
-                                          <div className={`h-full rounded-full ${hpColor}`} style={{ width: `${hpPct}%` }} />
+                                      {masked ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <Heart size={8} className="text-red-400 shrink-0" />
+                                          <span className={`text-[9px] font-black px-2 py-0.5 rounded ${hpState.cls}`}>{hpState.label}</span>
                                         </div>
-                                        <input type="number" min={0} max={p.maxHp}
-                                          value={editHp[String(p.citizenId)] ?? p.currentHp}
-                                          onChange={e => setEditHp(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
-                                          onBlur={() => applyHpChange(p.citizenId)}
-                                          onKeyDown={e => e.key === "Enter" && applyHpChange(p.citizenId)}
-                                          className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500" />
-                                        <span className="text-[8px] text-stone-400">/{p.maxHp}</span>
-                                      </div>
-                                      {/* Mana si mage */}
-                                      {p.class === "mage" && (
+                                      ) : (
+                                        <div className="flex items-center gap-1.5">
+                                          <Heart size={8} className="text-red-400 shrink-0" />
+                                          <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full ${hpColor}`} style={{ width: `${hpPct}%` }} />
+                                          </div>
+                                          <input type="number" min={0} max={p.maxHp}
+                                            value={editHp[String(p.citizenId)] ?? p.currentHp}
+                                            onChange={e => setEditHp(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
+                                            onBlur={() => applyHpChange(p.citizenId)}
+                                            onKeyDown={e => e.key === "Enter" && applyHpChange(p.citizenId)}
+                                            className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500" />
+                                          <span className="text-[8px] text-stone-400">/{p.maxHp}</span>
+                                        </div>
+                                      )}
+                                      {/* Mana si mage (jamais masqué pour les créatures car elles n'en ont pas) */}
+                                      {p.class === "mage" && !masked && (
                                         <div className="flex items-center gap-1.5 mt-1">
                                           <Zap size={8} className="text-blue-400 shrink-0" />
                                           <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
@@ -886,6 +911,7 @@ export default function CombatAdminView({
                             const isDead = p.currentHp <= 0;
                             const campStyle = CAMP_STYLES.find(x => x.id === (p.campId || "A")) || CAMP_STYLES[0];
                             const initTotal = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
+                            const maskedInit = hideCreatureStats && p.isCreature;
                             return (
                               <div key={p.citizenId}
                                 className={`flex items-center gap-3 px-4 py-2 transition-all ${isCurrent ? "bg-amber-100 border-l-2 border-l-amber-500" : isDead ? "opacity-40" : "hover:bg-stone-50"}`}
@@ -896,20 +922,25 @@ export default function CombatAdminView({
                                 <span className={`w-2 h-2 rounded-full shrink-0 ${campStyle.dot}`} />
                                 <span className={`flex-1 text-xs font-bold truncate ${isDead ? "line-through text-stone-400" : "text-stone-800"}`}>
                                   {p.name}
+                                  {p.isCreature && <span className="ml-1 text-[7px] font-black text-red-400">★</span>}
                                 </span>
                                 {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black animate-pulse">SON TOUR</span>}
-                                {/* Roll MJ */}
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
-                                  <input type="number" min={0} max={99}
-                                    value={editRoll[String(p.citizenId)] ?? (p.initiativeRoll ?? "")}
-                                    onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
-                                    onBlur={() => applyRollChange(p.citizenId)}
-                                    onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
-                                    placeholder="roll"
-                                    className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
-                                  <span className="text-[8px] text-stone-600 font-mono w-7">={initTotal}</span>
-                                </div>
+                                {/* Roll MJ — masqué pour les créatures en mode observateur */}
+                                {maskedInit ? (
+                                  <span className="text-[8px] font-mono text-stone-400 italic shrink-0">??</span>
+                                ) : (
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
+                                    <input type="number" min={0} max={99}
+                                      value={editRoll[String(p.citizenId)] ?? (p.initiativeRoll ?? "")}
+                                      onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
+                                      onBlur={() => applyRollChange(p.citizenId)}
+                                      onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
+                                      placeholder="roll"
+                                      className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
+                                    <span className="text-[8px] text-stone-600 font-mono w-7">={initTotal}</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
