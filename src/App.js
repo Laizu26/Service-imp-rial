@@ -27,6 +27,7 @@ import {
   Scale,
   TrendingUp,
   Newspaper,
+  Swords,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -58,6 +59,7 @@ import PostOfficeView from "./components/views/PostOfficeView";
 import CompaniesAdminView from "./components/views/CompaniesAdminView";
 import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
 import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
+import CombatAdminView from "./components/views/CombatAdminView";
 import GuardAdminView from "./components/views/GuardAdminView";
 import JobsAdminView from "./components/views/JobsAdminView";
 import FamiliesAdminView from "./components/views/FamiliesAdminView";
@@ -313,6 +315,7 @@ export default function App() {
     }
     // ----------------------------------------
 
+    tabs.push({ id: "combat_admin", label: "Combat", icon: Swords });
     tabs.push({ id: "registry", label: "Registre", icon: Scroll });
     tabs.push({ id: "items", label: "Objets", icon: Box });
     tabs.push({ id: "bank", label: "Banque", icon: Coins });
@@ -967,6 +970,18 @@ export default function App() {
                     />
                   )}
                   {/* ----------------------------------- */}
+
+                  {activeTab === "combat_admin" && (
+                    <CombatAdminView
+                      citizens={state.citizens || []}
+                      combatSessions={state.combatSessions || []}
+                      onSaveCombatStats={actions.onSaveCombatStats}
+                      onCreateCombatSession={actions.onCreateCombatSession}
+                      onUpdateCombatSession={actions.onUpdateCombatSession}
+                      onDeleteCombatSession={actions.onDeleteCombatSession}
+                      notify={notify}
+                    />
+                  )}
 
                   {activeTab === "items" && (
                     <InventoryView

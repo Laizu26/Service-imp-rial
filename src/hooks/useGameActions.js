@@ -5192,6 +5192,34 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Ordre marqué terminé. Rapport soumis.", "success");
       },
 
+      // ── COMBAT ──────────────────────────────────────────────────
+      onSaveCombatStats: (citizenId, data) => {
+        const idx = (state.citizens || []).findIndex((c) => String(c.id) === String(citizenId));
+        if (idx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = { ...newCitizens[idx], ...data };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Fiche de combat sauvegardée.", "success");
+      },
+
+      onCreateCombatSession: (session) => {
+        saveState({ ...state, combatSessions: [...(state.combatSessions || []), session] });
+      },
+
+      onUpdateCombatSession: (sessionId, updates) => {
+        const newSessions = (state.combatSessions || []).map((s) =>
+          String(s.id) === String(sessionId) ? { ...s, ...updates } : s
+        );
+        saveState({ ...state, combatSessions: newSessions });
+      },
+
+      onDeleteCombatSession: (sessionId) => {
+        const newSessions = (state.combatSessions || []).filter((s) => String(s.id) !== String(sessionId));
+        saveState({ ...state, combatSessions: newSessions });
+        notify("Session supprimée.", "info");
+      },
+      // ────────────────────────────────────────────────────────────
+
     }, notify);
   }, [session, state, saveState, notify]);
 };

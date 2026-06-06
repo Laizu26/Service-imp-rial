@@ -40,6 +40,8 @@ import {
   History,
   ArrowDownLeft,
   ArrowUpRight,
+  Swords,
+  Sword,
 } from "lucide-react";
 
 
@@ -983,6 +985,7 @@ const CitizenLayout = (props) => {
         { id: "mariage", label: "Mariage & Famille", icon: Heart },
         !isSlave && { id: "famille", label: "Ma Dynastie", icon: HeartHandshake },
         { id: "physique_magie", label: "Physique & Magie", icon: Zap },
+        { id: "combat", label: "Fiche de Combat", icon: Swords },
         isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
       ].filter(Boolean),
     },
@@ -3780,6 +3783,122 @@ const CitizenLayout = (props) => {
                 onUpdateUser={onUpdateUser}
               />
             )}
+
+            {/* --- BLOC FICHE DE COMBAT --- */}
+            {active === "combat" && (() => {
+              const cs = user.combatStats || {};
+              const techs = Array.isArray(user.techniques) ? user.techniques : [];
+              const maxHp = cs.maxHp || 30;
+              const currentHp = cs.currentHp ?? maxHp;
+              const maxMana = cs.maxMana || 10;
+              const currentMana = cs.currentMana ?? maxMana;
+              const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 100;
+              const manaPct = maxMana > 0 ? Math.max(0, Math.min(100, (currentMana / maxMana) * 100)) : 100;
+              const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
+              const isMage = cs.class === "mage";
+              const statItems = [
+                { label: "Attaque", value: cs.attack ?? 0, icon: "⚔" },
+                { label: "Défense", value: cs.defense ?? 0, icon: "🛡" },
+                { label: "Déf. Magique", value: cs.magicDefense ?? 0, icon: "✨" },
+                { label: "Vitesse", value: cs.speed ?? 0, icon: "💨" },
+              ];
+              return (
+                <div className="space-y-5 animate-fadeIn">
+                  {/* Header */}
+                  <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-2xl border border-stone-700 p-5 shadow-xl">
+                    <div className="flex items-center gap-4 mb-5">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${isMage ? "bg-blue-900/40 border-blue-700/50" : "bg-red-900/40 border-red-700/50"}`}>
+                        {isMage ? <Zap size={22} className="text-blue-400" /> : <Sword size={22} className="text-red-400" />}
+                      </div>
+                      <div>
+                        <div className="text-xs font-black uppercase tracking-widest text-stone-400">
+                          {isMage ? "Mage" : "Guerrier"} — Niveau {cs.level || 1}
+                        </div>
+                        <div className="text-lg font-black uppercase text-stone-100">{user.name}</div>
+                      </div>
+                    </div>
+
+                    {/* Barres vitales */}
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <Heart size={12} className="text-red-400" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Points de Vie</span>
+                          </div>
+                          <span className="text-xs font-mono text-stone-300">{currentHp} / {maxHp}</span>
+                        </div>
+                        <div className="h-3 bg-stone-700 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${hpColor}`} style={{ width: `${hpPct}%` }} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <Zap size={12} className="text-blue-400" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Mana</span>
+                          </div>
+                          <span className="text-xs font-mono text-stone-300">{currentMana} / {maxMana}</span>
+                        </div>
+                        <div className="h-3 bg-stone-700 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all bg-blue-500" style={{ width: `${manaPct}%` }} />
+                        </div>
+                        {!isMage && <p className="text-[8px] text-stone-600 mt-1 italic">Guerrier — pas de magie utilisable</p>}
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                      {statItems.map(s => (
+                        <div key={s.label} className="bg-stone-800/60 border border-stone-700/50 rounded-xl p-3 text-center">
+                          <div className="text-xl mb-1">{s.icon}</div>
+                          <div className="text-lg font-black text-stone-100">{s.value}</div>
+                          <div className="text-[8px] font-black uppercase tracking-widest text-stone-500">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Compétences */}
+                  <div className="bg-stone-900 border border-stone-700 rounded-2xl overflow-hidden shadow-xl">
+                    <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-800">
+                      <Zap size={15} className="text-amber-500" />
+                      <span className="text-xs font-black uppercase tracking-widest text-stone-300">
+                        {isMage ? "Sorts" : "Techniques"} ({techs.length})
+                      </span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {techs.length === 0 ? (
+                        <p className="text-xs text-stone-600 italic text-center py-4">Aucune compétence attribuée</p>
+                      ) : techs.map(tech => (
+                        <div key={tech.id} className="bg-stone-800/50 border border-stone-700/50 rounded-xl p-3 flex gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${tech.type === "sort" ? "bg-blue-900/60 text-blue-400" : "bg-red-900/60 text-red-400"}`}>
+                            {tech.type === "sort" ? <Zap size={15} /> : <Sword size={15} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <span className="text-sm font-black text-stone-100">{tech.name}</span>
+                              {tech.bonusDamage > 0 && <span className="text-[7px] bg-red-900/60 text-red-300 px-1.5 py-0.5 rounded font-black border border-red-800/50">+{tech.bonusDamage} dégâts</span>}
+                              {tech.type === "technique" && tech.cooldown > 0 && <span className="text-[7px] bg-stone-700 text-stone-300 px-1.5 py-0.5 rounded font-black">CD {tech.cooldown}t</span>}
+                              {tech.type === "sort" && tech.manaCost > 0 && <span className="text-[7px] bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded font-black border border-blue-800/50">{tech.manaCost} mana</span>}
+                              {tech.effectChance < 100 && tech.effect && <span className="text-[7px] bg-amber-900/50 text-amber-300 px-1.5 py-0.5 rounded font-black border border-amber-800/50">{tech.effectChance}% chance</span>}
+                            </div>
+                            {tech.effect && <p className="text-[10px] text-stone-400">Effet : {tech.effect}</p>}
+                            {tech.description && <p className="text-[10px] text-stone-600 italic mt-0.5">{tech.description}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {techs.length === 0 && !cs.class && (
+                    <p className="text-xs text-stone-600 italic text-center py-2">La fiche de combat sera remplie par un administrateur.</p>
+                  )}
+                </div>
+              );
+            })()}
+
             {active === "garde" && isGuard && (() => {
               const gRanks = myGuard.ranks || [];
               const gAllMembers = myGuard.members || [];
