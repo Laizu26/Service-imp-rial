@@ -167,6 +167,8 @@ export default function CombatAdminView({
   const [newSessionName, setNewSessionName] = useState("");
   const [participantSearch, setParticipantSearch] = useState("");
   const [addCamp, setAddCamp] = useState("A");
+  const [addMode, setAddMode] = useState("citizen");
+  const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
   const [logForm, setLogForm] = useState({ actor: "", action: "Attaque", detail: "" });
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
@@ -281,6 +283,31 @@ export default function CombatAdminView({
       }],
     });
     setParticipantSearch("");
+  };
+
+  const addCreature = () => {
+    if (!selSession || !creatureForm.name.trim()) return;
+    const uid = "creature_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    const hp = Math.max(1, creatureForm.maxHp || 30);
+    onUpdateCombatSession(selSession.id, {
+      participants: [...selSession.participants, {
+        citizenId: uid, name: creatureForm.name.trim(),
+        isCreature: true,
+        campId: addCamp,
+        maxHp: hp, currentHp: hp,
+        maxMana: 0, currentMana: 0,
+        defenseBase: creatureForm.defenseBase || 0, armorBonus: 0,
+        magicDefenseBase: creatureForm.magicDefenseBase || 0, spellBonus: 0,
+        attackBase: creatureForm.attackBase || 0, weaponBonus: 0,
+        speedBase: creatureForm.speedBase || 0,
+        defense: creatureForm.defenseBase || 0,
+        magicDefense: creatureForm.magicDefenseBase || 0,
+        attack: creatureForm.attackBase || 0,
+        speed: creatureForm.speedBase || 0,
+        cooldowns: {}, initiativeRoll: null,
+      }],
+    });
+    setCreatureForm({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
   };
 
   const updateParticipant = (citizenId, updates) => {
@@ -673,10 +700,25 @@ export default function CombatAdminView({
                     </div>
                   </div>
 
-                  {/* Ajouter participant */}
-                  {selSession.status === "pending" && (
+                  {/* Ajouter participant — disponible en pending ET en active */}
+                  {(selSession.status === "pending" || selSession.status === "active") && (
                     <div className="px-5 py-3 bg-stone-50 border-b border-stone-100 space-y-2">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-500">Ajouter un combattant</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-stone-500">Ajouter un combattant</p>
+                        {/* Toggle citoyen / créature */}
+                        <div className="flex gap-1 bg-stone-200 rounded-lg p-0.5">
+                          <button onClick={() => setAddMode("citizen")}
+                            className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${addMode === "citizen" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}>
+                            Citoyen
+                          </button>
+                          <button onClick={() => setAddMode("creature")}
+                            className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${addMode === "creature" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"}`}>
+                            Créature
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Sélection du camp (commun aux deux modes) */}
                       <div className="flex gap-2 flex-wrap">
                         {CAMP_STYLES.map(camp => (
                           <button key={camp.id} onClick={() => setAddCamp(camp.id)}
@@ -687,29 +729,73 @@ export default function CombatAdminView({
                           </button>
                         ))}
                       </div>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" size={12} />
-                        <input value={participantSearch} onChange={e => setParticipantSearch(e.target.value)}
-                          className="w-full pl-7 pr-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400/30 text-stone-800"
-                          placeholder="Chercher un citoyen à ajouter…" />
-                      </div>
-                      {participantSearch && (
-                        <div className="bg-white border border-stone-200 rounded-lg overflow-hidden max-h-36 overflow-y-auto shadow-lg">
-                          {safeCitizens
-                            .filter(c => c.name?.toLowerCase().includes(participantSearch.toLowerCase()) && !selSession.participants.some(p => String(p.citizenId) === String(c.id)))
-                            .slice(0, 8).map(c => (
-                              <button key={c.id} onClick={() => addParticipant(c.id)}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center gap-2 border-b border-stone-50 transition-colors">
-                                <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0">
-                                  {c.name?.[0]?.toUpperCase()}
-                                </span>
-                                <span className="font-semibold text-stone-800 flex-1">{c.name}</span>
-                                <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ml-auto ${CAMP_STYLES.find(x => x.id === addCamp)?.badge || ""}`}>
-                                  Camp {addCamp}
-                                </span>
-                                {!c.combatStats && <span className="text-[8px] text-amber-600 font-bold">Sans fiche</span>}
-                              </button>
+
+                      {/* Mode : chercher un citoyen */}
+                      {addMode === "citizen" && (
+                        <>
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" size={12} />
+                            <input value={participantSearch} onChange={e => setParticipantSearch(e.target.value)}
+                              className="w-full pl-7 pr-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400/30 text-stone-800"
+                              placeholder="Chercher un citoyen à ajouter…" />
+                          </div>
+                          {participantSearch && (
+                            <div className="bg-white border border-stone-200 rounded-lg overflow-hidden max-h-36 overflow-y-auto shadow-lg">
+                              {safeCitizens
+                                .filter(c => c.name?.toLowerCase().includes(participantSearch.toLowerCase()) && !selSession.participants.some(p => String(p.citizenId) === String(c.id)))
+                                .slice(0, 8).map(c => (
+                                  <button key={c.id} onClick={() => { addParticipant(c.id); }}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center gap-2 border-b border-stone-50 transition-colors">
+                                    <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0">
+                                      {c.name?.[0]?.toUpperCase()}
+                                    </span>
+                                    <span className="font-semibold text-stone-800 flex-1">{c.name}</span>
+                                    <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ml-auto ${CAMP_STYLES.find(x => x.id === addCamp)?.badge || ""}`}>
+                                      Camp {addCamp}
+                                    </span>
+                                    {!c.combatStats && <span className="text-[8px] text-amber-600 font-bold">Sans fiche</span>}
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Mode : créer une créature */}
+                      {addMode === "creature" && (
+                        <div className="space-y-2">
+                          <input
+                            value={creatureForm.name}
+                            onChange={e => setCreatureForm(p => ({ ...p, name: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && addCreature()}
+                            placeholder="Nom de la créature…"
+                            className="w-full px-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-red-400/30 text-stone-800 font-semibold"
+                          />
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { label: "PV max", key: "maxHp" },
+                              { label: "Attaque", key: "attackBase" },
+                              { label: "Défense", key: "defenseBase" },
+                              { label: "Déf.Mag", key: "magicDefenseBase" },
+                              { label: "Vitesse", key: "speedBase" },
+                            ].map(({ label, key }) => (
+                              <div key={key}>
+                                <label className="text-[8px] font-bold uppercase tracking-widest text-stone-400 block mb-0.5">{label}</label>
+                                <input type="number" min={0}
+                                  value={creatureForm[key]}
+                                  onChange={e => setCreatureForm(p => ({ ...p, [key]: parseInt(e.target.value) || 0 }))}
+                                  className="w-full px-2 py-1 text-xs bg-white border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-red-400/30 text-stone-800 text-center font-mono"
+                                />
+                              </div>
                             ))}
+                          </div>
+                          <button
+                            onClick={addCreature}
+                            disabled={!creatureForm.name.trim()}
+                            className="w-full py-1.5 bg-red-800 hover:bg-red-700 disabled:opacity-40 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Plus size={11} /> Ajouter la créature
+                          </button>
                         </div>
                       )}
                     </div>
