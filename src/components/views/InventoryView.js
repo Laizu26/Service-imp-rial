@@ -154,7 +154,7 @@ const InventoryView = ({ items, onUpdate, session, roleInfo, companies = [], cou
 
   // Actions
   const handleCreate = () => {
-    const newId = "i" + Date.now();
+    const newId = "i" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
     const newItem = {
       id: newId,
       name: "Nouvel Objet",
@@ -176,7 +176,7 @@ const InventoryView = ({ items, onUpdate, session, roleInfo, companies = [], cou
   };
 
   const handleDuplicate = (item) => {
-    const newId = "i" + Date.now();
+    const newId = "i" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
     const dup = { ...item, id: newId, name: item.name + " (copie)", hidden: true };
     onUpdate([...safeItems, dup]);
     setSelectedId(newId);

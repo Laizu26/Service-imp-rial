@@ -80,11 +80,23 @@ const CitizenInventoryView = ({
 
   // Inventaire Personnel
   const myInventory = useMemo(() => {
-    return (user.inventory || [])
+    // Fusionner les slots dupliqués (même itemId) avant le rendu
+    const merged = {};
+    (user.inventory || []).forEach((slot) => {
+      const key = slot.itemId;
+      if (!key) return;
+      if (merged[key]) {
+        merged[key].quantity += slot.quantity || slot.qty || 0;
+      } else {
+        merged[key] = { itemId: key, quantity: slot.quantity || slot.qty || 0 };
+      }
+    });
+
+    return Object.values(merged)
       .map((slot) => {
         const itemDef = catalog.find((i) => i.id === slot.itemId);
         return itemDef
-          ? { ...itemDef, qty: slot.quantity || slot.qty || 0 }
+          ? { ...itemDef, _slotKey: slot.itemId, qty: slot.quantity }
           : null;
       })
       .filter((i) => i && (i.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
@@ -383,7 +395,7 @@ const CitizenInventoryView = ({
               const rs = getRarity(item.rarity);
               return (
                 <div
-                  key={item.id}
+                  key={item._slotKey || item.id}
                   className={`bg-white border-2 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex gap-4 relative group cursor-pointer ${rs.border} ${rs.glow || ""}`}
                   onClick={() => setDetailItem(item)}
                 >
