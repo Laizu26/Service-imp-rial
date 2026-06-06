@@ -169,7 +169,7 @@ export default function CombatAdminView({
   const [addCamp, setAddCamp] = useState("A");
   const [addMode, setAddMode] = useState("citizen");
   const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
-  const [hideCreatureStats, setHideCreatureStats] = useState(false);
+  const [hideCreatureStats, setHideCreatureStats] = useState(true);
   const [logForm, setLogForm] = useState({ actor: "", action: "Attaque", detail: "" });
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
