@@ -3872,27 +3872,65 @@ const CitizenLayout = (props) => {
                         {isMage ? "Sorts" : "Techniques"} ({techs.length})
                       </span>
                     </div>
-                    <div className="p-4 space-y-3">
+                    <div className="p-4">
                       {techs.length === 0 ? (
                         <p className="text-xs text-stone-600 italic text-center py-4">Aucune compétence attribuée</p>
-                      ) : techs.map(tech => (
-                        <div key={tech.id} className="bg-stone-800/50 border border-stone-700/50 rounded-xl p-3 flex gap-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${tech.type === "sort" ? "bg-blue-900/60 text-blue-400" : "bg-red-900/60 text-red-400"}`}>
-                            {tech.type === "sort" ? <Zap size={15} /> : <Sword size={15} />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                              <span className="text-sm font-black text-stone-100">{tech.name}</span>
-                              {tech.bonusDamage > 0 && <span className="text-[7px] bg-red-900/60 text-red-300 px-1.5 py-0.5 rounded font-black border border-red-800/50">+{tech.bonusDamage} dégâts</span>}
-                              {tech.type === "technique" && tech.cooldown > 0 && <span className="text-[7px] bg-stone-700 text-stone-300 px-1.5 py-0.5 rounded font-black">CD {tech.cooldown}t</span>}
-                              {tech.type === "sort" && tech.manaCost > 0 && <span className="text-[7px] bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded font-black border border-blue-800/50">{tech.manaCost} mana</span>}
-                              {tech.effectChance < 100 && tech.effect && <span className="text-[7px] bg-amber-900/50 text-amber-300 px-1.5 py-0.5 rounded font-black border border-amber-800/50">{tech.effectChance}% chance</span>}
-                            </div>
-                            {tech.effect && <p className="text-[10px] text-stone-400">Effet : {tech.effect}</p>}
-                            {tech.description && <p className="text-[10px] text-stone-600 italic mt-0.5">{tech.description}</p>}
-                          </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {techs.map(tech => {
+                            const isSort = tech.type === "sort";
+                            return (
+                              <div key={tech.id} className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden">
+                                {/* En-tête */}
+                                <div className={`flex items-center gap-3 px-4 py-3 border-b ${isSort ? "border-blue-900/50 bg-blue-950/20" : "border-red-900/50 bg-red-950/20"}`}>
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSort ? "bg-blue-900/60 text-blue-300" : "bg-red-900/60 text-red-300"}`}>
+                                    {isSort ? <Zap size={15} /> : <Sword size={15} />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-black text-stone-100 truncate">{tech.name}</div>
+                                    <div className={`text-[8px] font-black uppercase tracking-widest ${isSort ? "text-blue-400" : "text-red-400"}`}>
+                                      {isSort ? "Sort · Mage" : "Technique · Guerrier"}
+                                    </div>
+                                  </div>
+                                </div>
+                                {/* Statistiques */}
+                                <div className="px-4 py-3 border-b border-stone-700/60">
+                                  <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400 mb-2">Statistiques</div>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[10px] text-stone-400">Dégâts</span>
+                                      <span className={`text-[10px] font-black font-mono ${tech.bonusDamage > 0 ? "text-amber-400" : "text-stone-600"}`}>
+                                        {tech.bonusDamage > 0 ? `+${tech.bonusDamage}` : "—"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[10px] text-stone-400">Effet</span>
+                                      <span className="text-[10px] text-stone-200 text-right max-w-[60%] truncate">
+                                        {tech.effect ? `${tech.effect}${tech.effectChance < 100 ? ` (${tech.effectChance}%)` : ""}` : <span className="text-stone-600">—</span>}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[10px] text-stone-400">{isSort ? "Coût Mana" : "Recharge"}</span>
+                                      <span className={`text-[10px] font-black font-mono ${isSort ? "text-blue-400" : "text-stone-200"}`}>
+                                        {isSort
+                                          ? (tech.manaCost > 0 ? `${tech.manaCost} mana` : <span className="text-stone-600">—</span>)
+                                          : (tech.cooldown > 0 ? `${tech.cooldown} tour${tech.cooldown > 1 ? "s" : ""}` : "Aucune")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {/* Descriptif */}
+                                <div className="px-4 py-3">
+                                  <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400 mb-1.5">Descriptif</div>
+                                  <p className={`text-[10px] leading-relaxed ${tech.description ? "text-stone-300 italic" : "text-stone-600"}`}>
+                                    {tech.description || "Aucune description"}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
 

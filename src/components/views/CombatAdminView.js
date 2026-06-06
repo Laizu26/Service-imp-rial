@@ -8,13 +8,9 @@ import {
 
 const DEFAULT_COMBAT_STATS = {
   maxHp: 30, currentHp: 30,
-  // Défense = armorBonus + defenseBase
   defenseBase: 0, armorBonus: 0,
-  // Déf. Magique = spellBonus + magicDefenseBase
   magicDefenseBase: 0, spellBonus: 0,
-  // Attaque = weaponBonus + attackBase
   attackBase: 0, weaponBonus: 0,
-  // Vitesse de base (le roll est entré par le MJ par session)
   speedBase: 0,
   maxMana: 10, currentMana: 10,
   class: "guerrier", level: 1,
@@ -26,10 +22,9 @@ const DEFAULT_TECH = {
   cooldown: 2, manaCost: 0, description: "",
 };
 
-// Couleurs des camps A/B/C/D
 const CAMP_STYLES = [
-  { id: "A", label: "Camp A", bg: "bg-red-900/30",   border: "border-red-700/60",   badge: "bg-red-800 text-red-200",   dot: "bg-red-500"   },
-  { id: "B", label: "Camp B", bg: "bg-blue-900/30",  border: "border-blue-700/60",  badge: "bg-blue-800 text-blue-200", dot: "bg-blue-500"  },
+  { id: "A", label: "Camp A", bg: "bg-red-900/30",   border: "border-red-700/60",   badge: "bg-red-800 text-red-200",    dot: "bg-red-500"   },
+  { id: "B", label: "Camp B", bg: "bg-blue-900/30",  border: "border-blue-700/60",  badge: "bg-blue-800 text-blue-200",  dot: "bg-blue-500"  },
   { id: "C", label: "Camp C", bg: "bg-green-900/30", border: "border-green-700/60", badge: "bg-green-800 text-green-200",dot: "bg-green-500" },
   { id: "D", label: "Camp D", bg: "bg-amber-900/30", border: "border-amber-700/60", badge: "bg-amber-700 text-amber-100",dot: "bg-amber-500" },
 ];
@@ -43,28 +38,108 @@ const calcStats = (cs) => ({
   speed:        cs.speedBase || 0,
 });
 
+/* Champ numérique — toujours sur fond sombre */
 const StatNum = ({ label, value, onChange, min = 0, max = 9999, dim = false }) => (
   <div>
-    <label className={`text-[8px] font-black uppercase tracking-widest block mb-0.5 ${dim ? "text-stone-600" : "text-stone-400"}`}>{label}</label>
-    <input type="number" min={min} max={max} value={value}
+    <label className={`text-[8px] font-black uppercase tracking-widest block mb-0.5 ${dim ? "text-stone-400" : "text-stone-200"}`}>
+      {label}
+    </label>
+    <input
+      type="number" min={min} max={max} value={value}
       onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
-      className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-600/60 transition-colors"
+      className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500 transition-colors"
     />
   </div>
 );
 
-// Bloc « base + bonus = total »
+/* Bloc « base + bonus = total » */
 const StatFormula = ({ label, base, bonus, bonusLabel, onBase, onBonus }) => {
   const total = (base || 0) + (bonus || 0);
   return (
-    <div className="bg-stone-800/60 border border-stone-700/40 rounded-xl p-3 space-y-2">
+    <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{label}</span>
+        <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">{label}</span>
         <span className="text-sm font-black text-amber-400 font-mono">= {total}</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <StatNum label="Base joueur" value={base} onChange={onBase} dim />
         <StatNum label={bonusLabel} value={bonus} onChange={onBonus} />
+      </div>
+    </div>
+  );
+};
+
+/* Carte technique structurée */
+const TechCard = ({ tech, onEdit, onDelete }) => {
+  const isSort = tech.type === "sort";
+  return (
+    <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden">
+      {/* En-tête */}
+      <div className={`flex items-center gap-3 px-4 py-3 border-b ${isSort ? "border-blue-900/50 bg-blue-950/20" : "border-red-900/50 bg-red-950/20"}`}>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSort ? "bg-blue-900/60 text-blue-300" : "bg-red-900/60 text-red-300"}`}>
+          {isSort ? <Zap size={15} /> : <Sword size={15} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-black text-stone-100 truncate">{tech.name || "Sans nom"}</div>
+          <div className={`text-[8px] font-black uppercase tracking-widest ${isSort ? "text-blue-400" : "text-red-400"}`}>
+            {isSort ? "Sort · Mage" : "Technique · Guerrier"}
+          </div>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <button
+            onClick={onEdit}
+            className="p-1.5 rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all"
+          >
+            <Edit3 size={12} />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded hover:bg-red-900/40 text-stone-500 hover:text-red-400 transition-all"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Statistiques */}
+      <div className="px-4 py-3 border-b border-stone-700/60">
+        <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400 mb-2.5">Statistiques</div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-stone-400">Dégâts</span>
+            <span className={`text-[10px] font-black font-mono ${tech.bonusDamage > 0 ? "text-amber-400" : "text-stone-600"}`}>
+              {tech.bonusDamage > 0 ? `+${tech.bonusDamage}` : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-stone-400">Effet</span>
+            <span className="text-[10px] text-stone-200 text-right max-w-[60%] truncate">
+              {tech.effect
+                ? `${tech.effect}${tech.effectChance < 100 ? ` (${tech.effectChance}%)` : ""}`
+                : <span className="text-stone-600">—</span>
+              }
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-stone-400">
+              {isSort ? "Coût Mana" : "Recharge"}
+            </span>
+            <span className={`text-[10px] font-black font-mono ${isSort ? "text-blue-400" : "text-stone-200"}`}>
+              {isSort
+                ? (tech.manaCost > 0 ? `${tech.manaCost} mana` : <span className="text-stone-600">—</span>)
+                : (tech.cooldown > 0 ? `${tech.cooldown} tour${tech.cooldown > 1 ? "s" : ""}` : "Aucune")
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Descriptif */}
+      <div className="px-4 py-3">
+        <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400 mb-1.5">Descriptif</div>
+        <p className={`text-[10px] leading-relaxed ${tech.description ? "text-stone-300 italic" : "text-stone-600"}`}>
+          {tech.description || "Aucune description"}
+        </p>
       </div>
     </div>
   );
@@ -144,7 +219,6 @@ export default function CombatAdminView({
 
   const selSession = safeSessions.find(s => String(s.id) === String(selSessionId));
 
-  // Trier par (speedBase + initiativeRoll) décroissant
   const sortedParticipants = useMemo(() => {
     if (!selSession) return [];
     return [...selSession.participants].sort((a, b) => {
@@ -154,7 +228,6 @@ export default function CombatAdminView({
     });
   }, [selSession]);
 
-  // Grouper par camp
   const participantsByCamp = useMemo(() => {
     if (!selSession) return {};
     const groups = {};
@@ -218,8 +291,8 @@ export default function CombatAdminView({
     });
   };
 
-  const applyHpChange   = (cid) => { const v = editHp[String(cid)];   if (v == null || v === "") return; const p = selSession.participants.find(x => String(x.citizenId) === String(cid)); if (!p) return; updateParticipant(cid, { currentHp:   Math.max(0, Math.min(p.maxHp, Number(v))) }); setEditHp(prev => { const n={...prev}; delete n[String(cid)]; return n; }); };
-  const applyManaChange = (cid) => { const v = editMana[String(cid)]; if (v == null || v === "") return; const p = selSession.participants.find(x => String(x.citizenId) === String(cid)); if (!p) return; updateParticipant(cid, { currentMana: Math.max(0, Math.min(p.maxMana,Number(v))) }); setEditMana(prev => { const n={...prev}; delete n[String(cid)]; return n; }); };
+  const applyHpChange   = (cid) => { const v = editHp[String(cid)];   if (v == null || v === "") return; const p = selSession.participants.find(x => String(x.citizenId) === String(cid)); if (!p) return; updateParticipant(cid, { currentHp:   Math.max(0, Math.min(p.maxHp,   Number(v))) }); setEditHp(prev => { const n={...prev}; delete n[String(cid)]; return n; }); };
+  const applyManaChange = (cid) => { const v = editMana[String(cid)]; if (v == null || v === "") return; const p = selSession.participants.find(x => String(x.citizenId) === String(cid)); if (!p) return; updateParticipant(cid, { currentMana: Math.max(0, Math.min(p.maxMana, Number(v))) }); setEditMana(prev => { const n={...prev}; delete n[String(cid)]; return n; }); };
   const applyRollChange = (cid) => { const v = editRoll[String(cid)]; if (v == null || v === "") return; updateParticipant(cid, { initiativeRoll: Number(v) }); setEditRoll(prev => { const n={...prev}; delete n[String(cid)]; return n; }); };
 
   const handleNextTurn = () => {
@@ -245,8 +318,8 @@ export default function CombatAdminView({
     <div className="space-y-4">
       {/* En-tête */}
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-red-900/20 border border-red-300 flex items-center justify-center shrink-0">
-          <Swords size={20} className="text-red-600" />
+        <div className="w-10 h-10 rounded-xl bg-red-900/20 border border-red-700/40 flex items-center justify-center shrink-0">
+          <Swords size={20} className="text-red-500" />
         </div>
         <div>
           <h1 className="text-xl font-black uppercase tracking-widest text-stone-800">Combat</h1>
@@ -283,23 +356,27 @@ export default function CombatAdminView({
               </div>
             </div>
             <div className="overflow-y-auto max-h-[calc(100vh-22rem)]">
-              {safeCitizens.filter(c => !citizenSearch || c.name?.toLowerCase().includes(citizenSearch.toLowerCase())).map(c => {
-                const isSel = String(selCitizenId) === String(c.id);
-                return (
-                  <button key={c.id} onClick={() => selectCitizen(c.id)}
-                    className={`w-full text-left px-4 py-3 border-b border-stone-50 flex items-center gap-3 transition-colors hover:bg-stone-50 ${isSel ? "bg-amber-50 border-l-2 border-l-amber-500" : ""}`}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-stone-700 text-white text-xs font-black flex items-center justify-center shrink-0">{c.name?.[0]?.toUpperCase() || "?"}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-stone-800 truncate">{c.name}</div>
-                      <div className="text-[9px] text-stone-400 uppercase">{c.combatStats?.class || "—"} · Niv.{c.combatStats?.level || "—"}</div>
-                    </div>
-                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${c.combatStats ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>
-                      {c.combatStats ? "Fiche" : "—"}
-                    </span>
-                  </button>
-                );
-              })}
+              {safeCitizens
+                .filter(c => !citizenSearch || c.name?.toLowerCase().includes(citizenSearch.toLowerCase()))
+                .map(c => {
+                  const isSel = String(selCitizenId) === String(c.id);
+                  return (
+                    <button key={c.id} onClick={() => selectCitizen(c.id)}
+                      className={`w-full text-left px-4 py-3 border-b border-stone-50 flex items-center gap-3 transition-colors hover:bg-stone-50 ${isSel ? "bg-amber-50 border-l-2 border-l-amber-500" : ""}`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-stone-700 text-white text-xs font-black flex items-center justify-center shrink-0">
+                        {c.name?.[0]?.toUpperCase() || "?"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-stone-800 truncate">{c.name}</div>
+                        <div className="text-[9px] text-stone-400 uppercase">{c.combatStats?.class || "—"} · Niv.{c.combatStats?.level || "—"}</div>
+                      </div>
+                      <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${c.combatStats ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>
+                        {c.combatStats ? "Fiche" : "—"}
+                      </span>
+                    </button>
+                  );
+                })}
             </div>
           </div>
 
@@ -313,22 +390,23 @@ export default function CombatAdminView({
               const total = calcStats(editStats);
               return (
                 <>
-                  {/* Header fiche */}
-                  <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-100">
+                  {/* Fiche stats — fond sombre pour cohérence avec les inputs */}
+                  <div className="bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-700">
                       <div className="flex items-center gap-2">
-                        <Swords size={15} className="text-red-500" />
-                        <span className="text-xs font-black uppercase tracking-widest text-stone-800">
+                        <Swords size={15} className="text-red-400" />
+                        <span className="text-xs font-black uppercase tracking-widest text-stone-200">
                           {safeCitizens.find(c => String(c.id) === selCitizenId)?.name}
                         </span>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={handleResetVitals}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-100 text-stone-600 hover:bg-stone-200 rounded-lg transition-all">
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-700 text-stone-200 hover:bg-stone-600 rounded-lg transition-all">
                           <RefreshCw size={11} /> PV/Mana max
                         </button>
                         <button onClick={handleSaveFiche}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-[#b8860b] text-stone-900 hover:bg-[#d4a017] rounded-lg transition-all">
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-amber-600 text-stone-900 hover:bg-amber-500 rounded-lg transition-all">
                           <Save size={11} /> Sauvegarder
                         </button>
                       </div>
@@ -338,9 +416,9 @@ export default function CombatAdminView({
                       {/* Classe / niveau / PV */}
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Classe</label>
+                          <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Classe</label>
                           <select value={editStats.class} onChange={e => setEditStats(p => ({ ...p, class: e.target.value }))}
-                            className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60">
+                            className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
                             <option value="guerrier">Guerrier</option>
                             <option value="mage">Mage</option>
                           </select>
@@ -369,24 +447,24 @@ export default function CombatAdminView({
                           bonusLabel="Arme"
                           onBase={sc("attackBase")} onBonus={sc("weaponBonus")}
                         />
-                        <div className="bg-stone-800/60 border border-stone-700/40 rounded-xl p-3 space-y-2">
+                        <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Vitesse</span>
-                            <span className="text-[8px] text-stone-500 italic">+ roll MJ en session</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">Vitesse</span>
+                            <span className="text-[8px] text-stone-400 italic">+ roll MJ en session</span>
                           </div>
                           <StatNum label="Base joueur" value={editStats.speedBase} onChange={sc("speedBase")} dim />
                         </div>
                       </div>
 
-                      {/* Mana */}
+                      {/* Mana + récap */}
                       <div className="grid grid-cols-2 gap-3">
                         <StatNum label="Mana Maximum" value={editStats.maxMana} onChange={sc("maxMana")} />
-                        <div className="bg-stone-100 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
+                        <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 flex items-center">
                           <div>
-                            <div className="text-[8px] font-black uppercase tracking-widest text-stone-400">Récapitulatif</div>
-                            <div className="text-[10px] text-stone-600 mt-1 space-y-0.5 font-mono">
-                              <div>DEF {total.defense} · DEFMAG {total.magicDefense}</div>
-                              <div>ATK {total.attack} · VIT {total.speed}</div>
+                            <div className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-1">Récapitulatif</div>
+                            <div className="text-[10px] text-stone-200 space-y-0.5 font-mono">
+                              <div>DEF <span className="text-amber-400">{total.defense}</span> · DEFMAG <span className="text-amber-400">{total.magicDefense}</span></div>
+                              <div>ATK <span className="text-amber-400">{total.attack}</span> · VIT <span className="text-amber-400">{total.speed}</span></div>
                             </div>
                           </div>
                         </div>
@@ -395,100 +473,113 @@ export default function CombatAdminView({
                   </div>
 
                   {/* Compétences */}
-                  <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-100">
+                  <div className="bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-700">
                       <div className="flex items-center gap-2">
-                        <Zap size={14} className="text-amber-500" />
-                        <span className="text-xs font-black uppercase tracking-widest text-stone-800">Compétences ({editTechs.length})</span>
+                        <Zap size={14} className="text-amber-400" />
+                        <span className="text-xs font-black uppercase tracking-widest text-stone-200">Compétences ({editTechs.length})</span>
                       </div>
                       {!techForm && (
-                        <button onClick={() => { setTechForm({ ...DEFAULT_TECH, type: editStats.class === "mage" ? "sort" : "technique" }); setTechEditId(null); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-all">
+                        <button
+                          onClick={() => { setTechForm({ ...DEFAULT_TECH, type: editStats.class === "mage" ? "sort" : "technique" }); setTechEditId(null); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-700 text-stone-200 hover:bg-stone-600 rounded-lg transition-all"
+                        >
                           <Plus size={11} /> Ajouter
                         </button>
                       )}
                     </div>
+
                     <div className="p-4 space-y-3">
+                      {/* Formulaire d'ajout */}
                       {techForm && (
-                        <div className="bg-stone-900 rounded-xl border border-stone-700 p-4 space-y-3">
-                          <div className="text-[9px] font-black uppercase tracking-widest text-amber-400">{techEditId ? "Modifier" : "Nouvelle compétence"}</div>
-                          <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-stone-800 rounded-xl border border-stone-600 p-4 space-y-3">
+                          <div className="text-[9px] font-black uppercase tracking-widest text-amber-400">
+                            {techEditId ? "Modifier la compétence" : "Nouvelle compétence"}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
                             <div className="col-span-2">
-                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Nom</label>
+                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Nom</label>
                               <input value={techForm.name} onChange={e => setTechForm(p => ({ ...p, name: e.target.value }))}
-                                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60" placeholder="Nom de la compétence" />
+                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500"
+                                placeholder="Nom de la compétence" />
                             </div>
                             <div>
-                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Type</label>
+                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Type</label>
                               <select value={techForm.type} onChange={e => setTechForm(p => ({ ...p, type: e.target.value }))}
-                                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60">
+                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
                                 <option value="technique">Technique (Guerrier)</option>
                                 <option value="sort">Sort (Mage)</option>
                               </select>
                             </div>
                             <div>
-                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Dégâts bonus</label>
-                              <input type="number" min={0} value={techForm.bonusDamage} onChange={e => setTechForm(p => ({ ...p, bonusDamage: Number(e.target.value) }))}
-                                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60" />
+                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Dégâts bonus</label>
+                              <input type="number" min={0} value={techForm.bonusDamage}
+                                onChange={e => setTechForm(p => ({ ...p, bonusDamage: Number(e.target.value) }))}
+                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
                             </div>
                             {techForm.type === "technique" ? (
                               <div>
-                                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Recharge (tours)</label>
-                                <input type="number" min={0} value={techForm.cooldown} onChange={e => setTechForm(p => ({ ...p, cooldown: Number(e.target.value) }))}
-                                  className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60" />
+                                <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Recharge (tours)</label>
+                                <input type="number" min={0} value={techForm.cooldown}
+                                  onChange={e => setTechForm(p => ({ ...p, cooldown: Number(e.target.value) }))}
+                                  className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
                               </div>
                             ) : (
                               <div>
-                                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Coût Mana</label>
-                                <input type="number" min={0} value={techForm.manaCost} onChange={e => setTechForm(p => ({ ...p, manaCost: Number(e.target.value) }))}
-                                  className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60" />
+                                <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Coût Mana</label>
+                                <input type="number" min={0} value={techForm.manaCost}
+                                  onChange={e => setTechForm(p => ({ ...p, manaCost: Number(e.target.value) }))}
+                                  className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
                               </div>
                             )}
                             <div>
-                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Effet</label>
+                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Effet</label>
                               <input value={techForm.effect} onChange={e => setTechForm(p => ({ ...p, effect: e.target.value }))}
-                                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60" placeholder="Ralentit, brûle…" />
+                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500"
+                                placeholder="Ralentit, brûle…" />
                             </div>
                             <div>
-                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Chance d'effet (%)</label>
-                              <input type="number" min={0} max={100} value={techForm.effectChance} onChange={e => setTechForm(p => ({ ...p, effectChance: Math.max(0, Math.min(100, Number(e.target.value))) }))}
-                                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60" />
+                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Chance d'effet (%)</label>
+                              <input type="number" min={0} max={100} value={techForm.effectChance}
+                                onChange={e => setTechForm(p => ({ ...p, effectChance: Math.max(0, Math.min(100, Number(e.target.value))) }))}
+                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
                             </div>
                             <div className="col-span-2">
-                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Description narrative</label>
-                              <textarea value={techForm.description} onChange={e => setTechForm(p => ({ ...p, description: e.target.value }))} rows={2}
-                                className="w-full bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-600/60 resize-none" />
+                              <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Description narrative</label>
+                              <textarea value={techForm.description}
+                                onChange={e => setTechForm(p => ({ ...p, description: e.target.value }))} rows={2}
+                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500 resize-none"
+                                placeholder="Description narrative de la compétence…" />
                             </div>
                           </div>
                           <div className="flex gap-2 justify-end">
-                            <button onClick={() => { setTechForm(null); setTechEditId(null); }} className="px-3 py-1.5 text-[10px] font-bold text-stone-400 hover:text-stone-200 rounded-lg hover:bg-stone-800 transition-all">Annuler</button>
-                            <button onClick={saveTech} className="px-3 py-1.5 text-[10px] font-black text-stone-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all">{techEditId ? "Modifier" : "Ajouter"}</button>
+                            <button onClick={() => { setTechForm(null); setTechEditId(null); }}
+                              className="px-3 py-1.5 text-[10px] font-bold text-stone-400 hover:text-stone-200 rounded-lg hover:bg-stone-700 transition-all">
+                              Annuler
+                            </button>
+                            <button onClick={saveTech}
+                              className="px-3 py-1.5 text-[10px] font-black text-stone-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all">
+                              {techEditId ? "Modifier" : "Ajouter"}
+                            </button>
                           </div>
                         </div>
                       )}
+
+                      {/* Cartes fiches techniques */}
                       {editTechs.length === 0 && !techForm ? (
-                        <p className="text-xs text-stone-400 italic text-center py-4">Aucune compétence</p>
-                      ) : editTechs.map(tech => (
-                        <div key={tech.id} className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex items-start gap-3">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${tech.type === "sort" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}>
-                            {tech.type === "sort" ? <Zap size={14} /> : <Sword size={14} />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-black text-stone-800">{tech.name}</span>
-                              {tech.bonusDamage > 0 && <span className="text-[7px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black">+{tech.bonusDamage} dégâts</span>}
-                              {tech.type === "technique" && tech.cooldown > 0 && <span className="text-[7px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-black">CD {tech.cooldown}t</span>}
-                              {tech.type === "sort" && tech.manaCost > 0 && <span className="text-[7px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-black">{tech.manaCost} mana</span>}
-                              {tech.effectChance < 100 && tech.effect && <span className="text-[7px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-black">{tech.effectChance}%</span>}
-                            </div>
-                            {tech.effect && <p className="text-[10px] text-stone-500 mt-0.5">Effet : {tech.effect}</p>}
-                          </div>
-                          <div className="flex gap-1 shrink-0">
-                            <button onClick={() => { setTechForm({ ...tech }); setTechEditId(tech.id); }} className="p-1.5 rounded hover:bg-stone-200 text-stone-400 hover:text-stone-700 transition-all"><Edit3 size={12} /></button>
-                            <button onClick={() => setEditTechs(p => p.filter(t => t.id !== tech.id))} className="p-1.5 rounded hover:bg-red-100 text-stone-400 hover:text-red-600 transition-all"><Trash2 size={12} /></button>
-                          </div>
+                        <p className="text-xs text-stone-500 italic text-center py-6">Aucune compétence — cliquez sur Ajouter</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {editTechs.map(tech => (
+                            <TechCard
+                              key={tech.id}
+                              tech={tech}
+                              onEdit={() => { setTechForm({ ...tech }); setTechEditId(tech.id); }}
+                              onDelete={() => setEditTechs(p => p.filter(t => t.id !== tech.id))}
+                            />
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </>
@@ -507,19 +598,20 @@ export default function CombatAdminView({
               <p className="text-[9px] font-black uppercase tracking-widest text-stone-500">Nouvelle session</p>
               <input value={newSessionName} onChange={e => setNewSessionName(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleCreateSession()}
-                className="w-full bg-stone-100 border border-stone-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-amber-400/30"
+                className="w-full bg-stone-100 border border-stone-200 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-amber-400/30 text-stone-800"
                 placeholder="Nom du combat…" />
               <button onClick={handleCreateSession}
-                className="w-full py-2 bg-[#b8860b] text-stone-900 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-[#d4a017] transition-all flex items-center justify-center gap-2">
+                className="w-full py-2 bg-amber-600 text-stone-900 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-amber-500 transition-all flex items-center justify-center gap-2">
                 <Plus size={12} /> Créer
               </button>
             </div>
+
             <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
               {safeSessions.length === 0 ? (
                 <p className="text-xs text-stone-400 italic text-center p-6">Aucune session</p>
               ) : [...safeSessions].sort((a, b) => b.createdAt - a.createdAt).map(s => {
-                const sc = { pending: "bg-stone-200 text-stone-600", active: "bg-green-100 text-green-700", ended: "bg-stone-100 text-stone-400" }[s.status] || "bg-stone-100 text-stone-400";
-                const sl = { pending: "En attente", active: "En cours", ended: "Terminé" }[s.status] || s.status;
+                const statusCls = { pending: "bg-stone-200 text-stone-600", active: "bg-green-100 text-green-700", ended: "bg-stone-100 text-stone-400" }[s.status] || "bg-stone-100 text-stone-400";
+                const statusLbl = { pending: "En attente", active: "En cours", ended: "Terminé" }[s.status] || s.status;
                 const isSel = String(selSessionId) === String(s.id);
                 return (
                   <button key={s.id} onClick={() => setSelSessionId(String(s.id))}
@@ -529,7 +621,7 @@ export default function CombatAdminView({
                       <div className="text-xs font-bold text-stone-800 truncate">{s.name}</div>
                       <div className="text-[9px] text-stone-400">{s.participants?.length || 0} combattants · Tour {s.turnNumber}</div>
                     </div>
-                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${sc}`}>{sl}</span>
+                    <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${statusCls}`}>{statusLbl}</span>
                   </button>
                 );
               })}
@@ -549,10 +641,10 @@ export default function CombatAdminView({
                   <div className="flex items-center justify-between px-5 py-3 border-b border-stone-100">
                     <div>
                       <h2 className="text-sm font-black uppercase text-stone-900">{selSession.name}</h2>
-                      <p className="text-[9px] text-stone-400">
+                      <p className="text-[9px] text-stone-500">
                         {selSession.status === "active" ? `Tour ${selSession.turnNumber} · ` : ""}
                         {selSession.participants.length} combattant{selSession.participants.length !== 1 ? "s" : ""}
-                        {usedCamps.length > 0 && ` · ${usedCamps.length} camps`}
+                        {usedCamps.length > 0 && ` · ${usedCamps.length} camp${usedCamps.length > 1 ? "s" : ""}`}
                       </p>
                     </div>
                     <div className="flex gap-2 items-center">
@@ -584,9 +676,8 @@ export default function CombatAdminView({
                   {/* Ajouter participant */}
                   {selSession.status === "pending" && (
                     <div className="px-5 py-3 bg-stone-50 border-b border-stone-100 space-y-2">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Ajouter un combattant</p>
-                      {/* Choix du camp */}
-                      <div className="flex gap-2">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-stone-500">Ajouter un combattant</p>
+                      <div className="flex gap-2 flex-wrap">
                         {CAMP_STYLES.map(camp => (
                           <button key={camp.id} onClick={() => setAddCamp(camp.id)}
                             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${addCamp === camp.id ? `${camp.badge} ${camp.border}` : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"}`}
@@ -599,7 +690,7 @@ export default function CombatAdminView({
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" size={12} />
                         <input value={participantSearch} onChange={e => setParticipantSearch(e.target.value)}
-                          className="w-full pl-7 pr-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400/30"
+                          className="w-full pl-7 pr-3 py-1.5 text-xs bg-white border border-stone-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-400/30 text-stone-800"
                           placeholder="Chercher un citoyen à ajouter…" />
                       </div>
                       {participantSearch && (
@@ -609,12 +700,14 @@ export default function CombatAdminView({
                             .slice(0, 8).map(c => (
                               <button key={c.id} onClick={() => addParticipant(c.id)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center gap-2 border-b border-stone-50 transition-colors">
-                                <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0">{c.name?.[0]?.toUpperCase()}</span>
+                                <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0">
+                                  {c.name?.[0]?.toUpperCase()}
+                                </span>
                                 <span className="font-semibold text-stone-800 flex-1">{c.name}</span>
                                 <span className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ml-auto ${CAMP_STYLES.find(x => x.id === addCamp)?.badge || ""}`}>
                                   Camp {addCamp}
                                 </span>
-                                {!c.combatStats && <span className="text-[8px] text-amber-500 font-bold">Sans fiche</span>}
+                                {!c.combatStats && <span className="text-[8px] text-amber-600 font-bold">Sans fiche</span>}
                               </button>
                             ))}
                         </div>
@@ -625,7 +718,6 @@ export default function CombatAdminView({
                   {/* Vue par camps */}
                   {selSession.participants.length > 0 && (
                     <div className="p-4">
-                      {/* Camps côte à côte */}
                       <div className={`grid gap-3 mb-4 ${usedCamps.length >= 2 ? "grid-cols-2" : "grid-cols-1"}`}>
                         {usedCamps.sort().map(campId => {
                           const campStyle = CAMP_STYLES.find(x => x.id === campId) || CAMP_STYLES[0];
@@ -633,7 +725,7 @@ export default function CombatAdminView({
                           return (
                             <div key={campId} className={`rounded-xl border p-3 ${campStyle.bg} ${campStyle.border}`}>
                               <div className="flex items-center gap-2 mb-2">
-                                <Flag size={12} className="shrink-0" />
+                                <Flag size={12} className="shrink-0 text-stone-300" />
                                 <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${campStyle.badge}`}>{campStyle.label}</span>
                                 <span className="text-[8px] text-stone-400">{campMembers.length} combattant{campMembers.length !== 1 ? "s" : ""}</span>
                               </div>
@@ -644,14 +736,14 @@ export default function CombatAdminView({
                                   const isDead = p.currentHp <= 0;
                                   const initTotal = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
                                   return (
-                                    <div key={p.citizenId} className={`bg-stone-900/60 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""}`}>
+                                    <div key={p.citizenId} className={`bg-stone-900/70 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""}`}>
                                       <div className="flex items-center justify-between gap-2 mb-1">
                                         <span className={`text-xs font-black text-stone-100 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
                                         <div className="flex items-center gap-1.5 shrink-0">
-                                          <span className="text-[7px] font-mono text-stone-400">VIT {initTotal}</span>
+                                          <span className="text-[7px] font-mono text-stone-300">VIT {initTotal}</span>
                                           {selSession.status !== "ended" && (
                                             <button onClick={() => onUpdateCombatSession(selSession.id, { participants: selSession.participants.filter(x => String(x.citizenId) !== String(p.citizenId)) })}
-                                              className="p-0.5 rounded hover:bg-red-900/50 text-stone-600 hover:text-red-400 transition-all">
+                                              className="p-0.5 rounded hover:bg-red-900/50 text-stone-500 hover:text-red-400 transition-all">
                                               <X size={11} />
                                             </button>
                                           )}
@@ -668,23 +760,23 @@ export default function CombatAdminView({
                                           onChange={e => setEditHp(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
                                           onBlur={() => applyHpChange(p.citizenId)}
                                           onKeyDown={e => e.key === "Enter" && applyHpChange(p.citizenId)}
-                                          className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-700 rounded px-1 py-0.5 text-center text-stone-200 outline-none focus:border-amber-500" />
-                                        <span className="text-[8px] text-stone-500">/{p.maxHp}</span>
+                                          className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500" />
+                                        <span className="text-[8px] text-stone-400">/{p.maxHp}</span>
                                       </div>
                                       {/* Mana si mage */}
                                       {p.class === "mage" && (
                                         <div className="flex items-center gap-1.5 mt-1">
                                           <Zap size={8} className="text-blue-400 shrink-0" />
                                           <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
-                                            <div className="h-full rounded-full bg-blue-500" style={{ width: `${p.maxMana > 0 ? Math.max(0,(p.currentMana/p.maxMana)*100) : 0}%` }} />
+                                            <div className="h-full rounded-full bg-blue-500" style={{ width: `${p.maxMana > 0 ? Math.max(0, (p.currentMana / p.maxMana) * 100) : 0}%` }} />
                                           </div>
                                           <input type="number" min={0} max={p.maxMana}
                                             value={editMana[String(p.citizenId)] ?? p.currentMana}
                                             onChange={e => setEditMana(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
                                             onBlur={() => applyManaChange(p.citizenId)}
                                             onKeyDown={e => e.key === "Enter" && applyManaChange(p.citizenId)}
-                                            className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-700 rounded px-1 py-0.5 text-center text-stone-200 outline-none focus:border-blue-500" />
-                                          <span className="text-[8px] text-stone-500">/{p.maxMana}</span>
+                                            className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-blue-500" />
+                                          <span className="text-[8px] text-stone-400">/{p.maxMana}</span>
                                         </div>
                                       )}
                                     </div>
@@ -699,8 +791,8 @@ export default function CombatAdminView({
                       {/* Ordre d'initiative */}
                       <div className="bg-stone-100 border border-stone-200 rounded-xl overflow-hidden">
                         <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-200 bg-stone-50">
-                          <Users size={13} className="text-stone-500" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-500">Ordre d'initiative · Vitesse = Base + Roll MJ</span>
+                          <Users size={13} className="text-stone-600" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">Ordre d'initiative · Vitesse = Base + Roll MJ</span>
                         </div>
                         <div className="divide-y divide-stone-200">
                           {sortedParticipants.map((p, idx) => {
@@ -722,15 +814,15 @@ export default function CombatAdminView({
                                 {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black animate-pulse">SON TOUR</span>}
                                 {/* Roll MJ */}
                                 <div className="flex items-center gap-1 shrink-0">
-                                  <span className="text-[8px] text-stone-400 font-mono">{p.speedBase || 0}+</span>
+                                  <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
                                   <input type="number" min={0} max={99}
                                     value={editRoll[String(p.citizenId)] ?? (p.initiativeRoll ?? "")}
                                     onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
                                     onBlur={() => applyRollChange(p.citizenId)}
                                     onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
                                     placeholder="roll"
-                                    className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center outline-none focus:border-amber-500" />
-                                  <span className="text-[8px] text-stone-500 font-mono w-7">={initTotal}</span>
+                                    className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
+                                  <span className="text-[8px] text-stone-600 font-mono w-7">={initTotal}</span>
                                 </div>
                               </div>
                             );
@@ -745,24 +837,24 @@ export default function CombatAdminView({
                 {selSession.status !== "pending" && (
                   <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
                     <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-100">
-                      <FileText size={14} className="text-stone-500" />
+                      <FileText size={14} className="text-stone-600" />
                       <span className="text-xs font-black uppercase tracking-widest text-stone-800">Journal de combat</span>
                     </div>
                     {selSession.status === "active" && (
                       <div className="px-5 py-3 border-b border-stone-100 bg-stone-50 space-y-2">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Acteur</label>
+                            <label className="text-[8px] font-black uppercase tracking-widest text-stone-500 block mb-0.5">Acteur</label>
                             <select value={logForm.actor} onChange={e => setLogForm(p => ({ ...p, actor: e.target.value }))}
-                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-400/30">
+                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:ring-2 focus:ring-amber-400/30">
                               <option value="">— Choisir —</option>
                               {sortedParticipants.map(p => <option key={p.citizenId} value={p.name}>{p.name}</option>)}
                             </select>
                           </div>
                           <div>
-                            <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-0.5">Action</label>
+                            <label className="text-[8px] font-black uppercase tracking-widest text-stone-500 block mb-0.5">Action</label>
                             <select value={logForm.action} onChange={e => setLogForm(p => ({ ...p, action: e.target.value }))}
-                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-400/30">
+                              className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:ring-2 focus:ring-amber-400/30">
                               {["Attaque", "Technique/Sort", "Défense", "Esquive", "Fuite"].map(a => <option key={a}>{a}</option>)}
                             </select>
                           </div>
@@ -770,10 +862,10 @@ export default function CombatAdminView({
                         <div className="flex gap-2">
                           <input value={logForm.detail} onChange={e => setLogForm(p => ({ ...p, detail: e.target.value }))}
                             onKeyDown={e => e.key === "Enter" && addLogEntry()}
-                            className="flex-1 bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-amber-400/30"
+                            className="flex-1 bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs text-stone-800 outline-none focus:ring-2 focus:ring-amber-400/30"
                             placeholder="Dégâts infligés, roll, effet déclenché…" />
                           <button onClick={addLogEntry}
-                            className="px-3 py-1.5 bg-[#b8860b] text-stone-900 text-[10px] font-black rounded-lg hover:bg-[#d4a017] transition-all">
+                            className="px-3 py-1.5 bg-amber-600 text-stone-900 text-[10px] font-black rounded-lg hover:bg-amber-500 transition-all">
                             <Plus size={13} />
                           </button>
                         </div>
@@ -783,11 +875,17 @@ export default function CombatAdminView({
                       {(selSession.log || []).length === 0 ? (
                         <p className="text-xs text-stone-400 italic text-center p-6">Aucune action enregistrée</p>
                       ) : [...(selSession.log || [])].reverse().map(entry => {
-                        const ac = { "Attaque": "text-red-600 bg-red-50", "Technique/Sort": "text-violet-700 bg-violet-50", "Défense": "text-blue-600 bg-blue-50", "Esquive": "text-green-600 bg-green-50", "Fuite": "text-stone-600 bg-stone-100" }[entry.action] || "text-stone-600 bg-stone-100";
+                        const ac = {
+                          "Attaque":       "text-red-700 bg-red-50 border-red-200",
+                          "Technique/Sort":"text-violet-700 bg-violet-50 border-violet-200",
+                          "Défense":       "text-blue-700 bg-blue-50 border-blue-200",
+                          "Esquive":       "text-green-700 bg-green-50 border-green-200",
+                          "Fuite":         "text-stone-700 bg-stone-100 border-stone-200",
+                        }[entry.action] || "text-stone-700 bg-stone-100 border-stone-200";
                         return (
                           <div key={entry.id} className="px-4 py-2 flex items-start gap-3">
-                            <span className="text-[8px] font-mono text-stone-400 shrink-0 mt-0.5">T{entry.turn}</span>
-                            <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded shrink-0 ${ac}`}>{entry.action}</span>
+                            <span className="text-[8px] font-mono text-stone-500 shrink-0 mt-0.5">T{entry.turn}</span>
+                            <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${ac}`}>{entry.action}</span>
                             <div className="flex-1 min-w-0">
                               {entry.actor && <span className="text-[9px] font-bold text-stone-600">{entry.actor} — </span>}
                               <span className="text-[10px] text-stone-700">{entry.detail}</span>
