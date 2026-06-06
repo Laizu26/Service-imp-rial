@@ -3796,11 +3796,15 @@ const CitizenLayout = (props) => {
               const manaPct = maxMana > 0 ? Math.max(0, Math.min(100, (currentMana / maxMana) * 100)) : 100;
               const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
               const isMage = cs.class === "mage";
+              const attack       = (cs.attackBase || 0)       + (cs.weaponBonus || 0);
+              const defense      = (cs.defenseBase || 0)      + (cs.armorBonus  || 0);
+              const magicDefense = (cs.magicDefenseBase || 0) + (cs.spellBonus  || 0);
+              const speed        = cs.speedBase || 0;
               const statItems = [
-                { label: "Attaque", value: cs.attack ?? 0, icon: "⚔" },
-                { label: "Défense", value: cs.defense ?? 0, icon: "🛡" },
-                { label: "Déf. Magique", value: cs.magicDefense ?? 0, icon: "✨" },
-                { label: "Vitesse", value: cs.speed ?? 0, icon: "💨" },
+                { label: "Attaque", value: attack, icon: "⚔" },
+                { label: "Défense", value: defense, icon: "🛡" },
+                { label: "Déf. Magique", value: magicDefense, icon: "✨" },
+                { label: "Vitesse", value: speed, icon: "💨" },
               ];
               return (
                 <div className="space-y-5 animate-fadeIn">
