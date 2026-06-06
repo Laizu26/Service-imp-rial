@@ -830,6 +830,7 @@ const CitizenLayout = (props) => {
     bookmarks,
     onBookmarksChange,
     onDismissedChange,
+    combatSessions = [],
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -3791,9 +3792,18 @@ const CitizenLayout = (props) => {
               const cs = user.combatStats || {};
               const techs = Array.isArray(user.techniques) ? user.techniques : [];
               const maxHp = cs.maxHp || 30;
-              const currentHp = cs.currentHp ?? maxHp;
               const maxMana = cs.maxMana || 10;
-              const currentMana = cs.currentMana ?? maxMana;
+
+              // Prefer live HP/Mana from an active combat session if this citizen is a participant
+              const activeSession = combatSessions.find(
+                (s) => s.status === "active" && (s.participants || []).some((p) => String(p.citizenId) === String(user.id))
+              );
+              const liveParticipant = activeSession
+                ? (activeSession.participants || []).find((p) => String(p.citizenId) === String(user.id))
+                : null;
+
+              const currentHp   = liveParticipant ? (liveParticipant.currentHp ?? maxHp)   : (cs.currentHp ?? maxHp);
+              const currentMana = liveParticipant ? (liveParticipant.currentMana ?? maxMana) : (cs.currentMana ?? maxMana);
               const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 100;
               const manaPct = maxMana > 0 ? Math.max(0, Math.min(100, (currentMana / maxMana) * 100)) : 100;
               const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";

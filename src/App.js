@@ -562,6 +562,7 @@ export default function App() {
             onBuyItem={actions.onBuyItem}
             onGiveItem={actions.onGiveItem}
             onUseItem={actions.onUseItem}
+            combatSessions={state.combatSessions || []}
             notify={notify}
             isGraded={canAccessAdmin}
             isBanned={gmBoostActive ? false : isBanned}
