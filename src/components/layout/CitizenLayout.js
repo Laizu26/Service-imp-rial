@@ -3819,15 +3819,17 @@ const CitizenLayout = (props) => {
               const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 100;
               const manaPct = maxMana > 0 ? Math.max(0, Math.min(100, (currentMana / maxMana) * 100)) : 100;
               const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
-              const attack       = (cs.attackBase || 0)       + (cs.weaponBonus || 0);
-              const defense      = (cs.defenseBase || 0)      + (cs.armorBonus  || 0);
-              const magicDefense = (cs.magicDefenseBase || 0) + (cs.spellBonus  || 0);
+              const attack       = (cs.attackBase || 0)       + (cs.weaponBonus      || 0);
+              const magicAttack  = (cs.magicAttackBase || 0)  + (cs.magicAttackBonus || 0);
+              const defense      = (cs.defenseBase || 0)      + (cs.armorBonus       || 0);
+              const magicDefense = (cs.magicDefenseBase || 0) + (cs.spellBonus       || 0);
               const speed        = cs.speedBase || 0;
               const statItems = [
-                { label: "Attaque", value: attack, icon: "⚔" },
-                { label: "Défense", value: defense, icon: "🛡" },
-                { label: "Déf. Magique", value: magicDefense, icon: "✨" },
-                { label: "Vitesse", value: speed, icon: "💨" },
+                { label: "Attaque",    value: attack,       icon: "⚔"  },
+                { label: "Atk. Mag.", value: magicAttack,  icon: "🔮" },
+                { label: "Défense",    value: defense,      icon: "🛡"  },
+                { label: "Déf. Mag.", value: magicDefense, icon: "✨"  },
+                { label: "Vitesse",    value: speed,        icon: "💨"  },
               ];
               return (
                 <div className="space-y-5 animate-fadeIn">
@@ -3972,7 +3974,7 @@ const CitizenLayout = (props) => {
                     </div>
 
                     {/* Stats */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-5">
                       {statItems.map(s => (
                         <div key={s.label} className="bg-stone-800/60 border border-stone-700/50 rounded-xl p-3 text-center">
                           <div className="text-xl mb-1">{s.icon}</div>

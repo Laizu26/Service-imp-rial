@@ -11,6 +11,7 @@ const DEFAULT_COMBAT_STATS = {
   defenseBase: 0, armorBonus: 0,
   magicDefenseBase: 0, spellBonus: 0,
   attackBase: 0, weaponBonus: 0,
+  magicAttackBase: 0, magicAttackBonus: 0,
   speedBase: 0,
   maxMana: 10, currentMana: 10,
   level: 1,
@@ -32,9 +33,10 @@ const CAMP_STYLES = [
 /* ─── HELPERS ─────────────────────────────────────────────────── */
 
 const calcStats = (cs) => ({
-  defense:      (cs.defenseBase || 0)      + (cs.armorBonus  || 0),
-  magicDefense: (cs.magicDefenseBase || 0) + (cs.spellBonus  || 0),
-  attack:       (cs.attackBase || 0)       + (cs.weaponBonus || 0),
+  defense:      (cs.defenseBase || 0)       + (cs.armorBonus       || 0),
+  magicDefense: (cs.magicDefenseBase || 0)  + (cs.spellBonus       || 0),
+  attack:       (cs.attackBase || 0)        + (cs.weaponBonus      || 0),
+  magicAttack:  (cs.magicAttackBase || 0)   + (cs.magicAttackBonus || 0),
   speed:        cs.speedBase || 0,
 });
 
@@ -168,7 +170,7 @@ export default function CombatAdminView({
   const [participantSearch, setParticipantSearch] = useState("");
   const [addCamp, setAddCamp] = useState("A");
   const [addMode, setAddMode] = useState("citizen");
-  const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
+  const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, magicAttackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
   const [hideCreatureStats, setHideCreatureStats] = useState(true);
   const [statPopup, setStatPopup] = useState(null);   // citizenId string
   const [popupEdits, setPopupEdits] = useState({});
@@ -279,9 +281,10 @@ export default function CombatAdminView({
         defenseBase: cs.defenseBase || 0, armorBonus: cs.armorBonus || 0,
         magicDefenseBase: cs.magicDefenseBase || 0, spellBonus: cs.spellBonus || 0,
         attackBase: cs.attackBase || 0, weaponBonus: cs.weaponBonus || 0,
+        magicAttackBase: cs.magicAttackBase || 0, magicAttackBonus: cs.magicAttackBonus || 0,
         speedBase: cs.speedBase || 0,
         defense: computed.defense, magicDefense: computed.magicDefense,
-        attack: computed.attack, speed: computed.speed,
+        attack: computed.attack, magicAttack: computed.magicAttack, speed: computed.speed,
         cooldowns: {}, initiativeRoll: null,
       }],
     });
@@ -302,15 +305,17 @@ export default function CombatAdminView({
         defenseBase: creatureForm.defenseBase || 0, armorBonus: 0,
         magicDefenseBase: creatureForm.magicDefenseBase || 0, spellBonus: 0,
         attackBase: creatureForm.attackBase || 0, weaponBonus: 0,
+        magicAttackBase: creatureForm.magicAttackBase || 0, magicAttackBonus: 0,
         speedBase: creatureForm.speedBase || 0,
         defense: creatureForm.defenseBase || 0,
         magicDefense: creatureForm.magicDefenseBase || 0,
         attack: creatureForm.attackBase || 0,
+        magicAttack: creatureForm.magicAttackBase || 0,
         speed: creatureForm.speedBase || 0,
         cooldowns: {}, initiativeRoll: null,
       }],
     });
-    setCreatureForm({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
+    setCreatureForm({ name: "", maxHp: 30, attackBase: 0, magicAttackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
   };
 
   const updateParticipant = (citizenId, updates) => {
@@ -468,6 +473,12 @@ export default function CombatAdminView({
                           base={editStats.attackBase} bonus={editStats.weaponBonus}
                           bonusLabel="Arme"
                           onBase={sc("attackBase")} onBonus={sc("weaponBonus")}
+                        />
+                        <StatFormula
+                          label="Attaque Magique"
+                          base={editStats.magicAttackBase} bonus={editStats.magicAttackBonus}
+                          bonusLabel="Sort offensif"
+                          onBase={sc("magicAttackBase")} onBonus={sc("magicAttackBonus")}
                         />
                         <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 space-y-2">
                           <div className="flex items-center justify-between">
@@ -776,11 +787,12 @@ export default function CombatAdminView({
                           />
                           <div className="grid grid-cols-3 gap-2">
                             {[
-                              { label: "PV max", key: "maxHp" },
-                              { label: "Attaque", key: "attackBase" },
-                              { label: "Défense", key: "defenseBase" },
-                              { label: "Déf.Mag", key: "magicDefenseBase" },
-                              { label: "Vitesse", key: "speedBase" },
+                              { label: "PV max",    key: "maxHp" },
+                              { label: "Attaque",   key: "attackBase" },
+                              { label: "Atk.Mag",   key: "magicAttackBase" },
+                              { label: "Défense",   key: "defenseBase" },
+                              { label: "Déf.Mag",   key: "magicDefenseBase" },
+                              { label: "Vitesse",   key: "speedBase" },
                             ].map(({ label, key }) => (
                               <div key={key}>
                                 <label className="text-[8px] font-bold uppercase tracking-widest text-stone-400 block mb-0.5">{label}</label>
@@ -1056,10 +1068,11 @@ export default function CombatAdminView({
         const inputCls = "w-10 text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500";
 
         const statDefs = [
-          { label: "Attaque",   icon: "⚔", base: "attackBase",       bonus: "weaponBonus",    bonusLbl: "Arme"   },
-          { label: "Défense",   icon: "🛡", base: "defenseBase",      bonus: "armorBonus",     bonusLbl: "Armure" },
-          { label: "Déf. Mag.", icon: "✨", base: "magicDefenseBase", bonus: "spellBonus",     bonusLbl: "Sort"   },
-          { label: "Vitesse",   icon: "💨", base: "speedBase",        bonus: null,             bonusLbl: null     },
+          { label: "Attaque",    icon: "⚔",  base: "attackBase",       bonus: "weaponBonus",       bonusLbl: "Arme"    },
+          { label: "Atk. Mag.", icon: "🔮", base: "magicAttackBase",  bonus: "magicAttackBonus",  bonusLbl: "Sort off." },
+          { label: "Défense",    icon: "🛡",  base: "defenseBase",      bonus: "armorBonus",        bonusLbl: "Armure"  },
+          { label: "Déf. Mag.", icon: "✨",  base: "magicDefenseBase", bonus: "spellBonus",        bonusLbl: "Sort déf." },
+          { label: "Vitesse",    icon: "💨",  base: "speedBase",        bonus: null,                bonusLbl: null      },
         ];
 
         const closePopup = () => { setStatPopup(null); setPopupEdits({}); };
