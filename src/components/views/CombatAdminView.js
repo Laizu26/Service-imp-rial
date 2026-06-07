@@ -170,7 +170,8 @@ export default function CombatAdminView({
   const [addMode, setAddMode] = useState("citizen");
   const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
   const [hideCreatureStats, setHideCreatureStats] = useState(true);
-  const [statPopup, setStatPopup] = useState(null);
+  const [statPopup, setStatPopup] = useState(null);   // citizenId string
+  const [popupEdits, setPopupEdits] = useState({});
   const [logForm, setLogForm] = useState({ actor: "", action: "Attaque", detail: "" });
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
@@ -831,7 +832,7 @@ export default function CombatAdminView({
                                     : { label: "Critique", cls: "bg-red-900/60 text-red-300" };
                                   return (
                                     <div key={p.citizenId} className={`bg-stone-900/70 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""} cursor-pointer hover:bg-stone-800/80 transition-colors`}
-                                      onClick={() => setStatPopup(p)}>
+                                      onClick={() => { setStatPopup(String(p.citizenId)); setPopupEdits({}); }}>
                                       <div className="flex items-center justify-between gap-2 mb-1">
                                         <div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`text-xs font-black text-stone-100 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
@@ -1011,32 +1012,66 @@ export default function CombatAdminView({
         </div>
       )}
 
-      {/* ── POPUP STATS PARTICIPANT ─────────────────────────────── */}
-      {statPopup && (() => {
-        const p = statPopup;
+      {/* ── POPUP STATS PARTICIPANT (éditable) ──────────────────── */}
+      {statPopup && selSession && (() => {
+        const p = (selSession.participants || []).find(x => String(x.citizenId) === statPopup);
+        if (!p) return null;
+
+        // Helpers lecture/écriture locale
+        const pe = (f) => popupEdits[f] !== undefined ? popupEdits[f] : (p[f] ?? 0);
+        const set = (f, v) => setPopupEdits(prev => ({ ...prev, [f]: v }));
+        const save = (f, extra = {}) => {
+          const raw = popupEdits[f];
+          if (raw === undefined) return;
+          const val = Math.max(0, parseInt(raw) || 0);
+          const updates = { [f]: val, ...extra };
+          updateParticipant(p.citizenId, updates);
+          setPopupEdits(prev => { const n = { ...prev }; delete n[f]; Object.keys(extra).forEach(k => delete n[k]); return n; });
+        };
+        // Sauvegarde HP avec cap currentHp ≤ maxHp
+        const saveHp = (field) => {
+          const rawCur = popupEdits.currentHp !== undefined ? popupEdits.currentHp : p.currentHp;
+          const rawMax = popupEdits.maxHp !== undefined ? popupEdits.maxHp : p.maxHp;
+          const newMax = Math.max(1, parseInt(rawMax) || 1);
+          const newCur = Math.max(0, Math.min(newMax, parseInt(rawCur) || 0));
+          updateParticipant(p.citizenId, { currentHp: newCur, maxHp: newMax });
+          setPopupEdits(prev => { const n = { ...prev }; delete n.currentHp; delete n.maxHp; return n; });
+        };
+        const saveMana = () => {
+          const rawCur = popupEdits.currentMana !== undefined ? popupEdits.currentMana : p.currentMana;
+          const rawMax = popupEdits.maxMana !== undefined ? popupEdits.maxMana : p.maxMana;
+          const newMax = Math.max(0, parseInt(rawMax) || 0);
+          const newCur = Math.max(0, Math.min(newMax, parseInt(rawCur) || 0));
+          updateParticipant(p.citizenId, { currentMana: newCur, maxMana: newMax });
+          setPopupEdits(prev => { const n = { ...prev }; delete n.currentMana; delete n.maxMana; return n; });
+        };
+
         const hpPct = p.maxHp > 0 ? Math.max(0, Math.min(100, (p.currentHp / p.maxHp) * 100)) : 0;
         const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
         const manaPct = p.maxMana > 0 ? Math.max(0, Math.min(100, (p.currentMana / p.maxMana) * 100)) : 0;
         const campStyle = CAMP_STYLES.find(x => x.id === (p.campId || "A")) || CAMP_STYLES[0];
-        const atk  = (p.attackBase || 0) + (p.weaponBonus || 0);
-        const def  = (p.defenseBase || 0) + (p.armorBonus || 0);
-        const defm = (p.magicDefenseBase || 0) + (p.spellBonus || 0);
-        const vit  = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
-        const citizenRecord = safeCitizens.find(c => String(c.id) === String(p.citizenId));
+        const citizenRecord = safeCitizens.find(c => String(c.id) === p.citizenId);
         const techs = citizenRecord ? (Array.isArray(citizenRecord.techniques) ? citizenRecord.techniques : []) : [];
-        const statItems = [
-          { label: "Attaque",   value: atk,  icon: "⚔", detail: `${p.attackBase||0}+${p.weaponBonus||0}` },
-          { label: "Défense",   value: def,  icon: "🛡", detail: `${p.defenseBase||0}+${p.armorBonus||0}` },
-          { label: "Déf. Mag", value: defm, icon: "✨", detail: `${p.magicDefenseBase||0}+${p.spellBonus||0}` },
-          { label: "Vitesse",   value: vit,  icon: "💨", detail: `${p.speedBase||p.speed||0}+roll` },
+
+        const inputCls = "w-10 text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500";
+
+        const statDefs = [
+          { label: "Attaque",   icon: "⚔", base: "attackBase",       bonus: "weaponBonus",    bonusLbl: "Arme"   },
+          { label: "Défense",   icon: "🛡", base: "defenseBase",      bonus: "armorBonus",     bonusLbl: "Armure" },
+          { label: "Déf. Mag.", icon: "✨", base: "magicDefenseBase", bonus: "spellBonus",     bonusLbl: "Sort"   },
+          { label: "Vitesse",   icon: "💨", base: "speedBase",        bonus: null,             bonusLbl: null     },
         ];
+
+        const closePopup = () => { setStatPopup(null); setPopupEdits({}); };
+
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setStatPopup(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={closePopup}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative w-full max-w-sm bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden"
+            <div className="relative w-full max-w-sm bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
               onClick={e => e.stopPropagation()}>
+
               {/* En-tête */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-stone-800">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-stone-800 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 ${campStyle.bg} ${campStyle.border}`}>
                     <Swords size={16} className="text-stone-300" />
@@ -1046,63 +1081,119 @@ export default function CombatAdminView({
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${campStyle.badge}`}>{campStyle.label}</span>
                       {p.isCreature && <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-red-900/60 text-red-300">Créature</span>}
-                      {p.level && <span className="text-[8px] text-stone-400 font-mono">Niv. {p.level}</span>}
+                      {p.level > 0 && <span className="text-[8px] text-stone-400 font-mono">Niv. {p.level}</span>}
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setStatPopup(null)} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all shrink-0">
+                <button onClick={closePopup} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all shrink-0">
                   <X size={15} />
                 </button>
               </div>
 
-              <div className="p-5 space-y-4">
-                {/* Barres vitales */}
-                <div className="space-y-2.5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
+              <div className="p-5 space-y-4 overflow-y-auto">
+                {/* ── Barres vitales éditables ── */}
+                <div className="space-y-3">
+                  {/* PV */}
+                  <div className="bg-stone-800/60 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         <Heart size={11} className="text-red-400" />
                         <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Points de Vie</span>
                       </div>
-                      <span className="text-xs font-mono text-stone-300">{p.currentHp} / {p.maxHp}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input type="number" min={0} value={pe("currentHp")}
+                          onChange={e => set("currentHp", e.target.value)}
+                          onBlur={saveHp}
+                          onKeyDown={e => e.key === "Enter" && saveHp()}
+                          className={inputCls} />
+                        <span className="text-[9px] text-stone-500">/</span>
+                        <input type="number" min={1} value={pe("maxHp")}
+                          onChange={e => set("maxHp", e.target.value)}
+                          onBlur={saveHp}
+                          onKeyDown={e => e.key === "Enter" && saveHp()}
+                          className={inputCls} />
+                      </div>
                     </div>
-                    <div className="h-2.5 bg-stone-800 rounded-full overflow-hidden">
+                    <div className="h-2 bg-stone-700 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full transition-all ${hpColor}`} style={{ width: `${hpPct}%` }} />
                     </div>
                   </div>
-                  {p.maxMana > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          <Zap size={11} className="text-blue-400" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Mana</span>
+
+                  {/* Mana */}
+                  <div className="bg-stone-800/60 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Zap size={11} className="text-blue-400" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Mana</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input type="number" min={0} value={pe("currentMana")}
+                          onChange={e => set("currentMana", e.target.value)}
+                          onBlur={saveMana}
+                          onKeyDown={e => e.key === "Enter" && saveMana()}
+                          className={inputCls} />
+                        <span className="text-[9px] text-stone-500">/</span>
+                        <input type="number" min={0} value={pe("maxMana")}
+                          onChange={e => set("maxMana", e.target.value)}
+                          onBlur={saveMana}
+                          onKeyDown={e => e.key === "Enter" && saveMana()}
+                          className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="h-2 bg-stone-700 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${manaPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Stats éditables ── */}
+                <div className="grid grid-cols-2 gap-2">
+                  {statDefs.map(({ label, icon, base, bonus, bonusLbl }) => {
+                    const baseVal = parseInt(pe(base)) || 0;
+                    const bonusVal = bonus ? (parseInt(pe(bonus)) || 0) : 0;
+                    const total = baseVal + bonusVal;
+                    return (
+                      <div key={label} className="bg-stone-800 border border-stone-700/60 rounded-xl p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <span>{icon}</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{label}</span>
+                          </div>
+                          <span className="text-base font-black text-stone-100">{total}</span>
                         </div>
-                        <span className="text-xs font-mono text-stone-300">{p.currentMana} / {p.maxMana}</span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1">
+                            <div className="text-[7px] text-stone-500 mb-0.5">Base</div>
+                            <input type="number" min={0} value={pe(base)}
+                              onChange={e => set(base, e.target.value)}
+                              onBlur={() => save(base)}
+                              onKeyDown={e => e.key === "Enter" && save(base)}
+                              className="w-full text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-center text-stone-100 outline-none focus:border-amber-500" />
+                          </div>
+                          {bonus && (
+                            <>
+                              <span className="text-stone-600 text-xs mt-3">+</span>
+                              <div className="flex-1">
+                                <div className="text-[7px] text-stone-500 mb-0.5">{bonusLbl}</div>
+                                <input type="number" min={0} value={pe(bonus)}
+                                  onChange={e => set(bonus, e.target.value)}
+                                  onBlur={() => save(bonus)}
+                                  onKeyDown={e => e.key === "Enter" && save(bonus)}
+                                  className="w-full text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-center text-stone-100 outline-none focus:border-amber-500" />
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="h-2.5 bg-stone-800 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${manaPct}%` }} />
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
 
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-2">
-                  {statItems.map(s => (
-                    <div key={s.label} className="bg-stone-800 border border-stone-700/60 rounded-xl p-2.5 text-center">
-                      <div className="text-lg mb-0.5">{s.icon}</div>
-                      <div className="text-base font-black text-stone-100">{s.value}</div>
-                      <div className="text-[7px] font-black uppercase tracking-wide text-stone-500">{s.label}</div>
-                      <div className="text-[7px] font-mono text-stone-600 mt-0.5">{s.detail}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Compétences */}
+                {/* ── Compétences ── */}
                 {techs.length > 0 && (
                   <div>
                     <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Compétences</div>
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    <div className="space-y-1.5">
                       {techs.map(tech => {
                         const isSort = tech.type === "sort";
                         return (
