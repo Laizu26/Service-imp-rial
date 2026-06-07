@@ -925,22 +925,18 @@ export default function CombatAdminView({
                                   {p.isCreature && <span className="ml-1 text-[7px] font-black text-red-400">★</span>}
                                 </span>
                                 {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black animate-pulse">SON TOUR</span>}
-                                {/* Roll MJ — champ éditable masqué pour les créatures en mode observateur, VIT toujours visible */}
-                                {maskedInit ? (
-                                  <span className="text-[8px] font-mono text-stone-500 shrink-0">VIT {initTotal}</span>
-                                ) : (
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
-                                    <input type="number" min={0} max={99}
-                                      value={editRoll[String(p.citizenId)] ?? (p.initiativeRoll ?? "")}
-                                      onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
-                                      onBlur={() => applyRollChange(p.citizenId)}
-                                      onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
-                                      placeholder="roll"
-                                      className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
-                                    <span className="text-[8px] text-stone-600 font-mono w-7">={initTotal}</span>
-                                  </div>
-                                )}
+                                {/* Roll MJ — toujours éditable, même en mode observateur */}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
+                                  <input type="number" min={0} max={99}
+                                    value={editRoll[String(p.citizenId)] ?? (p.initiativeRoll ?? "")}
+                                    onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
+                                    onBlur={() => applyRollChange(p.citizenId)}
+                                    onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
+                                    placeholder="roll"
+                                    className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
+                                  <span className="text-[8px] text-stone-600 font-mono w-7">={initTotal}</span>
+                                </div>
                               </div>
                             );
                           })}

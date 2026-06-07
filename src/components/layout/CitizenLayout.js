@@ -3804,6 +3804,18 @@ const CitizenLayout = (props) => {
 
               const currentHp   = liveParticipant ? (liveParticipant.currentHp ?? maxHp)   : (cs.currentHp ?? maxHp);
               const currentMana = liveParticipant ? (liveParticipant.currentMana ?? maxMana) : (cs.currentMana ?? maxMana);
+
+              // Données de session active pour le panneau combat
+              const CAMP_DOT = { A: "bg-red-500", B: "bg-blue-500", C: "bg-green-500", D: "bg-amber-500" };
+              const CAMP_LABEL = { A: "Camp A", B: "Camp B", C: "Camp C", D: "Camp D" };
+              const sessionParticipants = activeSession ? (activeSession.participants || []) : [];
+              const sortedSession = [...sessionParticipants].sort(
+                (a, b) => ((b.speedBase || b.speed || 0) + (b.initiativeRoll || 0)) - ((a.speedBase || a.speed || 0) + (a.initiativeRoll || 0))
+              );
+              const myCamp = liveParticipant?.campId;
+              const allies = sessionParticipants.filter(p => p.campId === myCamp && String(p.citizenId) !== String(user.id));
+              const currentTurnP = activeSession?.status === "active" ? sortedSession[activeSession.currentParticipantIndex] : null;
+              const isMyTurn = currentTurnP && String(currentTurnP.citizenId) === String(user.id);
               const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 100;
               const manaPct = maxMana > 0 ? Math.max(0, Math.min(100, (currentMana / maxMana) * 100)) : 100;
               const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
@@ -3820,6 +3832,103 @@ const CitizenLayout = (props) => {
               ];
               return (
                 <div className="space-y-5 animate-fadeIn">
+
+                  {/* ── COMBAT EN COURS ─────────────────────────────────── */}
+                  {activeSession && (
+                    <div className="bg-stone-900 border border-stone-700 rounded-2xl overflow-hidden shadow-xl">
+                      {/* En-tête session */}
+                      <div className="px-5 py-3 border-b border-stone-800 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Swords size={14} className="text-red-400 shrink-0" />
+                          <span className="text-xs font-black uppercase tracking-widest text-stone-200 truncate">{activeSession.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isMyTurn && (
+                            <span className="text-[8px] font-black uppercase tracking-widest bg-amber-500 text-stone-900 px-2 py-0.5 rounded animate-pulse">
+                              Ton tour !
+                            </span>
+                          )}
+                          <span className="text-[9px] font-mono text-stone-400">Tour {activeSession.turnNumber}</span>
+                        </div>
+                      </div>
+
+                      {/* Alliés */}
+                      {allies.length > 0 && (
+                        <div className="px-5 py-3 border-b border-stone-800">
+                          <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500 mb-2.5">
+                            Alliés — {CAMP_LABEL[myCamp] || `Camp ${myCamp}`}
+                          </div>
+                          <div className="space-y-2">
+                            {allies.map(p => {
+                              const aHpPct = p.maxHp > 0 ? Math.max(0, Math.min(100, (p.currentHp / p.maxHp) * 100)) : 0;
+                              const aHpColor = aHpPct > 50 ? "bg-green-500" : aHpPct > 25 ? "bg-amber-500" : "bg-red-500";
+                              const aManaPct = p.maxMana > 0 ? Math.max(0, Math.min(100, (p.currentMana / p.maxMana) * 100)) : 0;
+                              const aDead = p.currentHp <= 0;
+                              const isCurrent = currentTurnP && String(currentTurnP.citizenId) === String(p.citizenId);
+                              return (
+                                <div key={p.citizenId} className={`rounded-lg px-3 py-2 ${isCurrent ? "bg-amber-900/30 border border-amber-700/40" : "bg-stone-800/60"} ${aDead ? "opacity-40" : ""}`}>
+                                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                                    <span className={`text-[11px] font-bold text-stone-100 truncate ${aDead ? "line-through" : ""}`}>{p.name}</span>
+                                    {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black shrink-0">Son tour</span>}
+                                  </div>
+                                  {/* HP */}
+                                  <div className="flex items-center gap-1.5">
+                                    <Heart size={8} className="text-red-400 shrink-0" />
+                                    <div className="flex-1 h-1.5 bg-stone-700 rounded-full overflow-hidden">
+                                      <div className={`h-full rounded-full transition-all ${aHpColor}`} style={{ width: `${aHpPct}%` }} />
+                                    </div>
+                                    <span className="text-[8px] font-mono text-stone-400">{p.currentHp}/{p.maxHp}</span>
+                                  </div>
+                                  {/* Mana si mage */}
+                                  {p.class === "mage" && p.maxMana > 0 && (
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                      <Zap size={8} className="text-blue-400 shrink-0" />
+                                      <div className="flex-1 h-1.5 bg-stone-700 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${aManaPct}%` }} />
+                                      </div>
+                                      <span className="text-[8px] font-mono text-stone-400">{p.currentMana}/{p.maxMana}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ordre d'initiative */}
+                      {sortedSession.length > 0 && (
+                        <div className="px-5 py-3">
+                          <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500 mb-2.5">Ordre d'initiative</div>
+                          <div className="space-y-1">
+                            {sortedSession.map((p, idx) => {
+                              const isCurrent = currentTurnP && String(currentTurnP.citizenId) === String(p.citizenId);
+                              const isMe = String(p.citizenId) === String(user.id);
+                              const isAlly = p.campId === myCamp;
+                              const pDead = p.currentHp <= 0;
+                              const initTotal = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
+                              return (
+                                <div key={p.citizenId}
+                                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all ${isCurrent ? "bg-amber-900/30 border border-amber-700/40" : "bg-stone-800/40"} ${pDead ? "opacity-40" : ""}`}
+                                >
+                                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 ${isCurrent ? "bg-amber-500 text-stone-900" : "bg-stone-700 text-stone-400"}`}>
+                                    {idx + 1}
+                                  </span>
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${CAMP_DOT[p.campId] || "bg-stone-500"}`} />
+                                  <span className={`flex-1 text-[10px] font-bold truncate ${pDead ? "line-through text-stone-600" : isMe ? "text-amber-300" : isAlly ? "text-stone-100" : "text-stone-400"}`}>
+                                    {p.name}{isMe ? " (toi)" : ""}
+                                  </span>
+                                  {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1 py-0.5 rounded font-black shrink-0">►</span>}
+                                  <span className="text-[8px] font-mono text-stone-500 shrink-0">VIT {initTotal}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Header */}
                   <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-2xl border border-stone-700 p-5 shadow-xl">
                     <div className="flex items-center gap-4 mb-5">
