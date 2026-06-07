@@ -170,6 +170,7 @@ export default function CombatAdminView({
   const [addMode, setAddMode] = useState("citizen");
   const [creatureForm, setCreatureForm] = useState({ name: "", maxHp: 30, attackBase: 0, defenseBase: 0, magicDefenseBase: 0, speedBase: 0 });
   const [hideCreatureStats, setHideCreatureStats] = useState(true);
+  const [statPopup, setStatPopup] = useState(null);
   const [logForm, setLogForm] = useState({ actor: "", action: "Attaque", detail: "" });
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
@@ -829,7 +830,8 @@ export default function CombatAdminView({
                                     : hpPct > 33 ? { label: "Blessé", cls: "bg-amber-900/60 text-amber-300" }
                                     : { label: "Critique", cls: "bg-red-900/60 text-red-300" };
                                   return (
-                                    <div key={p.citizenId} className={`bg-stone-900/70 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""}`}>
+                                    <div key={p.citizenId} className={`bg-stone-900/70 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""} cursor-pointer hover:bg-stone-800/80 transition-colors`}
+                                      onClick={() => setStatPopup(p)}>
                                       <div className="flex items-center justify-between gap-2 mb-1">
                                         <div className="flex items-center gap-1.5 min-w-0">
                                           <span className={`text-xs font-black text-stone-100 truncate ${isDead ? "line-through" : ""}`}>{p.name}</span>
@@ -838,7 +840,7 @@ export default function CombatAdminView({
                                         <div className="flex items-center gap-1.5 shrink-0">
                                           {!masked && <span className="text-[7px] font-mono text-stone-300">VIT {initTotal}</span>}
                                           {selSession.status !== "ended" && (
-                                            <button onClick={() => onUpdateCombatSession(selSession.id, { participants: selSession.participants.filter(x => String(x.citizenId) !== String(p.citizenId)) })}
+                                            <button onClick={(e) => { e.stopPropagation(); onUpdateCombatSession(selSession.id, { participants: selSession.participants.filter(x => String(x.citizenId) !== String(p.citizenId)) }); }}
                                               className="p-0.5 rounded hover:bg-red-900/50 text-stone-500 hover:text-red-400 transition-all">
                                               <X size={11} />
                                             </button>
@@ -862,6 +864,7 @@ export default function CombatAdminView({
                                             onChange={e => setEditHp(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
                                             onBlur={() => applyHpChange(p.citizenId)}
                                             onKeyDown={e => e.key === "Enter" && applyHpChange(p.citizenId)}
+                                            onClick={e => e.stopPropagation()}
                                             className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500" />
                                           <span className="text-[8px] text-stone-400">/{p.maxHp}</span>
                                         </div>
@@ -878,6 +881,7 @@ export default function CombatAdminView({
                                             onChange={e => setEditMana(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
                                             onBlur={() => applyManaChange(p.citizenId)}
                                             onKeyDown={e => e.key === "Enter" && applyManaChange(p.citizenId)}
+                                            onClick={e => e.stopPropagation()}
                                             className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-blue-500" />
                                           <span className="text-[8px] text-stone-400">/{p.maxMana}</span>
                                         </div>
@@ -1006,6 +1010,127 @@ export default function CombatAdminView({
           </div>
         </div>
       )}
+
+      {/* ── POPUP STATS PARTICIPANT ─────────────────────────────── */}
+      {statPopup && (() => {
+        const p = statPopup;
+        const hpPct = p.maxHp > 0 ? Math.max(0, Math.min(100, (p.currentHp / p.maxHp) * 100)) : 0;
+        const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
+        const manaPct = p.maxMana > 0 ? Math.max(0, Math.min(100, (p.currentMana / p.maxMana) * 100)) : 0;
+        const campStyle = CAMP_STYLES.find(x => x.id === (p.campId || "A")) || CAMP_STYLES[0];
+        const atk  = (p.attackBase || 0) + (p.weaponBonus || 0);
+        const def  = (p.defenseBase || 0) + (p.armorBonus || 0);
+        const defm = (p.magicDefenseBase || 0) + (p.spellBonus || 0);
+        const vit  = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
+        const citizenRecord = safeCitizens.find(c => String(c.id) === String(p.citizenId));
+        const techs = citizenRecord ? (Array.isArray(citizenRecord.techniques) ? citizenRecord.techniques : []) : [];
+        const statItems = [
+          { label: "Attaque",   value: atk,  icon: "⚔", detail: `${p.attackBase||0}+${p.weaponBonus||0}` },
+          { label: "Défense",   value: def,  icon: "🛡", detail: `${p.defenseBase||0}+${p.armorBonus||0}` },
+          { label: "Déf. Mag", value: defm, icon: "✨", detail: `${p.magicDefenseBase||0}+${p.spellBonus||0}` },
+          { label: "Vitesse",   value: vit,  icon: "💨", detail: `${p.speedBase||p.speed||0}+roll` },
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setStatPopup(null)}>
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative w-full max-w-sm bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden"
+              onClick={e => e.stopPropagation()}>
+              {/* En-tête */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-stone-800">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 ${campStyle.bg} ${campStyle.border}`}>
+                    <Swords size={16} className="text-stone-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-black text-stone-100 truncate">{p.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${campStyle.badge}`}>{campStyle.label}</span>
+                      {p.isCreature && <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-red-900/60 text-red-300">Créature</span>}
+                      {p.level && <span className="text-[8px] text-stone-400 font-mono">Niv. {p.level}</span>}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setStatPopup(null)} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all shrink-0">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Barres vitales */}
+                <div className="space-y-2.5">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <Heart size={11} className="text-red-400" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Points de Vie</span>
+                      </div>
+                      <span className="text-xs font-mono text-stone-300">{p.currentHp} / {p.maxHp}</span>
+                    </div>
+                    <div className="h-2.5 bg-stone-800 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${hpColor}`} style={{ width: `${hpPct}%` }} />
+                    </div>
+                  </div>
+                  {p.maxMana > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <Zap size={11} className="text-blue-400" />
+                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">Mana</span>
+                        </div>
+                        <span className="text-xs font-mono text-stone-300">{p.currentMana} / {p.maxMana}</span>
+                      </div>
+                      <div className="h-2.5 bg-stone-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${manaPct}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-2">
+                  {statItems.map(s => (
+                    <div key={s.label} className="bg-stone-800 border border-stone-700/60 rounded-xl p-2.5 text-center">
+                      <div className="text-lg mb-0.5">{s.icon}</div>
+                      <div className="text-base font-black text-stone-100">{s.value}</div>
+                      <div className="text-[7px] font-black uppercase tracking-wide text-stone-500">{s.label}</div>
+                      <div className="text-[7px] font-mono text-stone-600 mt-0.5">{s.detail}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Compétences */}
+                {techs.length > 0 && (
+                  <div>
+                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Compétences</div>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {techs.map(tech => {
+                        const isSort = tech.type === "sort";
+                        return (
+                          <div key={tech.id} className="bg-stone-800 border border-stone-700/50 rounded-lg px-3 py-2 flex items-start gap-2.5">
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${isSort ? "bg-blue-900/60 text-blue-300" : "bg-red-900/60 text-red-300"}`}>
+                              {isSort ? <Zap size={11} /> : <Sword size={11} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[11px] font-bold text-stone-100 truncate">{tech.name}</div>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {tech.bonusDamage > 0 && <span className="text-[8px] font-mono text-amber-400">+{tech.bonusDamage} dég.</span>}
+                                {tech.effect && <span className="text-[8px] text-stone-400 truncate">{tech.effect}</span>}
+                                {isSort && tech.manaCost > 0 && <span className="text-[8px] font-mono text-blue-400">{tech.manaCost} mana</span>}
+                                {!isSort && tech.cooldown > 0 && <span className="text-[8px] font-mono text-stone-500">{tech.cooldown}t cd</span>}
+                              </div>
+                              {tech.description && <p className="text-[8px] text-stone-500 italic mt-0.5 line-clamp-2">{tech.description}</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
