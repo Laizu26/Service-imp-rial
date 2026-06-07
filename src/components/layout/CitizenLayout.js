@@ -3819,7 +3819,6 @@ const CitizenLayout = (props) => {
               const hpPct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 100;
               const manaPct = maxMana > 0 ? Math.max(0, Math.min(100, (currentMana / maxMana) * 100)) : 100;
               const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
-              const isMage = cs.class === "mage";
               const attack       = (cs.attackBase || 0)       + (cs.weaponBonus || 0);
               const defense      = (cs.defenseBase || 0)      + (cs.armorBonus  || 0);
               const magicDefense = (cs.magicDefenseBase || 0) + (cs.spellBonus  || 0);
@@ -3880,7 +3879,7 @@ const CitizenLayout = (props) => {
                                     <span className="text-[8px] font-mono text-stone-400">{p.currentHp}/{p.maxHp}</span>
                                   </div>
                                   {/* Mana si mage */}
-                                  {p.class === "mage" && p.maxMana > 0 && (
+                                  {p.maxMana > 0 && (
                                     <div className="flex items-center gap-1.5 mt-1">
                                       <Zap size={8} className="text-blue-400 shrink-0" />
                                       <div className="flex-1 h-1.5 bg-stone-700 rounded-full overflow-hidden">
@@ -3932,12 +3931,12 @@ const CitizenLayout = (props) => {
                   {/* Header */}
                   <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-2xl border border-stone-700 p-5 shadow-xl">
                     <div className="flex items-center gap-4 mb-5">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${isMage ? "bg-blue-900/40 border-blue-700/50" : "bg-red-900/40 border-red-700/50"}`}>
-                        {isMage ? <Zap size={22} className="text-blue-400" /> : <Sword size={22} className="text-red-400" />}
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center border bg-red-900/40 border-red-700/50">
+                        <Swords size={22} className="text-red-400" />
                       </div>
                       <div>
                         <div className="text-xs font-black uppercase tracking-widest text-stone-400">
-                          {isMage ? "Mage" : "Guerrier"} — Niveau {cs.level || 1}
+                          Niveau {cs.level || 1}
                         </div>
                         <div className="text-lg font-black uppercase text-stone-100">{user.name}</div>
                       </div>
@@ -3969,7 +3968,6 @@ const CitizenLayout = (props) => {
                         <div className="h-3 bg-stone-700 rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all bg-blue-500" style={{ width: `${manaPct}%` }} />
                         </div>
-                        {!isMage && <p className="text-[8px] text-stone-600 mt-1 italic">Guerrier — pas de magie utilisable</p>}
                       </div>
                     </div>
 
@@ -3990,7 +3988,7 @@ const CitizenLayout = (props) => {
                     <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-800">
                       <Zap size={15} className="text-amber-500" />
                       <span className="text-xs font-black uppercase tracking-widest text-stone-300">
-                        {isMage ? "Sorts" : "Techniques"} ({techs.length})
+                        Compétences ({techs.length})
                       </span>
                     </div>
                     <div className="p-4">
@@ -4010,7 +4008,7 @@ const CitizenLayout = (props) => {
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-black text-stone-100 truncate">{tech.name}</div>
                                     <div className={`text-[8px] font-black uppercase tracking-widest ${isSort ? "text-blue-400" : "text-red-400"}`}>
-                                      {isSort ? "Sort · Mage" : "Technique · Guerrier"}
+                                      {isSort ? "Sort" : "Technique"}
                                     </div>
                                   </div>
                                 </div>
@@ -4055,7 +4053,7 @@ const CitizenLayout = (props) => {
                     </div>
                   </div>
 
-                  {techs.length === 0 && !cs.class && (
+                  {techs.length === 0 && !cs.maxHp && (
                     <p className="text-xs text-stone-600 italic text-center py-2">La fiche de combat sera remplie par un administrateur.</p>
                   )}
                 </div>

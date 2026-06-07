@@ -13,7 +13,7 @@ const DEFAULT_COMBAT_STATS = {
   attackBase: 0, weaponBonus: 0,
   speedBase: 0,
   maxMana: 10, currentMana: 10,
-  class: "guerrier", level: 1,
+  level: 1,
 };
 
 const DEFAULT_TECH = {
@@ -82,7 +82,7 @@ const TechCard = ({ tech, onEdit, onDelete }) => {
         <div className="flex-1 min-w-0">
           <div className="text-sm font-black text-stone-100 truncate">{tech.name || "Sans nom"}</div>
           <div className={`text-[8px] font-black uppercase tracking-widest ${isSort ? "text-blue-400" : "text-red-400"}`}>
-            {isSort ? "Sort · Mage" : "Technique · Guerrier"}
+            {isSort ? "Sort" : "Technique"}
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
@@ -270,7 +270,7 @@ export default function CombatAdminView({
     onUpdateCombatSession(selSession.id, {
       participants: [...selSession.participants, {
         citizenId: c.id, name: c.name,
-        class: cs.class, level: cs.level || 1,
+        level: cs.level || 1,
         campId: addCamp,
         maxHp: cs.maxHp, currentHp: cs.currentHp ?? cs.maxHp,
         maxMana: cs.maxMana, currentMana: cs.currentMana ?? cs.maxMana,
@@ -397,7 +397,7 @@ export default function CombatAdminView({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-bold text-stone-800 truncate">{c.name}</div>
-                        <div className="text-[9px] text-stone-400 uppercase">{c.combatStats?.class || "—"} · Niv.{c.combatStats?.level || "—"}</div>
+                        <div className="text-[9px] text-stone-400 uppercase">Niv. {c.combatStats?.level || "—"}</div>
                       </div>
                       <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded ${c.combatStats ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-400"}`}>
                         {c.combatStats ? "Fiche" : "—"}
@@ -441,16 +441,8 @@ export default function CombatAdminView({
                     </div>
 
                     <div className="p-5 space-y-5">
-                      {/* Classe / niveau / PV */}
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Classe</label>
-                          <select value={editStats.class} onChange={e => setEditStats(p => ({ ...p, class: e.target.value }))}
-                            className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
-                            <option value="guerrier">Guerrier</option>
-                            <option value="mage">Mage</option>
-                          </select>
-                        </div>
+                      {/* Niveau / PV */}
+                      <div className="grid grid-cols-2 gap-3">
                         <StatNum label="Niveau" value={editStats.level} onChange={sc("level")} min={1} max={99} />
                         <StatNum label="PV Maximum" value={editStats.maxHp} onChange={sc("maxHp")} min={1} />
                       </div>
@@ -509,7 +501,7 @@ export default function CombatAdminView({
                       </div>
                       {!techForm && (
                         <button
-                          onClick={() => { setTechForm({ ...DEFAULT_TECH, type: editStats.class === "mage" ? "sort" : "technique" }); setTechEditId(null); }}
+                          onClick={() => { setTechForm({ ...DEFAULT_TECH }); setTechEditId(null); }}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-700 text-stone-200 hover:bg-stone-600 rounded-lg transition-all"
                         >
                           <Plus size={11} /> Ajouter
@@ -535,8 +527,8 @@ export default function CombatAdminView({
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Type</label>
                               <select value={techForm.type} onChange={e => setTechForm(p => ({ ...p, type: e.target.value }))}
                                 className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
-                                <option value="technique">Technique (Guerrier)</option>
-                                <option value="sort">Sort (Mage)</option>
+                                <option value="technique">Technique</option>
+                                <option value="sort">Sort</option>
                               </select>
                             </div>
                             <div>
@@ -875,7 +867,7 @@ export default function CombatAdminView({
                                         </div>
                                       )}
                                       {/* Mana si mage (jamais masqué pour les créatures car elles n'en ont pas) */}
-                                      {p.class === "mage" && !masked && (
+                                      {p.maxMana > 0 && !masked && (
                                         <div className="flex items-center gap-1.5 mt-1">
                                           <Zap size={8} className="text-blue-400 shrink-0" />
                                           <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
