@@ -87,6 +87,7 @@ const PostalCheckModal = ({ user, countries, onConfirm }) => {
                 </label>
                 <select
                   className="w-full p-3 bg-stone-800 border border-stone-600 rounded-xl text-sm text-stone-100 font-bold outline-none focus:border-amber-500 transition-colors"
+                  style={{ colorScheme: "dark" }}
                   value={selectedCountryId}
                   onChange={(e) => {
                     setSelectedCountryId(e.target.value);
@@ -108,6 +109,7 @@ const PostalCheckModal = ({ user, countries, onConfirm }) => {
                   </label>
                   <select
                     className="w-full p-3 bg-stone-800 border border-stone-600 rounded-xl text-sm text-stone-100 font-bold outline-none focus:border-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ colorScheme: "dark" }}
                     value={selectedRegion}
                     onChange={(e) => setSelectedRegion(e.target.value)}
                     disabled={!selectedCountryId}
