@@ -87,16 +87,15 @@ const PostalCheckModal = ({ user, countries, onConfirm }) => {
                 </label>
                 <select
                   className="w-full p-3 bg-stone-800 border border-stone-600 rounded-xl text-sm text-stone-100 font-bold outline-none focus:border-amber-500 transition-colors"
-                  style={{ colorScheme: "dark" }}
                   value={selectedCountryId}
                   onChange={(e) => {
                     setSelectedCountryId(e.target.value);
                     setSelectedRegion("");
                   }}
                 >
-                  <option value="">— Sélectionner —</option>
+                  <option value="" style={{ background: "#292524", color: "#fff" }}>— Sélectionner —</option>
                   {(countries || []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id} style={{ background: "#292524", color: "#fff" }}>{c.name}</option>
                   ))}
                 </select>
               </div>
@@ -109,14 +108,13 @@ const PostalCheckModal = ({ user, countries, onConfirm }) => {
                   </label>
                   <select
                     className="w-full p-3 bg-stone-800 border border-stone-600 rounded-xl text-sm text-stone-100 font-bold outline-none focus:border-amber-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ colorScheme: "dark" }}
                     value={selectedRegion}
                     onChange={(e) => setSelectedRegion(e.target.value)}
                     disabled={!selectedCountryId}
                   >
-                    <option value="">— Sélectionner —</option>
+                    <option value="" style={{ background: "#292524", color: "#fff" }}>— Sélectionner —</option>
                     {regions.map((r) => (
-                      <option key={r.id} value={r.name}>{r.name}</option>
+                      <option key={r.id} value={r.name} style={{ background: "#292524", color: "#fff" }}>{r.name}</option>
                     ))}
                   </select>
                 </div>
