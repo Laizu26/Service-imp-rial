@@ -371,6 +371,15 @@ const RegistryView = ({
                         if (!ef.birthDate && ef.age) {
                           ef.birthDate = ageToBirthDate(ef.age, gd);
                         }
+                        // Normalize Firestore Timestamp birthDate → {day, month, year}
+                        if (ef.birthDate && !ef.birthDate.day && ef.birthDate.seconds) {
+                          const d = new Date(ef.birthDate.seconds * 1000);
+                          ef.birthDate = { day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
+                        }
+                        // Normalize old inventory: filter nulls, convert strings to objects
+                        ef.inventory = (ef.inventory || [])
+                          .filter(Boolean)
+                          .map((item) => typeof item === "string" ? { id: item, name: item, quantity: 1 } : item);
                         setEditForm(ef);
                       }}
                       className="bg-white border-2 border-stone-300 px-8 py-3 rounded-xl text-[11px] font-black uppercase flex items-center gap-3 shadow-md hover:bg-stone-50 transition-all active:scale-95 tracking-widest font-sans"
@@ -672,7 +681,7 @@ const RegistryView = ({
                       </label>
                       <input
                         className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
-                        value={editForm.occupation}
+                        value={editForm.occupation || ""}
                         onChange={(e) =>
                           setEditForm({
                             ...editForm,
@@ -874,7 +883,7 @@ const RegistryView = ({
                       </label>
                       <textarea
                         className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold min-h-[100px]"
-                        value={editForm.bio}
+                        value={editForm.bio || ""}
                         onChange={(e) =>
                           setEditForm({ ...editForm, bio: e.target.value })
                         }
@@ -973,7 +982,7 @@ const RegistryView = ({
                       </label>
                       <input
                         className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm font-mono text-center"
-                        value={editForm.password}
+                        value={editForm.password || ""}
                         onChange={(e) =>
                           setEditForm({ ...editForm, password: e.target.value })
                         }
@@ -986,14 +995,14 @@ const RegistryView = ({
                 <Card title="Inventaire" icon={Package}>
                   <div className="space-y-3">
                     {/* Liste des items actuels */}
-                    {(editForm.inventory || []).length === 0 ? (
+                    {(editForm.inventory || []).filter(Boolean).length === 0 ? (
                       <p className="text-xs text-stone-400 italic text-center py-3">Inventaire vide.</p>
                     ) : (
                       <div className="space-y-2">
-                        {(editForm.inventory || []).map((item, idx) => (
+                        {(editForm.inventory || []).filter(Boolean).map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                             <Package size={14} className="text-stone-400 shrink-0" />
-                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || item}</span>
+                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || (typeof item === "string" ? item : item.id || "Objet")}</span>
                             <span className="text-[10px] font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                               ×{item.quantity || 1}
                             </span>
@@ -1260,13 +1269,13 @@ const RegistryView = ({
                 </Card>
 
                 {/* Inventaire en lecture */}
-                {(selected.inventory || []).length > 0 && (
+                {(selected.inventory || []).filter(Boolean).length > 0 && (
                   <Card title="Inventaire" icon={Package}>
                     <div className="space-y-2">
-                      {selected.inventory.map((item, idx) => (
+                      {(selected.inventory || []).filter(Boolean).map((item, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                           <Package size={14} className="text-stone-400 shrink-0" />
-                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || item}</span>
+                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || (typeof item === "string" ? item : item.id || "Objet")}</span>
                           <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
                             ×{item.quantity || 1}
                           </span>
