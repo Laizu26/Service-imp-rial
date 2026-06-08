@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   User,
   Plus,
@@ -69,6 +69,26 @@ const RegistryView = ({
       (!filterRole || c.role === filterRole)
   );
   const selected = safeCitizens.find((c) => c.id === selectedId);
+
+  const resolveItemName = (item) => {
+    if (!item) return "?";
+    if (typeof item === "string") {
+      return (catalog || []).find((c) => c.id === item)?.name || item;
+    }
+    const catalogId = item.itemId || item.id;
+    const cat = catalogId ? (catalog || []).find((c) => c.id === catalogId) : null;
+    return cat?.name || (item.name && item.name !== "Objet" ? item.name : null) || catalogId || "?";
+  };
+
+  const resolvedInventory = useMemo(
+    () => (selected?.inventory || []).filter(Boolean).map((item) => ({
+      ...(typeof item === "string" ? { itemId: item, quantity: 1 } : item),
+      name: resolveItemName(item),
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected?.inventory, catalog]
+  );
+
   const canCreate = isGlobal || roleInfo.level >= 40;
   const canDelete = isGlobal || roleInfo.level >= 50;
 
@@ -386,7 +406,7 @@ const RegistryView = ({
                             }
                             const catalogId = item.itemId || item.id;
                             const cat = catalogId ? (catalog || []).find((c) => c.id === catalogId) : null;
-                            return { ...item, itemId: catalogId, name: item.name || cat?.name || catalogId || "?" };
+                            return { ...item, itemId: catalogId, name: cat?.name || (item.name && item.name !== "Objet" ? item.name : null) || catalogId || "?" };
                           });
                         setEditForm(ef);
                       }}
@@ -1010,7 +1030,7 @@ const RegistryView = ({
                         {(editForm.inventory || []).filter(Boolean).map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                             <Package size={14} className="text-stone-400 shrink-0" />
-                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || (catalog || []).find(c => c.id === (item.itemId || item.id))?.name || item.itemId || item.id || "?"}</span>
+                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{resolveItemName(item)}</span>
                             <span className="text-[10px] font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                               ×{item.quantity || 1}
                             </span>
@@ -1277,13 +1297,13 @@ const RegistryView = ({
                 </Card>
 
                 {/* Inventaire en lecture */}
-                {(selected.inventory || []).filter(Boolean).length > 0 && (
+                {resolvedInventory.length > 0 && (
                   <Card title="Inventaire" icon={Package}>
                     <div className="space-y-2">
-                      {(selected.inventory || []).filter(Boolean).map((item, idx) => (
+                      {resolvedInventory.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                           <Package size={14} className="text-stone-400 shrink-0" />
-                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || (catalog || []).find(c => c.id === (item.itemId || item.id))?.name || item.itemId || item.id || "?"}</span>
+                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name}</span>
                           <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
                             ×{item.quantity || 1}
                           </span>
