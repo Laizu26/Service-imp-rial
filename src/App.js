@@ -581,6 +581,8 @@ export default function App() {
             onBuyItem={actions.onBuyItem}
             onGiveItem={actions.onGiveItem}
             onUseItem={actions.onUseItem}
+            onSubscribeBague={actions.onSubscribeBague}
+            onUnsubscribeBague={actions.onUnsubscribeBague}
             combatSessions={state.combatSessions || []}
             notify={notify}
             isGraded={canAccessAdmin}

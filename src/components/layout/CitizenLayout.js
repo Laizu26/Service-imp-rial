@@ -831,6 +831,8 @@ const CitizenLayout = (props) => {
     onBookmarksChange,
     onDismissedChange,
     combatSessions = [],
+    onSubscribeBague,
+    onUnsubscribeBague,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1618,6 +1620,57 @@ const CitizenLayout = (props) => {
                           <div className="text-right shrink-0">
                             <div className="text-[8px] text-stone-500 uppercase tracking-widest">Allégeance</div>
                             <div className="text-xs font-bold text-amber-400">{safeCountries.find((c) => c.id === user.countryId)?.name || "—"}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* === BAGUE IMPÉRIALE === */}
+                    <div className={`rounded-xl shadow border overflow-hidden ${user.bagueImperiale ? "bg-amber-950/20 border-amber-700/50" : "bg-[#fdf6e3] border-stone-300"}`}>
+                      <div className={`px-5 py-3 border-b flex items-center gap-3 ${user.bagueImperiale ? "bg-amber-900/30 border-amber-700/40" : "bg-stone-100 border-stone-300"}`}>
+                        <Gem size={16} className={user.bagueImperiale ? "text-amber-400" : "text-stone-500"} />
+                        <span className={`text-xs font-black uppercase tracking-widest ${user.bagueImperiale ? "text-amber-200" : "text-stone-700"}`}>Bague Impériale</span>
+                        {user.bagueImperiale && (
+                          <span className="ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/40">ACTIF</span>
+                        )}
+                      </div>
+                      <div className="p-5">
+                        {user.bagueImperiale ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                              <div className="bg-amber-900/20 rounded-lg p-3 border border-amber-700/30">
+                                <div className="text-lg font-black text-amber-300">{user.bagueVoyagesUsed || 0}/2</div>
+                                <div className="text-[9px] text-amber-400/70 uppercase tracking-widest mt-0.5">Voyages aujourd'hui</div>
+                              </div>
+                              <div className="bg-amber-900/20 rounded-lg p-3 border border-amber-700/30">
+                                <div className="text-lg font-black text-amber-300">10 écus</div>
+                                <div className="text-[9px] text-amber-400/70 uppercase tracking-widest mt-0.5">Par jour</div>
+                              </div>
+                              <div className="bg-amber-900/20 rounded-lg p-3 border border-amber-700/30">
+                                <div className="text-lg font-black text-amber-300">∞</div>
+                                <div className="text-[9px] text-amber-400/70 uppercase tracking-widest mt-0.5">Accès postal</div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => onUnsubscribeBague && onUnsubscribeBague()}
+                              className="w-full py-2 border border-red-700/40 text-red-400 hover:bg-red-900/20 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+                            >
+                              Résilier l'abonnement
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-xs text-stone-600">Abonnement journalier offrant :</p>
+                            <ul className="space-y-1.5 text-xs text-stone-700">
+                              <li className="flex items-center gap-2"><Plane size={11} className="text-amber-600 shrink-0" /> 2 voyages par jour</li>
+                              <li className="flex items-center gap-2"><MapPin size={11} className="text-amber-600 shrink-0" /> Accès à la poste depuis n'importe où</li>
+                            </ul>
+                            <button
+                              onClick={() => onSubscribeBague && onSubscribeBague()}
+                              className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-stone-900 font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Gem size={12} /> S'abonner — 10 écus/jour
+                            </button>
                           </div>
                         )}
                       </div>
