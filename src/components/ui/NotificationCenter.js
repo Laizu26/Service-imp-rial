@@ -84,7 +84,7 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
 
       {/* Panneau de notifications — toujours en dark puisque dans le header */}
       {open && (
-        <div className="absolute right-0 top-full mt-3 w-80 md:w-96 bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed md:absolute left-2 right-2 md:left-auto md:right-0 top-[4.5rem] md:top-full md:mt-3 md:w-96 bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-stone-800 bg-stone-950">
             <div className="flex items-center gap-2">
