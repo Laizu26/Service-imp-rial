@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Coins,
   Scroll,
+  MapPin,
   X,
   CheckCheck,
   ChevronRight,
@@ -19,6 +20,7 @@ const ICON_MAP = {
   ShieldAlert,
   Coins,
   Scroll,
+  MapPin,
 };
 
 const CATEGORY_COLORS = {
@@ -28,6 +30,7 @@ const CATEGORY_COLORS = {
   "Main d'Oeuvre": { bg: "#ef444420", text: "#f87171", dot: "#ef4444" },
   Finances: { bg: "#eab30820", text: "#fbbf24", dot: "#eab308" },
   Gazette: { bg: "#10b98120", text: "#34d399", dot: "#10b981" },
+  "Bureau de Poste": { bg: "#f59e0b20", text: "#fbbf24", dot: "#f59e0b" },
 };
 
 const DEFAULT_COLORS = { bg: "#78716c20", text: "#a8a29e", dot: "#78716c" };

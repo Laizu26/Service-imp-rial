@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { formatMoney } from "../lib/gameUtils";
+import { ROLES } from "../lib/constants";
 
 /**
  * Hook qui agrège toutes les sources de notifications pour un citoyen.
@@ -248,10 +249,39 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
       });
     }
 
+    // --- Alertes bureau de poste (admins uniquement, niveau >= 20) ---
+    const roleLevel = ROLES[user?.role]?.level || 0;
+    const isGlobal = ROLES[user?.role]?.scope === "GLOBAL";
+    if (roleLevel >= 20) {
+      (state?.postalAlerts || []).forEach((alert) => {
+        const relevant = isGlobal
+          || alert.registeredCountryId === user.countryId
+          || alert.claimedCountryId === user.countryId;
+        if (!relevant) return;
+        const loc = alert.registeredRegion
+          ? `${alert.registeredRegion} (${alert.registeredCountryName})`
+          : alert.registeredCountryName;
+        const claimed = alert.claimedRegion
+          ? `${alert.claimedRegion} (${alert.claimedCountryName})`
+          : alert.claimedCountryName;
+        notifs.push({
+          id: `postal_${alert.id}`,
+          type: "postal_alert",
+          category: "Bureau de Poste",
+          title: `${alert.citizenName || "Citoyen"} — Position incohérente`,
+          description: `Déclaré à ${claimed}, enregistré à ${loc}`,
+          timestamp: alert.timestamp || Date.now(),
+          rpDate: rpDateStr,
+          route: "registry",
+          icon: "MapPin",
+        });
+      });
+    }
+
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

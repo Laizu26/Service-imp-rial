@@ -5238,6 +5238,30 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Ordre marqué terminé. Rapport soumis.", "success");
       },
 
+      // ── ALERTE BUREAU DE POSTE ──────────────────────────────────
+      onRecordPostalAlert: (citizenId, citizenName, claimedCountryId, claimedRegion) => {
+        const countries = state.countries || [];
+        const citizen = (state.citizens || []).find((c) => String(c.id) === String(citizenId));
+        if (!citizen) return;
+        const registeredCountryName = countries.find((c) => c.id === (citizen.locationCountryId || citizen.countryId))?.name || "Inconnu";
+        const claimedCountryName = countries.find((c) => c.id === claimedCountryId)?.name || "Inconnu";
+        const alert = {
+          id: `postal_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+          citizenId,
+          citizenName,
+          registeredCountryId: citizen.locationCountryId || citizen.countryId || "",
+          registeredRegion: citizen.currentPosition || "",
+          registeredCountryName,
+          claimedCountryId,
+          claimedRegion,
+          claimedCountryName,
+          timestamp: Date.now(),
+        };
+        const postalAlerts = [...(state.postalAlerts || []), alert];
+        saveState({ ...state, postalAlerts });
+      },
+      // ────────────────────────────────────────────────────────────
+
       // ── COMBAT ──────────────────────────────────────────────────
       onSaveCombatStats: (citizenId, data) => {
         const idx = (state.citizens || []).findIndex((c) => String(c.id) === String(citizenId));

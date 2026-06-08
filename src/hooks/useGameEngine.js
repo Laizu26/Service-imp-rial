@@ -45,6 +45,7 @@ export const useGameEngine = (firebaseUser, notify) => {
             maisonHistory: d.maisonHistory || [],
             maisonReviews: d.maisonReviews || [],
             maisonDefaultDuration: d.maisonDefaultDuration || 60,
+            postalAlerts: d.postalAlerts || [],
           }));
           setDbError(null);
         } else {

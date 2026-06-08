@@ -69,6 +69,7 @@ import PropertiesAdminView from "./components/views/PropertiesAdminView";
 import TribunalAdminView from "./components/views/TribunalAdminView";
 import GameMasterView from "./components/views/GameMasterView";
 import CitizenLayout from "./components/layout/CitizenLayout";
+import PostalCheckModal from "./components/views/PostalCheckModal";
 
 const sha256 = async (str) => {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
@@ -105,6 +106,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isViewingAsCitizen, setIsViewingAsCitizen] = useState(false);
   const [adminAccountMenuOpen, setAdminAccountMenuOpen] = useState(false);
+  // Suivi du check postal : stocke l'id du citoyen ayant confirmé sa position dans cette session
+  const [postalCheckUserId, setPostalCheckUserId] = useState(null);
 
   // --- Game Master ---
   const [gmStep, setGmStep] = useState(null); // null | 'choice' | 'password'
@@ -202,7 +205,7 @@ export default function App() {
   const { grouped: adminGrouped, unreadCount: adminUnreadCount, dismiss: adminDismiss, dismissAll: adminDismissAll } = useNotifications(
     currentUser,
     state.citizens || [],
-    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [] },
+    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [] },
     undefined,
     undefined,
     handleDismissedChange
@@ -515,6 +518,22 @@ export default function App() {
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onLogoutAccount={logoutAccount}
+          />
+        ) : (currentUser && postalCheckUserId !== currentUser.id) ? (
+          <PostalCheckModal
+            user={currentUser}
+            countries={state.countries || []}
+            onConfirm={(claimedCountryId, claimedRegion, isMismatch) => {
+              if (isMismatch) {
+                actions.onRecordPostalAlert(
+                  currentUser.id,
+                  currentUser.name,
+                  claimedCountryId,
+                  claimedRegion
+                );
+              }
+              setPostalCheckUserId(currentUser.id);
+            }}
           />
         ) : shouldShowCitizenView ? (
           <CitizenLayout

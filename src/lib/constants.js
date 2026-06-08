@@ -141,6 +141,7 @@ export const DEFAULT_GAME_STATE = {
   quests: [],
   gmHash: "",
   bourseListings: [],
+  postalAlerts: [],
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────
