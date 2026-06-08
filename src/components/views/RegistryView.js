@@ -376,10 +376,18 @@ const RegistryView = ({
                           const d = new Date(ef.birthDate.seconds * 1000);
                           ef.birthDate = { day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
                         }
-                        // Normalize old inventory: filter nulls, convert strings to objects
+                        // Normalize inventory: filter nulls, resolve names from catalog, unify key to itemId
                         ef.inventory = (ef.inventory || [])
                           .filter(Boolean)
-                          .map((item) => typeof item === "string" ? { id: item, name: item, quantity: 1 } : item);
+                          .map((item) => {
+                            if (typeof item === "string") {
+                              const cat = (catalog || []).find((c) => c.id === item);
+                              return { itemId: item, name: cat?.name || item, quantity: 1 };
+                            }
+                            const catalogId = item.itemId || item.id;
+                            const cat = catalogId ? (catalog || []).find((c) => c.id === catalogId) : null;
+                            return { ...item, itemId: catalogId, name: item.name || cat?.name || catalogId || "?" };
+                          });
                         setEditForm(ef);
                       }}
                       className="bg-white border-2 border-stone-300 px-8 py-3 rounded-xl text-[11px] font-black uppercase flex items-center gap-3 shadow-md hover:bg-stone-50 transition-all active:scale-95 tracking-widest font-sans"
@@ -1002,7 +1010,7 @@ const RegistryView = ({
                         {(editForm.inventory || []).filter(Boolean).map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                             <Package size={14} className="text-stone-400 shrink-0" />
-                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || (catalog || []).find(c => c.id === (item.itemId || item.id))?.name || (typeof item === "string" ? item : item.itemId || item.id || "Objet")}</span>
+                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || (catalog || []).find(c => c.id === (item.itemId || item.id))?.name || item.itemId || item.id || "?"}</span>
                             <span className="text-[10px] font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                               ×{item.quantity || 1}
                             </span>
@@ -1045,14 +1053,14 @@ const RegistryView = ({
                               <button
                                 key={item.id}
                                 onClick={() => {
-                                  const existing = (editForm.inventory || []).findIndex((i) => (i.id || i) === item.id);
+                                  const existing = (editForm.inventory || []).findIndex((i) => (i.itemId || i.id || i) === item.id);
                                   let newInv;
                                   if (existing !== -1) {
                                     newInv = editForm.inventory.map((i, idx) =>
                                       idx === existing ? { ...i, quantity: (i.quantity || 1) + 1 } : i
                                     );
                                   } else {
-                                    newInv = [...(editForm.inventory || []), { id: item.id, name: item.name, quantity: 1 }];
+                                    newInv = [...(editForm.inventory || []), { itemId: item.id, name: item.name, quantity: 1 }];
                                   }
                                   setEditForm({ ...editForm, inventory: newInv });
                                   setItemSearch("");
@@ -1275,7 +1283,7 @@ const RegistryView = ({
                       {(selected.inventory || []).filter(Boolean).map((item, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                           <Package size={14} className="text-stone-400 shrink-0" />
-                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || (catalog || []).find(c => c.id === (item.itemId || item.id))?.name || (typeof item === "string" ? item : item.itemId || item.id || "Objet")}</span>
+                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || (catalog || []).find(c => c.id === (item.itemId || item.id))?.name || item.itemId || item.id || "?"}</span>
                           <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
                             ×{item.quantity || 1}
                           </span>
