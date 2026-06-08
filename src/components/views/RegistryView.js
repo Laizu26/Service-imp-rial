@@ -1002,7 +1002,7 @@ const RegistryView = ({
                         {(editForm.inventory || []).filter(Boolean).map((item, idx) => (
                           <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                             <Package size={14} className="text-stone-400 shrink-0" />
-                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || (typeof item === "string" ? item : item.id || "Objet")}</span>
+                            <span className="flex-1 font-bold text-sm text-stone-800 truncate">{item.name || (catalog || []).find(c => c.id === item.id)?.name || (typeof item === "string" ? item : item.id || "Objet")}</span>
                             <span className="text-[10px] font-mono text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
                               ×{item.quantity || 1}
                             </span>
@@ -1275,7 +1275,7 @@ const RegistryView = ({
                       {(selected.inventory || []).filter(Boolean).map((item, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 bg-stone-50 border border-stone-200 rounded-xl">
                           <Package size={14} className="text-stone-400 shrink-0" />
-                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || (typeof item === "string" ? item : item.id || "Objet")}</span>
+                          <span className="flex-1 font-bold text-sm text-stone-800">{item.name || (catalog || []).find(c => c.id === item.id)?.name || (typeof item === "string" ? item : item.id || "Objet")}</span>
                           <span className="text-[10px] font-mono text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">
                             ×{item.quantity || 1}
                           </span>
