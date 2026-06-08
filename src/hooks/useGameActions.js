@@ -429,9 +429,21 @@ export const useGameActions = (session, state, saveState, notify) => {
           });
         });
 
+        // --- Abonnement Bague Impériale : débit 10 écus + reset compteur voyages ---
+        const BAGUE_COUT = 10;
+        let bagueResiliations = 0;
+        ns.citizens = (ns.citizens || []).map((c) => {
+          if (!c.bagueImperiale) return c;
+          if ((c.balance || 0) < BAGUE_COUT) {
+            bagueResiliations++;
+            return { ...c, bagueImperiale: false, bagueVoyagesUsed: 0 };
+          }
+          return { ...c, balance: (c.balance || 0) - BAGUE_COUT, bagueVoyagesUsed: 0 };
+        });
+
         saveState(ns);
         notify(
-          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})`,
+          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s) (fonds insuffisants)` : ""}`,
           "info"
         );
       },
@@ -1093,40 +1105,76 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: newCitizens });
         notify("Message envoyé.", "success");
       },
+      onSubscribeBague: () => {
+        if (!session) return;
+        const BAGUE_COUT = 10;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const citizen = state.citizens[idx];
+        if (citizen.bagueImperiale) { notify("Abonnement Bague Impériale déjà actif.", "info"); return; }
+        if ((citizen.balance || 0) < BAGUE_COUT) { notify(`Fonds insuffisants — ${BAGUE_COUT} écus requis.`, "error"); return; }
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = { ...citizen, bagueImperiale: true, bagueVoyagesUsed: 0, balance: (citizen.balance || 0) - BAGUE_COUT };
+        saveState({ ...state, citizens: newCitizens });
+        notify("💍 Abonnement Bague Impériale activé — 10 écus prélevés.", "success");
+      },
+
+      onUnsubscribeBague: () => {
+        if (!session) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = { ...newCitizens[idx], bagueImperiale: false, bagueVoyagesUsed: 0 };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Abonnement Bague Impériale résilié.", "info");
+      },
+
       onRequestTravel: (toCountryId, toRegion) => {
-        // Utiliser locationCountryId (position physique) comme pays d'origine,
-        // pas countryId (allégeance politique)
-        const currentCitizen = (state.citizens || []).find(
-          (c) => c.id === session.id
-        );
-        const fromCountry =
-          currentCitizen?.locationCountryId ||
-          currentCitizen?.countryId ||
-          session.countryId;
+        const currentCitizen = (state.citizens || []).find((c) => c.id === session.id);
+        // Vérification compteur voyages Bague Impériale
+        if (currentCitizen?.bagueImperiale) {
+          const used = currentCitizen.bagueVoyagesUsed || 0;
+          if (used >= 2) { notify("Limite journalière atteinte — 2 voyages/jour inclus avec la Bague Impériale.", "error"); return; }
+        }
+        const fromCountry = currentCitizen?.locationCountryId || currentCitizen?.countryId || session.countryId;
         const newReq = {
           id: `req_${Date.now()}`,
           citizenId: session.id,
           citizenName: session.name,
-          fromCountry: fromCountry,
+          fromCountry,
           toCountry: toCountryId,
           toRegion: toRegion,
           status: "PENDING",
           validations: { exit: false, entry: false },
           timestamp: Date.now(),
         };
-        saveState({
-          ...state,
-          travelRequests: [...(state.travelRequests || []), newReq],
-        });
+        let newCitizens = state.citizens;
+        if (currentCitizen?.bagueImperiale) {
+          const cidx = (state.citizens || []).findIndex((c) => c.id === session.id);
+          if (cidx !== -1) {
+            newCitizens = [...state.citizens];
+            newCitizens[cidx] = { ...newCitizens[cidx], bagueVoyagesUsed: (currentCitizen.bagueVoyagesUsed || 0) + 1 };
+          }
+        }
+        saveState({ ...state, citizens: newCitizens, travelRequests: [...(state.travelRequests || []), newReq] });
         notify("Demande soumise.", "success");
       },
 
       onInternalTravel: (toRegion) => {
         if (!session) return;
+        const currentCitizen = (state.citizens || []).find((c) => c.id === session.id);
+        if (currentCitizen?.bagueImperiale) {
+          const used = currentCitizen.bagueVoyagesUsed || 0;
+          if (used >= 2) { notify("Limite journalière atteinte — 2 voyages/jour inclus avec la Bague Impériale.", "error"); return; }
+        }
         const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
         const newCitizens = [...state.citizens];
-        newCitizens[userIdx] = { ...newCitizens[userIdx], currentPosition: toRegion || "Capitale" };
+        newCitizens[userIdx] = {
+          ...newCitizens[userIdx],
+          currentPosition: toRegion || "Capitale",
+          ...(currentCitizen?.bagueImperiale ? { bagueVoyagesUsed: (currentCitizen.bagueVoyagesUsed || 0) + 1 } : {}),
+        };
         saveState({ ...state, citizens: newCitizens });
         notify(`Déplacement vers ${toRegion || "la Capitale"}.`, "success");
       },
