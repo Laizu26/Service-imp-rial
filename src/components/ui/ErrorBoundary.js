@@ -1,5 +1,5 @@
 import React from "react";
-import { ServerCrash } from "lucide-react";
+import { ServerCrash, RefreshCw } from "lucide-react";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -38,3 +38,49 @@ class ErrorBoundary extends React.Component {
 }
 
 export default ErrorBoundary;
+
+/**
+ * Error boundary légère pour les onglets — se réinitialise automatiquement
+ * quand la prop `tabKey` change (i.e. quand l'utilisateur change d'onglet).
+ * Affiche un message inline sans recharger toute la page.
+ */
+export class TabErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  static getDerivedStateFromProps(props, state) {
+    // Réinitialise l'erreur dès que l'onglet actif change
+    if (state.hasError && props.tabKey !== state.lastTabKey) {
+      return { hasError: false, error: null, lastTabKey: props.tabKey };
+    }
+    return { lastTabKey: props.tabKey };
+  }
+
+  render() {
+    if (this.state.hasError)
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 p-6 text-center">
+          <ServerCrash size={40} className="text-red-400" />
+          <p className="text-sm font-bold text-stone-300 uppercase tracking-widest">
+            Erreur dans cet onglet
+          </p>
+          <p className="text-[11px] text-stone-500 max-w-xs">
+            {String(this.state.error?.message || "Erreur inconnue")}
+          </p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="flex items-center gap-2 px-4 py-2 bg-stone-700 hover:bg-stone-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-colors"
+          >
+            <RefreshCw size={12} /> Réessayer
+          </button>
+        </div>
+      );
+    return this.props.children;
+  }
+}

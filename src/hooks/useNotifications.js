@@ -10,7 +10,7 @@ import { ROLES } from "../lib/constants";
  * Si fourni, les IDs sont persistés dans le citoyen (Firestore) plutôt qu'en localStorage.
  */
 export const useNotifications = (user, users, state, notifPrefs, gameDate, onDismissedChange) => {
-  const prefs = notifPrefs || {};
+  const prefs = useMemo(() => notifPrefs || {}, [notifPrefs]);
   const [dismissed, setDismissed] = useState([]);
 
   // Seed depuis le citoyen Firestore (ou localStorage en fallback)

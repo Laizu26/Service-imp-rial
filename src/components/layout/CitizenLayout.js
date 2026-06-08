@@ -46,6 +46,7 @@ import {
 
 
 import NotificationCenter from "../ui/NotificationCenter";
+import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive } from "../../lib/gameUtils";
@@ -1471,6 +1472,7 @@ const CitizenLayout = (props) => {
           </div>
 
           <div className={active === "msg" ? "h-full w-full" : "max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
+          <TabErrorBoundary tabKey={active}>
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
@@ -4380,6 +4382,7 @@ const CitizenLayout = (props) => {
               />
             )}
             {/* ----------------------------- */}
+          </TabErrorBoundary>
           </div>
         </main>
       </div>
