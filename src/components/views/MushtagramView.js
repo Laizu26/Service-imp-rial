@@ -383,15 +383,25 @@ export default function MushtagramView({
                 )}
                 {convMessages.map(dm => {
                   const isMine = String(dm.fromId) === myId;
+                  const author = isMine
+                    ? (myCitizen || session)
+                    : (citizens.find(c => String(c.id) === String(dm.fromId)) || { name: dm.fromName || "?" });
                   return (
-                    <div key={dm.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[78%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                        isMine
-                          ? "bg-gradient-to-r from-rose-500 to-violet-600 text-white rounded-br-sm"
-                          : "bg-stone-100 text-stone-800 rounded-bl-sm"
-                      }`}>
-                        {dm.content}
+                    <div key={dm.id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+                      {!isMine && <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />}
+                      <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[72%]`}>
+                        <span className="text-[10px] font-bold text-stone-400 px-1 mb-0.5">
+                          {isMine ? "Vous" : author.name}
+                        </span>
+                        <div className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                          isMine
+                            ? "bg-gradient-to-r from-rose-500 to-violet-600 text-white rounded-br-sm"
+                            : "bg-stone-100 text-stone-800 rounded-bl-sm"
+                        }`}>
+                          {dm.content}
+                        </div>
                       </div>
+                      {isMine && <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />}
                     </div>
                   );
                 })}
