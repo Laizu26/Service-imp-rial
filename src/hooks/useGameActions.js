@@ -5467,7 +5467,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // ── MUSHTAGRAM ───────────────────────────────────────────────
-      onPostMushtagram: ({ content, imageUrl, hashtags }) => {
+      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const newPost = {
@@ -5481,6 +5481,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           comments: [],
           date: formatRPDate(gd),
           createdAt: Date.now(),
+          ...(poll ? { poll } : {}),
+          ...(isOfficial ? { isOfficial: true } : {}),
         };
         saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts || []), newPost] });
       },
