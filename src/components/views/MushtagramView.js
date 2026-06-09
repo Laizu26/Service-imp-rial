@@ -204,13 +204,13 @@ export default function MushtagramView({
                   onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) submitPost(); }}
                   placeholder="Partagez quelque chose avec l'Empire… (Ctrl+Entrée pour publier)"
                   rows={3}
-                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all" />
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all" />
                 {showImgInput && (
                   <div className="flex items-center gap-2">
                     <ImageIcon size={13} className="text-stone-400 shrink-0" />
                     <input value={postImage} onChange={e => setPostImage(e.target.value)}
                       placeholder="URL de l'image…"
-                      className="flex-1 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none focus:border-rose-300" />
+                      className="flex-1 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
                   </div>
                 )}
                 <div className="flex items-center justify-between">
@@ -331,7 +331,7 @@ export default function MushtagramView({
                             }
                           }}
                           placeholder="Ajouter un commentaire… (Entrée)"
-                          className="flex-1 px-3 py-1.5 bg-stone-100 rounded-full text-xs outline-none focus:bg-white focus:ring-2 focus:ring-stone-200 transition-all" />
+                          className="flex-1 px-3 py-1.5 bg-stone-100 rounded-full text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-stone-200 transition-all" />
                         <button
                           onClick={() => {
                             if (commentInput[post.id]?.trim()) {
@@ -521,7 +521,7 @@ export default function MushtagramView({
                       </label>
                       <input value={profileDraft.photo} onChange={e => setProfileDraft(p => ({ ...p, photo: e.target.value }))}
                         placeholder="https://…"
-                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs outline-none focus:border-rose-300" />
+                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
                     </div>
                     <div>
                       <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
@@ -529,7 +529,7 @@ export default function MushtagramView({
                       </label>
                       <input value={profileDraft.avatar} onChange={e => setProfileDraft(p => ({ ...p, avatar: e.target.value }))}
                         placeholder="🏰 🌹 ⚔️ 🦁…"
-                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-base outline-none focus:border-rose-300" />
+                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-base text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
                     </div>
                   </div>
                   <div>
@@ -538,7 +538,7 @@ export default function MushtagramView({
                     </label>
                     <input value={profileDraft.banner} onChange={e => setProfileDraft(p => ({ ...p, banner: e.target.value }))}
                       placeholder="https://…"
-                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs outline-none focus:border-rose-300" />
+                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
                   </div>
                   <div>
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
@@ -547,7 +547,7 @@ export default function MushtagramView({
                     <input value={profileDraft.handle}
                       onChange={e => setProfileDraft(p => ({ ...p, handle: e.target.value.replace(/[^a-zA-Z0-9_À-ɏ]/g, "").toLowerCase() }))}
                       placeholder="mon_identifiant"
-                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm outline-none focus:border-rose-300" />
+                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
                   </div>
                   <div>
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
@@ -555,7 +555,7 @@ export default function MushtagramView({
                     </label>
                     <textarea value={profileDraft.bio} onChange={e => setProfileDraft(p => ({ ...p, bio: e.target.value }))}
                       rows={3} placeholder="Présentez-vous en quelques mots…"
-                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm resize-none outline-none focus:border-rose-300" />
+                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 resize-none text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
                   </div>
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => setEditingProfile(false)}
