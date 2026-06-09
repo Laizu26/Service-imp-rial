@@ -665,6 +665,15 @@ export default function MushtagramView({
     );
   }, [sortedPosts, feedFilter, myFollowing, myId, search]);
 
+  const filteredProfiles = useMemo(() => {
+    if (!search || search.length < 2) return [];
+    const q = search.toLowerCase();
+    return citizens.filter(c =>
+      c.name?.toLowerCase().includes(q) ||
+      c.mushtagramHandle?.toLowerCase().includes(q)
+    ).slice(0, 6);
+  }, [citizens, search]);
+
   /* ── trending hashtags ───────────────────────────────────────────── */
   const trendingHashtags = useMemo(() => {
     const map = {};
@@ -762,7 +771,7 @@ export default function MushtagramView({
   const myPosts = useMemo(() => sortedPosts.filter(p => String(p.authorId) === myId), [sortedPosts, myId]);
 
   const followerCount = useMemo(() =>
-    citizens.filter(c => (c.mushtagramFollowing || []).includes(myId)).length,
+    citizens.filter(c => (c.mushtagramFollowing || []).map(String).includes(String(myId))).length,
   [citizens, myId]);
 
   const followingCount = useMemo(() => (myFollowing || []).length, [myFollowing]);
@@ -915,6 +924,41 @@ export default function MushtagramView({
                   </div>
                 </div>
               </div>
+
+              {/* Résultats profils */}
+              {filteredProfiles.length > 0 && (
+                <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="px-4 py-2 border-b border-stone-100 flex items-center gap-2">
+                    <Search size={11} className="text-stone-400" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">
+                      Profils ({filteredProfiles.length})
+                    </span>
+                  </div>
+                  {filteredProfiles.map(c => {
+                    const isFollowing = (myFollowing || []).includes(String(c.id));
+                    return (
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-3 border-b border-stone-50 last:border-0 hover:bg-stone-50 transition-colors">
+                        <Ava citizen={c} size="md" onClick={() => setViewingProfile(c)} />
+                        <div className="flex-1 min-w-0">
+                          <button onClick={() => setViewingProfile(c)}
+                            className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
+                            {c.name}
+                          </button>
+                          {c.mushtagramHandle && <div className="text-[10px] text-stone-400">@{c.mushtagramHandle}</div>}
+                          {c.mushtagramBio && <div className="text-[10px] text-stone-500 truncate mt-0.5">{c.mushtagramBio}</div>}
+                        </div>
+                        {String(c.id) !== myId && (
+                          <button
+                            onClick={() => isFollowing ? onUnfollowMushtagram && onUnfollowMushtagram(String(c.id)) : onFollowMushtagram && onFollowMushtagram(String(c.id))}
+                            className={`text-[9px] font-black px-3 py-1.5 rounded-lg transition-all shrink-0 ${isFollowing ? "bg-stone-100 text-stone-600 hover:bg-stone-200" : "bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90"}`}>
+                            {isFollowing ? "Suivi" : "Suivre"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Posts */}
               {filteredPosts.length === 0 ? (
