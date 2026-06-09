@@ -19,6 +19,7 @@ import {
   Check,
   Send,
   X,
+  GraduationCap,
 } from "lucide-react";
 import { formatMoney, toRoman, isNewEntry } from "../../lib/gameUtils";
 import SearchInput from "../ui/SearchInput";
@@ -128,7 +129,7 @@ function AccessBadge({ book, countries }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: cloudBookmarks, onBookmarksChange }) => {
+const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: cloudBookmarks, onBookmarksChange, eruditResearch = [] }) => {
   const [activeTab, setActiveTab] = useState("empire");
   const [viewingCountryId, setViewingCountryId] = useState(session?.countryId);
   const [search, setSearch] = useState("");
@@ -453,6 +454,21 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
             }`}
           >
             <PenLine size={13} /> Écrire
+          </button>
+
+          {/* Travaux Érudits */}
+          <button
+            onClick={() => { setActiveTab("research"); setReadingItem(null); setSearch(""); }}
+            className={`flex-shrink-0 px-3 py-2 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 transition-all ${
+              activeTab === "research" ? "bg-[#fdf6e3] text-stone-900 shadow-md" : "text-stone-400 hover:text-stone-200 hover:bg-stone-800"
+            }`}
+          >
+            <GraduationCap size={13} /> Travaux
+            {eruditResearch.filter((r) => r.published).length > 0 && (
+              <span className={`text-[8px] px-1 py-0.5 rounded-full font-black ${activeTab === "research" ? "bg-purple-600 text-white" : "bg-purple-800 text-purple-200"}`}>
+                {eruditResearch.filter((r) => r.published).length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -894,6 +910,91 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
               )}
             </div>
           )}
+
+          {/* ── TAB: TRAVAUX ÉRUDITS ── */}
+          {activeTab === "research" && (() => {
+            const published = eruditResearch.filter((r) => r.published);
+            const filtered = search
+              ? published.filter(
+                  (r) =>
+                    r.title?.toLowerCase().includes(search.toLowerCase()) ||
+                    r.authorName?.toLowerCase().includes(search.toLowerCase()) ||
+                    r.category?.toLowerCase().includes(search.toLowerCase())
+                )
+              : published;
+            return (
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <GraduationCap size={18} className="text-purple-600" />
+                  <h3 className="font-black uppercase text-xs tracking-widest text-stone-500">
+                    Travaux des Érudits — {published.length} publication{published.length !== 1 ? "s" : ""}
+                  </h3>
+                </div>
+
+                {published.length > 0 && (
+                  <input
+                    className="w-full bg-white/90 border border-stone-200 rounded-xl px-4 py-2.5 text-sm text-stone-800 outline-none focus:border-purple-400 transition-colors shadow-sm"
+                    placeholder="Rechercher par titre, auteur, catégorie…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                )}
+
+                {published.length === 0 ? (
+                  <div className="bg-white/80 rounded-xl p-12 text-center border border-stone-200 shadow-sm">
+                    <GraduationCap size={32} className="mx-auto text-stone-300 mb-3" />
+                    <p className="italic text-stone-400 font-serif">Aucun travail de recherche publié pour le moment.</p>
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="bg-white/80 rounded-xl p-8 text-center border border-stone-200 shadow-sm">
+                    <p className="italic text-stone-400 font-serif">Aucun travail ne correspond à votre recherche.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[...filtered].sort((a, b) => String(b.id).localeCompare(String(a.id))).map((res) => (
+                      <button
+                        key={res.id}
+                        type="button"
+                        onClick={() => setReadingItem({ ...res, _type: "book", author: res.authorName, title: res.title, content: res.content, date: null })}
+                        className="bg-white/90 border border-purple-100 shadow-sm rounded-xl overflow-hidden group hover:shadow-md hover:border-purple-300 transition-all text-left"
+                      >
+                        <div className="p-5">
+                          <div className="flex items-start gap-2 mb-2">
+                            <div className="w-1 self-stretch bg-purple-400 rounded-full shrink-0 mr-1" />
+                            <h3 className="font-serif font-bold text-lg text-stone-900 flex-1 line-clamp-2 leading-tight">
+                              {res.title}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            {res.category && (
+                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full border border-purple-200">
+                                <Tag size={7} /> {res.category}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs italic text-stone-500 mb-2 font-serif">par {res.authorName}</p>
+                          <div className="font-serif text-sm leading-relaxed text-stone-600 line-clamp-3 mb-3">
+                            {res.content}
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-stone-100">
+                            <span className="text-[9px] text-stone-400 flex items-center gap-1">
+                              <Clock size={9} /> {readingTime(res.content)}
+                            </span>
+                            <span className="text-[9px] uppercase font-bold text-stone-400">
+                              {res.publishedDate}
+                            </span>
+                            <span className="text-[9px] uppercase font-bold text-stone-500 group-hover:text-purple-700 transition-colors tracking-widest">
+                              Lire →
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── TAB: SIGNETS ── */}
           {activeTab === "bookmarks" && (

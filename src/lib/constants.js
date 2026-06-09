@@ -144,6 +144,7 @@ export const DEFAULT_GAME_STATE = {
   bourseListings: [],
   postalAlerts: [],
   eruditRequests: [],
+  eruditResearch: [],
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────

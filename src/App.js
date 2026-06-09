@@ -588,6 +588,11 @@ export default function App() {
             onUnsubscribeBague={actions.onUnsubscribeBague}
             eruditRequests={state.eruditRequests || []}
             onRequestEruditValidation={actions.onRequestEruditValidation}
+            eruditResearch={state.eruditResearch || []}
+            onSaveEruditResearch={actions.onSaveEruditResearch}
+            onPublishEruditResearch={actions.onPublishEruditResearch}
+            onUnpublishEruditResearch={actions.onUnpublishEruditResearch}
+            onDeleteEruditResearch={actions.onDeleteEruditResearch}
             combatSessions={state.combatSessions || []}
             notify={notify}
             isGraded={canAccessAdmin}

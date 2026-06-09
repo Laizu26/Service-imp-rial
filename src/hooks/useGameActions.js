@@ -5339,6 +5339,65 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Session supprimée.", "info");
       },
 
+      onSaveEruditResearch: ({ id, title, content, category }) => {
+        if (!session) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const dateStr = formatRPDate(gd);
+        const existing = [...(state.eruditResearch || [])];
+        if (id) {
+          const idx = existing.findIndex((r) => r.id === id);
+          if (idx === -1) return;
+          existing[idx] = { ...existing[idx], title, content, category: category || "", updatedDate: dateStr };
+          saveState({ ...state, eruditResearch: existing });
+          notify("Travail mis à jour.", "success");
+        } else {
+          const newRes = {
+            id: `rech_${Date.now()}`,
+            authorId: session.id,
+            authorName: session.name,
+            title,
+            content,
+            category: category || "",
+            published: false,
+            publishedDate: null,
+            createdDate: dateStr,
+            updatedDate: dateStr,
+          };
+          saveState({ ...state, eruditResearch: [...existing, newRes] });
+          notify("Travail enregistré.", "success");
+        }
+      },
+
+      onPublishEruditResearch: (id) => {
+        if (!session) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const updated = (state.eruditResearch || []).map((r) =>
+          r.id === id && r.authorId === session.id
+            ? { ...r, published: true, publishedDate: formatRPDate(gd) }
+            : r
+        );
+        saveState({ ...state, eruditResearch: updated });
+        notify("Travail publié dans la Bibliothèque Impériale.", "success");
+      },
+
+      onUnpublishEruditResearch: (id) => {
+        if (!session) return;
+        const updated = (state.eruditResearch || []).map((r) =>
+          r.id === id && r.authorId === session.id ? { ...r, published: false, publishedDate: null } : r
+        );
+        saveState({ ...state, eruditResearch: updated });
+        notify("Travail retiré de la bibliothèque.", "info");
+      },
+
+      onDeleteEruditResearch: (id) => {
+        if (!session) return;
+        const updated = (state.eruditResearch || []).filter(
+          (r) => !(r.id === id && r.authorId === session.id)
+        );
+        saveState({ ...state, eruditResearch: updated });
+        notify("Travail supprimé.", "info");
+      },
+
       onRequestEruditValidation: (countryId) => {
         if (!session) return;
         const country = (state.countries || []).find((c) => c.id === countryId);
