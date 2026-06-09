@@ -353,6 +353,9 @@ export default function App() {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
     }
 
+    if (effectiveLevel >= 20 || effectiveScope === "LOCAL")
+      tabs.push({ id: "erudit_admin", label: "Érudits", icon: Library });
+
     return tabs;
   }, [roleInfo, session, effectiveLevel, effectiveScope]);
 
@@ -583,6 +586,8 @@ export default function App() {
             onUseItem={actions.onUseItem}
             onSubscribeBague={actions.onSubscribeBague}
             onUnsubscribeBague={actions.onUnsubscribeBague}
+            eruditRequests={state.eruditRequests || []}
+            onRequestEruditValidation={actions.onRequestEruditValidation}
             combatSessions={state.combatSessions || []}
             notify={notify}
             isGraded={canAccessAdmin}
@@ -1249,6 +1254,82 @@ export default function App() {
                       onAdminRemoveFromQueue={actions.onAdminRemoveFromQueue}
                     />
                   )}
+                  {activeTab === "erudit_admin" && (() => {
+                    const myCountryId = effectiveScope !== "GLOBAL" ? session?.countryId : null;
+                    const allReqs = (state.eruditRequests || []).filter(
+                      (r) => !myCountryId || r.countryId === myCountryId
+                    );
+                    const pending = allReqs.filter((r) => r.status === "PENDING");
+                    const done = allReqs.filter((r) => r.status !== "PENDING");
+                    return (
+                      <div className="space-y-6 animate-in fade-in">
+                        <div className="bg-[#fdf6e3] rounded-2xl border border-stone-300 shadow p-6">
+                          <div className="flex items-center gap-3 mb-6">
+                            <Library size={22} className="text-purple-700" />
+                            <div>
+                              <h2 className="text-lg font-black uppercase tracking-widest text-stone-800 font-serif">Validations Érudit</h2>
+                              <p className="text-xs text-stone-500">Demandes de reconnaissance du statut Érudit dans votre pays</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest">
+                              En attente ({pending.length})
+                            </div>
+                            {pending.length === 0 && (
+                              <p className="text-stone-400 italic text-sm py-4 text-center">Aucune demande en attente.</p>
+                            )}
+                            {pending.map((req) => (
+                              <div key={req.id} className="bg-white border border-stone-200 rounded-xl p-4 flex items-start gap-4 shadow-sm">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-black text-stone-800">{req.citizenName}</div>
+                                  <div className="text-xs text-stone-500 mt-0.5">
+                                    Pays : <span className="font-bold">{req.countryName}</span>
+                                  </div>
+                                  <div className="text-[10px] text-stone-400 mt-0.5">Soumis le {req.requestDate}</div>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                  <button
+                                    onClick={() => actions.onRespondEruditValidation(req.id, true)}
+                                    className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+                                  >
+                                    ✓ Valider
+                                  </button>
+                                  <button
+                                    onClick={() => actions.onRespondEruditValidation(req.id, false)}
+                                    className="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+                                  >
+                                    ✕ Refuser
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {done.length > 0 && (
+                              <>
+                                <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest mt-6 pt-4 border-t border-stone-200">
+                                  Traitées ({done.length})
+                                </div>
+                                {done.map((req) => (
+                                  <div key={req.id} className={`border rounded-xl p-4 flex items-center gap-4 ${req.status === "APPROVED" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-black text-stone-800">{req.citizenName}</div>
+                                      <div className="text-xs text-stone-500 mt-0.5">
+                                        {req.countryName} · {req.responseDate} · par {req.respondedBy}
+                                      </div>
+                                    </div>
+                                    <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border shrink-0 ${req.status === "APPROVED" ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
+                                      {req.status === "APPROVED" ? "✓ Validé" : "✕ Refusé"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </main>
             </div>

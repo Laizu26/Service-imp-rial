@@ -35,6 +35,7 @@ export const ROLES = {
   },
   FONCTIONNAIRE: { label: "📝 Fonctionnaire", level: 30, scope: "LOCAL" },
   POSTIERE: { label: "🦅 Postière", level: 20, scope: "LOCAL" },
+  ERUDIT: { label: "📚 Érudit", level: 5, scope: "NONE" },
   CITOYEN: { label: "👤 Citoyen", level: 0, scope: "NONE" },
 };
 
@@ -142,6 +143,7 @@ export const DEFAULT_GAME_STATE = {
   gmHash: "",
   bourseListings: [],
   postalAlerts: [],
+  eruditRequests: [],
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────

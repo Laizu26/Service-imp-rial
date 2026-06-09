@@ -42,6 +42,7 @@ import {
   ArrowUpRight,
   Swords,
   Sword,
+  GraduationCap,
 } from "lucide-react";
 
 
@@ -834,6 +835,8 @@ const CitizenLayout = (props) => {
     combatSessions = [],
     onSubscribeBague,
     onUnsubscribeBague,
+    eruditRequests = [],
+    onRequestEruditValidation,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -951,6 +954,7 @@ const CitizenLayout = (props) => {
   // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
   // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
   const isSlave = user?.status === "Esclave";
+  const isErudit = user?.role === "ERUDIT";
 
   const permissions = user?.permissions || {};
 
@@ -992,6 +996,7 @@ const CitizenLayout = (props) => {
         { id: "physique_magie", label: "Physique & Magie", icon: Zap },
         { id: "combat", label: "Fiche de Combat", icon: Swords },
         isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
+        isErudit && { id: "erudit", label: "Statut Érudit", icon: GraduationCap },
       ].filter(Boolean),
     },
     {
@@ -1010,7 +1015,7 @@ const CitizenLayout = (props) => {
         mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
       ].filter(Boolean),
     },
-  ], [isSlave, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, mySlaves.length]);
+  ], [isSlave, isErudit, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, mySlaves.length]);
 
   // --- 2. SÉCURITÉ CRITIQUE ---
   // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
@@ -4408,6 +4413,66 @@ const CitizenLayout = (props) => {
                 resetSettings={resetSettings}
                 user={user}
               />
+            )}
+            {active === "erudit" && isErudit && (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="bg-[#fdf6e3] rounded-xl shadow-lg border-t-4 border-purple-400 p-5 md:p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-stone-800 flex items-center justify-center shrink-0">
+                      <GraduationCap size={20} className="text-purple-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-black uppercase tracking-widest text-stone-800 font-serif">Statut Érudit</h2>
+                      <p className="text-[9px] text-stone-500 uppercase tracking-widest">Reconnaissance officielle dans chaque pays</p>
+                    </div>
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-stone-600 leading-relaxed">
+                    En tant qu'Érudit, vous pouvez soumettre une demande de reconnaissance officielle de votre statut dans chaque pays. Les autorités locales valideront ou refuseront votre requête.
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {safeCountries.map((country) => {
+                    const myReqs = (eruditRequests || []).filter(
+                      (r) => r.citizenId === user.id && r.countryId === country.id
+                    );
+                    const latest = [...myReqs].sort((a, b) => String(b.id).localeCompare(String(a.id)))[0];
+                    const isPending = latest?.status === "PENDING";
+                    const isApproved = latest?.status === "APPROVED";
+                    const isRejected = latest?.status === "REJECTED";
+                    return (
+                      <div key={country.id} className="bg-[#fdf6e3] border border-stone-200 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-black text-stone-800 text-sm">{country.name}</div>
+                          {latest && (
+                            <div className="text-[10px] text-stone-500 mt-0.5">
+                              {isApproved && `Validé le ${latest.responseDate} par ${latest.respondedBy}`}
+                              {isRejected && `Refusé le ${latest.responseDate}${latest.note ? ` — ${latest.note}` : ""}`}
+                              {isPending && `Demande soumise le ${latest.requestDate}`}
+                            </div>
+                          )}
+                        </div>
+                        <div className="shrink-0">
+                          {isApproved && (
+                            <span className="text-[9px] font-black uppercase px-3 py-1.5 rounded-full bg-green-100 text-green-700 border border-green-300">✓ Reconnu</span>
+                          )}
+                          {isPending && (
+                            <span className="text-[9px] font-black uppercase px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300">⏳ En attente</span>
+                          )}
+                          {(!latest || isRejected) && (
+                            <button
+                              onClick={() => onRequestEruditValidation && onRequestEruditValidation(country.id)}
+                              className="text-[9px] font-black uppercase px-3 py-1.5 rounded-lg bg-stone-800 text-stone-200 hover:bg-stone-700 transition-colors"
+                            >
+                              {isRejected ? "Re-soumettre" : "Demander"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
             {/* ----------------------------- */}
           </TabErrorBoundary>

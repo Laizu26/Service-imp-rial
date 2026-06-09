@@ -5338,6 +5338,47 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, combatSessions: newSessions });
         notify("Session supprimée.", "info");
       },
+
+      onRequestEruditValidation: (countryId) => {
+        if (!session) return;
+        const country = (state.countries || []).find((c) => c.id === countryId);
+        if (!country) return;
+        const existing = (state.eruditRequests || []).find(
+          (r) => r.citizenId === session.id && r.countryId === countryId && r.status === "PENDING"
+        );
+        if (existing) { notify("Demande déjà en cours pour ce pays.", "info"); return; }
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const newReq = {
+          id: `er_${Date.now()}`,
+          citizenId: session.id,
+          citizenName: session.name,
+          countryId,
+          countryName: country.name,
+          status: "PENDING",
+          requestDate: formatRPDate(gd),
+          responseDate: null,
+          respondedBy: null,
+          note: "",
+        };
+        saveState({ ...state, eruditRequests: [...(state.eruditRequests || []), newReq] });
+        notify("Demande de validation soumise.", "success");
+      },
+
+      onRespondEruditValidation: (requestId, approved, note = "") => {
+        const requests = [...(state.eruditRequests || [])];
+        const idx = requests.findIndex((r) => r.id === requestId);
+        if (idx === -1) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        requests[idx] = {
+          ...requests[idx],
+          status: approved ? "APPROVED" : "REJECTED",
+          responseDate: formatRPDate(gd),
+          respondedBy: session?.name || "Admin",
+          note: note || "",
+        };
+        saveState({ ...state, eruditRequests: requests });
+        notify(approved ? "Statut Érudit validé." : "Demande refusée.", approved ? "success" : "info");
+      },
       // ────────────────────────────────────────────────────────────
 
     }, notify);
