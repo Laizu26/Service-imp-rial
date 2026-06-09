@@ -150,6 +150,8 @@ export const DEFAULT_GAME_STATE = {
   eruditResearch: [],
   combatSessions: [],
   combatEffects: [],
+  mushtagramPosts: [],
+  mushtagramDMs: [],
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────

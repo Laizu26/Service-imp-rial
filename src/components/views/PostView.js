@@ -156,22 +156,6 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
   const unreadCount = useMemo(() => inboxMessages.filter((m) => !m.isRead).length, [inboxMessages]);
 
-  const threadMessages = useMemo(() => {
-    if (!selectedMsg) return [];
-    const tid = selectedMsg.threadId ? String(selectedMsg.threadId) : String(selectedMsg.id);
-    const seen = new Set();
-    const combined = [];
-    [...processedMessages, ...sentMessages].forEach((m) => {
-      const mTid = m.threadId ? String(m.threadId) : String(m.id);
-      const key = String(m.id);
-      if (!seen.has(key) && (mTid === tid || String(m.id) === tid)) {
-        seen.add(key);
-        combined.push(m);
-      }
-    });
-    return combined.sort((a, b) => Number(a.id) - Number(b.id));
-  }, [selectedMsg, processedMessages, sentMessages]);
-
   const displayedMessages = useMemo(() => {
     const src = { inbox: inboxMessages, sent: sentMessages, starred: starredMessages, spam: spamMessages }[activeFolder] || inboxMessages;
     const q = searchTerm.toLowerCase();
@@ -564,72 +548,68 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                 )}
               </div>
 
-              {/* Corps — vue conversation */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-8">
-                <div className="max-w-2xl mx-auto space-y-1">
-
-                  {/* Sujet + sceau (en-tête une fois) */}
-                  <div className="mb-6">
-                    {selectedMsg.seal && selectedMsg.seal !== "NORMAL" && (
-                      <div className="mb-3">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getSealStyle(selectedMsg.seal)}`}>
-                          <Stamp size={10} />
-                          {SEAL_META[selectedMsg.seal]?.label || selectedMsg.seal}
-                        </span>
-                      </div>
-                    )}
-                    <h1 className="text-2xl font-black font-serif text-stone-900 leading-tight">
-                      {selectedMsg.subject}
-                    </h1>
-                    {threadMessages.length > 1 && (
-                      <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-1">
-                        {threadMessages.length} messages dans cette conversation
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Messages du fil */}
-                  {threadMessages.map((msg, idx) => {
-                    const isMine = String(msg.fromId) === String(session?.id);
-                    const isLast = idx === threadMessages.length - 1;
-                    return (
-                      <div key={msg.id} className={`flex flex-col gap-1 ${isMine ? "items-end" : "items-start"}`}>
-                        {/* Auteur + date */}
-                        <div className="flex items-center gap-2 px-1">
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0 ${avatarColor(msg.from || "")}`}>
-                            {(msg.from || "?")[0]?.toUpperCase()}
-                          </div>
-                          <span className="text-[10px] font-black text-stone-600">{isMine ? "Vous" : msg.from}</span>
-                          <span className="text-[9px] text-stone-400 font-mono">{msg.date}</span>
+              {/* Corps — lettre formelle */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-stone-100">
+                <div className="max-w-2xl mx-auto">
+                  {/* Document lettre */}
+                  <div className="bg-[#fdf8ee] border border-stone-300 rounded-xl shadow-lg overflow-hidden">
+                    {/* En-tête */}
+                    <div className="border-b border-stone-200 px-6 py-5">
+                      {selectedMsg.seal && selectedMsg.seal !== "NORMAL" && (
+                        <div className="mb-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getSealStyle(selectedMsg.seal)}`}>
+                            <Stamp size={10} />
+                            {SEAL_META[selectedMsg.seal]?.label || selectedMsg.seal}
+                          </span>
                         </div>
-                        {/* Bulle */}
-                        <div className={`max-w-[85%] rounded-2xl px-5 py-4 shadow-sm ${
-                          isMine
-                            ? "bg-stone-800 text-stone-100 rounded-tr-sm"
-                            : "bg-white border border-stone-200 text-stone-800 rounded-tl-sm"
-                        } ${isLast ? "ring-2 ring-[#b8860b]/30" : ""}`}>
-                          <div className="font-serif text-sm leading-relaxed whitespace-pre-wrap">
-                            {msg.content}
-                          </div>
-                          {msg.cc?.length > 0 && (
-                            <div className={`text-[9px] mt-2 ${isMine ? "text-stone-400" : "text-stone-400"}`}>
-                              CC : {msg.cc.map((id) => safeUsers.find((x) => String(x.id) === String(id))?.name || id).join(", ")}
-                            </div>
+                      )}
+                      <h1 className="text-xl font-black font-serif text-stone-900 leading-tight mb-5">
+                        {selectedMsg.subject}
+                      </h1>
+                      <table className="text-xs text-stone-700 w-full">
+                        <tbody>
+                          <tr className="border-b border-stone-100">
+                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 w-16 whitespace-nowrap">De</td>
+                            <td className="py-1.5 font-semibold text-stone-800">{selectedMsg.from || "Inconnu"}</td>
+                          </tr>
+                          <tr className="border-b border-stone-100">
+                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">À</td>
+                            <td className="py-1.5 font-semibold text-stone-800">
+                              {activeFolder === "sent" ? (selectedMsg.toName || "Destinataire") : (session?.name || "Vous")}
+                            </td>
+                          </tr>
+                          {(selectedMsg.cc?.length > 0) && (
+                            <tr className="border-b border-stone-100">
+                              <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">CC</td>
+                              <td className="py-1.5 text-stone-600">
+                                {selectedMsg.cc.map((id) => safeUsers.find((x) => String(x.id) === String(id))?.name || id).join(", ")}
+                              </td>
+                            </tr>
                           )}
-                        </div>
+                          <tr>
+                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">Date</td>
+                            <td className="py-1.5 text-stone-500 font-mono text-[10px]">{selectedMsg.date || "—"}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Corps */}
+                    <div className="px-8 py-8">
+                      <div className="font-serif text-stone-800 text-sm leading-relaxed whitespace-pre-wrap">
+                        {selectedMsg.content}
                       </div>
-                    );
-                  })}
+                    </div>
+                  </div>
 
                   {/* Boutons bas */}
                   {activeFolder !== "sent" && (
-                    <div className="pt-6 flex gap-3 flex-wrap">
+                    <div className="pt-5 flex gap-3 flex-wrap">
                       <button onClick={() => handleReply(selectedMsg)}
                         className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-[#b8860b] rounded-lg text-xs font-black uppercase tracking-wide hover:bg-black transition-all">
                         <Reply size={13} /> Répondre
                       </button>
                       <button onClick={() => handleForward(selectedMsg)}
-                        className="flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg text-xs font-black uppercase tracking-wide hover:bg-stone-200 transition-all">
+                        className="flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg text-xs font-black uppercase tracking-wide hover:bg-stone-200 border border-stone-200 transition-all">
                         <CornerUpRight size={13} /> Transférer
                       </button>
                     </div>

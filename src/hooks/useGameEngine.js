@@ -50,6 +50,8 @@ export const useGameEngine = (firebaseUser, notify) => {
             eruditResearch: d.eruditResearch || [],
             combatSessions: d.combatSessions || [],
             combatEffects: d.combatEffects || [],
+            mushtagramPosts: d.mushtagramPosts || [],
+            mushtagramDMs: d.mushtagramDMs || [],
           }));
           setDbError(null);
         } else {

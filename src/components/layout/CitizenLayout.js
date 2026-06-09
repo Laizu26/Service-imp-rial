@@ -43,6 +43,7 @@ import {
   Swords,
   Sword,
   GraduationCap,
+  Hash,
 } from "lucide-react";
 
 
@@ -55,6 +56,7 @@ import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
 import PostView from "../views/PostView";
+import MushtagramView from "../views/MushtagramView";
 import SlaveManagementView from "../views/SlaveManagementView";
 import GazetteView from "../views/GazetteView";
 import CitizenBankView from "../views/CitizenBankView";
@@ -842,6 +844,16 @@ const CitizenLayout = (props) => {
     onPublishEruditResearch,
     onUnpublishEruditResearch,
     onDeleteEruditResearch,
+    mushtagramPosts = [],
+    mushtagramDMs = [],
+    onPostMushtagram,
+    onDeleteMushtagramPost,
+    onToggleMushtagramLike,
+    onAddMushtagramComment,
+    onDeleteMushtagramComment,
+    onUpdateMushtagramProfile,
+    onSendMushtagramDM,
+    onMarkMushtagramDMsRead,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -991,9 +1003,10 @@ const CitizenLayout = (props) => {
       id: "monde",
       label: "Information & Monde",
       items: [
-        { id: "gazette",  label: "Gazette",       icon: Scroll },
-        { id: "library",  label: "Bibliothèque",  icon: Book },
-        { id: "annuaire", label: "Annuaire",       icon: Eye },
+        { id: "gazette",    label: "Gazette",       icon: Scroll },
+        { id: "library",    label: "Bibliothèque",  icon: Book },
+        { id: "annuaire",   label: "Annuaire",       icon: Eye },
+        { id: "mushtagram", label: "Mushtagram",     icon: Hash },
         (!isBanned && !isPrisoner && canUseTravel) && { id: "travel", label: "Voyage", icon: Map },
       ].filter(Boolean),
     },
@@ -1592,6 +1605,24 @@ const CitizenLayout = (props) => {
                 session={user}
                 onSend={onSend}
                 onUpdateUser={onUpdateUser}
+                notify={notify}
+              />
+            )}
+
+            {active === "mushtagram" && (
+              <MushtagramView
+                session={user}
+                citizens={safeUsers}
+                mushtagramPosts={mushtagramPosts}
+                mushtagramDMs={mushtagramDMs}
+                onPostMushtagram={onPostMushtagram}
+                onDeleteMushtagramPost={onDeleteMushtagramPost}
+                onToggleMushtagramLike={onToggleMushtagramLike}
+                onAddMushtagramComment={onAddMushtagramComment}
+                onDeleteMushtagramComment={onDeleteMushtagramComment}
+                onUpdateMushtagramProfile={onUpdateMushtagramProfile}
+                onSendMushtagramDM={onSendMushtagramDM}
+                onMarkMushtagramDMsRead={onMarkMushtagramDMsRead}
                 notify={notify}
               />
             )}

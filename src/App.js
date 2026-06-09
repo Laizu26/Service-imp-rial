@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Newspaper,
   Swords,
+  Hash,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -54,6 +55,7 @@ import RegistryView from "./components/views/RegistryView";
 import BankView from "./components/views/BankView";
 import InventoryView from "./components/views/InventoryView";
 import PostView from "./components/views/PostView";
+import MushtagramView from "./components/views/MushtagramView";
 import EspionageView from "./components/views/EspionageView";
 import PostOfficeView from "./components/views/PostOfficeView";
 import CompaniesAdminView from "./components/views/CompaniesAdminView";
@@ -323,6 +325,7 @@ export default function App() {
     tabs.push({ id: "items", label: "Objets", icon: Box });
     tabs.push({ id: "bank", label: "Banque", icon: Coins });
     tabs.push({ id: "post", label: "Poste", icon: Mail });
+    tabs.push({ id: "mushtagram", label: "Mushtagram", icon: Hash });
     if (effectiveLevel >= 40)
       tabs.push({ id: "guard_admin", label: "Garde", icon: Shield });
     if (effectiveLevel >= 40)
@@ -739,6 +742,16 @@ export default function App() {
             bookmarks={currentUser?.bookmarks}
             onBookmarksChange={handleBookmarksChange}
             onDismissedChange={handleDismissedChange}
+            mushtagramPosts={state.mushtagramPosts || []}
+            mushtagramDMs={state.mushtagramDMs || []}
+            onPostMushtagram={actions.onPostMushtagram}
+            onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
+            onToggleMushtagramLike={actions.onToggleMushtagramLike}
+            onAddMushtagramComment={actions.onAddMushtagramComment}
+            onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
+            onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
+            onSendMushtagramDM={actions.onSendMushtagramDM}
+            onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1068,6 +1081,23 @@ export default function App() {
                       session={currentUser}
                       onSend={actions.onSendPost}
                       onUpdateUser={actions.onUpdateCitizen}
+                      notify={notify}
+                    />
+                  )}
+                  {activeTab === "mushtagram" && (
+                    <MushtagramView
+                      session={currentUser}
+                      citizens={state.citizens}
+                      mushtagramPosts={state.mushtagramPosts || []}
+                      mushtagramDMs={state.mushtagramDMs || []}
+                      onPostMushtagram={actions.onPostMushtagram}
+                      onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
+                      onToggleMushtagramLike={actions.onToggleMushtagramLike}
+                      onAddMushtagramComment={actions.onAddMushtagramComment}
+                      onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
+                      onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
+                      onSendMushtagramDM={actions.onSendMushtagramDM}
+                      onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
                       notify={notify}
                     />
                   )}

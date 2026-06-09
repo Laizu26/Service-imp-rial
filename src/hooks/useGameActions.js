@@ -5465,6 +5465,100 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, eruditRequests: requests });
         notify(approved ? "Statut Érudit validé." : "Demande refusée.", approved ? "success" : "info");
       },
+
+      // ── MUSHTAGRAM ───────────────────────────────────────────────
+      onPostMushtagram: ({ content, imageUrl, hashtags }) => {
+        if (!session) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const newPost = {
+          id: `mpost_${Date.now()}`,
+          authorId: session.id,
+          authorName: session.name,
+          content,
+          imageUrl: imageUrl || null,
+          hashtags: hashtags || [],
+          likes: [],
+          comments: [],
+          date: formatRPDate(gd),
+          createdAt: Date.now(),
+        };
+        saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts || []), newPost] });
+      },
+
+      onDeleteMushtagramPost: (id) => {
+        saveState({ ...state, mushtagramPosts: (state.mushtagramPosts || []).filter((p) => p.id !== id) });
+        notify("Publication supprimée.", "info");
+      },
+
+      onToggleMushtagramLike: (postId) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts || []).map((p) => {
+          if (p.id !== postId) return p;
+          const liked = (p.likes || []).includes(session.id);
+          return { ...p, likes: liked ? p.likes.filter((id) => id !== session.id) : [...(p.likes || []), session.id] };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onAddMushtagramComment: (postId, content) => {
+        if (!session || !content?.trim()) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const posts = (state.mushtagramPosts || []).map((p) => {
+          if (p.id !== postId) return p;
+          const comment = {
+            id: `mc_${Date.now()}`,
+            authorId: session.id,
+            authorName: session.name,
+            content: content.trim(),
+            date: formatRPDate(gd),
+          };
+          return { ...p, comments: [...(p.comments || []), comment] };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onDeleteMushtagramComment: (postId, commentId) => {
+        const posts = (state.mushtagramPosts || []).map((p) => {
+          if (p.id !== postId) return p;
+          return { ...p, comments: (p.comments || []).filter((c) => c.id !== commentId) };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onUpdateMushtagramProfile: ({ bio, avatar, handle }) => {
+        if (!session) return;
+        const updated = (state.citizens || []).map((c) =>
+          c.id === session.id
+            ? { ...c, mushtagramBio: bio ?? c.mushtagramBio, mushtagramAvatar: avatar ?? c.mushtagramAvatar, mushtagramHandle: handle ?? c.mushtagramHandle }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Profil mis à jour.", "success");
+      },
+
+      onSendMushtagramDM: ({ toId, content }) => {
+        if (!session || !content?.trim()) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const dm = {
+          id: `mdm_${Date.now()}`,
+          fromId: session.id,
+          fromName: session.name,
+          toId,
+          content: content.trim(),
+          date: formatRPDate(gd),
+          createdAt: Date.now(),
+          readByRecipient: false,
+        };
+        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm] });
+      },
+
+      onMarkMushtagramDMsRead: (fromId) => {
+        if (!session) return;
+        const dms = (state.mushtagramDMs || []).map((dm) =>
+          dm.fromId === fromId && dm.toId === session.id ? { ...dm, readByRecipient: true } : dm
+        );
+        saveState({ ...state, mushtagramDMs: dms });
+      },
       // ────────────────────────────────────────────────────────────
 
     }, notify);
