@@ -120,6 +120,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
   const [draft, setDraft] = useState({
     to: "", cc: [], subject: "", heading: "", content: "", seal: "NORMAL", alias: "",
+    threadId: null, parentId: null,
   });
 
   /* ── données ── */
@@ -154,6 +155,22 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
   }, [safeUsers, session?.id]);
 
   const unreadCount = useMemo(() => inboxMessages.filter((m) => !m.isRead).length, [inboxMessages]);
+
+  const threadMessages = useMemo(() => {
+    if (!selectedMsg) return [];
+    const tid = selectedMsg.threadId ? String(selectedMsg.threadId) : String(selectedMsg.id);
+    const seen = new Set();
+    const combined = [];
+    [...processedMessages, ...sentMessages].forEach((m) => {
+      const mTid = m.threadId ? String(m.threadId) : String(m.id);
+      const key = String(m.id);
+      if (!seen.has(key) && (mTid === tid || String(m.id) === tid)) {
+        seen.add(key);
+        combined.push(m);
+      }
+    });
+    return combined.sort((a, b) => Number(a.id) - Number(b.id));
+  }, [selectedMsg, processedMessages, sentMessages]);
 
   const displayedMessages = useMemo(() => {
     const src = { inbox: inboxMessages, sent: sentMessages, starred: starredMessages, spam: spamMessages }[activeFolder] || inboxMessages;
@@ -193,12 +210,13 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
   const handleReply = (msg) => {
     if (!msg.fromId) return notify("Expéditeur inconnu.", "error");
-    const quote = msg.content.substring(0, 300) + (msg.content.length > 300 ? "…" : "");
     handleCompose({
       to: msg.fromId, cc: [],
       subject: msg.subject.startsWith("Re: ") ? msg.subject : `Re: ${msg.subject}`,
       heading: "", alias: "", seal: "NORMAL",
-      content: `\n\n\n— Le ${msg.date}, ${msg.from} écrivait :\n> ${quote}`,
+      content: "",
+      threadId: msg.threadId || String(msg.id),
+      parentId: msg.id,
     });
   };
 
@@ -219,7 +237,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
     finalContent += draft.content;
     if (draft.alias?.trim()) finalContent += `\n\n[Signé : ${draft.alias}]`;
     try {
-      onSend(draft.to, draft.subject, finalContent, draft.cc, draft.seal, []);
+      onSend(draft.to, draft.subject, finalContent, draft.cc, draft.seal, draft.threadId, draft.parentId);
       notify("Envoyé.", "success");
       setIsComposing(false);
       setActiveFolder("sent");
@@ -546,55 +564,66 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                 )}
               </div>
 
-              {/* Corps du message */}
-              <div className="flex-1 overflow-y-auto p-6 md:p-10">
-                <div className="max-w-2xl mx-auto">
-                  {/* En-tête lettre */}
-                  <div className="mb-8">
-                    {/* Sceau badge */}
+              {/* Corps — vue conversation */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                <div className="max-w-2xl mx-auto space-y-1">
+
+                  {/* Sujet + sceau (en-tête une fois) */}
+                  <div className="mb-6">
                     {selectedMsg.seal && selectedMsg.seal !== "NORMAL" && (
-                      <div className="mb-4">
+                      <div className="mb-3">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getSealStyle(selectedMsg.seal)}`}>
                           <Stamp size={10} />
                           {SEAL_META[selectedMsg.seal]?.label || selectedMsg.seal}
                         </span>
                       </div>
                     )}
-                    <h1 className="text-2xl font-black font-serif text-stone-900 leading-tight mb-4">
+                    <h1 className="text-2xl font-black font-serif text-stone-900 leading-tight">
                       {selectedMsg.subject}
                     </h1>
-                    <div className="flex items-start gap-3 pb-5 border-b-2 border-stone-200">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 ${avatarColor(activeFolder === "sent" ? (selectedMsg.toName || "") : (selectedMsg.from || ""))}`}>
-                        {(activeFolder === "sent" ? (selectedMsg.toName || "?") : (selectedMsg.from || "?"))[0]?.toUpperCase()}
+                    {threadMessages.length > 1 && (
+                      <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mt-1">
+                        {threadMessages.length} messages dans cette conversation
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-black text-stone-900 text-sm">
-                            {activeFolder === "sent" ? `À : ${selectedMsg.toName || "Inconnu"}` : selectedMsg.from}
-                          </span>
-                          <span className="text-stone-400 text-xs">·</span>
-                          <span className="text-stone-500 text-xs font-mono">{selectedMsg.date}</span>
-                        </div>
-                        {selectedMsg.cc?.length > 0 && (
-                          <div className="text-xs text-stone-500 mt-0.5">
-                            CC : {selectedMsg.cc.map((id) => {
-                              const u = safeUsers.find((x) => String(x.id) === String(id));
-                              return u?.name || id;
-                            }).join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Corps */}
-                  <div className="font-serif text-base text-stone-800 leading-relaxed whitespace-pre-wrap">
-                    {selectedMsg.content}
-                  </div>
+                  {/* Messages du fil */}
+                  {threadMessages.map((msg, idx) => {
+                    const isMine = String(msg.fromId) === String(session?.id);
+                    const isLast = idx === threadMessages.length - 1;
+                    return (
+                      <div key={msg.id} className={`flex flex-col gap-1 ${isMine ? "items-end" : "items-start"}`}>
+                        {/* Auteur + date */}
+                        <div className="flex items-center gap-2 px-1">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0 ${avatarColor(msg.from || "")}`}>
+                            {(msg.from || "?")[0]?.toUpperCase()}
+                          </div>
+                          <span className="text-[10px] font-black text-stone-600">{isMine ? "Vous" : msg.from}</span>
+                          <span className="text-[9px] text-stone-400 font-mono">{msg.date}</span>
+                        </div>
+                        {/* Bulle */}
+                        <div className={`max-w-[85%] rounded-2xl px-5 py-4 shadow-sm ${
+                          isMine
+                            ? "bg-stone-800 text-stone-100 rounded-tr-sm"
+                            : "bg-white border border-stone-200 text-stone-800 rounded-tl-sm"
+                        } ${isLast ? "ring-2 ring-[#b8860b]/30" : ""}`}>
+                          <div className="font-serif text-sm leading-relaxed whitespace-pre-wrap">
+                            {msg.content}
+                          </div>
+                          {msg.cc?.length > 0 && (
+                            <div className={`text-[9px] mt-2 ${isMine ? "text-stone-400" : "text-stone-400"}`}>
+                              CC : {msg.cc.map((id) => safeUsers.find((x) => String(x.id) === String(id))?.name || id).join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
 
                   {/* Boutons bas */}
                   {activeFolder !== "sent" && (
-                    <div className="mt-10 pt-6 border-t border-stone-200 flex gap-3 flex-wrap">
+                    <div className="pt-6 flex gap-3 flex-wrap">
                       <button onClick={() => handleReply(selectedMsg)}
                         className="flex items-center gap-2 px-4 py-2 bg-stone-900 text-[#b8860b] rounded-lg text-xs font-black uppercase tracking-wide hover:bg-black transition-all">
                         <Reply size={13} /> Répondre

@@ -1081,7 +1081,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState(s);
         notify("Transfert validé.", "success");
       },
-      onSendPost: (targetId, subject, content, ccList, seal) => {
+      onSendPost: (targetId, subject, content, ccList, seal, threadId, parentId) => {
         if (!session) return;
         const safeCitizens = state.citizens || [];
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
@@ -1096,6 +1096,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           seal,
           cc: Array.isArray(ccList) ? ccList : [],
           censored: false,
+          threadId: threadId || null,
+          parentId: parentId || null,
         };
         const newCitizens = safeCitizens.map((c) =>
           c.id === targetId
