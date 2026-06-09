@@ -1157,7 +1157,7 @@ export default function CombatAdminView({
                 <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Statistique affectée</label>
                 <select value={effectForm.stat} onChange={e => setEffectForm(p => ({ ...p, stat: e.target.value }))}
                   className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
-                  {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                  {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-stone-800 text-stone-100">{o.label}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -1541,7 +1541,7 @@ export default function CombatAdminView({
                             <select value={malusForm.stat}
                               onChange={e => setMalusForm(prev => ({ ...prev, stat: e.target.value }))}
                               className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 outline-none focus:border-red-500">
-                              {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                              {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-stone-800 text-stone-100">{o.label}</option>)}
                             </select>
                           </div>
                           <div>
