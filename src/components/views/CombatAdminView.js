@@ -181,6 +181,7 @@ export default function CombatAdminView({
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
   const [editRoll, setEditRoll] = useState({});
+  const [malusForm, setMalusForm] = useState({ stat: "attackBase", value: -1, reason: "" });
 
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeSessions = Array.isArray(combatSessions) ? combatSessions : [];
@@ -234,8 +235,8 @@ export default function CombatAdminView({
   const sortedParticipants = useMemo(() => {
     if (!selSession) return [];
     return [...selSession.participants].sort((a, b) => {
-      const va = (a.speedBase || a.speed || 0) + (a.initiativeRoll || 0);
-      const vb = (b.speedBase || b.speed || 0) + (b.initiativeRoll || 0);
+      const va = a.initiativeRoll ?? -1;
+      const vb = b.initiativeRoll ?? -1;
       return vb - va;
     });
   }, [selSession]);
@@ -485,13 +486,6 @@ export default function CombatAdminView({
                           bonusLabel="Sort offensif"
                           onBase={sc("magicAttackBase")} onBonus={sc("magicAttackBonus")}
                         />
-                        <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">Vitesse</span>
-                            <span className="text-[8px] text-stone-400 italic">+ roll MJ en session</span>
-                          </div>
-                          <StatNum label="Base joueur" value={editStats.speedBase} onChange={sc("speedBase")} dim />
-                        </div>
                       </div>
 
                       {/* Mana + récap */}
@@ -880,7 +874,7 @@ export default function CombatAdminView({
                                   const hpPct = p.maxHp > 0 ? Math.max(0, (p.currentHp / p.maxHp) * 100) : 0;
                                   const hpColor = hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-amber-500" : "bg-red-500";
                                   const isDead = p.currentHp <= 0;
-                                  const initTotal = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
+                                  const initTotal = p.initiativeRoll ?? 0;
                                   const masked = hideCreatureStats && p.isCreature;
                                   // État lisible sans chiffres
                                   const hpState = isDead ? { label: "Mort", cls: "bg-stone-600 text-stone-300" }
@@ -944,6 +938,12 @@ export default function CombatAdminView({
                                           <span className="text-[8px] text-stone-400">/{p.maxMana}</span>
                                         </div>
                                       )}
+                                      {/* Malus badges */}
+                                      {(p.malus?.length > 0) && !masked && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                          <span className="text-[7px] font-black text-red-300 bg-red-900/40 px-1.5 py-0.5 rounded">↓ {p.malus.length} malus</span>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -957,14 +957,14 @@ export default function CombatAdminView({
                       <div className="bg-stone-100 border border-stone-200 rounded-xl overflow-hidden">
                         <div className="flex items-center gap-2 px-4 py-2 border-b border-stone-200 bg-stone-50">
                           <Users size={13} className="text-stone-600" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">Ordre d'initiative · Vitesse = Base + Roll MJ</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-stone-600">Ordre d'initiative · Roll de vitesse (verrouillé une fois saisi)</span>
                         </div>
                         <div className="divide-y divide-stone-200">
                           {sortedParticipants.map((p, idx) => {
                             const isCurrent = selSession.status === "active" && idx === selSession.currentParticipantIndex;
                             const isDead = p.currentHp <= 0;
                             const campStyle = CAMP_STYLES.find(x => x.id === (p.campId || "A")) || CAMP_STYLES[0];
-                            const initTotal = (p.speedBase || p.speed || 0) + (p.initiativeRoll || 0);
+                            const initTotal = p.initiativeRoll ?? 0;
                             const maskedInit = hideCreatureStats && p.isCreature;
                             return (
                               <div key={p.citizenId}
@@ -979,17 +979,26 @@ export default function CombatAdminView({
                                   {p.isCreature && <span className="ml-1 text-[7px] font-black text-red-400">★</span>}
                                 </span>
                                 {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black animate-pulse">SON TOUR</span>}
-                                {/* Roll MJ — toujours éditable, même en mode observateur */}
+                                {/* Roll de vitesse — verrouillé une fois saisi */}
                                 <div className="flex items-center gap-1 shrink-0">
-                                  <span className="text-[8px] text-stone-500 font-mono">{p.speedBase || 0}+</span>
-                                  <input type="number" min={0} max={99}
-                                    value={editRoll[String(p.citizenId)] ?? (p.initiativeRoll ?? "")}
-                                    onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
-                                    onBlur={() => applyRollChange(p.citizenId)}
-                                    onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
-                                    placeholder="roll"
-                                    className="w-12 text-[10px] font-mono bg-white border border-stone-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
-                                  <span className="text-[8px] text-stone-600 font-mono w-7">={initTotal}</span>
+                                  {p.initiativeRoll !== null && p.initiativeRoll !== undefined ? (
+                                    <>
+                                      <span className="text-sm font-black text-amber-400 font-mono w-8 text-center">{p.initiativeRoll}</span>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); updateParticipant(p.citizenId, { initiativeRoll: null }); }}
+                                        title="Réinitialiser le roll"
+                                        className="p-0.5 rounded hover:bg-stone-700 text-stone-500 hover:text-amber-400 transition-all text-xs"
+                                      >🔓</button>
+                                    </>
+                                  ) : (
+                                    <input type="number" min={0} max={99}
+                                      value={editRoll[String(p.citizenId)] ?? ""}
+                                      onChange={e => setEditRoll(prev => ({ ...prev, [String(p.citizenId)]: e.target.value }))}
+                                      onBlur={() => applyRollChange(p.citizenId)}
+                                      onKeyDown={e => e.key === "Enter" && applyRollChange(p.citizenId)}
+                                      placeholder="roll"
+                                      className="w-14 text-[10px] font-mono bg-white border border-amber-300 rounded px-1 py-0.5 text-center text-stone-700 outline-none focus:border-amber-500" />
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1118,7 +1127,6 @@ export default function CombatAdminView({
           { label: "Atk. Mag.", icon: "🔮", base: "magicAttackBase",  bonus: "magicAttackBonus",  bonusLbl: "Sort off." },
           { label: "Défense",    icon: "🛡",  base: "defenseBase",      bonus: "armorBonus",        bonusLbl: "Armure"  },
           { label: "Déf. Mag.", icon: "✨",  base: "magicDefenseBase", bonus: "spellBonus",        bonusLbl: "Sort déf." },
-          { label: "Vitesse",    icon: "💨",  base: "speedBase",        bonus: null,                bonusLbl: null      },
         ];
 
         const closePopup = () => { setStatPopup(null); setPopupEdits({}); };
@@ -1210,15 +1218,19 @@ export default function CombatAdminView({
                   {statDefs.map(({ label, icon, base, bonus, bonusLbl }) => {
                     const baseVal = parseInt(pe(base)) || 0;
                     const bonusVal = bonus ? (parseInt(pe(bonus)) || 0) : 0;
-                    const total = baseVal + bonusVal;
+                    const malusTotal = (p.malus || []).filter(m => m.stat === base || (bonus && m.stat === bonus)).reduce((sum, m) => sum + (m.value || 0), 0);
+                    const total = baseVal + bonusVal + malusTotal;
                     return (
-                      <div key={label} className="bg-stone-800 border border-stone-700/60 rounded-xl p-3">
+                      <div key={label} className={`bg-stone-800 border rounded-xl p-3 ${malusTotal < 0 ? "border-red-800/50" : "border-stone-700/60"}`}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-1.5">
                             <span>{icon}</span>
                             <span className="text-[9px] font-black uppercase tracking-widest text-stone-400">{label}</span>
                           </div>
-                          <span className="text-base font-black text-stone-100">{total}</span>
+                          <div className="flex items-center gap-1">
+                            {malusTotal < 0 && <span className="text-[8px] text-red-400 font-mono">{malusTotal}</span>}
+                            <span className={`text-base font-black ${malusTotal < 0 ? "text-red-300" : "text-stone-100"}`}>{total}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="flex-1">
@@ -1293,6 +1305,89 @@ export default function CombatAdminView({
                     </div>
                   </div>
                 )}
+
+                {/* ── Malus ── */}
+                {(() => {
+                  const malus = p.malus || [];
+                  const malusStatOptions = [
+                    { key: "attackBase",       label: "Attaque (base)" },
+                    { key: "weaponBonus",      label: "Attaque (arme)" },
+                    { key: "magicAttackBase",  label: "Atk. Mag. (base)" },
+                    { key: "magicAttackBonus", label: "Atk. Mag. (sort)" },
+                    { key: "defenseBase",      label: "Défense (base)" },
+                    { key: "armorBonus",       label: "Défense (armure)" },
+                    { key: "magicDefenseBase", label: "Déf. Mag. (base)" },
+                    { key: "spellBonus",       label: "Déf. Mag. (sort)" },
+                    { key: "maxHp",            label: "PV Max" },
+                    { key: "maxMana",          label: "Mana Max" },
+                  ];
+                  const addMalus = () => {
+                    if (!malusForm.reason.trim()) return;
+                    const newMalus = { id: Date.now().toString(), stat: malusForm.stat, value: -Math.abs(malusForm.value || 1), reason: malusForm.reason };
+                    updateParticipant(p.citizenId, { malus: [...malus, newMalus] });
+                    setMalusForm(prev => ({ ...prev, reason: "", value: -1 }));
+                  };
+                  const removeMalus = (id) => updateParticipant(p.citizenId, { malus: malus.filter(m => m.id !== id) });
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500">Malus</div>
+                        {malus.length > 0 && <span className="text-[7px] font-black text-red-400 bg-red-900/30 px-1.5 py-0.5 rounded">{malus.length} actif{malus.length > 1 ? "s" : ""}</span>}
+                      </div>
+                      {malus.length > 0 && (
+                        <div className="space-y-1 mb-3">
+                          {malus.map(m => {
+                            const statLabel = malusStatOptions.find(o => o.key === m.stat)?.label || m.stat;
+                            return (
+                              <div key={m.id} className="bg-stone-800 border border-red-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[9px] font-bold text-red-300">{statLabel}: {m.value}</span>
+                                  {m.reason && <span className="text-[8px] text-stone-400 ml-2 italic truncate">{m.reason}</span>}
+                                </div>
+                                <button onClick={() => removeMalus(m.id)} className="p-0.5 rounded hover:bg-red-900/40 text-stone-500 hover:text-red-400 transition-all shrink-0">
+                                  <X size={10} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="bg-stone-800/60 border border-stone-700 rounded-xl p-3 space-y-2">
+                        <div className="text-[7px] font-black uppercase tracking-widest text-stone-500">Ajouter un malus</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[7px] text-stone-500 block mb-0.5">Statistique</label>
+                            <select value={malusForm.stat}
+                              onChange={e => setMalusForm(prev => ({ ...prev, stat: e.target.value }))}
+                              className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 outline-none focus:border-red-500">
+                              {malusStatOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-stone-500 block mb-0.5">Valeur (négatif)</label>
+                            <input type="number" max={0}
+                              value={malusForm.value}
+                              onChange={e => setMalusForm(prev => ({ ...prev, value: parseInt(e.target.value) || -1 }))}
+                              className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[7px] text-stone-500 block mb-0.5">Raison</label>
+                          <input value={malusForm.reason}
+                            onChange={e => setMalusForm(prev => ({ ...prev, reason: e.target.value }))}
+                            onKeyDown={e => e.key === "Enter" && addMalus()}
+                            placeholder="Blessure, poison, malédiction…"
+                            className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 outline-none focus:border-red-500" />
+                        </div>
+                        <button onClick={addMalus}
+                          disabled={!malusForm.reason.trim()}
+                          className="w-full py-1 bg-red-800 hover:bg-red-700 disabled:opacity-40 text-white text-[9px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1">
+                          <Plus size={9} /> Appliquer
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
