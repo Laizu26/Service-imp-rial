@@ -148,6 +148,8 @@ export const DEFAULT_GAME_STATE = {
   postalAlerts: [],
   eruditRequests: [],
   eruditResearch: [],
+  combatSessions: [],
+  combatEffects: [],
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────

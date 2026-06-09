@@ -1008,10 +1008,13 @@ export default function App() {
                     <CombatAdminView
                       citizens={state.citizens || []}
                       combatSessions={state.combatSessions || []}
+                      combatEffects={state.combatEffects || []}
                       onSaveCombatStats={actions.onSaveCombatStats}
                       onCreateCombatSession={actions.onCreateCombatSession}
                       onUpdateCombatSession={actions.onUpdateCombatSession}
                       onDeleteCombatSession={actions.onDeleteCombatSession}
+                      onSaveCombatEffect={actions.onSaveCombatEffect}
+                      onDeleteCombatEffect={actions.onDeleteCombatEffect}
                       notify={notify}
                     />
                   )}

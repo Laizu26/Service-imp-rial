@@ -5354,6 +5354,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Session supprimée.", "info");
       },
 
+      onSaveCombatEffect: (effect) => {
+        const existing = (state.combatEffects || []).findIndex((e) => e.id === effect.id);
+        const newEffects = existing !== -1
+          ? (state.combatEffects || []).map((e) => e.id === effect.id ? effect : e)
+          : [...(state.combatEffects || []), effect];
+        saveState({ ...state, combatEffects: newEffects });
+      },
+
+      onDeleteCombatEffect: (id) => {
+        saveState({ ...state, combatEffects: (state.combatEffects || []).filter((e) => e.id !== id) });
+      },
+
       onSaveEruditResearch: ({ id, title, content, category }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };

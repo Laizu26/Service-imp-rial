@@ -48,6 +48,8 @@ export const useGameEngine = (firebaseUser, notify) => {
             postalAlerts: d.postalAlerts || [],
             eruditRequests: d.eruditRequests || [],
             eruditResearch: d.eruditResearch || [],
+            combatSessions: d.combatSessions || [],
+            combatEffects: d.combatEffects || [],
           }));
           setDbError(null);
         } else {

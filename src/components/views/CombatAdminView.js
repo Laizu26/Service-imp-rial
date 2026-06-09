@@ -25,6 +25,19 @@ const DEFAULT_TECH = {
 
 const DEFAULT_TALENT = { description: "", chance: 0, cooldown: 0 };
 
+const EFFECT_STAT_OPTIONS = [
+  { key: "attackBase",       label: "Attaque (base)" },
+  { key: "weaponBonus",      label: "Attaque (arme)" },
+  { key: "magicAttackBase",  label: "Atk. Mag. (base)" },
+  { key: "magicAttackBonus", label: "Atk. Mag. (sort)" },
+  { key: "defenseBase",      label: "Défense (base)" },
+  { key: "armorBonus",       label: "Défense (armure)" },
+  { key: "magicDefenseBase", label: "Déf. Mag. (base)" },
+  { key: "spellBonus",       label: "Déf. Mag. (sort)" },
+  { key: "maxHp",            label: "PV Max" },
+  { key: "maxMana",          label: "Mana Max" },
+];
+
 const CAMP_STYLES = [
   { id: "A", label: "Camp A", bg: "bg-red-900/30",   border: "border-red-700/60",   badge: "bg-red-800 text-red-200",    dot: "bg-red-500"   },
   { id: "B", label: "Camp B", bg: "bg-blue-900/30",  border: "border-blue-700/60",  badge: "bg-blue-800 text-blue-200",  dot: "bg-blue-500"  },
@@ -151,9 +164,10 @@ const TechCard = ({ tech, onEdit, onDelete }) => {
 
 /* ─── COMPOSANT PRINCIPAL ──────────────────────────────────────── */
 export default function CombatAdminView({
-  citizens = [], combatSessions = [],
+  citizens = [], combatSessions = [], combatEffects = [],
   onSaveCombatStats, onCreateCombatSession,
   onUpdateCombatSession, onDeleteCombatSession,
+  onSaveCombatEffect, onDeleteCombatEffect,
   notify,
 }) {
   const [tab, setTab] = useState("fiches");
@@ -182,6 +196,9 @@ export default function CombatAdminView({
   const [editMana, setEditMana] = useState({});
   const [editRoll, setEditRoll] = useState({});
   const [malusForm, setMalusForm] = useState({ stat: "attackBase", value: -1, reason: "", turns: 0 });
+  const [effectForm, setEffectForm] = useState({ name: "", emoji: "⚡", description: "", stat: "attackBase", value: -1, turns: 0 });
+  const [editEffectId, setEditEffectId] = useState(null);
+  const [applyingEffectId, setApplyingEffectId] = useState(null);
 
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeSessions = Array.isArray(combatSessions) ? combatSessions : [];
@@ -354,6 +371,38 @@ export default function CombatAdminView({
     setLogForm(p => ({ ...p, detail: "" }));
   };
 
+  const saveEffect = () => {
+    if (!effectForm.name.trim()) { notify("Nom requis.", "error"); return; }
+    const effect = {
+      id: editEffectId || Date.now().toString(),
+      name: effectForm.name.trim(),
+      emoji: effectForm.emoji || "⚡",
+      description: effectForm.description.trim(),
+      stat: effectForm.stat,
+      value: -Math.abs(effectForm.value || 1),
+      turns: Math.max(0, effectForm.turns || 0),
+    };
+    onSaveCombatEffect(effect);
+    setEffectForm({ name: "", emoji: "⚡", description: "", stat: "attackBase", value: -1, turns: 0 });
+    setEditEffectId(null);
+    notify(editEffectId ? "Effet modifié." : "Effet créé.", "success");
+  };
+
+  const startEditEffect = (effect) => {
+    setEffectForm({ name: effect.name, emoji: effect.emoji || "⚡", description: effect.description || "", stat: effect.stat, value: effect.value, turns: effect.turns || 0 });
+    setEditEffectId(effect.id);
+    setTab("effets");
+  };
+
+  const applyEffect = (effect, citizenId) => {
+    const participant = selSession?.participants.find(x => String(x.citizenId) === String(citizenId));
+    if (!participant) return;
+    const newMalus = { id: Date.now().toString(), stat: effect.stat, value: effect.value, reason: effect.name, turns: effect.turns || 0 };
+    updateParticipant(citizenId, { malus: [...(participant.malus || []), newMalus] });
+    setApplyingEffectId(null);
+    notify(`${effect.emoji || ""} ${effect.name} appliqué à ${participant.name}.`, "success");
+  };
+
   /* ─── RENDER ─────────────────────────────────────────────────── */
   return (
     <div className="space-y-4">
@@ -373,6 +422,7 @@ export default function CombatAdminView({
         {[
           { id: "fiches",  label: "Fiches de Combat" },
           { id: "combats", label: "Gestionnaire de Combats", badge: safeSessions.filter(s => s.status === "active").length },
+          { id: "effets",  label: "Effets", badge: combatEffects.length },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${tab === t.id ? "bg-white text-stone-900 shadow-md" : "text-stone-500 hover:text-stone-800"}`}
@@ -1078,6 +1128,148 @@ export default function CombatAdminView({
         </div>
       )}
 
+      {/* ══════════════════ ONGLET EFFETS ══════════════════ */}
+      {tab === "effets" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Formulaire création/édition */}
+          <div className="md:col-span-1 bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-700">
+              <Zap size={14} className="text-amber-400" />
+              <span className="text-xs font-black uppercase tracking-widest text-stone-200">
+                {editEffectId ? "Modifier l'effet" : "Nouvel effet"}
+              </span>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Icône</label>
+                  <input value={effectForm.emoji} onChange={e => setEffectForm(p => ({ ...p, emoji: e.target.value }))}
+                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-sm text-center text-stone-100 outline-none focus:border-amber-500" />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Nom</label>
+                  <input value={effectForm.name} onChange={e => setEffectForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder="Poison, Brûlure, Terreur…"
+                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Statistique affectée</label>
+                <select value={effectForm.stat} onChange={e => setEffectForm(p => ({ ...p, stat: e.target.value }))}
+                  className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
+                  {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Malus</label>
+                  <input type="number" max={0} value={effectForm.value}
+                    onChange={e => setEffectForm(p => ({ ...p, value: parseInt(e.target.value) || -1 }))}
+                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
+                </div>
+                <div>
+                  <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Tours (0=∞)</label>
+                  <input type="number" min={0} value={effectForm.turns}
+                    onChange={e => setEffectForm(p => ({ ...p, turns: parseInt(e.target.value) || 0 }))}
+                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500 text-center" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Description</label>
+                <textarea value={effectForm.description} onChange={e => setEffectForm(p => ({ ...p, description: e.target.value }))}
+                  rows={2} placeholder="Description narrative de l'effet…"
+                  className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500 resize-none" />
+              </div>
+              <div className="flex gap-2">
+                {editEffectId && (
+                  <button onClick={() => { setEditEffectId(null); setEffectForm({ name: "", emoji: "⚡", description: "", stat: "attackBase", value: -1, turns: 0 }); }}
+                    className="px-3 py-1.5 text-[10px] font-bold text-stone-400 hover:text-stone-200 rounded-lg hover:bg-stone-700 transition-all">
+                    Annuler
+                  </button>
+                )}
+                <button onClick={saveEffect}
+                  className="flex-1 px-3 py-1.5 text-[10px] font-black text-stone-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all">
+                  {editEffectId ? "Modifier" : "Créer l'effet"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Liste des effets */}
+          <div className="md:col-span-2">
+            {combatEffects.length === 0 ? (
+              <div className="bg-stone-900 border border-stone-700 rounded-2xl p-12 text-center text-stone-500 italic text-sm">
+                Aucun effet créé — utilisez le formulaire pour en créer
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {combatEffects.map(effect => {
+                  const statLabel = EFFECT_STAT_OPTIONS.find(o => o.key === effect.stat)?.label || effect.stat;
+                  const isApplying = applyingEffectId === effect.id;
+                  return (
+                    <div key={effect.id} className="bg-stone-900 border border-stone-700 rounded-xl overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-stone-800 border border-stone-700 shrink-0">
+                          {effect.emoji || "⚡"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-black text-stone-100">{effect.name}</div>
+                          <div className="text-[8px] text-stone-400 font-mono">
+                            {statLabel}: <span className="text-red-400">{effect.value}</span>
+                            {" · "}
+                            {effect.turns > 0 ? `${effect.turns} tour${effect.turns > 1 ? "s" : ""}` : "Permanent"}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button onClick={() => startEditEffect(effect)}
+                            className="p-1.5 rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all">
+                            <Edit3 size={12} />
+                          </button>
+                          <button onClick={() => { onDeleteCombatEffect(effect.id); if (editEffectId === effect.id) { setEditEffectId(null); } }}
+                            className="p-1.5 rounded hover:bg-red-900/40 text-stone-500 hover:text-red-400 transition-all">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      {effect.description && (
+                        <div className="px-4 py-2 border-t border-stone-700/50 text-[9px] text-stone-400 italic">
+                          {effect.description}
+                        </div>
+                      )}
+                      {/* Appliquer à un participant */}
+                      {selSession && selSession.participants.length > 0 && (
+                        <div className="px-4 py-2 border-t border-stone-700/50">
+                          {isApplying ? (
+                            <div className="space-y-1.5">
+                              <div className="text-[8px] font-black uppercase text-stone-400">Appliquer à :</div>
+                              <div className="flex flex-wrap gap-1">
+                                {selSession.participants.map(p => (
+                                  <button key={p.citizenId} onClick={() => applyEffect(effect, p.citizenId)}
+                                    className="text-[8px] font-bold bg-stone-700 text-stone-200 px-2 py-0.5 rounded hover:bg-red-900/60 hover:text-red-200 transition-all">
+                                    {p.name}
+                                  </button>
+                                ))}
+                                <button onClick={() => setApplyingEffectId(null)}
+                                  className="text-[8px] text-stone-500 hover:text-stone-300 transition-all px-1">✕</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => setApplyingEffectId(effect.id)}
+                              className="flex items-center gap-1 text-[8px] font-bold text-stone-500 hover:text-amber-400 transition-all">
+                              <Plus size={9} /> Appliquer dans « {selSession.name} »
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── POPUP STATS PARTICIPANT (éditable) ──────────────────── */}
       {statPopup && selSession && (() => {
         const p = (selSession.participants || []).find(x => String(x.citizenId) === statPopup);
@@ -1309,18 +1501,6 @@ export default function CombatAdminView({
                 {/* ── Malus ── */}
                 {(() => {
                   const malus = p.malus || [];
-                  const malusStatOptions = [
-                    { key: "attackBase",       label: "Attaque (base)" },
-                    { key: "weaponBonus",      label: "Attaque (arme)" },
-                    { key: "magicAttackBase",  label: "Atk. Mag. (base)" },
-                    { key: "magicAttackBonus", label: "Atk. Mag. (sort)" },
-                    { key: "defenseBase",      label: "Défense (base)" },
-                    { key: "armorBonus",       label: "Défense (armure)" },
-                    { key: "magicDefenseBase", label: "Déf. Mag. (base)" },
-                    { key: "spellBonus",       label: "Déf. Mag. (sort)" },
-                    { key: "maxHp",            label: "PV Max" },
-                    { key: "maxMana",          label: "Mana Max" },
-                  ];
                   const addMalus = () => {
                     if (!malusForm.reason.trim()) return;
                     const newMalus = { id: Date.now().toString(), stat: malusForm.stat, value: -Math.abs(malusForm.value || 1), reason: malusForm.reason, turns: Math.max(0, malusForm.turns || 0) };
@@ -1337,7 +1517,7 @@ export default function CombatAdminView({
                       {malus.length > 0 && (
                         <div className="space-y-1 mb-3">
                           {malus.map(m => {
-                            const statLabel = malusStatOptions.find(o => o.key === m.stat)?.label || m.stat;
+                            const statLabel = EFFECT_STAT_OPTIONS.find(o => o.key === m.stat)?.label || m.stat;
                             return (
                               <div key={m.id} className="bg-stone-800 border border-red-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
                                 <div className="flex-1 min-w-0">
@@ -1361,7 +1541,7 @@ export default function CombatAdminView({
                             <select value={malusForm.stat}
                               onChange={e => setMalusForm(prev => ({ ...prev, stat: e.target.value }))}
                               className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 outline-none focus:border-red-500">
-                              {malusStatOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                              {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                             </select>
                           </div>
                           <div>
@@ -1393,6 +1573,24 @@ export default function CombatAdminView({
                           <Plus size={9} /> Appliquer
                         </button>
                       </div>
+                      {/* Appliquer depuis un modèle d'effet */}
+                      {combatEffects.length > 0 && (
+                        <div className="mt-2 space-y-1.5">
+                          <div className="text-[7px] font-black uppercase tracking-widest text-stone-600 text-center">— ou depuis un effet —</div>
+                          <div className="flex flex-wrap gap-1">
+                            {combatEffects.map(eff => (
+                              <button key={eff.id} onClick={() => {
+                                const newMalus = { id: Date.now().toString(), stat: eff.stat, value: eff.value, reason: eff.name, turns: eff.turns || 0 };
+                                updateParticipant(p.citizenId, { malus: [...(p.malus || []), newMalus] });
+                                notify(`${eff.emoji || ""} ${eff.name} appliqué.`, "success");
+                              }}
+                                className="flex items-center gap-1 text-[8px] font-bold bg-stone-700 hover:bg-red-900/50 text-stone-200 hover:text-red-200 px-2 py-0.5 rounded transition-all">
+                                {eff.emoji} {eff.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
