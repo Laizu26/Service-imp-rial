@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate } from "../lib/gameUtils";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -1085,7 +1085,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         const safeCitizens = state.citizens || [];
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
-        const dateStr = `${gd.day}/${toRoman(gd.month)}/${toRoman(gd.year)}`;
+        const dateStr = formatRPDate(gd);
         const newMessage = {
           id: Date.now(),
           from: session.name,
