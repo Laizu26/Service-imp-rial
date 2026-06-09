@@ -750,6 +750,7 @@ export default function App() {
             onToggleMushtagramLike={actions.onToggleMushtagramLike}
             onAddMushtagramComment={actions.onAddMushtagramComment}
             onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
+            onLikeMushtagramComment={actions.onLikeMushtagramComment}
             onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
             onSendMushtagramDM={actions.onSendMushtagramDM}
             onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
@@ -1106,6 +1107,7 @@ export default function App() {
                       onToggleMushtagramLike={actions.onToggleMushtagramLike}
                       onAddMushtagramComment={actions.onAddMushtagramComment}
                       onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
+                      onLikeMushtagramComment={actions.onLikeMushtagramComment}
                       onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
                       onSendMushtagramDM={actions.onSendMushtagramDM}
                       onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}

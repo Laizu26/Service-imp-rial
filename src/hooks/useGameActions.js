@@ -5516,7 +5516,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, mushtagramPosts: posts });
       },
 
-      onAddMushtagramComment: (postId, content) => {
+      onAddMushtagramComment: (postId, content, replyTo = null) => {
         if (!session || !content?.trim()) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const posts = (state.mushtagramPosts || []).map((p) => {
@@ -5526,9 +5526,27 @@ export const useGameActions = (session, state, saveState, notify) => {
             authorId: session.id,
             authorName: session.name,
             content: content.trim(),
+            likes: [],
+            replyTo: replyTo || null,
             date: formatRPDate(gd),
           };
           return { ...p, comments: [...(p.comments || []), comment] };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onLikeMushtagramComment: (postId, commentId) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts || []).map(p => {
+          if (p.id !== postId) return p;
+          const comments = (p.comments || []).map(c => {
+            if (c.id !== commentId) return c;
+            const liked = (c.likes || []).map(String).includes(String(session.id));
+            return { ...c, likes: liked
+              ? (c.likes || []).filter(id => String(id) !== String(session.id))
+              : [...(c.likes || []), session.id] };
+          });
+          return { ...p, comments };
         });
         saveState({ ...state, mushtagramPosts: posts });
       },
@@ -5625,6 +5643,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         const original = (state.mushtagramPosts||[]).find(p => p.id === postId);
         if (!original) return;
+        const alreadyReposted = (state.mushtagramPosts||[]).some(
+          p => String(p.authorId) === String(session.id) && p.repostOf?.postId === postId
+        );
+        if (alreadyReposted) { notify("Vous avez déjà republié cette publication.", "info"); return; }
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const newPost = {
           id: `mpost_${Date.now()}`,
@@ -5637,9 +5659,17 @@ export const useGameActions = (session, state, saveState, notify) => {
           comments: [],
           date: formatRPDate(gd),
           createdAt: Date.now(),
-          repostOf: { postId: original.id, authorName: original.authorName, content: original.content },
+          repostOf: {
+            postId: original.id,
+            authorId: original.authorId,
+            authorName: original.authorName,
+            content: original.content,
+            imageUrl: original.imageUrl || null,
+            poll: original.poll || null,
+          },
         };
         saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost] });
+        notify("Publication republiée.", "success");
       },
 
       onVoteMushtagramPoll: (postId, optionIdx) => {

@@ -371,12 +371,14 @@ function PostCard({
   post, myId, isAdmin, citizens, myCitizen,
   myFollowing, mutedSet,
   expandedComments, commentInput,
-  onDelete, onToggleLike, onAddComment, onDeleteComment,
+  onDelete, onToggleLike, onAddComment, onDeleteComment, onLikeComment,
   onReact, onRepost, onVotePoll, onPin, onReport, onMute,
   onFollow, onUnfollow,
   onViewProfile,
+  myRepostedIds,
   setExpandedComments, setCommentInput,
 }) {
+  const [replyingTo, setReplyingTo] = React.useState(null); // { commentId, authorName }
   const author = citizens.find(c => String(c.id) === String(post.authorId));
   const authorId = String(post.authorId);
   const isMe = authorId === myId;
@@ -388,6 +390,7 @@ function PostCard({
   const isLiked = (post.likes || []).includes(myId);
   const isPinned = myCitizen?.mushtagramPinned === post.id;
   const isOfficial = !!post.isOfficial;
+  const alreadyReposted = myRepostedIds?.has(post.id);
 
   if (mutedSet.has(authorId) && !isMe) return null;
 
@@ -405,9 +408,30 @@ function PostCard({
       {post.repostOf && (
         <div className="flex items-start gap-2 px-4 pt-3 pb-0">
           <Repeat2 size={12} className="text-stone-400 mt-0.5 shrink-0" />
-          <div className="flex-1 bg-stone-50 rounded-xl px-3 py-2 border border-stone-100">
-            <div className="text-[9px] font-black text-stone-500 mb-0.5">Republication de {post.repostOf.authorName}</div>
-            <p className="text-xs text-stone-600 line-clamp-2">{post.repostOf.content}</p>
+          <div className="flex-1 bg-stone-50 rounded-xl px-3 py-2 border border-stone-100 space-y-1.5">
+            <div className="text-[9px] font-black text-stone-500">Republication de {post.repostOf.authorName}</div>
+            {post.repostOf.content && (
+              <p className="text-xs text-stone-600 line-clamp-3">{post.repostOf.content}</p>
+            )}
+            {post.repostOf.imageUrl && (
+              <div className="rounded-lg overflow-hidden border border-stone-200 bg-stone-100">
+                <img src={post.repostOf.imageUrl} alt=""
+                  className="w-full max-h-40 object-contain"
+                  onError={e => { e.target.style.display = "none"; }} />
+              </div>
+            )}
+            {post.repostOf.poll?.options && (
+              <div className="space-y-1">
+                {post.repostOf.poll.question && (
+                  <p className="text-[10px] font-bold text-stone-500">{post.repostOf.poll.question}</p>
+                )}
+                {post.repostOf.poll.options.map((opt, i) => (
+                  <div key={i} className="text-[10px] text-stone-500 bg-stone-100 rounded px-2 py-1">
+                    {opt.text} · {(opt.votes || []).length} vote{(opt.votes || []).length !== 1 ? "s" : ""}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -522,59 +546,98 @@ function PostCard({
           <MessageCircle size={14} />
           {cmtCount > 0 && <span>{cmtCount}</span>}
         </button>
-        <button onClick={() => onRepost(post.id)}
-          className="flex items-center gap-1.5 text-xs font-bold text-stone-400 hover:text-emerald-500 transition-all">
+        <button onClick={() => !alreadyReposted && onRepost(post.id)}
+          title={alreadyReposted ? "Déjà republié" : "Republier"}
+          className={`flex items-center gap-1.5 text-xs font-bold transition-all ${alreadyReposted ? "text-emerald-500 cursor-default" : "text-stone-400 hover:text-emerald-500"}`}>
           <Repeat2 size={14} />
+          {alreadyReposted && <span className="text-[10px]">Republié</span>}
         </button>
       </div>
 
       {/* Comments */}
       {showCmt && (
-        <div className="px-4 pb-4 space-y-2 border-t border-stone-100">
+        <div className="px-4 pb-4 space-y-1 border-t border-stone-100 pt-2">
           {(post.comments || []).map(c => {
             const cAuthor = citizens.find(x => String(x.id) === String(c.authorId));
             const canDelCmt = String(c.authorId) === myId || isAdmin;
+            const cmtLiked = (c.likes || []).map(String).includes(myId);
+            const cmtLikeCount = (c.likes || []).length;
+            const isReplyingToThis = replyingTo?.commentId === c.id;
             return (
-              <div key={c.id} className="flex items-start gap-2 pt-2">
-                <Ava citizen={cAuthor || { name: c.authorName }} size="sm" />
-                <div className="flex-1 bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-2">
-                  <span className="text-[10px] font-black text-stone-600">{c.authorName} </span>
-                  <span className="text-[11px] text-stone-700">{c.content}</span>
+              <div key={c.id} className="flex items-start gap-2 pt-1.5">
+                <Ava citizen={cAuthor || { name: c.authorName }} size="xs" className="mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  {/* Reply context */}
+                  {c.replyTo && (
+                    <div className="text-[9px] text-stone-400 mb-0.5 flex items-center gap-1">
+                      <ArrowLeft size={8} /> Réponse à <strong>{c.replyTo.authorName}</strong>
+                    </div>
+                  )}
+                  <div className="bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-1.5">
+                    <span className="text-[10px] font-black text-stone-700">{c.authorName} </span>
+                    <span className="text-[11px] text-stone-700">{c.content}</span>
+                  </div>
+                  {/* Comment actions */}
+                  <div className="flex items-center gap-3 mt-0.5 pl-1">
+                    <button onClick={() => onLikeComment && onLikeComment(post.id, c.id)}
+                      className={`flex items-center gap-0.5 text-[9px] font-bold transition-colors ${cmtLiked ? "text-rose-500" : "text-stone-400 hover:text-rose-400"}`}>
+                      <Heart size={9} fill={cmtLiked ? "currentColor" : "none"} />
+                      {cmtLikeCount > 0 && <span>{cmtLikeCount}</span>}
+                    </button>
+                    <button
+                      onClick={() => setReplyingTo(isReplyingToThis ? null : { commentId: c.id, authorName: c.authorName })}
+                      className={`text-[9px] font-bold transition-colors ${isReplyingToThis ? "text-blue-500" : "text-stone-400 hover:text-blue-400"}`}>
+                      Répondre
+                    </button>
+                    {canDelCmt && (
+                      <button onClick={() => onDeleteComment(post.id, c.id)}
+                        className="text-[9px] text-stone-300 hover:text-red-400 transition-colors">
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {canDelCmt && (
-                  <button onClick={() => onDeleteComment(post.id, c.id)}
-                    className="p-0.5 rounded hover:bg-red-50 text-stone-300 hover:text-red-400 transition-all shrink-0 mt-2">
-                    <X size={10} />
-                  </button>
-                )}
               </div>
             );
           })}
-          <div className="flex gap-2 pt-1">
+          {/* Comment input */}
+          <div className="flex gap-2 pt-2">
             <Ava citizen={myCitizen} size="sm" />
-            <div className="flex-1 flex gap-1.5">
-              <input
-                value={commentInput[post.id] || ""}
-                onChange={e => setCommentInput(p => ({ ...p, [post.id]: e.target.value }))}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && commentInput[post.id]?.trim()) {
-                    onAddComment(post.id, commentInput[post.id].trim());
-                    setCommentInput(p => ({ ...p, [post.id]: "" }));
-                  }
-                }}
-                placeholder="Ajouter un commentaire… (Entrée)"
-                className="flex-1 px-3 py-1.5 bg-stone-100 rounded-full text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-stone-200 transition-all" />
-              <button
-                onClick={() => {
-                  if (commentInput[post.id]?.trim()) {
-                    onAddComment(post.id, commentInput[post.id].trim());
-                    setCommentInput(p => ({ ...p, [post.id]: "" }));
-                  }
-                }}
-                disabled={!commentInput[post.id]?.trim()}
-                className="p-1.5 rounded-full bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90 disabled:opacity-40 transition-all">
-                <Send size={10} />
-              </button>
+            <div className="flex-1 flex flex-col gap-1">
+              {replyingTo && (
+                <div className="flex items-center gap-1 text-[9px] text-blue-500 font-bold">
+                  <ArrowLeft size={8} /> Réponse à {replyingTo.authorName}
+                  <button onClick={() => setReplyingTo(null)} className="ml-1 text-stone-400 hover:text-stone-600">
+                    <X size={9} />
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <input
+                  value={commentInput[post.id] || ""}
+                  onChange={e => setCommentInput(p => ({ ...p, [post.id]: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && commentInput[post.id]?.trim()) {
+                      onAddComment(post.id, commentInput[post.id].trim(), replyingTo);
+                      setCommentInput(p => ({ ...p, [post.id]: "" }));
+                      setReplyingTo(null);
+                    }
+                  }}
+                  placeholder={replyingTo ? `Répondre à ${replyingTo.authorName}…` : "Ajouter un commentaire… (Entrée)"}
+                  className="flex-1 px-3 py-1.5 bg-stone-100 rounded-full text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-stone-200 transition-all" />
+                <button
+                  onClick={() => {
+                    if (commentInput[post.id]?.trim()) {
+                      onAddComment(post.id, commentInput[post.id].trim(), replyingTo);
+                      setCommentInput(p => ({ ...p, [post.id]: "" }));
+                      setReplyingTo(null);
+                    }
+                  }}
+                  disabled={!commentInput[post.id]?.trim()}
+                  className="p-1.5 rounded-full bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90 disabled:opacity-40 transition-all">
+                  <Send size={10} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -589,7 +652,7 @@ export default function MushtagramView({
   session, citizens = [],
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [],
   onPostMushtagram, onDeleteMushtagramPost,
-  onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment,
+  onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment,
   onUpdateMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
   onFollowMushtagram, onUnfollowMushtagram,
   onReactMushtagram, onRepostMushtagram,
@@ -777,6 +840,10 @@ export default function MushtagramView({
   };
 
   const myPosts = useMemo(() => sortedPosts.filter(p => String(p.authorId) === myId), [sortedPosts, myId]);
+
+  const myRepostedIds = useMemo(() =>
+    new Set(mushtagramPosts.filter(p => String(p.authorId) === myId && p.repostOf?.postId).map(p => p.repostOf.postId)),
+  [mushtagramPosts, myId]);
 
   const followersList = useMemo(() =>
     citizens.filter(c => (c.mushtagramFollowing || []).map(String).includes(String(myId))),
@@ -992,6 +1059,7 @@ export default function MushtagramView({
                   onToggleLike={onToggleMushtagramLike}
                   onAddComment={onAddMushtagramComment}
                   onDeleteComment={onDeleteMushtagramComment}
+                  onLikeComment={onLikeMushtagramComment}
                   onReact={onReactMushtagram}
                   onRepost={onRepostMushtagram}
                   onVotePoll={onVoteMushtagramPoll}
@@ -1001,6 +1069,7 @@ export default function MushtagramView({
                   onFollow={onFollowMushtagram}
                   onUnfollow={onUnfollowMushtagram}
                   onViewProfile={setViewingProfile}
+                  myRepostedIds={myRepostedIds}
                   setExpandedComments={setExpandedComments}
                   setCommentInput={setCommentInput}
                 />
@@ -1339,6 +1408,7 @@ export default function MushtagramView({
                 onToggleLike={onToggleMushtagramLike}
                 onAddComment={onAddMushtagramComment}
                 onDeleteComment={onDeleteMushtagramComment}
+                onLikeComment={onLikeMushtagramComment}
                 onReact={onReactMushtagram}
                 onRepost={onRepostMushtagram}
                 onVotePoll={onVoteMushtagramPoll}
@@ -1348,6 +1418,7 @@ export default function MushtagramView({
                 onFollow={onFollowMushtagram}
                 onUnfollow={onUnfollowMushtagram}
                 onViewProfile={setViewingProfile}
+                myRepostedIds={myRepostedIds}
                 setExpandedComments={setExpandedComments}
                 setCommentInput={setCommentInput}
               />
