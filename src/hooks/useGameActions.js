@@ -5525,11 +5525,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, mushtagramPosts: posts });
       },
 
-      onUpdateMushtagramProfile: ({ bio, avatar, handle }) => {
+      onUpdateMushtagramProfile: ({ bio, avatar, handle, banner, photo }) => {
         if (!session) return;
         const updated = (state.citizens || []).map((c) =>
           c.id === session.id
-            ? { ...c, mushtagramBio: bio ?? c.mushtagramBio, mushtagramAvatar: avatar ?? c.mushtagramAvatar, mushtagramHandle: handle ?? c.mushtagramHandle }
+            ? {
+                ...c,
+                mushtagramBio:    bio     ?? c.mushtagramBio,
+                mushtagramAvatar: avatar  ?? c.mushtagramAvatar,
+                mushtagramHandle: handle  ?? c.mushtagramHandle,
+                mushtagramBanner: banner  ?? c.mushtagramBanner,
+                mushtagramPhoto:  photo   ?? c.mushtagramPhoto,
+              }
             : c
         );
         saveState({ ...state, citizens: updated });

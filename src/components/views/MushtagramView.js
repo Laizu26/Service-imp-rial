@@ -56,7 +56,7 @@ export default function MushtagramView({
 
   // Profil
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileDraft, setProfileDraft]     = useState({ bio: "", avatar: "", handle: "" });
+  const [profileDraft, setProfileDraft]     = useState({ bio: "", avatar: "", handle: "", banner: "", photo: "" });
 
   const myId      = String(session?.id ?? "");
   const myCitizen = useMemo(() => citizens.find(c => String(c.id) === myId) || session, [citizens, myId, session]);
@@ -135,9 +135,11 @@ export default function MushtagramView({
   /* ── profil ──────────────────────────────────────────────────────────── */
   const startEdit = () => {
     setProfileDraft({
-      bio:    myCitizen?.mushtagramBio    || "",
-      avatar: myCitizen?.mushtagramAvatar || "",
-      handle: myCitizen?.mushtagramHandle || "",
+      bio:    myCitizen?.mushtagramBio     || "",
+      avatar: myCitizen?.mushtagramAvatar  || "",
+      handle: myCitizen?.mushtagramHandle  || "",
+      banner: myCitizen?.mushtagramBanner  || "",
+      photo:  myCitizen?.mushtagramPhoto   || "",
     });
     setEditingProfile(true);
   };
@@ -475,41 +477,71 @@ export default function MushtagramView({
         <div className="space-y-4">
           <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
             {/* Bannière */}
-            <div className="h-24 bg-gradient-to-r from-rose-400 via-purple-500 to-violet-600" />
+            <div className="relative h-32 group">
+              {myCitizen?.mushtagramBanner ? (
+                <img src={myCitizen.mushtagramBanner} alt="bannière"
+                  className="w-full h-full object-cover"
+                  onError={e => { e.target.style.display = "none"; e.target.parentNode.classList.add("bg-gradient-to-r","from-rose-400","via-purple-500","to-violet-600"); }} />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-rose-400 via-purple-500 to-violet-600" />
+              )}
+            </div>
 
             <div className="px-5 pb-5">
               {/* Avatar + bouton modifier */}
-              <div className="-mt-7 mb-4 flex items-end justify-between">
-                <div className="w-14 h-14 rounded-full border-4 border-white shadow overflow-hidden flex items-center justify-center bg-stone-100 text-2xl">
-                  {myCitizen?.mushtagramAvatar ? (
+              <div className="-mt-10 mb-4 flex items-end justify-between">
+                <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden flex items-center justify-center bg-stone-100 text-3xl shrink-0">
+                  {myCitizen?.mushtagramPhoto ? (
+                    <img src={myCitizen.mushtagramPhoto} alt="avatar"
+                      className="w-full h-full object-cover"
+                      onError={e => { e.target.style.display = "none"; }} />
+                  ) : myCitizen?.mushtagramAvatar ? (
                     <span>{myCitizen.mushtagramAvatar}</span>
                   ) : (
-                    <div className={`w-full h-full flex items-center justify-center font-black text-white text-xl ${avatarBg(myCitizen?.name || "")}`}>
+                    <div className={`w-full h-full flex items-center justify-center font-black text-white text-2xl ${avatarBg(myCitizen?.name || "")}`}>
                       {(myCitizen?.name || "?")[0]?.toUpperCase()}
                     </div>
                   )}
                 </div>
                 {!editingProfile && (
                   <button onClick={startEdit}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-stone-200 rounded-lg text-xs font-bold text-stone-600 hover:bg-stone-50 transition-all">
-                    <Edit3 size={11} /> Modifier le profil
+                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-rose-500 to-violet-600 text-white rounded-xl text-xs font-black uppercase tracking-wide hover:opacity-90 shadow transition-all">
+                    <Edit3 size={12} /> Modifier le profil
                   </button>
                 )}
               </div>
 
               {editingProfile ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
-                      Avatar (un seul emoji)
-                    </label>
-                    <input value={profileDraft.avatar} onChange={e => setProfileDraft(p => ({ ...p, avatar: e.target.value }))}
-                      placeholder="🏰 🌹 ⚔️ 🦁…"
-                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-base outline-none focus:border-rose-300" />
+                <div className="space-y-3 mt-1">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                        <ImageIcon size={8} className="inline mr-0.5" /> Photo de profil (URL)
+                      </label>
+                      <input value={profileDraft.photo} onChange={e => setProfileDraft(p => ({ ...p, photo: e.target.value }))}
+                        placeholder="https://…"
+                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs outline-none focus:border-rose-300" />
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                        Avatar emoji (si pas de photo)
+                      </label>
+                      <input value={profileDraft.avatar} onChange={e => setProfileDraft(p => ({ ...p, avatar: e.target.value }))}
+                        placeholder="🏰 🌹 ⚔️ 🦁…"
+                        className="w-full px-3 py-2 border border-stone-200 rounded-lg text-base outline-none focus:border-rose-300" />
+                    </div>
                   </div>
                   <div>
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
-                      <AtSign size={9} className="inline mr-0.5" />Identifiant
+                      <ImageIcon size={8} className="inline mr-0.5" /> Bannière (URL image)
+                    </label>
+                    <input value={profileDraft.banner} onChange={e => setProfileDraft(p => ({ ...p, banner: e.target.value }))}
+                      placeholder="https://…"
+                      className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs outline-none focus:border-rose-300" />
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                      <AtSign size={8} className="inline mr-0.5" /> Identifiant
                     </label>
                     <input value={profileDraft.handle}
                       onChange={e => setProfileDraft(p => ({ ...p, handle: e.target.value.replace(/[^a-zA-Z0-9_À-ɏ]/g, "").toLowerCase() }))}
@@ -524,13 +556,13 @@ export default function MushtagramView({
                       rows={3} placeholder="Présentez-vous en quelques mots…"
                       className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm resize-none outline-none focus:border-rose-300" />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-1">
                     <button onClick={() => setEditingProfile(false)}
-                      className="px-3 py-1.5 text-xs font-bold text-stone-500 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition-all">
+                      className="px-4 py-2 text-xs font-bold text-stone-500 hover:text-stone-700 rounded-xl hover:bg-stone-100 transition-all border border-stone-200">
                       Annuler
                     </button>
                     <button onClick={saveProfile}
-                      className="flex-1 py-1.5 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black rounded-lg hover:opacity-90 transition-all">
+                      className="flex-1 py-2 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black rounded-xl hover:opacity-90 shadow transition-all">
                       Sauvegarder
                     </button>
                   </div>
