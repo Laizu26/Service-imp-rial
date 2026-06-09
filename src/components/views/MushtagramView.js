@@ -160,8 +160,8 @@ export default function MushtagramView({
           <Hash size={18} className="text-white" strokeWidth={3} />
         </div>
         <div>
-          <h1 className="text-xl font-black uppercase tracking-widest text-stone-800">Mushtagram</h1>
-          <p className="text-[10px] text-stone-500 uppercase tracking-widest">Réseau social de l'Empire</p>
+          <h1 className="text-xl font-black uppercase tracking-widest text-white">Mushtagram</h1>
+          <p className="text-[10px] text-stone-400 uppercase tracking-widest">Réseau social de l'Empire</p>
         </div>
       </div>
 
