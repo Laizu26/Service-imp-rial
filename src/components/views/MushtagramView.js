@@ -19,15 +19,25 @@ const avatarBg = (name = "") => {
 };
 
 const Ava = ({ citizen, size = "md", className = "", onClick }) => {
-  const name = citizen?.name || "?";
+  const name  = citizen?.name || "?";
+  const photo = citizen?.mushtagramPhoto;
   const emoji = citizen?.mushtagramAvatar;
-  const sizeMap = { sm: "w-7 h-7 text-sm", md: "w-10 h-10 text-base", lg: "w-14 h-14 text-2xl", xl: "w-20 h-20 text-3xl" };
+  const sizeMap = { xs: "w-5 h-5 text-[9px]", sm: "w-7 h-7 text-sm", md: "w-10 h-10 text-base", lg: "w-14 h-14 text-2xl", xl: "w-20 h-20 text-3xl" };
   return (
     <div
       onClick={onClick}
-      className={`${sizeMap[size]} rounded-full flex items-center justify-center shrink-0 overflow-hidden ${emoji ? "bg-stone-100 text-lg" : `${avatarBg(name)} text-white font-black text-xs`} ${className} ${onClick ? "cursor-pointer" : ""}`}
+      className={`${sizeMap[size]} aspect-square rounded-full flex items-center justify-center shrink-0 overflow-hidden
+        ${!photo && !emoji ? `${avatarBg(name)} text-white font-black text-xs` : "bg-stone-100"}
+        ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
+        ${className}`}
     >
-      {emoji || name[0]?.toUpperCase()}
+      {photo ? (
+        <img src={photo} alt={name} className="w-full h-full object-cover" onError={e => { e.target.style.display = "none"; }} />
+      ) : emoji ? (
+        <span className="text-lg leading-none">{emoji}</span>
+      ) : (
+        name[0]?.toUpperCase()
+      )}
     </div>
   );
 };
@@ -1010,9 +1020,12 @@ export default function MushtagramView({
                       className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all">
                       <ArrowLeft size={16} />
                     </button>
-                    <Ava citizen={other} size="sm" />
+                    <Ava citizen={other} size="sm" onClick={() => other.id && setViewingProfile(other)} />
                     <div>
-                      <div className="text-sm font-black text-stone-900">{other.name}</div>
+                      <button onClick={() => other.id && setViewingProfile(other)}
+                        className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
+                        {other.name}
+                      </button>
                       {other.mushtagramHandle && <div className="text-[9px] text-stone-400">@{other.mushtagramHandle}</div>}
                     </div>
                   </div>
