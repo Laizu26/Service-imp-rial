@@ -623,6 +623,9 @@ export default function MushtagramView({
   // Profile modal
   const [viewingProfile, setViewingProfile] = useState(null);
 
+  // Followers / Following list modal
+  const [followListMode, setFollowListMode] = useState(null); // null | "followers" | "following"
+
   // Messages
   const [selConv, setSelConv]       = useState(null);
   const [dmInput, setDmInput]       = useState("");
@@ -775,11 +778,16 @@ export default function MushtagramView({
 
   const myPosts = useMemo(() => sortedPosts.filter(p => String(p.authorId) === myId), [sortedPosts, myId]);
 
-  const followerCount = useMemo(() =>
-    citizens.filter(c => (c.mushtagramFollowing || []).map(String).includes(String(myId))).length,
+  const followersList = useMemo(() =>
+    citizens.filter(c => (c.mushtagramFollowing || []).map(String).includes(String(myId))),
   [citizens, myId]);
 
-  const followingCount = useMemo(() => (myFollowing || []).length, [myFollowing]);
+  const followingList = useMemo(() =>
+    citizens.filter(c => (myFollowing || []).map(String).includes(String(c.id))),
+  [citizens, myFollowing]);
+
+  const followerCount = followersList.length;
+  const followingCount = followingList.length;
 
   const pinnedPost = useMemo(() => {
     if (!myCitizen?.mushtagramPinned) return null;
@@ -1297,12 +1305,14 @@ export default function MushtagramView({
                     <span className="text-xs text-stone-500">
                       <strong className="text-stone-800">{myPosts.length}</strong> publication{myPosts.length !== 1 ? "s" : ""}
                     </span>
-                    <span className="text-xs text-stone-500">
+                    <button onClick={() => setFollowListMode("followers")}
+                      className="text-xs text-stone-500 hover:text-rose-600 transition-colors">
                       <strong className="text-stone-800">{followerCount}</strong> abonné{followerCount !== 1 ? "s" : ""}
-                    </span>
-                    <span className="text-xs text-stone-500">
+                    </button>
+                    <button onClick={() => setFollowListMode("following")}
+                      className="text-xs text-stone-500 hover:text-rose-600 transition-colors">
                       <strong className="text-stone-800">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}
-                    </span>
+                    </button>
                   </div>
                 </>
               )}
@@ -1381,6 +1391,66 @@ export default function MushtagramView({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Followers / Following list modal */}
+      {followListMode && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setFollowListMode(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-stone-100">
+              <div className="flex gap-1 bg-stone-100 rounded-xl p-1">
+                <button onClick={() => setFollowListMode("followers")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${followListMode === "followers" ? "bg-white text-stone-900 shadow" : "text-stone-500"}`}>
+                  Abonnés <span className="ml-1 text-stone-400">{followerCount}</span>
+                </button>
+                <button onClick={() => setFollowListMode("following")}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${followListMode === "following" ? "bg-white text-stone-900 shadow" : "text-stone-500"}`}>
+                  Abonnements <span className="ml-1 text-stone-400">{followingCount}</span>
+                </button>
+              </div>
+              <button onClick={() => setFollowListMode(null)} className="text-stone-400 hover:text-stone-700 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            {/* List */}
+            <div className="overflow-y-auto flex-1 divide-y divide-stone-50">
+              {(followListMode === "followers" ? followersList : followingList).length === 0 ? (
+                <p className="text-center text-xs text-stone-400 py-10 italic">
+                  {followListMode === "followers" ? "Personne ne vous suit encore." : "Vous ne suivez personne."}
+                </p>
+              ) : (
+                (followListMode === "followers" ? followersList : followingList).map(c => {
+                  const isFollowingThem = (myFollowing || []).map(String).includes(String(c.id));
+                  const isMe = String(c.id) === myId;
+                  return (
+                    <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-stone-50 transition-colors">
+                      <button onClick={() => { setViewingProfile(c); setFollowListMode(null); }}>
+                        <Ava citizen={c} size="md" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <button onClick={() => { setViewingProfile(c); setFollowListMode(null); }}
+                          className="font-bold text-sm text-stone-900 hover:text-rose-600 transition-colors truncate block text-left">
+                          {c.name}
+                        </button>
+                        {c.mushtagramHandle && (
+                          <p className="text-xs text-stone-400 truncate">@{c.mushtagramHandle}</p>
+                        )}
+                      </div>
+                      {!isMe && (
+                        <button
+                          onClick={() => isFollowingThem ? onUnfollowMushtagram(String(c.id)) : onFollowMushtagram(String(c.id))}
+                          className={`shrink-0 text-[10px] font-black px-3 py-1.5 rounded-lg transition-all ${isFollowingThem ? "bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-500" : "bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90"}`}>
+                          {isFollowingThem ? <><UserMinus size={10} className="inline mr-0.5" /> Suivi</> : <><UserPlus size={10} className="inline mr-0.5" /> Suivre</>}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
 
