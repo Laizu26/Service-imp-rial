@@ -684,30 +684,30 @@ const GeopoliticsView = ({
                           )}
                         </div>
 
-                        {/* Cas Spécial : Rémunération Reconnaissance Érudit */}
+                        {/* Cas Spécial : Salaire journalier des Érudits */}
                         <div className="flex justify-between items-center p-3 bg-purple-50 border border-purple-200 rounded">
                           <div>
-                            <span className="text-xs font-bold text-stone-700 block">Reconnaissance Érudit</span>
-                            <span className="text-[9px] text-stone-400">Montant versé au trésor pour être reconnu Érudit dans ce pays</span>
+                            <span className="text-xs font-bold text-stone-700 block">Rémunération Érudit (par jour)</span>
+                            <span className="text-[9px] text-stone-400">Montant versé chaque jour par le trésor à chaque Érudit reconnu dans ce pays</span>
                           </div>
                           {canEdit ? (
                             <input
                               type="number"
                               min={0}
                               className="w-20 p-1 border border-purple-300 rounded text-xs text-center bg-white outline-none focus:border-purple-500"
-                              value={selectedCountry.laws.eruditFee || 0}
+                              value={selectedCountry.laws.eruditSalary || 0}
                               onChange={(e) =>
                                 updateSelected({
                                   laws: {
                                     ...selectedCountry.laws,
-                                    eruditFee: parseInt(e.target.value) || 0,
+                                    eruditSalary: parseInt(e.target.value) || 0,
                                   },
                                 })
                               }
                             />
                           ) : (
                             <span className="text-xs font-bold text-purple-700">
-                              {formatMoney(selectedCountry.laws.eruditFee || 0)}
+                              {formatMoney(selectedCountry.laws.eruditSalary || 0)} / jour
                             </span>
                           )}
                         </div>

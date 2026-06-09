@@ -1292,9 +1292,9 @@ export default function App() {
                                     Pays : <span className="font-bold">{req.countryName}</span>
                                   </div>
                                   {(() => {
-                                    const fee = (state.countries || []).find((c) => c.id === req.countryId)?.laws?.eruditFee || 0;
-                                    return fee > 0 ? (
-                                      <div className="text-[10px] text-purple-600 font-bold mt-0.5">Frais à percevoir : {fee} écus</div>
+                                    const salary = (state.countries || []).find((c) => c.id === req.countryId)?.laws?.eruditSalary || 0;
+                                    return salary > 0 ? (
+                                      <div className="text-[10px] text-purple-600 font-bold mt-0.5">Rémunération : {salary} écus / jour</div>
                                     ) : null;
                                   })()}
                                   <div className="text-[10px] text-stone-400 mt-0.5">Soumis le {req.requestDate}</div>

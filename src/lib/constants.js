@@ -91,7 +91,7 @@ export const DEFAULT_GAME_STATE = {
         mailCensorship: false, // si true, le courrier peut être censuré/consulté localement
 
         // ÉRUDIT
-        eruditFee: 0, // montant en écus versé au pays lors de la reconnaissance d'un Érudit
+        eruditSalary: 0, // écus versés chaque jour par le pays à chaque Érudit reconnu
 
         // MARIAGE
         marriageStructure: "monogamie", // monogamie | polygamie | polyandrie | polyamour

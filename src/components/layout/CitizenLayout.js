@@ -4450,7 +4450,7 @@ const CitizenLayout = (props) => {
                   <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest mb-3">Validations par pays</div>
                   <div className="space-y-2">
                     {safeCountries.map((country) => {
-                      const fee = country.laws?.eruditFee || 0;
+                      const salary = country.laws?.eruditSalary || 0;
                       const myReqs = (eruditRequests || []).filter(
                         (r) => r.citizenId === user.id && r.countryId === country.id
                       );
@@ -4463,10 +4463,10 @@ const CitizenLayout = (props) => {
                           <div className="flex-1 min-w-0">
                             <div className="font-black text-stone-800 text-sm">{country.name}</div>
                             <div className="text-[9px] text-stone-400 mt-0.5">
-                              {fee > 0 ? (
-                                <span className="text-purple-600 font-bold">Frais : {formatMoney(fee)}</span>
+                              {salary > 0 ? (
+                                <span className="text-purple-600 font-bold">Rémunération : {formatMoney(salary)} / jour</span>
                               ) : (
-                                <span>Gratuit</span>
+                                <span>Pas de rémunération</span>
                               )}
                             </div>
                             {latest && (

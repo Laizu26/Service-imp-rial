@@ -441,9 +441,24 @@ export const useGameActions = (session, state, saveState, notify) => {
           return { ...c, balance: (c.balance || 0) - BAGUE_COUT, bagueVoyagesUsed: 0 };
         });
 
+        // --- Rémunération journalière des Érudits ---
+        let eruditPayments = 0;
+        (ns.eruditRequests || []).filter((r) => r.status === "APPROVED").forEach((req) => {
+          const coIdx = (ns.countries || []).findIndex((c) => c.id === req.countryId);
+          if (coIdx === -1) return;
+          const salary = ns.countries[coIdx].laws?.eruditSalary || 0;
+          if (salary <= 0) return;
+          if ((ns.countries[coIdx].treasury || 0) < salary) return;
+          const cIdx = (ns.citizens || []).findIndex((c) => c.id === req.citizenId);
+          if (cIdx === -1) return;
+          ns.countries[coIdx] = { ...ns.countries[coIdx], treasury: (ns.countries[coIdx].treasury || 0) - salary };
+          ns.citizens[cIdx] = { ...ns.citizens[cIdx], balance: (ns.citizens[cIdx].balance || 0) + salary };
+          eruditPayments++;
+        });
+
         saveState(ns);
         notify(
-          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s) (fonds insuffisants)` : ""}`,
+          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}`,
           "info"
         );
       },
@@ -5427,60 +5442,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         const requests = [...(state.eruditRequests || [])];
         const idx = requests.findIndex((r) => r.id === requestId);
         if (idx === -1) return;
-        const req = requests[idx];
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         requests[idx] = {
-          ...req,
+          ...requests[idx],
           status: approved ? "APPROVED" : "REJECTED",
           responseDate: formatRPDate(gd),
           respondedBy: session?.name || "Admin",
           note: note || "",
         };
-
-        let newCitizens = [...(state.citizens || [])];
-        let newCountries = [...(state.countries || [])];
-        let newLedger = [...(state.globalLedger || [])];
-        let feeApplied = 0;
-
-        if (approved) {
-          const country = newCountries.find((c) => c.id === req.countryId);
-          const fee = country?.laws?.eruditFee || 0;
-          if (fee > 0) {
-            const cIdx = newCitizens.findIndex((c) => c.id === req.citizenId);
-            if (cIdx !== -1) {
-              if ((newCitizens[cIdx].balance || 0) < fee) {
-                notify(`Fonds insuffisants — ${fee} écus requis pour la reconnaissance dans ${req.countryName}.`, "error");
-                return;
-              }
-              newCitizens[cIdx] = { ...newCitizens[cIdx], balance: (newCitizens[cIdx].balance || 0) - fee };
-            }
-            const coIdx = newCountries.findIndex((c) => c.id === req.countryId);
-            if (coIdx !== -1) {
-              newCountries[coIdx] = { ...newCountries[coIdx], treasury: (newCountries[coIdx].treasury || 0) + fee };
-            }
-            newLedger.push({
-              id: `led_${Date.now()}`,
-              type: "erudit_fee",
-              from: req.citizenName,
-              fromId: req.citizenId,
-              to: req.countryName,
-              toId: req.countryId,
-              amount: fee,
-              description: `Reconnaissance Érudit — ${req.countryName}`,
-              date: formatRPDate(gd),
-              ts: Date.now(),
-            });
-            feeApplied = fee;
-          }
-        }
-
-        saveState({ ...state, eruditRequests: requests, citizens: newCitizens, countries: newCountries, globalLedger: newLedger });
-        notify(
-          approved
-            ? `Statut Érudit validé${feeApplied > 0 ? ` — ${feeApplied} écus prélevés` : ""}.`
-            : "Demande refusée.",
-          approved ? "success" : "info"
-        );
+        saveState({ ...state, eruditRequests: requests });
+        notify(approved ? "Statut Érudit validé." : "Demande refusée.", approved ? "success" : "info");
       },
       // ────────────────────────────────────────────────────────────
 
