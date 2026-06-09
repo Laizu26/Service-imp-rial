@@ -18,23 +18,28 @@ const avatarBg = (name = "") => {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 };
 
+const AVA_PX = { xs: 20, sm: 28, md: 40, lg: 56, xl: 80 };
+const AVA_TEXT = { xs: "9px", sm: "13px", md: "14px", lg: "22px", xl: "28px" };
+
 const Ava = ({ citizen, size = "md", className = "", onClick }) => {
   const name  = citizen?.name || "?";
   const photo = citizen?.mushtagramPhoto;
   const emoji = citizen?.mushtagramAvatar;
-  const sizeMap = { xs: "w-5 h-5 text-[9px]", sm: "w-7 h-7 text-sm", md: "w-10 h-10 text-base", lg: "w-14 h-14 text-2xl", xl: "w-20 h-20 text-3xl" };
+  const px    = AVA_PX[size] || 40;
   return (
     <div
       onClick={onClick}
-      className={`${sizeMap[size]} aspect-square rounded-full flex items-center justify-center shrink-0 overflow-hidden
-        ${!photo && !emoji ? `${avatarBg(name)} text-white font-black text-xs` : "bg-stone-100"}
+      style={{ width: px, height: px, minWidth: px, minHeight: px, fontSize: AVA_TEXT[size] }}
+      className={`rounded-full flex items-center justify-center overflow-hidden
+        ${!photo && !emoji ? `${avatarBg(name)} text-white font-black` : "bg-stone-100"}
         ${onClick ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
         ${className}`}
     >
       {photo ? (
-        <img src={photo} alt={name} className="w-full h-full object-cover" onError={e => { e.target.style.display = "none"; }} />
+        <img src={photo} alt={name} style={{ width: px, height: px, objectFit: "cover" }}
+          onError={e => { e.target.style.display = "none"; }} />
       ) : emoji ? (
-        <span className="text-lg leading-none">{emoji}</span>
+        <span style={{ lineHeight: 1 }}>{emoji}</span>
       ) : (
         name[0]?.toUpperCase()
       )}
