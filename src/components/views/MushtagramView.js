@@ -476,8 +476,8 @@ export default function MushtagramView({
       {tab === "profile" && (
         <div className="space-y-4">
           <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
-            {/* Bannière */}
-            <div className="relative h-32 group">
+            {/* Bannière + avatar superposé */}
+            <div className="relative h-32">
               {myCitizen?.mushtagramBanner ? (
                 <img src={myCitizen.mushtagramBanner} alt="bannière"
                   className="w-full h-full object-cover"
@@ -485,24 +485,25 @@ export default function MushtagramView({
               ) : (
                 <div className="w-full h-full bg-gradient-to-r from-rose-400 via-purple-500 to-violet-600" />
               )}
+              {/* Avatar positionné en absolu sur la bannière */}
+              <div className="absolute -bottom-10 left-5 w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden flex items-center justify-center bg-stone-100 text-3xl z-10">
+                {myCitizen?.mushtagramPhoto ? (
+                  <img src={myCitizen.mushtagramPhoto} alt="avatar"
+                    className="w-full h-full object-cover"
+                    onError={e => { e.target.style.display = "none"; }} />
+                ) : myCitizen?.mushtagramAvatar ? (
+                  <span>{myCitizen.mushtagramAvatar}</span>
+                ) : (
+                  <div className={`w-full h-full flex items-center justify-center font-black text-white text-2xl ${avatarBg(myCitizen?.name || "")}`}>
+                    {(myCitizen?.name || "?")[0]?.toUpperCase()}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="px-5 pb-5">
-              {/* Avatar + bouton modifier */}
-              <div className="-mt-10 mb-4 flex items-end justify-between">
-                <div className="w-20 h-20 rounded-full border-4 border-white shadow-lg overflow-hidden flex items-center justify-center bg-stone-100 text-3xl shrink-0">
-                  {myCitizen?.mushtagramPhoto ? (
-                    <img src={myCitizen.mushtagramPhoto} alt="avatar"
-                      className="w-full h-full object-cover"
-                      onError={e => { e.target.style.display = "none"; }} />
-                  ) : myCitizen?.mushtagramAvatar ? (
-                    <span>{myCitizen.mushtagramAvatar}</span>
-                  ) : (
-                    <div className={`w-full h-full flex items-center justify-center font-black text-white text-2xl ${avatarBg(myCitizen?.name || "")}`}>
-                      {(myCitizen?.name || "?")[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
+            <div className="px-5 pb-5 pt-12">
+              {/* Bouton modifier */}
+              <div className="flex justify-end mb-3">
                 {!editingProfile && (
                   <button onClick={startEdit}
                     className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-rose-500 to-violet-600 text-white rounded-xl text-xs font-black uppercase tracking-wide hover:opacity-90 shadow transition-all">
