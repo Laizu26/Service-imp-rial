@@ -1291,6 +1291,12 @@ export default function App() {
                                   <div className="text-xs text-stone-500 mt-0.5">
                                     Pays : <span className="font-bold">{req.countryName}</span>
                                   </div>
+                                  {(() => {
+                                    const fee = (state.countries || []).find((c) => c.id === req.countryId)?.laws?.eruditFee || 0;
+                                    return fee > 0 ? (
+                                      <div className="text-[10px] text-purple-600 font-bold mt-0.5">Frais à percevoir : {fee} écus</div>
+                                    ) : null;
+                                  })()}
                                   <div className="text-[10px] text-stone-400 mt-0.5">Soumis le {req.requestDate}</div>
                                 </div>
                                 <div className="flex gap-2 shrink-0">

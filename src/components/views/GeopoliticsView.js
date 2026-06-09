@@ -684,6 +684,34 @@ const GeopoliticsView = ({
                           )}
                         </div>
 
+                        {/* Cas Spécial : Rémunération Reconnaissance Érudit */}
+                        <div className="flex justify-between items-center p-3 bg-purple-50 border border-purple-200 rounded">
+                          <div>
+                            <span className="text-xs font-bold text-stone-700 block">Reconnaissance Érudit</span>
+                            <span className="text-[9px] text-stone-400">Montant versé au trésor pour être reconnu Érudit dans ce pays</span>
+                          </div>
+                          {canEdit ? (
+                            <input
+                              type="number"
+                              min={0}
+                              className="w-20 p-1 border border-purple-300 rounded text-xs text-center bg-white outline-none focus:border-purple-500"
+                              value={selectedCountry.laws.eruditFee || 0}
+                              onChange={(e) =>
+                                updateSelected({
+                                  laws: {
+                                    ...selectedCountry.laws,
+                                    eruditFee: parseInt(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                            />
+                          ) : (
+                            <span className="text-xs font-bold text-purple-700">
+                              {formatMoney(selectedCountry.laws.eruditFee || 0)}
+                            </span>
+                          )}
+                        </div>
+
                         {/* ── LOIS MATRIMONIALES ── */}
                         <div className="col-span-1 md:col-span-2 bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-4 mt-2">
                           <h4 className="text-xs font-black uppercase tracking-widest text-rose-600 flex items-center gap-2">

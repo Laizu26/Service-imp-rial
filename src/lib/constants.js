@@ -90,6 +90,9 @@ export const DEFAULT_GAME_STATE = {
         allowWeapons: true, // si false, possession d'armes est illégale
         mailCensorship: false, // si true, le courrier peut être censuré/consulté localement
 
+        // ÉRUDIT
+        eruditFee: 0, // montant en écus versé au pays lors de la reconnaissance d'un Érudit
+
         // MARIAGE
         marriageStructure: "monogamie", // monogamie | polygamie | polyandrie | polyamour
         marriageDefaultFiliation: "patrilineaire", // filiation par défaut des enfants
