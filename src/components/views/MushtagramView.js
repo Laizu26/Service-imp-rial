@@ -149,50 +149,71 @@ function ProfileModal({ citizen, myId, myFollowing, posts, onFollow, onUnfollow,
 
 /* ── StoryViewer ────────────────────────────────────────────────────────── */
 
-function StoryViewer({ story, myId, isAdmin, onDelete, onClose }) {
+function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onClose }) {
   if (!story) return null;
   const canDelete = String(story.authorId) === myId || isAdmin;
+  const author = (citizens || []).find(c => String(c.id) === String(story.authorId));
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
       onClick={onClose}>
-      <div className="relative bg-stone-900 rounded-2xl overflow-hidden w-full max-w-sm shadow-2xl"
+      {/* Story card — portrait 9:16, up to 90vh tall */}
+      <div
+        className="relative bg-stone-950 rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+        style={{
+          height: "min(90vh, 90vw * 16 / 9)",
+          width: "min(calc(90vh * 9 / 16), min(420px, 92vw))",
+        }}
         onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-stone-700">
-          <div className="w-8 h-8 rounded-full overflow-hidden">
-            <div className={`w-full h-full flex items-center justify-center font-black text-white text-sm ${avatarBg(story.authorName || "")}`}>
-              {(story.authorName || "?")[0]?.toUpperCase()}
-            </div>
+
+        {/* Progress bar (decorative) */}
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-stone-700 z-10">
+          <div className="h-full bg-white/80 w-full" />
+        </div>
+
+        {/* Header overlay */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-4 pt-3 pb-8"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)" }}>
+          <Ava citizen={author || { name: story.authorName }} size="sm" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-black text-white drop-shadow">{story.authorName}</div>
+            <div className="text-[9px] text-white/60">{story.date || ""}</div>
           </div>
-          <div>
-            <div className="text-sm font-black text-stone-100">{story.authorName}</div>
-            <div className="text-[9px] text-stone-500">{story.date || ""}</div>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {canDelete && (
               <button onClick={() => { onDelete(story.id); onClose(); }}
-                className="p-1 rounded hover:bg-red-900/30 text-stone-500 hover:text-red-400 transition-all">
+                className="p-1.5 rounded-full bg-black/30 text-white/70 hover:text-red-400 transition-all">
                 <Trash2 size={14} />
               </button>
             )}
-            <button onClick={onClose} className="p-1 rounded hover:bg-stone-700 text-stone-400 hover:text-stone-100 transition-all">
+            <button onClick={onClose}
+              className="p-1.5 rounded-full bg-black/30 text-white/70 hover:text-white transition-all">
               <X size={16} />
             </button>
           </div>
         </div>
-        {/* Content */}
-        <div className="p-5">
-          {story.imageUrl && (
-            <div className="mb-4 rounded-xl overflow-hidden">
-              <img src={story.imageUrl} alt="" className="w-full max-h-72 object-contain bg-stone-900/20 rounded-xl"
-                onError={e => { e.target.style.display = "none"; }} />
-            </div>
-          )}
-          {story.content && (
-            <p className="text-stone-200 text-sm leading-relaxed whitespace-pre-wrap">{story.content}</p>
-          )}
-        </div>
+
+        {/* Image — fills entire card */}
+        {story.imageUrl ? (
+          <img src={story.imageUrl} alt=""
+            className="absolute inset-0 w-full h-full object-contain"
+            onError={e => { e.target.style.display = "none"; }} />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-900 via-stone-900 to-violet-900" />
+        )}
+
+        {/* Text overlay at bottom */}
+        {story.content && (
+          <div className="absolute bottom-0 left-0 right-0 z-10 px-5 pt-16 pb-6"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}>
+            <p className="text-white text-base leading-relaxed whitespace-pre-wrap drop-shadow-lg font-medium">
+              {story.content}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Click hint */}
+      <p className="absolute bottom-4 text-white/30 text-xs">Cliquez en dehors pour fermer</p>
     </div>
   );
 }
@@ -280,6 +301,7 @@ function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, 
           story={viewing}
           myId={myId}
           isAdmin={isAdmin}
+          citizens={citizens}
           onDelete={onDeleteStory}
           onClose={() => setViewing(null)}
         />
