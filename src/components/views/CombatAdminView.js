@@ -181,7 +181,7 @@ export default function CombatAdminView({
   const [editHp, setEditHp]   = useState({});
   const [editMana, setEditMana] = useState({});
   const [editRoll, setEditRoll] = useState({});
-  const [malusForm, setMalusForm] = useState({ stat: "attackBase", value: -1, reason: "" });
+  const [malusForm, setMalusForm] = useState({ stat: "attackBase", value: -1, reason: "", turns: 0 });
 
   const safeCitizens = Array.isArray(citizens) ? citizens : [];
   const safeSessions = Array.isArray(combatSessions) ? combatSessions : [];
@@ -1323,9 +1323,9 @@ export default function CombatAdminView({
                   ];
                   const addMalus = () => {
                     if (!malusForm.reason.trim()) return;
-                    const newMalus = { id: Date.now().toString(), stat: malusForm.stat, value: -Math.abs(malusForm.value || 1), reason: malusForm.reason };
+                    const newMalus = { id: Date.now().toString(), stat: malusForm.stat, value: -Math.abs(malusForm.value || 1), reason: malusForm.reason, turns: Math.max(0, malusForm.turns || 0) };
                     updateParticipant(p.citizenId, { malus: [...malus, newMalus] });
-                    setMalusForm(prev => ({ ...prev, reason: "", value: -1 }));
+                    setMalusForm(prev => ({ ...prev, reason: "", value: -1, turns: 0 }));
                   };
                   const removeMalus = (id) => updateParticipant(p.citizenId, { malus: malus.filter(m => m.id !== id) });
                   return (
@@ -1342,7 +1342,8 @@ export default function CombatAdminView({
                               <div key={m.id} className="bg-stone-800 border border-red-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
                                 <div className="flex-1 min-w-0">
                                   <span className="text-[9px] font-bold text-red-300">{statLabel}: {m.value}</span>
-                                  {m.reason && <span className="text-[8px] text-stone-400 ml-2 italic truncate">{m.reason}</span>}
+                                  <span className="text-[7px] font-mono text-stone-500 ml-1.5">{m.turns > 0 ? `${m.turns}t` : "∞"}</span>
+                                  {m.reason && <span className="text-[8px] text-stone-400 ml-1.5 italic truncate">{m.reason}</span>}
                                 </div>
                                 <button onClick={() => removeMalus(m.id)} className="p-0.5 rounded hover:bg-red-900/40 text-stone-500 hover:text-red-400 transition-all shrink-0">
                                   <X size={10} />
@@ -1354,8 +1355,8 @@ export default function CombatAdminView({
                       )}
                       <div className="bg-stone-800/60 border border-stone-700 rounded-xl p-3 space-y-2">
                         <div className="text-[7px] font-black uppercase tracking-widest text-stone-500">Ajouter un malus</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="col-span-1">
                             <label className="text-[7px] text-stone-500 block mb-0.5">Statistique</label>
                             <select value={malusForm.stat}
                               onChange={e => setMalusForm(prev => ({ ...prev, stat: e.target.value }))}
@@ -1368,6 +1369,13 @@ export default function CombatAdminView({
                             <input type="number" max={0}
                               value={malusForm.value}
                               onChange={e => setMalusForm(prev => ({ ...prev, value: parseInt(e.target.value) || -1 }))}
+                              className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-stone-500 block mb-0.5">Tours (0=∞)</label>
+                            <input type="number" min={0}
+                              value={malusForm.turns}
+                              onChange={e => setMalusForm(prev => ({ ...prev, turns: parseInt(e.target.value) || 0 }))}
                               className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
                           </div>
                         </div>
