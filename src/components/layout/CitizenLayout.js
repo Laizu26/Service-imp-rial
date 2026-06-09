@@ -3846,6 +3846,7 @@ const CitizenLayout = (props) => {
             {active === "combat" && (() => {
               const cs = user.combatStats || {};
               const techs = Array.isArray(user.techniques) ? user.techniques : [];
+              const talent = user.talent || null;
               const maxHp = cs.maxHp || 30;
               const maxMana = cs.maxMana || 10;
 
@@ -4110,7 +4111,34 @@ const CitizenLayout = (props) => {
                     </div>
                   </div>
 
-                  {techs.length === 0 && !cs.maxHp && (
+                  {/* Talent */}
+                  {talent?.description && (
+                    <div className="bg-stone-900 border border-amber-700/40 rounded-2xl overflow-hidden shadow-xl">
+                      <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-800/40 bg-amber-950/20">
+                        <span className="text-amber-400 text-base font-black">✦</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-amber-300">Talent</span>
+                      </div>
+                      <div className="px-5 py-4 space-y-3">
+                        <p className="text-sm text-stone-200 leading-relaxed">{talent.description}</p>
+                        <div className="flex items-center gap-4">
+                          {talent.chance > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-stone-500">Chance</span>
+                              <span className="text-sm font-black font-mono text-amber-400">{talent.chance}%</span>
+                            </div>
+                          )}
+                          {talent.cooldown > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-stone-500">Recharge</span>
+                              <span className="text-sm font-black font-mono text-stone-300">{talent.cooldown} tour{talent.cooldown > 1 ? "s" : ""}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {techs.length === 0 && !cs.maxHp && !talent?.description && (
                     <p className="text-xs text-stone-600 italic text-center py-2">La fiche de combat sera remplie par un administrateur.</p>
                   )}
                 </div>

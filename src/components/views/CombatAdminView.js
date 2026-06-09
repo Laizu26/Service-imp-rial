@@ -23,6 +23,8 @@ const DEFAULT_TECH = {
   cooldown: 2, manaCost: 0, description: "",
 };
 
+const DEFAULT_TALENT = { description: "", chance: 0, cooldown: 0 };
+
 const CAMP_STYLES = [
   { id: "A", label: "Camp A", bg: "bg-red-900/30",   border: "border-red-700/60",   badge: "bg-red-800 text-red-200",    dot: "bg-red-500"   },
   { id: "B", label: "Camp B", bg: "bg-blue-900/30",  border: "border-blue-700/60",  badge: "bg-blue-800 text-blue-200",  dot: "bg-blue-500"  },
@@ -160,6 +162,7 @@ export default function CombatAdminView({
   const [selCitizenId, setSelCitizenId] = useState("");
   const [editStats, setEditStats] = useState(null);
   const [editTechs, setEditTechs] = useState([]);
+  const [editTalent, setEditTalent] = useState(DEFAULT_TALENT);
   const [techForm, setTechForm] = useState(null);
   const [techEditId, setTechEditId] = useState(null);
   const [citizenSearch, setCitizenSearch] = useState("");
@@ -190,6 +193,7 @@ export default function CombatAdminView({
     setSelCitizenId(String(id));
     setEditStats({ ...DEFAULT_COMBAT_STATS, ...(c.combatStats || {}) });
     setEditTechs(Array.isArray(c.techniques) ? c.techniques : []);
+    setEditTalent(c.talent ? { ...DEFAULT_TALENT, ...c.talent } : { ...DEFAULT_TALENT });
     setTechForm(null); setTechEditId(null);
   };
 
@@ -200,6 +204,7 @@ export default function CombatAdminView({
     onSaveCombatStats(selCitizenId, {
       combatStats: { ...editStats, currentHp: editStats.maxHp, currentMana: editStats.maxMana },
       techniques: editTechs,
+      talent: editTalent,
     });
   };
 
@@ -613,6 +618,46 @@ export default function CombatAdminView({
                           ))}
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Talent */}
+                  <div className="bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-700">
+                      <span className="text-base">✦</span>
+                      <span className="text-xs font-black uppercase tracking-widest text-stone-200">Talent</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Description</label>
+                        <textarea
+                          rows={3}
+                          value={editTalent.description}
+                          onChange={e => setEditTalent(p => ({ ...p, description: e.target.value }))}
+                          className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500 resize-none"
+                          placeholder="Description du talent passif ou actif…"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Chance (%)</label>
+                          <input
+                            type="number" min={0} max={100}
+                            value={editTalent.chance}
+                            onChange={e => setEditTalent(p => ({ ...p, chance: Math.max(0, Math.min(100, Number(e.target.value))) }))}
+                            className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Recharge (tours)</label>
+                          <input
+                            type="number" min={0}
+                            value={editTalent.cooldown}
+                            onChange={e => setEditTalent(p => ({ ...p, cooldown: Number(e.target.value) }))}
+                            className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -1064,6 +1109,7 @@ export default function CombatAdminView({
         const campStyle = CAMP_STYLES.find(x => x.id === (p.campId || "A")) || CAMP_STYLES[0];
         const citizenRecord = safeCitizens.find(c => String(c.id) === p.citizenId);
         const techs = citizenRecord ? (Array.isArray(citizenRecord.techniques) ? citizenRecord.techniques : []) : [];
+        const talentPopup = citizenRecord?.talent || null;
 
         const inputCls = "w-10 text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500";
 
@@ -1227,6 +1273,23 @@ export default function CombatAdminView({
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Talent ── */}
+                {talentPopup?.description && (
+                  <div>
+                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Talent</div>
+                    <div className="bg-stone-800 border border-amber-700/30 rounded-lg px-3 py-2 flex items-start gap-2.5">
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 bg-amber-900/50 text-amber-300 text-xs font-black">✦</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-stone-200 leading-relaxed">{talentPopup.description}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          {talentPopup.chance > 0 && <span className="text-[8px] font-mono text-amber-400">{talentPopup.chance}%</span>}
+                          {talentPopup.cooldown > 0 && <span className="text-[8px] font-mono text-stone-500">{talentPopup.cooldown}t cd</span>}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
