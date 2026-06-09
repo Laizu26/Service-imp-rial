@@ -179,7 +179,7 @@ function StoryViewer({ story, myId, isAdmin, onDelete, onClose }) {
         <div className="p-5">
           {story.imageUrl && (
             <div className="mb-4 rounded-xl overflow-hidden">
-              <img src={story.imageUrl} alt="" className="w-full max-h-56 object-cover"
+              <img src={story.imageUrl} alt="" className="w-full max-h-72 object-contain bg-stone-900/20 rounded-xl"
                 onError={e => { e.target.style.display = "none"; }} />
             </div>
           )}
@@ -478,9 +478,9 @@ function PostCard({
 
       {/* Image */}
       {post.imageUrl && (
-        <div className="mx-4 mb-3 rounded-xl overflow-hidden border border-stone-100">
+        <div className="mx-4 mb-3 rounded-xl overflow-hidden border border-stone-100 bg-stone-50">
           <img src={post.imageUrl} alt=""
-            className="w-full max-h-72 object-cover"
+            className="w-full max-h-[520px] object-contain"
             onError={e => { e.target.style.display = "none"; }} />
         </div>
       )}
@@ -1357,7 +1357,7 @@ export default function MushtagramView({
                   )}
                   <p className="text-sm text-stone-800 leading-relaxed">{post.content}</p>
                   {post.imageUrl && (
-                    <img src={post.imageUrl} alt="" className="mt-2 rounded-lg max-h-32 object-cover"
+                    <img src={post.imageUrl} alt="" className="mt-2 rounded-lg max-h-48 object-contain bg-stone-50 w-full"
                       onError={e => { e.target.style.display = "none"; }} />
                   )}
                   <div className="flex items-center gap-4 mt-2 text-[10px] text-stone-400">
