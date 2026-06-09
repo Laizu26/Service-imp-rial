@@ -443,18 +443,32 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         // --- Rémunération journalière des Érudits ---
         let eruditPayments = 0;
+        const eruditLedgerEntries = [];
         (ns.eruditRequests || []).filter((r) => r.status === "APPROVED").forEach((req) => {
-          const coIdx = (ns.countries || []).findIndex((c) => c.id === req.countryId);
+          const coIdx = (ns.countries || []).findIndex((c) => String(c.id) === String(req.countryId));
           if (coIdx === -1) return;
-          const salary = ns.countries[coIdx].laws?.eruditSalary || 0;
+          const laws = ns.countries[coIdx].laws;
+          const salary = (laws && !Array.isArray(laws)) ? (laws.eruditSalary || 0) : 0;
           if (salary <= 0) return;
           if ((ns.countries[coIdx].treasury || 0) < salary) return;
-          const cIdx = (ns.citizens || []).findIndex((c) => c.id === req.citizenId);
+          const cIdx = (ns.citizens || []).findIndex((c) => String(c.id) === String(req.citizenId));
           if (cIdx === -1) return;
           ns.countries[coIdx] = { ...ns.countries[coIdx], treasury: (ns.countries[coIdx].treasury || 0) - salary };
           ns.citizens[cIdx] = { ...ns.citizens[cIdx], balance: (ns.citizens[cIdx].balance || 0) + salary };
+          eruditLedgerEntries.push({
+            id: Date.now() + Math.random(),
+            fromName: req.countryName || ns.countries[coIdx].name,
+            toName: req.citizenName || ns.citizens[cIdx].name,
+            amount: salary,
+            timestamp: Date.now(),
+            reason: `Rémunération Érudit — ${req.countryName || ns.countries[coIdx].name}`,
+            type: "ERUDIT_SALARY",
+          });
           eruditPayments++;
         });
+        if (eruditLedgerEntries.length > 0) {
+          ns.globalLedger = [...eruditLedgerEntries, ...(ns.globalLedger || [])];
+        }
 
         saveState(ns);
         notify(

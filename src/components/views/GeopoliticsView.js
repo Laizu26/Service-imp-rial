@@ -695,19 +695,20 @@ const GeopoliticsView = ({
                               type="number"
                               min={0}
                               className="w-20 p-1 border border-purple-300 rounded text-xs text-center bg-white outline-none focus:border-purple-500"
-                              value={selectedCountry.laws.eruditSalary || 0}
-                              onChange={(e) =>
+                              value={(selectedCountry.laws && !Array.isArray(selectedCountry.laws) ? selectedCountry.laws.eruditSalary : 0) || 0}
+                              onChange={(e) => {
+                                const existingLaws = (selectedCountry.laws && !Array.isArray(selectedCountry.laws)) ? selectedCountry.laws : {};
                                 updateSelected({
                                   laws: {
-                                    ...selectedCountry.laws,
+                                    ...existingLaws,
                                     eruditSalary: parseInt(e.target.value) || 0,
                                   },
-                                })
-                              }
+                                });
+                              }}
                             />
                           ) : (
                             <span className="text-xs font-bold text-purple-700">
-                              {formatMoney(selectedCountry.laws.eruditSalary || 0)} / jour
+                              {formatMoney((selectedCountry.laws && !Array.isArray(selectedCountry.laws) ? selectedCountry.laws.eruditSalary : 0) || 0)} / jour
                             </span>
                           )}
                         </div>
