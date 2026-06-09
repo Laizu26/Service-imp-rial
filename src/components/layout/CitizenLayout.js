@@ -1501,7 +1501,7 @@ const CitizenLayout = (props) => {
             ))}
           </div>
 
-          <div className={active === "msg" ? "h-full w-full" : "max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
+          <div className={(active === "msg" || active === "mushtagram") ? "h-full w-full" : "w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
           <TabErrorBoundary tabKey={active}>
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
 
