@@ -744,6 +744,7 @@ export default function App() {
             onDismissedChange={handleDismissedChange}
             mushtagramPosts={state.mushtagramPosts || []}
             mushtagramDMs={state.mushtagramDMs || []}
+            mushtagramStories={state.mushtagramStories || []}
             onPostMushtagram={actions.onPostMushtagram}
             onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
             onToggleMushtagramLike={actions.onToggleMushtagramLike}
@@ -752,6 +753,15 @@ export default function App() {
             onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
             onSendMushtagramDM={actions.onSendMushtagramDM}
             onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
+            onFollowMushtagram={actions.onFollowMushtagram}
+            onUnfollowMushtagram={actions.onUnfollowMushtagram}
+            onReactMushtagram={actions.onReactMushtagram}
+            onRepostMushtagram={actions.onRepostMushtagram}
+            onVoteMushtagramPoll={actions.onVoteMushtagramPoll}
+            onPinMushtagramPost={actions.onPinMushtagramPost}
+            onReportMushtagramPost={actions.onReportMushtagramPost}
+            onPostMushtagramStory={actions.onPostMushtagramStory}
+            onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1090,6 +1100,7 @@ export default function App() {
                       citizens={state.citizens}
                       mushtagramPosts={state.mushtagramPosts || []}
                       mushtagramDMs={state.mushtagramDMs || []}
+                      mushtagramStories={state.mushtagramStories || []}
                       onPostMushtagram={actions.onPostMushtagram}
                       onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
                       onToggleMushtagramLike={actions.onToggleMushtagramLike}
@@ -1098,6 +1109,15 @@ export default function App() {
                       onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
                       onSendMushtagramDM={actions.onSendMushtagramDM}
                       onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
+                      onFollowMushtagram={actions.onFollowMushtagram}
+                      onUnfollowMushtagram={actions.onUnfollowMushtagram}
+                      onReactMushtagram={actions.onReactMushtagram}
+                      onRepostMushtagram={actions.onRepostMushtagram}
+                      onVoteMushtagramPoll={actions.onVoteMushtagramPoll}
+                      onPinMushtagramPost={actions.onPinMushtagramPost}
+                      onReportMushtagramPost={actions.onReportMushtagramPost}
+                      onPostMushtagramStory={actions.onPostMushtagramStory}
+                      onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
                       notify={notify}
                     />
                   )}

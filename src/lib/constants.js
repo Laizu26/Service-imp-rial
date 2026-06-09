@@ -152,6 +152,7 @@ export const DEFAULT_GAME_STATE = {
   combatEffects: [],
   mushtagramPosts: [],
   mushtagramDMs: [],
+  mushtagramStories: [],
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────

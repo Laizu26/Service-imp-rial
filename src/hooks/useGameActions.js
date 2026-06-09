@@ -5566,6 +5566,119 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
         saveState({ ...state, mushtagramDMs: dms });
       },
+
+      onFollowMushtagram: (userId) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          c.id === session.id
+            ? { ...c, mushtagramFollowing: [...new Set([...(c.mushtagramFollowing||[]), String(userId)])] }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+      },
+
+      onUnfollowMushtagram: (userId) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          c.id === session.id
+            ? { ...c, mushtagramFollowing: (c.mushtagramFollowing||[]).filter(id => id !== String(userId)) }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+      },
+
+      onReactMushtagram: (postId, emoji) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts||[]).map(p => {
+          if (p.id !== postId) return p;
+          const reactions = { ...(p.reactions || {}) };
+          // Remove from all other emojis first
+          Object.keys(reactions).forEach(e => {
+            reactions[e] = (reactions[e]||[]).filter(id => id !== session.id);
+          });
+          // Toggle on selected emoji
+          const current = reactions[emoji] || [];
+          const wasOn = current.includes(session.id);
+          reactions[emoji] = wasOn ? current : [...current, session.id];
+          return { ...p, reactions };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onRepostMushtagram: (postId) => {
+        if (!session) return;
+        const original = (state.mushtagramPosts||[]).find(p => p.id === postId);
+        if (!original) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const newPost = {
+          id: `mpost_${Date.now()}`,
+          authorId: session.id,
+          authorName: session.name,
+          content: "",
+          imageUrl: null,
+          hashtags: original.hashtags || [],
+          reactions: {},
+          comments: [],
+          date: formatRPDate(gd),
+          createdAt: Date.now(),
+          repostOf: { postId: original.id, authorName: original.authorName, content: original.content },
+        };
+        saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost] });
+      },
+
+      onVoteMushtagramPoll: (postId, optionIdx) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts||[]).map(p => {
+          if (p.id !== postId || !p.poll) return p;
+          const options = p.poll.options.map((opt, i) => ({
+            ...opt,
+            votes: i === optionIdx
+              ? (opt.votes||[]).includes(session.id) ? opt.votes : [...(opt.votes||[]), session.id]
+              : (opt.votes||[]).filter(id => id !== session.id),
+          }));
+          return { ...p, poll: { ...p.poll, options } };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onPinMushtagramPost: (postId) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          c.id === session.id
+            ? { ...c, mushtagramPinned: c.mushtagramPinned === postId ? null : postId }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+      },
+
+      onReportMushtagramPost: (postId) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts||[]).map(p =>
+          p.id === postId && !(p.reports||[]).includes(session.id)
+            ? { ...p, reports: [...(p.reports||[]), session.id] }
+            : p
+        );
+        saveState({ ...state, mushtagramPosts: posts });
+      },
+
+      onPostMushtagramStory: ({ content, imageUrl }) => {
+        if (!session) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const story = {
+          id: `mstory_${Date.now()}`,
+          authorId: session.id,
+          authorName: session.name,
+          content,
+          imageUrl: imageUrl || null,
+          createdAt: Date.now(),
+          date: formatRPDate(gd),
+        };
+        saveState({ ...state, mushtagramStories: [...(state.mushtagramStories||[]), story] });
+      },
+
+      onDeleteMushtagramStory: (id) => {
+        saveState({ ...state, mushtagramStories: (state.mushtagramStories||[]).filter(s => s.id !== id) });
+      },
       // ────────────────────────────────────────────────────────────
 
     }, notify);

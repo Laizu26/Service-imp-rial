@@ -52,6 +52,7 @@ export const useGameEngine = (firebaseUser, notify) => {
             combatEffects: d.combatEffects || [],
             mushtagramPosts: d.mushtagramPosts || [],
             mushtagramDMs: d.mushtagramDMs || [],
+            mushtagramStories: d.mushtagramStories || [],
           }));
           setDbError(null);
         } else {

@@ -846,6 +846,7 @@ const CitizenLayout = (props) => {
     onDeleteEruditResearch,
     mushtagramPosts = [],
     mushtagramDMs = [],
+    mushtagramStories = [],
     onPostMushtagram,
     onDeleteMushtagramPost,
     onToggleMushtagramLike,
@@ -854,6 +855,15 @@ const CitizenLayout = (props) => {
     onUpdateMushtagramProfile,
     onSendMushtagramDM,
     onMarkMushtagramDMsRead,
+    onFollowMushtagram,
+    onUnfollowMushtagram,
+    onReactMushtagram,
+    onRepostMushtagram,
+    onVoteMushtagramPoll,
+    onPinMushtagramPost,
+    onReportMushtagramPost,
+    onPostMushtagramStory,
+    onDeleteMushtagramStory,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1615,6 +1625,7 @@ const CitizenLayout = (props) => {
                 citizens={safeUsers}
                 mushtagramPosts={mushtagramPosts}
                 mushtagramDMs={mushtagramDMs}
+                mushtagramStories={mushtagramStories}
                 onPostMushtagram={onPostMushtagram}
                 onDeleteMushtagramPost={onDeleteMushtagramPost}
                 onToggleMushtagramLike={onToggleMushtagramLike}
@@ -1623,6 +1634,15 @@ const CitizenLayout = (props) => {
                 onUpdateMushtagramProfile={onUpdateMushtagramProfile}
                 onSendMushtagramDM={onSendMushtagramDM}
                 onMarkMushtagramDMsRead={onMarkMushtagramDMsRead}
+                onFollowMushtagram={onFollowMushtagram}
+                onUnfollowMushtagram={onUnfollowMushtagram}
+                onReactMushtagram={onReactMushtagram}
+                onRepostMushtagram={onRepostMushtagram}
+                onVoteMushtagramPoll={onVoteMushtagramPoll}
+                onPinMushtagramPost={onPinMushtagramPost}
+                onReportMushtagramPost={onReportMushtagramPost}
+                onPostMushtagramStory={onPostMushtagramStory}
+                onDeleteMushtagramStory={onDeleteMushtagramStory}
                 notify={notify}
               />
             )}
