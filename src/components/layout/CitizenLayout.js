@@ -717,6 +717,7 @@ const CitizenLayout = (props) => {
     onDeleteBulletin,
     onSetEmployeeRank,
     onSetEmployeeSerfRights,
+    onUpdateEmployeeContract,
     onApplyToCompany,
     onRespondApplication,
     onUpdateEmployeeProfile,
@@ -1667,6 +1668,7 @@ const CitizenLayout = (props) => {
                 onDeleteBulletin={onDeleteBulletin}
                 onSetEmployeeRank={onSetEmployeeRank}
                 onSetEmployeeSerfRights={onSetEmployeeSerfRights}
+                onUpdateEmployeeContract={onUpdateEmployeeContract}
                 onApplyToCompany={onApplyToCompany}
                 onRespondApplication={onRespondApplication}
                 onUpdateEmployeeProfile={onUpdateEmployeeProfile}

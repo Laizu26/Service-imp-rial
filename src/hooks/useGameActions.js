@@ -3360,6 +3360,19 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Droits mis à jour.", "success");
       },
 
+      onUpdateEmployeeContract: ({ companyId, citizenId, updates }) => {
+        if (!session) return;
+        const company = (state.companies || []).find(c => c.id === companyId);
+        if (!company || String(company.ownerId) !== String(session.id)) return;
+        const contracts = { ...(company.employmentContracts || {}) };
+        contracts[citizenId] = { ...(contracts[citizenId] || {}), ...updates };
+        const updatedCompanies = (state.companies || []).map(c =>
+          c.id === companyId ? { ...c, employmentContracts: contracts } : c
+        );
+        saveState({ ...state, companies: updatedCompanies });
+        notify("Contrat mis à jour.", "success");
+      },
+
       // --- CANDIDATURE SPONTANÉE ---
       onApplyToCompany: (companyId) => {
         if (!session) return;
