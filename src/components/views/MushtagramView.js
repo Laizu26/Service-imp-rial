@@ -506,6 +506,9 @@ function PostCard({
               className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
               {post.authorName}
             </button>
+            {author?.mushtagramPublicPersonality === "approved" && (
+              <span title="Personnalité publique vérifiée" style={{color:"#3b82f6", fontSize:"0.75rem", marginLeft:"3px"}}>✓</span>
+            )}
             {(author?.mushtagramHandle) && (
               <span className="text-[10px] text-stone-400">@{author.mushtagramHandle}</span>
             )}
@@ -521,6 +524,9 @@ function PostCard({
               </button>
             )}
           </div>
+          {author?.mushtagramOfficialTitle && (
+            <div className="text-[10px] text-stone-400 italic">{author.mushtagramOfficialTitle}</div>
+          )}
           <div className="text-[10px] text-stone-400">{post.rpDate || post.date || ""}</div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -640,9 +646,20 @@ function PostCard({
                       Répondre
                     </button>
                     {canDelCmt && (
-                      <button onClick={() => onDeleteComment(post.id, c.id)}
+                      <button onClick={() => onDeleteComment({ postId: post.id, commentId: c.id })}
                         className="text-[9px] text-stone-300 hover:text-red-400 transition-colors">
                         Supprimer
+                      </button>
+                    )}
+                    {isMe && myCitizen?.mushtagramPublicPersonality === "approved" && !canDelCmt && (
+                      <button
+                        onClick={() => onDeleteComment({ postId: post.id, commentId: c.id })}
+                        title="Supprimer ce commentaire (modération PP)"
+                        style={{opacity: 0.5, transition: "opacity 0.2s"}}
+                        onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                        onMouseLeave={e => e.currentTarget.style.opacity = "0.5"}
+                        className="text-[9px] text-stone-300 hover:text-red-400 transition-colors">
+                        ×
                       </button>
                     )}
                   </div>
@@ -915,11 +932,13 @@ export default function MushtagramView({
   /* ── profil ──────────────────────────────────────────────────────── */
   const startEdit = () => {
     setProfileDraft({
-      bio:    myCitizen?.mushtagramBio     || "",
-      avatar: myCitizen?.mushtagramAvatar  || "",
-      handle: myCitizen?.mushtagramHandle  || "",
-      banner: myCitizen?.mushtagramBanner  || "",
-      photo:  myCitizen?.mushtagramPhoto   || "",
+      bio:           myCitizen?.mushtagramBio            || "",
+      avatar:        myCitizen?.mushtagramAvatar         || "",
+      handle:        myCitizen?.mushtagramHandle         || "",
+      banner:        myCitizen?.mushtagramBanner         || "",
+      photo:         myCitizen?.mushtagramPhoto          || "",
+      officialTitle: myCitizen?.mushtagramOfficialTitle  || "",
+      externalLink:  myCitizen?.mushtagramExternalLink   || "",
     });
     setEditingProfile(true);
   };
@@ -927,7 +946,6 @@ export default function MushtagramView({
   const saveProfile = () => {
     onUpdateMushtagramProfile(profileDraft);
     setEditingProfile(false);
-    notify("Profil mis à jour.", "success");
   };
 
   const myPosts = useMemo(() => sortedPosts.filter(p => String(p.authorId) === myId), [sortedPosts, myId]);
@@ -1493,10 +1511,35 @@ export default function MushtagramView({
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
                       Biographie
                     </label>
-                    <textarea value={profileDraft.bio} onChange={e => setProfileDraft(p => ({ ...p, bio: e.target.value }))}
+                    <textarea value={profileDraft.bio} onChange={e => setProfileDraft(p => ({ ...p, bio: e.target.value.slice(0, 300) }))}
                       rows={3} placeholder="Présentez-vous en quelques mots…"
+                      maxLength={300}
                       className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:border-rose-300" />
+                    <div className="text-right text-[9px] text-stone-400 mt-0.5">{(profileDraft.bio || "").length}/300</div>
                   </div>
+                  {isPP && (
+                    <>
+                      <div>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                          Titre officiel
+                        </label>
+                        <input value={profileDraft.officialTitle || ""} onChange={e => setProfileDraft(p => ({ ...p, officialTitle: e.target.value.slice(0, 80) }))}
+                          placeholder="ex: Gouverneur de l'Est"
+                          maxLength={80}
+                          className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+                        <div className="text-right text-[9px] text-stone-400 mt-0.5">{(profileDraft.officialTitle || "").length}/80</div>
+                      </div>
+                      <div>
+                        <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                          Lien externe
+                        </label>
+                        <input value={profileDraft.externalLink || ""} onChange={e => setProfileDraft(p => ({ ...p, externalLink: e.target.value.slice(0, 200) }))}
+                          placeholder="https://…"
+                          maxLength={200}
+                          className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+                      </div>
+                    </>
+                  )}
                   <div className="flex gap-2 pt-1">
                     <button onClick={() => setEditingProfile(false)}
                       className="px-4 py-2 text-xs font-bold text-stone-500 hover:text-stone-700 rounded-xl hover:bg-stone-100 transition-all border border-stone-200">
@@ -1504,15 +1547,29 @@ export default function MushtagramView({
                     </button>
                     <button onClick={saveProfile}
                       className="flex-1 py-2 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black rounded-xl hover:opacity-90 shadow transition-all">
-                      Sauvegarder
+                      Enregistrer le profil
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <h2 className="text-lg font-black text-stone-900">{myCitizen?.name}</h2>
+                  <div className="flex items-center gap-1">
+                    <h2 className="text-lg font-black text-stone-900">{myCitizen?.name}</h2>
+                    {isPP && (
+                      <span title="Personnalité publique vérifiée" style={{color:"#3b82f6", fontSize:"0.85rem", marginLeft:"3px"}}>✓</span>
+                    )}
+                  </div>
                   {myCitizen?.mushtagramHandle && (
                     <p className="text-sm text-stone-400">@{myCitizen.mushtagramHandle}</p>
+                  )}
+                  {isPP && myCitizen?.mushtagramOfficialTitle && (
+                    <p className="text-xs text-stone-400 italic mt-0.5">{myCitizen.mushtagramOfficialTitle}</p>
+                  )}
+                  {isPP && myCitizen?.mushtagramExternalLink && (
+                    <a href={myCitizen.mushtagramExternalLink} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-500 hover:underline mt-0.5 block truncate">
+                      {myCitizen.mushtagramExternalLink}
+                    </a>
                   )}
                   {myCitizen?.mushtagramBio ? (
                     <p className="text-sm text-stone-600 mt-2 leading-relaxed whitespace-pre-wrap">{myCitizen.mushtagramBio}</p>

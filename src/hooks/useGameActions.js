@@ -5619,25 +5619,37 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, mushtagramPosts: posts });
       },
 
-      onDeleteMushtagramComment: (postId, commentId) => {
-        const posts = (state.mushtagramPosts || []).map((p) => {
-          if (p.id !== postId) return p;
-          return { ...p, comments: (p.comments || []).filter((c) => c.id !== commentId) };
-        });
-        saveState({ ...state, mushtagramPosts: posts });
+      onDeleteMushtagramComment: ({ postId, commentId }) => {
+        if (!session || !postId || !commentId) return;
+        const post = (state.mushtagramPosts || []).find(p => String(p.id) === String(postId));
+        if (!post) return;
+        const myCitizen = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        const isAdmin = ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        const isCommentAuthor = (post.comments || []).some(c => String(c.id) === String(commentId) && String(c.authorId) === String(session.id));
+        const isPostAuthorPP = String(post.authorId) === String(session.id) && myCitizen?.mushtagramPublicPersonality === "approved";
+        if (!isAdmin && !isCommentAuthor && !isPostAuthorPP) return;
+        const updatedPosts = (state.mushtagramPosts || []).map(p =>
+          String(p.id) === String(postId)
+            ? { ...p, comments: (p.comments || []).filter(c => String(c.id) !== String(commentId)) }
+            : p
+        );
+        saveState({ ...state, mushtagramPosts: updatedPosts });
+        notify("Commentaire supprimé.", "info");
       },
 
-      onUpdateMushtagramProfile: ({ bio, avatar, handle, banner, photo }) => {
+      onUpdateMushtagramProfile: ({ bio, avatar, handle, banner, photo, officialTitle, externalLink }) => {
         if (!session) return;
         const updated = (state.citizens || []).map((c) =>
-          c.id === session.id
+          String(c.id) === String(session.id)
             ? {
                 ...c,
-                mushtagramBio:    bio     ?? c.mushtagramBio,
-                mushtagramAvatar: avatar  ?? c.mushtagramAvatar,
-                mushtagramHandle: handle  ?? c.mushtagramHandle,
-                mushtagramBanner: banner  ?? c.mushtagramBanner,
-                mushtagramPhoto:  photo   ?? c.mushtagramPhoto,
+                mushtagramBio:           bio           !== undefined ? String(bio).slice(0, 300)           : c.mushtagramBio,
+                mushtagramAvatar:        avatar        !== undefined ? avatar                               : c.mushtagramAvatar,
+                mushtagramHandle:        handle        !== undefined ? handle                               : c.mushtagramHandle,
+                mushtagramBanner:        banner        !== undefined ? banner                               : c.mushtagramBanner,
+                mushtagramPhoto:         photo         !== undefined ? photo                                : c.mushtagramPhoto,
+                mushtagramOfficialTitle: officialTitle !== undefined ? String(officialTitle).slice(0, 80)  : c.mushtagramOfficialTitle,
+                mushtagramExternalLink:  externalLink  !== undefined ? String(externalLink).slice(0, 200)  : c.mushtagramExternalLink,
               }
             : c
         );
