@@ -278,10 +278,32 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
       });
     }
 
+    // --- Mushtagram (prioritaires → remontée globale) ---
+    (state?.mushtagramNotifs || [])
+      .filter(n => String(n.toId) === String(user.id) && n.priority === "high" && !n.read)
+      .forEach(n => {
+        const label = n.type === "follow"
+          ? { title: "Nouvel abonné Mushtagram", icon: "UserPlus" }
+          : n.type === "dm"
+            ? { title: "Message Mushtagram", icon: "MessageCircle" }
+            : { title: "Notification Mushtagram", icon: "Bell" };
+        notifs.push({
+          id: `mushnotif_${n.id}`,
+          type: `mush_${n.type}`,
+          category: "Mushtagram",
+          title: label.title,
+          description: `De ${n.fromName}`,
+          timestamp: n.timestamp,
+          route: "mushtagram",
+          icon: label.icon,
+          rpDate: rpDateStr,
+        });
+      });
+
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

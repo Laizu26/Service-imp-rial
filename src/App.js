@@ -207,7 +207,7 @@ export default function App() {
   const { grouped: adminGrouped, unreadCount: adminUnreadCount, dismiss: adminDismiss, dismissAll: adminDismissAll } = useNotifications(
     currentUser,
     state.citizens || [],
-    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [] },
+    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [], mushtagramNotifs: state.mushtagramNotifs || [] },
     undefined,
     undefined,
     handleDismissedChange
@@ -745,6 +745,7 @@ export default function App() {
             mushtagramPosts={state.mushtagramPosts || []}
             mushtagramDMs={state.mushtagramDMs || []}
             mushtagramStories={state.mushtagramStories || []}
+            mushtagramNotifs={state.mushtagramNotifs || []}
             onPostMushtagram={actions.onPostMushtagram}
             onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
             onToggleMushtagramLike={actions.onToggleMushtagramLike}
@@ -766,6 +767,7 @@ export default function App() {
             onLikeMushtagramStory={actions.onLikeMushtagramStory}
             onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
             onRequestPublicPersonality={actions.onRequestPublicPersonality}
+            onMarkMushtagramNotifsRead={actions.onMarkMushtagramNotifsRead}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1134,6 +1136,7 @@ export default function App() {
                         mushtagramPosts={state.mushtagramPosts || []}
                         mushtagramDMs={state.mushtagramDMs || []}
                         mushtagramStories={state.mushtagramStories || []}
+                        mushtagramNotifs={state.mushtagramNotifs || []}
                         onPostMushtagram={actions.onPostMushtagram}
                         onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
                         onToggleMushtagramLike={actions.onToggleMushtagramLike}
@@ -1155,6 +1158,7 @@ export default function App() {
                         onLikeMushtagramStory={actions.onLikeMushtagramStory}
                         onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
                         onRequestPublicPersonality={actions.onRequestPublicPersonality}
+                        onMarkMushtagramNotifsRead={actions.onMarkMushtagramNotifsRead}
                         notify={notify}
                       />
                     </div>

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Heart, MessageCircle, Send, Search, Trash2, ArrowLeft,
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
-  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings,
+  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
 
@@ -695,7 +695,7 @@ function PostCard({
 
 export default function MushtagramView({
   session, citizens = [],
-  mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [],
+  mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
   onPostMushtagram, onDeleteMushtagramPost,
   onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment,
   onUpdateMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
@@ -705,6 +705,7 @@ export default function MushtagramView({
   onReportMushtagramPost,
   onPostMushtagramStory, onDeleteMushtagramStory, onLikeMushtagramStory,
   onUpdateMushtagramSettings, onRequestPublicPersonality,
+  onMarkMushtagramNotifsRead,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -753,6 +754,21 @@ export default function MushtagramView({
   const myRole    = ROLES[session?.role];
   const isAdmin   = (myRole?.level ?? 0) >= 90;
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
+
+  /* ── notifications ──────────────────────────────────────────────────── */
+  const myNotifs = useMemo(() =>
+    [...(mushtagramNotifs || [])]
+      .filter(n => String(n.toId) === myId)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
+    [mushtagramNotifs, myId]
+  );
+  const unreadNotifsCount = useMemo(() => myNotifs.filter(n => !n.read).length, [myNotifs]);
+
+  useEffect(() => {
+    if (tab === "notifs" && unreadNotifsCount > 0 && onMarkMushtagramNotifsRead) {
+      onMarkMushtagramNotifsRead(myNotifs.filter(n => !n.read).map(n => n.id));
+    }
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── follow helpers ────────────────────────────────────────────────── */
   const handleMute = (authorId) => {
@@ -934,6 +950,7 @@ export default function MushtagramView({
       <div className="flex gap-1 bg-stone-200 rounded-xl p-1">
         {[
           { id: "feed",     label: "Fil" },
+          { id: "notifs",   label: "Notifs", badge: unreadNotifsCount },
           { id: "messages", label: "Messages", badge: totalUnread },
           { id: "profile",  label: "Profil" },
         ].map(t => (
@@ -1184,6 +1201,56 @@ export default function MushtagramView({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ══════════════════════ NOTIFICATIONS ══════════════════════ */}
+      {tab === "notifs" && (
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden" style={{ minHeight: 400 }}>
+          <div className="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bell size={14} className="text-rose-500" />
+              <span className="text-xs font-black uppercase tracking-widest text-stone-700">Notifications</span>
+            </div>
+            {myNotifs.length > 0 && (
+              <button onClick={() => onMarkMushtagramNotifsRead && onMarkMushtagramNotifsRead(myNotifs.map(n => n.id))}
+                className="text-[10px] text-stone-400 hover:text-rose-500 font-bold transition-colors">
+                Tout marquer comme lu
+              </button>
+            )}
+          </div>
+          {myNotifs.length === 0 ? (
+            <div className="text-center py-14 text-stone-400 italic text-sm">Aucune notification</div>
+          ) : (
+            <div className="divide-y divide-stone-50">
+              {myNotifs.map(notif => {
+                const sender = citizens.find(c => String(c.id) === String(notif.fromId));
+                const typeLabel = {
+                  like:    "a aimé votre publication",
+                  comment: "a commenté votre publication",
+                  reply:   "a répondu à votre commentaire",
+                  repost:  "a republié votre publication",
+                  follow:  "vous suit maintenant",
+                  dm:      "vous a envoyé un message",
+                }[notif.type] || "vous a notifié";
+                const isHigh = notif.priority === "high";
+                return (
+                  <div key={notif.id} className={`flex items-start gap-3 px-4 py-3 transition-colors ${!notif.read ? "bg-rose-50/60" : "hover:bg-stone-50"}`}>
+                    <Ava citizen={sender || { name: notif.fromName }} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-stone-800 leading-snug">
+                        <span className="font-black">{notif.fromName}</span>{" "}
+                        <span className={isHigh ? "text-rose-600 font-semibold" : ""}>{typeLabel}</span>
+                        {notif.content && <span className="text-stone-400"> — "{notif.content}"</span>}
+                      </p>
+                      <p className="text-[10px] text-stone-400 mt-0.5">{new Date(notif.timestamp).toLocaleString("fr-FR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}</p>
+                    </div>
+                    {isHigh && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1.5" title="Prioritaire" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

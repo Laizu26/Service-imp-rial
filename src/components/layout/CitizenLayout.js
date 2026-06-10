@@ -847,6 +847,7 @@ const CitizenLayout = (props) => {
     mushtagramPosts = [],
     mushtagramDMs = [],
     mushtagramStories = [],
+    mushtagramNotifs = [],
     onPostMushtagram,
     onDeleteMushtagramPost,
     onToggleMushtagramLike,
@@ -868,6 +869,7 @@ const CitizenLayout = (props) => {
     onLikeMushtagramStory,
     onUpdateMushtagramSettings,
     onRequestPublicPersonality,
+    onMarkMushtagramNotifsRead,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -983,7 +985,7 @@ const CitizenLayout = (props) => {
   } = useNotifications(
     user,
     users,
-    { debtRegistry: debtRegistry || [], gazette: gazette || [] },
+    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [] },
     settings.notifPrefs,
     gd,
     onDismissedChange
@@ -1633,6 +1635,7 @@ const CitizenLayout = (props) => {
                 mushtagramPosts={mushtagramPosts}
                 mushtagramDMs={mushtagramDMs}
                 mushtagramStories={mushtagramStories}
+                mushtagramNotifs={mushtagramNotifs}
                 onPostMushtagram={onPostMushtagram}
                 onDeleteMushtagramPost={onDeleteMushtagramPost}
                 onToggleMushtagramLike={onToggleMushtagramLike}
@@ -1654,6 +1657,7 @@ const CitizenLayout = (props) => {
                 onLikeMushtagramStory={onLikeMushtagramStory}
                 onUpdateMushtagramSettings={onUpdateMushtagramSettings}
                 onRequestPublicPersonality={onRequestPublicPersonality}
+                onMarkMushtagramNotifsRead={onMarkMushtagramNotifsRead}
                 notify={notify}
               />
             )}

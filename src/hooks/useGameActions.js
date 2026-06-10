@@ -5508,17 +5508,25 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onToggleMushtagramLike: (postId) => {
         if (!session) return;
+        const origPost = (state.mushtagramPosts || []).find(p => p.id === postId);
+        const wasLiked = origPost && (origPost.likes || []).map(String).includes(String(session.id));
         const posts = (state.mushtagramPosts || []).map((p) => {
           if (p.id !== postId) return p;
-          const liked = (p.likes || []).includes(session.id);
-          return { ...p, likes: liked ? p.likes.filter((id) => id !== session.id) : [...(p.likes || []), session.id] };
+          const liked = (p.likes || []).map(String).includes(String(session.id));
+          return { ...p, likes: liked ? p.likes.filter((id) => String(id) !== String(session.id)) : [...(p.likes || []), session.id] };
         });
-        saveState({ ...state, mushtagramPosts: posts });
+        const existingNotifs = state.mushtagramNotifs || [];
+        let newNotifs = existingNotifs;
+        if (!wasLiked && origPost && String(origPost.authorId) !== String(session.id)) {
+          newNotifs = [...existingNotifs, { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "like", fromId: String(session.id), fromName: session.name, postId, timestamp: Date.now(), read: false, priority: "low" }];
+        }
+        saveState({ ...state, mushtagramPosts: posts, mushtagramNotifs: newNotifs });
       },
 
       onAddMushtagramComment: (postId, content, replyTo = null) => {
         if (!session || !content?.trim()) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const origPost = (state.mushtagramPosts || []).find(p => p.id === postId);
         const posts = (state.mushtagramPosts || []).map((p) => {
           if (p.id !== postId) return p;
           const comment = {
@@ -5532,7 +5540,18 @@ export const useGameActions = (session, state, saveState, notify) => {
           };
           return { ...p, comments: [...(p.comments || []), comment] };
         });
-        saveState({ ...state, mushtagramPosts: posts });
+        const existingNotifs = state.mushtagramNotifs || [];
+        const addedNotifs = [];
+        if (origPost && String(origPost.authorId) !== String(session.id)) {
+          addedNotifs.push({ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "comment", fromId: String(session.id), fromName: session.name, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
+        }
+        if (replyTo && origPost) {
+          const parentComment = (origPost.comments || []).find(c => c.id === replyTo);
+          if (parentComment && String(parentComment.authorId) !== String(session.id) && String(parentComment.authorId) !== String(origPost.authorId)) {
+            addedNotifs.push({ id: `mnotif_${Date.now()+1}_${Math.random().toString(36).slice(2,6)}`, toId: String(parentComment.authorId), type: "reply", fromId: String(session.id), fromName: session.name, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
+          }
+        }
+        saveState({ ...state, mushtagramPosts: posts, mushtagramNotifs: [...existingNotifs, ...addedNotifs] });
       },
 
       onLikeMushtagramComment: (postId, commentId) => {
@@ -5592,7 +5611,18 @@ export const useGameActions = (session, state, saveState, notify) => {
           createdAt: Date.now(),
           readByRecipient: false,
         };
-        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm] });
+        const existingNotifs = state.mushtagramNotifs || [];
+        const dmNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(toId), type: "dm", fromId: String(session.id), fromName: session.name, content: content.trim().slice(0, 60), timestamp: Date.now(), read: false, priority: "high" };
+        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs: [...existingNotifs, dmNotif] });
+      },
+
+      onMarkMushtagramNotifsRead: (ids) => {
+        if (!session) return;
+        const idsSet = new Set((ids || []).map(String));
+        const notifs = (state.mushtagramNotifs || []).map(n =>
+          idsSet.has(String(n.id)) && String(n.toId) === String(session.id) ? { ...n, read: true } : n
+        );
+        saveState({ ...state, mushtagramNotifs: notifs });
       },
 
       onMarkMushtagramDMsRead: (fromId) => {
@@ -5610,7 +5640,9 @@ export const useGameActions = (session, state, saveState, notify) => {
             ? { ...c, mushtagramFollowing: [...new Set([...(c.mushtagramFollowing||[]), String(userId)])] }
             : c
         );
-        saveState({ ...state, citizens: updated });
+        const existingNotifs = state.mushtagramNotifs || [];
+        const notif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(userId), type: "follow", fromId: String(session.id), fromName: session.name, timestamp: Date.now(), read: false, priority: "high" };
+        saveState({ ...state, citizens: updated, mushtagramNotifs: [...existingNotifs, notif] });
       },
 
       onUnfollowMushtagram: (userId) => {
@@ -5670,7 +5702,11 @@ export const useGameActions = (session, state, saveState, notify) => {
             poll: original.poll || null,
           },
         };
-        saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost] });
+        const existingNotifs = state.mushtagramNotifs || [];
+        const repostNotif = String(original.authorId) !== String(session.id)
+          ? [{ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(original.authorId), type: "repost", fromId: String(session.id), fromName: session.name, postId, timestamp: Date.now(), read: false, priority: "low" }]
+          : [];
+        saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost], mushtagramNotifs: [...existingNotifs, ...repostNotif] });
         notify("Publication republiée.", "success");
       },
 
