@@ -5738,6 +5738,44 @@ export const useGameActions = (session, state, saveState, notify) => {
       onDeleteMushtagramStory: (id) => {
         saveState({ ...state, mushtagramStories: (state.mushtagramStories||[]).filter(s => s.id !== id) });
       },
+
+      onUpdateMushtagramSettings: ({ isPrivate, isAnonymous, hideReposts }) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          String(c.id) === String(session.id)
+            ? { ...c,
+                mushtagramPrivate: isPrivate ?? c.mushtagramPrivate ?? false,
+                mushtagramAnonymous: isAnonymous ?? c.mushtagramAnonymous ?? false,
+                mushtagramHideReposts: hideReposts ?? c.mushtagramHideReposts ?? false,
+              }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+      },
+
+      onRequestPublicPersonality: () => {
+        if (!session) return;
+        const existing = (state.citizens||[]).find(c => String(c.id) === String(session.id));
+        if (existing?.mushtagramPublicPersonality) { notify("Demande déjà soumise ou statut déjà accordé.", "info"); return; }
+        const updated = (state.citizens||[]).map(c =>
+          String(c.id) === String(session.id)
+            ? { ...c, mushtagramPublicPersonality: "pending" }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Demande de Personnalité Publique soumise.", "success");
+      },
+
+      onApprovePublicPersonality: (citizenId) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          String(c.id) === String(citizenId)
+            ? { ...c, mushtagramPublicPersonality: "approved" }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Statut Personnalité Publique accordé.", "success");
+      },
       // ────────────────────────────────────────────────────────────
 
     }, notify);

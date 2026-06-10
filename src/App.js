@@ -764,6 +764,8 @@ export default function App() {
             onPostMushtagramStory={actions.onPostMushtagramStory}
             onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
             onLikeMushtagramStory={actions.onLikeMushtagramStory}
+            onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
+            onRequestPublicPersonality={actions.onRequestPublicPersonality}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1097,33 +1099,65 @@ export default function App() {
                     />
                   )}
                   {activeTab === "mushtagram" && (
-                    <MushtagramView
-                      session={currentUser}
-                      citizens={state.citizens}
-                      mushtagramPosts={state.mushtagramPosts || []}
-                      mushtagramDMs={state.mushtagramDMs || []}
-                      mushtagramStories={state.mushtagramStories || []}
-                      onPostMushtagram={actions.onPostMushtagram}
-                      onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
-                      onToggleMushtagramLike={actions.onToggleMushtagramLike}
-                      onAddMushtagramComment={actions.onAddMushtagramComment}
-                      onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
-                      onLikeMushtagramComment={actions.onLikeMushtagramComment}
-                      onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
-                      onSendMushtagramDM={actions.onSendMushtagramDM}
-                      onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
-                      onFollowMushtagram={actions.onFollowMushtagram}
-                      onUnfollowMushtagram={actions.onUnfollowMushtagram}
-                      onReactMushtagram={actions.onReactMushtagram}
-                      onRepostMushtagram={actions.onRepostMushtagram}
-                      onVoteMushtagramPoll={actions.onVoteMushtagramPoll}
-                      onPinMushtagramPost={actions.onPinMushtagramPost}
-                      onReportMushtagramPost={actions.onReportMushtagramPost}
-                      onPostMushtagramStory={actions.onPostMushtagramStory}
-                      onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
-                      onLikeMushtagramStory={actions.onLikeMushtagramStory}
-                      notify={notify}
-                    />
+                    <div className="space-y-4">
+                      {/* Admin panel: approve public personality */}
+                      {(() => {
+                        const pending = (state.citizens || []).filter(c => c.mushtagramPublicPersonality === "pending");
+                        if (pending.length === 0) return null;
+                        return (
+                          <div className="bg-[#fdf6e3] rounded-2xl border border-amber-300 shadow p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Crown size={18} className="text-amber-500" />
+                              <h3 className="text-sm font-black uppercase tracking-widest text-stone-800">Demandes Personnalité Publique</h3>
+                            </div>
+                            <div className="space-y-2">
+                              {pending.map(c => (
+                                <div key={c.id} className="flex items-center justify-between bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
+                                  <div>
+                                    <div className="font-bold text-stone-800 text-sm">{c.name}</div>
+                                    {c.mushtagramHandle && <div className="text-[10px] text-stone-400">@{c.mushtagramHandle}</div>}
+                                  </div>
+                                  <button
+                                    onClick={() => actions.onApprovePublicPersonality(c.id)}
+                                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-lg transition-colors">
+                                    Valider
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      <MushtagramView
+                        session={currentUser}
+                        citizens={state.citizens}
+                        mushtagramPosts={state.mushtagramPosts || []}
+                        mushtagramDMs={state.mushtagramDMs || []}
+                        mushtagramStories={state.mushtagramStories || []}
+                        onPostMushtagram={actions.onPostMushtagram}
+                        onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
+                        onToggleMushtagramLike={actions.onToggleMushtagramLike}
+                        onAddMushtagramComment={actions.onAddMushtagramComment}
+                        onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
+                        onLikeMushtagramComment={actions.onLikeMushtagramComment}
+                        onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
+                        onSendMushtagramDM={actions.onSendMushtagramDM}
+                        onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
+                        onFollowMushtagram={actions.onFollowMushtagram}
+                        onUnfollowMushtagram={actions.onUnfollowMushtagram}
+                        onReactMushtagram={actions.onReactMushtagram}
+                        onRepostMushtagram={actions.onRepostMushtagram}
+                        onVoteMushtagramPoll={actions.onVoteMushtagramPoll}
+                        onPinMushtagramPost={actions.onPinMushtagramPost}
+                        onReportMushtagramPost={actions.onReportMushtagramPost}
+                        onPostMushtagramStory={actions.onPostMushtagramStory}
+                        onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
+                        onLikeMushtagramStory={actions.onLikeMushtagramStory}
+                        onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
+                        onRequestPublicPersonality={actions.onRequestPublicPersonality}
+                        notify={notify}
+                      />
+                    </div>
                   )}
                   {activeTab === "espionage" && (
                     <EspionageView

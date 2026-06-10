@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Heart, MessageCircle, Send, Search, Trash2, ArrowLeft,
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
-  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin,
+  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
 
@@ -51,7 +51,7 @@ const REACTION_EMOJIS = ["❤", "👑", "🗡️", "🔥", "😮"];
 
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
-function ProfileModal({ citizen, myId, myFollowing, posts, onFollow, onUnfollow, onClose, onOpenDM }) {
+function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM }) {
   if (!citizen) return null;
   const citizenId = String(citizen.id);
   const isMe = citizenId === myId;
@@ -59,6 +59,8 @@ function ProfileModal({ citizen, myId, myFollowing, posts, onFollow, onUnfollow,
   const citizenPosts = (posts || []).filter(p => String(p.authorId) === citizenId)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(0, 10);
+  const followerCount = (citizens || []).filter(c => (c.mushtagramFollowing||[]).map(String).includes(citizenId)).length;
+  const followingCount = (citizen.mushtagramFollowing||[]).length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
@@ -116,10 +118,27 @@ function ProfileModal({ citizen, myId, myFollowing, posts, onFollow, onUnfollow,
               </div>
             )}
           </div>
+          {/* Badges */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {citizen.mushtagramPublicPersonality === true || citizen.mushtagramPublicPersonality === "approved" ? (
+              <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-300 rounded-full px-2 py-0.5">
+                <Crown size={9} /> Personnalité Publique
+              </span>
+            ) : null}
+            {citizen.mushtagramPrivate ? (
+              <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-stone-100 text-stone-600 border border-stone-300 rounded-full px-2 py-0.5">
+                <Lock size={9} /> Compte Privé
+              </span>
+            ) : null}
+          </div>
           {citizen.mushtagramBio && (
-            <p className="text-sm text-stone-600 mt-2 leading-relaxed">{citizen.mushtagramBio}</p>
+            <p className="text-sm text-stone-600 mt-2 leading-relaxed whitespace-pre-wrap">{citizen.mushtagramBio}</p>
           )}
-          <div className="text-xs text-stone-400 mt-1">{citizenPosts.length} publication{citizenPosts.length !== 1 ? "s" : ""}</div>
+          <div className="flex gap-4 mt-2 flex-wrap text-xs text-stone-400">
+            <span><strong className="text-stone-700">{citizenPosts.length}</strong> publication{citizenPosts.length !== 1 ? "s" : ""}</span>
+            <span><strong className="text-stone-700">{followerCount}</strong> abonné{followerCount !== 1 ? "s" : ""}</span>
+            <span><strong className="text-stone-700">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}</span>
+          </div>
         </div>
 
         {/* Posts list */}
@@ -700,6 +719,7 @@ export default function MushtagramView({
   onVoteMushtagramPoll, onPinMushtagramPost,
   onReportMushtagramPost,
   onPostMushtagramStory, onDeleteMushtagramStory, onLikeMushtagramStory,
+  onUpdateMushtagramSettings, onRequestPublicPersonality,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -726,6 +746,9 @@ export default function MushtagramView({
 
   // Profile modal
   const [viewingProfile, setViewingProfile] = useState(null);
+
+  // Profile sub-tab
+  const [profileSubTab, setProfileSubTab] = useState("publications");
 
   // Followers / Following list modal
   const [followListMode, setFollowListMode] = useState(null); // null | "followers" | "following"
@@ -768,6 +791,10 @@ export default function MushtagramView({
     if (feedFilter === "abonnements") {
       base = base.filter(p => (myFollowing || []).includes(String(p.authorId)) || String(p.authorId) === myId);
     }
+    // Hide reposts from others if mushtagramHideReposts is true
+    if (myCitizen?.mushtagramHideReposts) {
+      base = base.filter(p => !p.repostOf || String(p.authorId) === myId);
+    }
     if (!search) return base;
     const q = search.toLowerCase();
     return base.filter(p =>
@@ -775,7 +802,7 @@ export default function MushtagramView({
       p.authorName?.toLowerCase().includes(q) ||
       (p.hashtags || []).some(h => h.toLowerCase().includes(q))
     );
-  }, [sortedPosts, feedFilter, myFollowing, myId, search]);
+  }, [sortedPosts, feedFilter, myFollowing, myId, search, myCitizen]);
 
   const filteredProfiles = useMemo(() => {
     if (!search || search.length < 2) return [];
@@ -1408,7 +1435,7 @@ export default function MushtagramView({
                     <p className="text-sm text-stone-400">@{myCitizen.mushtagramHandle}</p>
                   )}
                   {myCitizen?.mushtagramBio ? (
-                    <p className="text-sm text-stone-600 mt-2 leading-relaxed">{myCitizen.mushtagramBio}</p>
+                    <p className="text-sm text-stone-600 mt-2 leading-relaxed whitespace-pre-wrap">{myCitizen.mushtagramBio}</p>
                   ) : (
                     <p className="text-xs text-stone-400 italic mt-2">Aucune biographie — cliquez sur "Modifier le profil"</p>
                   )}
@@ -1430,78 +1457,243 @@ export default function MushtagramView({
             </div>
           </div>
 
-          {/* Post épinglé */}
-          {pinnedPost && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-amber-600">
-                <Pin size={10} /> Post épinglé
-              </div>
-              <PostCard
-                post={pinnedPost}
-                myId={myId}
-                isAdmin={isAdmin}
-                citizens={citizens}
-                myCitizen={myCitizen}
-                myFollowing={myFollowing}
-                mutedSet={new Set()}
-                expandedComments={expandedComments}
-                commentInput={commentInput}
-                onDelete={onDeleteMushtagramPost}
-                onToggleLike={onToggleMushtagramLike}
-                onAddComment={onAddMushtagramComment}
-                onDeleteComment={onDeleteMushtagramComment}
-                onLikeComment={onLikeMushtagramComment}
-                onReact={onReactMushtagram}
-                onRepost={onRepostMushtagram}
-                onVotePoll={onVoteMushtagramPoll}
-                onPin={onPinMushtagramPost}
-                onReport={onReportMushtagramPost}
-                onMute={handleMute}
-                onFollow={onFollowMushtagram}
-                onUnfollow={onUnfollowMushtagram}
-                onViewProfile={setViewingProfile}
-                myRepostedIds={myRepostedIds}
-                setExpandedComments={setExpandedComments}
-                setCommentInput={setCommentInput}
-              />
-            </div>
+          {/* Sub-tabs */}
+          <div className="flex gap-1 bg-stone-100 rounded-xl p-1">
+            {[
+              { id: "publications", label: "Publications" },
+              { id: "likes",        label: "J'aime" },
+              { id: "reposts",      label: "Republications" },
+              { id: "settings",     label: "Paramètres" },
+            ].map(t => (
+              <button key={t.id} onClick={() => setProfileSubTab(t.id)}
+                className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${profileSubTab === t.id ? "bg-white text-stone-900 shadow" : "text-stone-500 hover:text-stone-700"}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Publications ── */}
+          {profileSubTab === "publications" && (
+            <>
+              {/* Post épinglé */}
+              {pinnedPost && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-amber-600">
+                    <Pin size={10} /> Post épinglé
+                  </div>
+                  <PostCard
+                    post={pinnedPost}
+                    myId={myId}
+                    isAdmin={isAdmin}
+                    citizens={citizens}
+                    myCitizen={myCitizen}
+                    myFollowing={myFollowing}
+                    mutedSet={new Set()}
+                    expandedComments={expandedComments}
+                    commentInput={commentInput}
+                    onDelete={onDeleteMushtagramPost}
+                    onToggleLike={onToggleMushtagramLike}
+                    onAddComment={onAddMushtagramComment}
+                    onDeleteComment={onDeleteMushtagramComment}
+                    onLikeComment={onLikeMushtagramComment}
+                    onReact={onReactMushtagram}
+                    onRepost={onRepostMushtagram}
+                    onVotePoll={onVoteMushtagramPoll}
+                    onPin={onPinMushtagramPost}
+                    onReport={onReportMushtagramPost}
+                    onMute={handleMute}
+                    onFollow={onFollowMushtagram}
+                    onUnfollow={onUnfollowMushtagram}
+                    onViewProfile={setViewingProfile}
+                    myRepostedIds={myRepostedIds}
+                    setExpandedComments={setExpandedComments}
+                    setCommentInput={setCommentInput}
+                  />
+                </div>
+              )}
+
+              {/* Mes publications */}
+              {myPosts.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-stone-500">Mes publications</div>
+                  {myPosts.map(post => (
+                    <div key={post.id} className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm">
+                      {post.isOfficial && (
+                        <div className="flex items-center gap-1 text-amber-600 text-[9px] font-black uppercase mb-1">
+                          <Crown size={10} /> Proclamation Officielle
+                        </div>
+                      )}
+                      {post.repostOf && (
+                        <div className="flex items-center gap-1 text-stone-400 text-[9px] font-bold mb-1">
+                          <Repeat2 size={9} /> Republication de {post.repostOf.authorName}
+                        </div>
+                      )}
+                      <p className="text-sm text-stone-800 leading-relaxed">{post.content}</p>
+                      {post.imageUrl && (
+                        <img src={post.imageUrl} alt="" className="mt-2 rounded-lg max-h-48 object-contain bg-stone-50 w-full"
+                          onError={e => { e.target.style.display = "none"; }} />
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-[10px] text-stone-400">
+                        <span>❤ {(post.likes || []).length}</span>
+                        <span>💬 {(post.comments || []).length}</span>
+                        {myCitizen?.mushtagramPinned === post.id && (
+                          <span className="text-amber-500 flex items-center gap-0.5"><Pin size={9} /> Épinglé</span>
+                        )}
+                        <span className="ml-auto">{post.rpDate || post.date || ""}</span>
+                        <button onClick={() => onDeleteMushtagramPost(post.id)}
+                          className="text-stone-300 hover:text-red-400 transition-all">
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 text-stone-400 italic text-sm">Aucune publication</div>
+              )}
+            </>
           )}
 
-          {/* Mes publications */}
-          {myPosts.length > 0 && (
-            <div className="space-y-3">
-              <div className="text-[9px] font-black uppercase tracking-widest text-stone-500">Mes publications</div>
-              {myPosts.map(post => (
-                <div key={post.id} className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm">
-                  {post.isOfficial && (
-                    <div className="flex items-center gap-1 text-amber-600 text-[9px] font-black uppercase mb-1">
-                      <Crown size={10} /> Proclamation Officielle
+          {/* ── J'aime ── */}
+          {profileSubTab === "likes" && (() => {
+            const likedPosts = mushtagramPosts.filter(p => (p.likes || []).map(String).includes(myId));
+            return likedPosts.length === 0 ? (
+              <div className="text-center py-10 text-stone-400 italic text-sm">Vous n'avez aimé aucune publication.</div>
+            ) : (
+              <div className="space-y-3">
+                {likedPosts.map(post => (
+                  <div key={post.id} className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Ava citizen={citizens.find(c => String(c.id) === String(post.authorId)) || { name: post.authorName }} size="sm" />
+                      <span className="text-xs font-black text-stone-700">{post.authorName}</span>
+                      <span className="text-[10px] text-stone-400 ml-auto">{post.rpDate || post.date || ""}</span>
                     </div>
-                  )}
-                  {post.repostOf && (
-                    <div className="flex items-center gap-1 text-stone-400 text-[9px] font-bold mb-1">
+                    <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                    <div className="flex items-center gap-3 mt-2 text-[10px] text-stone-400">
+                      <span>❤ {(post.likes || []).length}</span>
+                      <span>💬 {(post.comments || []).length}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* ── Republications ── */}
+          {profileSubTab === "reposts" && (() => {
+            const myReposts = myPosts.filter(p => p.repostOf);
+            return myReposts.length === 0 ? (
+              <div className="text-center py-10 text-stone-400 italic text-sm">Aucune republication.</div>
+            ) : (
+              <div className="space-y-3">
+                {myReposts.map(post => (
+                  <div key={post.id} className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-center gap-1 text-stone-400 text-[9px] font-bold mb-2">
                       <Repeat2 size={9} /> Republication de {post.repostOf.authorName}
                     </div>
-                  )}
-                  <p className="text-sm text-stone-800 leading-relaxed">{post.content}</p>
-                  {post.imageUrl && (
-                    <img src={post.imageUrl} alt="" className="mt-2 rounded-lg max-h-48 object-contain bg-stone-50 w-full"
-                      onError={e => { e.target.style.display = "none"; }} />
-                  )}
-                  <div className="flex items-center gap-4 mt-2 text-[10px] text-stone-400">
-                    <span>❤ {(post.likes || []).length}</span>
-                    <span>💬 {(post.comments || []).length}</span>
-                    {myCitizen?.mushtagramPinned === post.id && (
-                      <span className="text-amber-500 flex items-center gap-0.5"><Pin size={9} /> Épinglé</span>
+                    {post.repostOf.content && (
+                      <p className="text-xs text-stone-600 leading-relaxed bg-stone-50 rounded-lg px-3 py-2 border border-stone-100">{post.repostOf.content}</p>
                     )}
-                    <span className="ml-auto">{post.rpDate || post.date || ""}</span>
-                    <button onClick={() => onDeleteMushtagramPost(post.id)}
-                      className="text-stone-300 hover:text-red-400 transition-all">
-                      <Trash2 size={11} />
+                    {post.content && (
+                      <p className="text-sm text-stone-800 leading-relaxed mt-2 whitespace-pre-wrap">{post.content}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2 text-[10px] text-stone-400">
+                      <span>❤ {(post.likes || []).length}</span>
+                      <span>{post.rpDate || post.date || ""}</span>
+                      <button onClick={() => onDeleteMushtagramPost(post.id)}
+                        className="ml-auto text-stone-300 hover:text-red-400 transition-all">
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* ── Paramètres ── */}
+          {profileSubTab === "settings" && (
+            <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm space-y-6">
+
+              {/* Section Confidentialité */}
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3">Confidentialité</div>
+                <div className="space-y-3">
+                  {/* Compte Privé */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-bold text-stone-800">Compte Privé</div>
+                      <div className="text-[10px] text-stone-400">Seuls vos abonnés voient vos publications complètes</div>
+                    </div>
+                    <button
+                      onClick={() => onUpdateMushtagramSettings && onUpdateMushtagramSettings({
+                        isPrivate: !(myCitizen?.mushtagramPrivate ?? false),
+                        isAnonymous: myCitizen?.mushtagramAnonymous ?? false,
+                        hideReposts: myCitizen?.mushtagramHideReposts ?? false,
+                      })}
+                      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${myCitizen?.mushtagramPrivate ? "bg-rose-500" : "bg-stone-300"}`}>
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 mt-0.5 ${myCitizen?.mushtagramPrivate ? "translate-x-5" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                  {/* Mode Anonyme */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-bold text-stone-800">Mode Anonyme</div>
+                      <div className="text-[10px] text-stone-400">Votre vrai nom est masqué sur vos publications</div>
+                    </div>
+                    <button
+                      onClick={() => onUpdateMushtagramSettings && onUpdateMushtagramSettings({
+                        isPrivate: myCitizen?.mushtagramPrivate ?? false,
+                        isAnonymous: !(myCitizen?.mushtagramAnonymous ?? false),
+                        hideReposts: myCitizen?.mushtagramHideReposts ?? false,
+                      })}
+                      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${myCitizen?.mushtagramAnonymous ? "bg-rose-500" : "bg-stone-300"}`}>
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 mt-0.5 ${myCitizen?.mushtagramAnonymous ? "translate-x-5" : "translate-x-0.5"}`} />
                     </button>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Section Personnalité Publique */}
+              <div className="border-t border-stone-100 pt-5">
+                <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3">Personnalité Publique</div>
+                {myCitizen?.mushtagramPublicPersonality === "approved" || myCitizen?.mushtagramPublicPersonality === true ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-xs font-black">
+                    <Crown size={14} className="text-amber-500" /> ✓ Personnalité Publique reconnue
+                  </div>
+                ) : myCitizen?.mushtagramPublicPersonality === "pending" ? (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-stone-500 text-xs">
+                    ⏳ Demande en attente de validation
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onRequestPublicPersonality && onRequestPublicPersonality()}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-xs font-black rounded-xl hover:opacity-90 transition-all shadow">
+                    Demander le statut Personnalité Publique
+                  </button>
+                )}
+              </div>
+
+              {/* Section Préférences d'affichage */}
+              <div className="border-t border-stone-100 pt-5">
+                <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3">Mes préférences d'affichage</div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-bold text-stone-800">Afficher les reposts dans le fil</div>
+                    <div className="text-[10px] text-stone-400">Masquer les republications des autres dans votre fil</div>
+                  </div>
+                  <button
+                    onClick={() => onUpdateMushtagramSettings && onUpdateMushtagramSettings({
+                      isPrivate: myCitizen?.mushtagramPrivate ?? false,
+                      isAnonymous: myCitizen?.mushtagramAnonymous ?? false,
+                      hideReposts: !(myCitizen?.mushtagramHideReposts ?? false),
+                    })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${myCitizen?.mushtagramHideReposts ? "bg-rose-500" : "bg-stone-300"}`}>
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 mt-0.5 ${myCitizen?.mushtagramHideReposts ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+              </div>
+
             </div>
           )}
         </div>
@@ -1574,6 +1766,7 @@ export default function MushtagramView({
           myId={myId}
           myFollowing={myFollowing}
           posts={mushtagramPosts}
+          citizens={citizens}
           onFollow={onFollowMushtagram}
           onUnfollow={onUnfollowMushtagram}
           onClose={() => setViewingProfile(null)}
