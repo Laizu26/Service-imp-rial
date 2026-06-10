@@ -1,4 +1,4 @@
 ## Git
-- Toujours committer sur la branche main
+- Toujours committer sur la branche master
 - Messages de commit en français
 - Format : "type: description" (feat, fix, chore...)
