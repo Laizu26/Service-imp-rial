@@ -29,6 +29,7 @@ import {
   Newspaper,
   Swords,
   Hash,
+  X,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -78,6 +79,15 @@ const sha256 = async (str) => {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 };
 
+const ADMIN_CATEGORIES = [
+  { id: "gouvernance", label: "Gouvernance", tabs: ["dashboard", "country"] },
+  { id: "information", label: "Information", tabs: ["gazette_admin", "library_admin"] },
+  { id: "social",      label: "Social & Registre", tabs: ["registry", "mushtagram"] },
+  { id: "economie",    label: "Économie", tabs: ["bank", "items", "post", "bourse_admin", "companies_admin", "postoffice", "asia_admin", "properties_admin"] },
+  { id: "ordre",       label: "Ordre & Combat", tabs: ["combat_admin", "guard_admin", "espionage", "jobs_admin", "tribunal_admin"] },
+  { id: "social2",     label: "Société", tabs: ["families_admin", "erudit_admin"] },
+];
+
 export default function App() {
   const [toast, setToast] = useState({ msg: null, type: "info" });
   const notify = useCallback((msg, type = "info") => {
@@ -120,6 +130,9 @@ export default function App() {
   const [gmConfirm, setGmConfirm] = useState("");
   const [gmTempBoost, setGmTempBoost] = useState(null); // { citizenId, expiresAt } | null
   const gmIsSetup = !!state.gmHash;
+
+  const [hiddenAdminTabs, setHiddenAdminTabs] = useState([]);
+  const [collapsedAdminCats, setCollapsedAdminCats] = useState(new Set());
 
   // Auto-expiry du boost exceptionnel (5 minutes)
   useEffect(() => {
@@ -819,31 +832,89 @@ export default function App() {
                 </div>
               </div>
 
-              <nav className="flex-1 p-4 md:p-6 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-transparent">
-                {availableTabs.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setActiveTab(t.id);
-                      if (window.innerWidth < 768) setSidebarOpen(false);
-                    }}
-                    className={`w-full text-left p-4 rounded-xl font-black uppercase text-[11px] tracking-[0.2em] flex items-center gap-5 transition-all duration-300 group ${
-                      activeTab === t.id
-                        ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_15px_rgba(0,0,0,0.3)] translate-x-2"
-                        : "text-stone-400 hover:bg-stone-900/50 hover:text-stone-100 hover:translate-x-1"
-                    }`}
-                  >
-                    <t.icon
-                      size={18}
-                      className={`transition-colors ${
+              <nav className="flex-1 p-4 md:p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-transparent space-y-1">
+                {ADMIN_CATEGORIES.map(cat => {
+                  const catTabs = availableTabs.filter(t =>
+                    cat.tabs.includes(t.id) && !hiddenAdminTabs.includes(t.id)
+                  );
+                  if (catTabs.length === 0) return null;
+                  const isCollapsed = collapsedAdminCats.has(cat.id);
+                  return (
+                    <div key={cat.id} className="mb-1">
+                      {/* En-tête catégorie */}
+                      <button
+                        onClick={() => setCollapsedAdminCats(prev => {
+                          const next = new Set(prev);
+                          isCollapsed ? next.delete(cat.id) : next.add(cat.id);
+                          return next;
+                        })}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-stone-800/50 transition-colors group"
+                      >
+                        <div className="flex-1 h-px bg-stone-700/50" />
+                        <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-500 group-hover:text-stone-400 whitespace-nowrap">{cat.label}</span>
+                        <div className="flex-1 h-px bg-stone-700/50" />
+                        {isCollapsed ? <ChevronDown size={10} className="text-stone-600 shrink-0" /> : <ChevronUp size={10} className="text-stone-600 shrink-0" />}
+                      </button>
+                      {/* Onglets */}
+                      {!isCollapsed && (
+                        <div className="space-y-0.5">
+                          {catTabs.map(t => (
+                            <div key={t.id} className="relative group/admintab">
+                              <button
+                                onClick={() => { setActiveTab(t.id); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                                className={`w-full text-left p-3 rounded-xl font-black uppercase text-[11px] tracking-[0.2em] flex items-center gap-4 transition-all duration-300 group pr-8 ${
+                                  activeTab === t.id
+                                    ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_15px_rgba(0,0,0,0.3)] translate-x-2"
+                                    : "text-stone-400 hover:bg-stone-900/50 hover:text-stone-100 hover:translate-x-1"
+                                }`}
+                              >
+                                <t.icon size={16} className={`transition-colors shrink-0 ${activeTab === t.id ? "text-stone-900" : "text-stone-500 group-hover:text-stone-300"}`} />
+                                {t.label}
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); setHiddenAdminTabs(prev => [...prev, t.id]); if (activeTab === t.id) setActiveTab("dashboard"); }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/admintab:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 z-10"
+                                title={`Fermer ${t.label}`}
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Onglets hors catégories (non listés dans ADMIN_CATEGORIES) */}
+                {availableTabs.filter(t => !ADMIN_CATEGORIES.flatMap(c => c.tabs).includes(t.id) && !hiddenAdminTabs.includes(t.id)).map(t => (
+                  <div key={t.id} className="relative group/admintab">
+                    <button
+                      onClick={() => { setActiveTab(t.id); if (window.innerWidth < 768) setSidebarOpen(false); }}
+                      className={`w-full text-left p-3 rounded-xl font-black uppercase text-[11px] tracking-[0.2em] flex items-center gap-4 transition-all duration-300 group pr-8 ${
                         activeTab === t.id
-                          ? "text-stone-900"
-                          : "text-stone-500 group-hover:text-stone-300"
+                          ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_15px_rgba(0,0,0,0.3)] translate-x-2"
+                          : "text-stone-400 hover:bg-stone-900/50 hover:text-stone-100 hover:translate-x-1"
                       }`}
-                    />
-                    {t.label}
-                  </button>
+                    >
+                      <t.icon size={16} className={`shrink-0 ${activeTab === t.id ? "text-stone-900" : "text-stone-500 group-hover:text-stone-300"}`} />
+                      {t.label}
+                    </button>
+                  </div>
                 ))}
+                {/* Restaurer onglets masqués */}
+                {hiddenAdminTabs.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-stone-800">
+                    <div className="text-[8px] font-black uppercase tracking-widest text-stone-600 px-2 mb-1">{hiddenAdminTabs.length} masqué{hiddenAdminTabs.length > 1 ? "s" : ""}</div>
+                    {availableTabs.filter(t => hiddenAdminTabs.includes(t.id)).map(t => (
+                      <button key={t.id} onClick={() => setHiddenAdminTabs(prev => prev.filter(id => id !== t.id))}
+                        className="w-full text-left p-2 rounded-lg text-[10px] text-stone-600 hover:text-stone-300 hover:bg-stone-800 flex items-center gap-3 transition-colors">
+                        <t.icon size={13} />
+                        {t.label}
+                        <span className="ml-auto text-[8px] text-stone-500">↩ Restaurer</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </nav>
 
               <div className="p-4 md:p-6 border-t border-stone-900 space-y-3 bg-stone-950 shrink-0">

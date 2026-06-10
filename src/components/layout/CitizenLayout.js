@@ -8,6 +8,8 @@ import {
   Users,
   PlusCircle,
   ChevronDown,
+  ChevronUp,
+  Menu,
   Trash2,
   Scroll,
   Box,
@@ -878,6 +880,8 @@ const CitizenLayout = (props) => {
   const [active, setActive] = useState("gazette");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showRestorePanel, setShowRestorePanel] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Onglets non-fermables (essentiels)
   const NON_CLOSEABLE = new Set(["profil", "notifications", "settings"]);
