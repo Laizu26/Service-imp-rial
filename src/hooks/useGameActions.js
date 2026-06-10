@@ -5380,7 +5380,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, combatEffects: (state.combatEffects || []).filter((e) => e.id !== id) });
       },
 
-      onSaveEruditResearch: ({ id, title, content, category }) => {
+      onSaveEruditResearch: ({ id, title, subtitle, abstract, chapters, category, coverUrl }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const dateStr = formatRPDate(gd);
@@ -5388,24 +5388,36 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (id) {
           const idx = existing.findIndex((r) => r.id === id);
           if (idx === -1) return;
-          existing[idx] = { ...existing[idx], title, content, category: category || "", updatedDate: dateStr };
+          existing[idx] = {
+            ...existing[idx],
+            title, subtitle: subtitle || "",
+            abstract: abstract || "",
+            chapters: chapters || [],
+            category: category || "",
+            coverUrl: coverUrl || "",
+            updatedDate: dateStr,
+          };
           saveState({ ...state, eruditResearch: existing });
-          notify("Travail mis à jour.", "success");
+          notify("Œuvre mise à jour.", "success");
         } else {
           const newRes = {
             id: `rech_${Date.now()}`,
             authorId: session.id,
             authorName: session.name,
             title,
-            content,
+            subtitle: subtitle || "",
+            abstract: abstract || "",
+            chapters: chapters || [],
             category: category || "",
+            coverUrl: coverUrl || "",
             published: false,
             publishedDate: null,
+            accessCountries: null, // null = tous les pays
             createdDate: dateStr,
             updatedDate: dateStr,
           };
           saveState({ ...state, eruditResearch: [...existing, newRes] });
-          notify("Travail enregistré.", "success");
+          notify("Œuvre enregistrée.", "success");
         }
       },
 
@@ -5437,6 +5449,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
         saveState({ ...state, eruditResearch: updated });
         notify("Travail supprimé.", "info");
+      },
+
+      onSetEruditResearchAccess: (researchId, countryIds) => {
+        // countryIds = null (tous) ou [id, id, ...]
+        if (!session) return;
+        const updated = (state.eruditResearch || []).map(r =>
+          r.id === researchId && r.authorId === session.id
+            ? { ...r, accessCountries: countryIds }
+            : r
+        );
+        saveState({ ...state, eruditResearch: updated });
+        notify("Accès mis à jour.", "success");
       },
 
       onRequestEruditValidation: (countryId) => {
@@ -5478,6 +5502,30 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         saveState({ ...state, eruditRequests: requests });
         notify(approved ? "Statut Érudit validé." : "Demande refusée.", approved ? "success" : "info");
+      },
+
+      onExpelErudit: (requestId, note = "") => {
+        if (!session) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const requests = (state.eruditRequests || []).map(r =>
+          r.id === requestId
+            ? { ...r, status: "EXPELLED", expelledDate: formatRPDate(gd), expelledBy: session.name, expelNote: note || "" }
+            : r
+        );
+        saveState({ ...state, eruditRequests: requests });
+        notify("Érudit radié.", "info");
+      },
+
+      onWithdrawEruditFromCountry: (countryId) => {
+        if (!session) return;
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const requests = (state.eruditRequests || []).map(r =>
+          r.citizenId === session.id && r.countryId === countryId && r.status === "APPROVED"
+            ? { ...r, status: "WITHDRAWN", withdrawnDate: formatRPDate(gd) }
+            : r
+        );
+        saveState({ ...state, eruditRequests: requests });
+        notify("Vous vous êtes retiré de ce pays.", "info");
       },
 
       // ── MUSHTAGRAM ───────────────────────────────────────────────
