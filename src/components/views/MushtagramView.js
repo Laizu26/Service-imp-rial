@@ -509,6 +509,11 @@ function PostCard({
             {(author?.mushtagramHandle) && (
               <span className="text-[10px] text-stone-400">@{author.mushtagramHandle}</span>
             )}
+            {post.followersOnly && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-violet-500 bg-violet-50 border border-violet-200 rounded-full px-1.5 py-0.5" title="Abonnés uniquement">
+                <Lock size={8} /> Abonnés
+              </span>
+            )}
             {!isMe && !isFollowing && (
               <button onClick={() => onFollow(authorId)}
                 className="text-[9px] font-black text-rose-500 hover:text-rose-700 transition-colors ml-1 flex items-center gap-0.5">
@@ -1533,11 +1538,12 @@ export default function MushtagramView({
           </div>
 
           {/* Sub-tabs */}
-          <div className="flex gap-1 bg-stone-100 rounded-xl p-1">
+          <div className="flex gap-1 bg-stone-100 rounded-xl p-1 flex-wrap">
             {[
               { id: "publications", label: "Publications" },
               { id: "likes",        label: "J'aime" },
               { id: "reposts",      label: "Republications" },
+              ...(isPP ? [{ id: "stats", label: "Statistiques" }] : []),
               { id: "settings",     label: "Paramètres" },
             ].map(t => (
               <button key={t.id} onClick={() => setProfileSubTab(t.id)}
@@ -1620,6 +1626,38 @@ export default function MushtagramView({
                           <Trash2 size={11} />
                         </button>
                       </div>
+                      {/* Stats panel for PP */}
+                      {isPP && (() => {
+                        const likeCount = (post.likes || []).length;
+                        const cmtCount = (post.comments || []).length;
+                        const repostCount = mushtagramPosts.filter(p => p.repostOf?.postId === post.id).length;
+                        const reach = likeCount + cmtCount * 2 + repostCount * 3;
+                        return (
+                          <div className="mt-3 pt-3 border-t border-stone-100 bg-stone-50 rounded-lg px-3 py-2 space-y-1">
+                            <div className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-1.5">Statistiques</div>
+                            <div className="grid grid-cols-4 gap-2 text-center">
+                              <div>
+                                <div className="text-sm font-black text-rose-500">{likeCount}</div>
+                                <div className="text-[8px] text-stone-400">
+                                  Likes {likeCount > 5 ? "🔥 Populaire" : ""}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-black text-blue-500">{cmtCount}</div>
+                                <div className="text-[8px] text-stone-400">Commentaires</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-black text-emerald-500">{repostCount}</div>
+                                <div className="text-[8px] text-stone-400">Reposts</div>
+                              </div>
+                              <div>
+                                <div className="text-sm font-black text-violet-500">{reach}</div>
+                                <div className="text-[8px] text-stone-400">Portée</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
