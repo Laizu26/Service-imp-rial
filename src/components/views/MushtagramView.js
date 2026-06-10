@@ -706,6 +706,7 @@ export default function MushtagramView({
   onPostMushtagramStory, onDeleteMushtagramStory, onLikeMushtagramStory,
   onUpdateMushtagramSettings, onRequestPublicPersonality,
   onMarkMushtagramNotifsRead,
+  onBroadcastMushtagram,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -726,6 +727,12 @@ export default function MushtagramView({
 
   // Official
   const [isOfficial, setIsOfficial]     = useState(false);
+
+  // Followers-only post (PP feature)
+  const [followersOnly, setFollowersOnly] = useState(false);
+
+  // Broadcast (PP feature)
+  const [broadcastInput, setBroadcastInput] = useState("");
 
   // Muted users (local state, not persisted)
   const [mutedSet, setMutedSet]         = useState(new Set());
@@ -754,6 +761,7 @@ export default function MushtagramView({
   const myRole    = ROLES[session?.role];
   const isAdmin   = (myRole?.level ?? 0) >= 90;
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
+  const isPP = myCitizen?.mushtagramPublicPersonality === "approved";
 
   /* ── notifications ──────────────────────────────────────────────────── */
   const myNotifs = useMemo(() =>
@@ -796,6 +804,13 @@ export default function MushtagramView({
     if (myCitizen?.mushtagramHideReposts) {
       base = base.filter(p => !p.repostOf || String(p.authorId) === myId);
     }
+    // Hide followers-only posts for non-followers (unless it's my own post or I'm admin)
+    base = base.filter(p => {
+      if (!p.followersOnly) return true;
+      if (String(p.authorId) === myId) return true;
+      if (isAdmin) return true;
+      return (myFollowing || []).includes(String(p.authorId));
+    });
     if (!search) return base;
     const q = search.toLowerCase();
     return base.filter(p =>
@@ -803,7 +818,7 @@ export default function MushtagramView({
       p.authorName?.toLowerCase().includes(q) ||
       (p.hashtags || []).some(h => h.toLowerCase().includes(q))
     );
-  }, [sortedPosts, feedFilter, myFollowing, myId, search, myCitizen]);
+  }, [sortedPosts, feedFilter, myFollowing, myId, search, myCitizen, isAdmin]);
 
   const filteredProfiles = useMemo(() => {
     if (!search || search.length < 2) return [];
@@ -838,9 +853,10 @@ export default function MushtagramView({
     const pollData = showPoll && pollOptions.filter(o => o.trim()).length >= 2
       ? { question: pollQuestion.trim(), options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })) }
       : null;
-    onPostMushtagram({ content: postContent.trim(), imageUrl: postImage.trim(), hashtags, poll: pollData, isOfficial: isAdmin && isOfficial });
+    onPostMushtagram({ content: postContent.trim(), imageUrl: postImage.trim(), hashtags, poll: pollData, isOfficial: isAdmin && isOfficial, followersOnly: isPP && followersOnly });
     setPostContent(""); setPostImage(""); setShowImgInput(false);
     setShowPoll(false); setPollOptions(["", ""]); setPollQuestion(""); setIsOfficial(false);
+    setFollowersOnly(false);
     notify("Publication envoyée !", "success");
   };
 
@@ -1065,6 +1081,12 @@ export default function MushtagramView({
                           <button onClick={() => setIsOfficial(v => !v)}
                             className={`flex items-center gap-1 text-xs font-bold transition-all ${isOfficial ? "text-amber-500" : "text-stone-400 hover:text-amber-400"}`}>
                             <Crown size={13} /> Officiel
+                          </button>
+                        )}
+                        {isPP && (
+                          <button onClick={() => setFollowersOnly(v => !v)}
+                            className={`flex items-center gap-1 text-xs font-bold transition-all ${followersOnly ? "text-violet-600" : "text-stone-400 hover:text-violet-400"}`}>
+                            <Lock size={13} /> Abonnés uniquement
                           </button>
                         )}
                       </div>

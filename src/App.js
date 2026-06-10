@@ -783,6 +783,7 @@ export default function App() {
             onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
             onRequestPublicPersonality={actions.onRequestPublicPersonality}
             onMarkMushtagramNotifsRead={actions.onMarkMushtagramNotifsRead}
+            onBroadcastMushtagram={actions.onBroadcastMushtagram}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1232,6 +1233,7 @@ export default function App() {
                         onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
                         onRequestPublicPersonality={actions.onRequestPublicPersonality}
                         onMarkMushtagramNotifsRead={actions.onMarkMushtagramNotifsRead}
+                        onBroadcastMushtagram={actions.onBroadcastMushtagram}
                         notify={notify}
                       />
                     </div>

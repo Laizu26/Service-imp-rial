@@ -875,6 +875,7 @@ const CitizenLayout = (props) => {
     onUpdateMushtagramSettings,
     onRequestPublicPersonality,
     onMarkMushtagramNotifsRead,
+    onBroadcastMushtagram,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1722,6 +1723,7 @@ const CitizenLayout = (props) => {
                 onUpdateMushtagramSettings={onUpdateMushtagramSettings}
                 onRequestPublicPersonality={onRequestPublicPersonality}
                 onMarkMushtagramNotifsRead={onMarkMushtagramNotifsRead}
+                onBroadcastMushtagram={onBroadcastMushtagram}
                 notify={notify}
               />
             )}

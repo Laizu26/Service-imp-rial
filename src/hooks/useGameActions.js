@@ -5529,7 +5529,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // ── MUSHTAGRAM ───────────────────────────────────────────────
-      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial }) => {
+      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const newPost = {
@@ -5543,6 +5543,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           comments: [],
           date: formatRPDate(gd),
           createdAt: Date.now(),
+          followersOnly: followersOnly || false,
           ...(poll ? { poll } : {}),
           ...(isOfficial ? { isOfficial: true } : {}),
         };
@@ -5861,6 +5862,47 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
         saveState({ ...state, citizens: updated });
         notify("Statut Personnalité Publique accordé.", "success");
+      },
+
+      onBroadcastMushtagram: ({ content }) => {
+        if (!session || !content?.trim()) return;
+        const isPP = (state.citizens || []).find(c => String(c.id) === String(session.id))?.mushtagramPublicPersonality === "approved";
+        if (!isPP) return;
+        const followers = (state.citizens || []).filter(c =>
+          (c.mushtagramFollowing || []).includes(String(session.id))
+        );
+        if (followers.length === 0) { notify("Aucun abonné.", "info"); return; }
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const now = Date.now();
+        const newDMs = followers.map((follower, i) => ({
+          id: `mdm_broadcast_${now}_${i}`,
+          fromId: session.id,
+          fromName: session.name,
+          toId: String(follower.id),
+          toName: follower.name,
+          content: `[Diffusion] ${content.trim()}`,
+          date: formatRPDate(gd),
+          createdAt: now,
+          readByRecipient: false,
+          isBroadcast: true,
+        }));
+        const newNotifs = followers.map((follower, i) => ({
+          id: `mnotif_broadcast_${now}_${i}`,
+          toId: String(follower.id),
+          type: "dm",
+          fromId: String(session.id),
+          fromName: session.name,
+          content: content.trim().slice(0, 60),
+          timestamp: now,
+          read: false,
+          priority: "high",
+        }));
+        saveState({
+          ...state,
+          mushtagramDMs: [...(state.mushtagramDMs || []), ...newDMs],
+          mushtagramNotifs: [...(state.mushtagramNotifs || []), ...newNotifs],
+        });
+        notify(`Message envoyé à ${followers.length} abonné${followers.length > 1 ? "s" : ""}.`, "success");
       },
       // ────────────────────────────────────────────────────────────
 
