@@ -432,6 +432,7 @@ function PostCard({
   myFollowing, mutedSet,
   expandedComments, commentInput,
   onDelete, onToggleLike, onAddComment, onDeleteComment, onLikeComment,
+  onPinComment,
   onReact, onRepost, onVotePoll, onPin, onReport, onMute,
   onFollow, onUnfollow,
   onViewProfile,
@@ -613,14 +614,17 @@ function PostCard({
       {/* Comments */}
       {showCmt && (
         <div className="px-4 pb-4 space-y-1 border-t border-stone-100 pt-2">
-          {(post.comments || []).map(c => {
+          {[...(post.comments || [])].sort((a, b) =>
+            a.id === post.pinnedCommentId ? -1 : b.id === post.pinnedCommentId ? 1 : 0
+          ).map(c => {
             const cAuthor = citizens.find(x => String(x.id) === String(c.authorId));
             const canDelCmt = String(c.authorId) === myId || isAdmin;
             const cmtLiked = (c.likes || []).map(String).includes(myId);
             const cmtLikeCount = (c.likes || []).length;
             const isReplyingToThis = replyingTo?.commentId === c.id;
+            const isPinnedCmt = post.pinnedCommentId === c.id;
             return (
-              <div key={c.id} className="flex items-start gap-2 pt-1.5">
+              <div key={c.id} className={`flex items-start gap-2 pt-1.5 ${isPinnedCmt ? "bg-amber-50 -mx-1 px-1 rounded-xl" : ""}`}>
                 <Ava citizen={cAuthor || { name: c.authorName }} size="xs" className="mt-0.5" />
                 <div className="flex-1 min-w-0">
                   {/* Reply context */}
@@ -628,6 +632,9 @@ function PostCard({
                     <div className="text-[9px] text-stone-400 mb-0.5 flex items-center gap-1">
                       <ArrowLeft size={8} /> Réponse à <strong>{c.replyTo.authorName}</strong>
                     </div>
+                  )}
+                  {isPinnedCmt && (
+                    <div className="text-[8px] font-black uppercase text-amber-600 mb-0.5 flex items-center gap-1">📌 Épinglé</div>
                   )}
                   <div className="bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-1.5">
                     <span className="text-[10px] font-black text-stone-700">{c.authorName} </span>
@@ -645,6 +652,13 @@ function PostCard({
                       className={`text-[9px] font-bold transition-colors ${isReplyingToThis ? "text-blue-500" : "text-stone-400 hover:text-blue-400"}`}>
                       Répondre
                     </button>
+                    {isMe && onPinComment && (
+                      <button
+                        onClick={() => onPinComment({ postId: post.id, commentId: c.id })}
+                        className={`text-[9px] font-bold transition-colors ${isPinnedCmt ? "text-amber-500 hover:text-stone-400" : "text-stone-300 hover:text-amber-500"}`}>
+                        {isPinnedCmt ? "📌 Désépingler" : "📌"}
+                      </button>
+                    )}
                     {canDelCmt && (
                       <button onClick={() => onDeleteComment({ postId: post.id, commentId: c.id })}
                         className="text-[9px] text-stone-300 hover:text-red-400 transition-colors">
@@ -719,7 +733,7 @@ export default function MushtagramView({
   session, citizens = [],
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
   onPostMushtagram, onDeleteMushtagramPost,
-  onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment,
+  onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment, onPinMushtagramComment,
   onUpdateMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
   onFollowMushtagram, onUnfollowMushtagram,
   onReactMushtagram, onRepostMushtagram,
@@ -1177,6 +1191,7 @@ export default function MushtagramView({
                   onAddComment={onAddMushtagramComment}
                   onDeleteComment={onDeleteMushtagramComment}
                   onLikeComment={onLikeMushtagramComment}
+                  onPinComment={onPinMushtagramComment}
                   onReact={onReactMushtagram}
                   onRepost={onRepostMushtagram}
                   onVotePoll={onVoteMushtagramPoll}
@@ -1634,6 +1649,7 @@ export default function MushtagramView({
                     onAddComment={onAddMushtagramComment}
                     onDeleteComment={onDeleteMushtagramComment}
                     onLikeComment={onLikeMushtagramComment}
+                    onPinComment={onPinMushtagramComment}
                     onReact={onReactMushtagram}
                     onRepost={onRepostMushtagram}
                     onVotePoll={onVoteMushtagramPoll}

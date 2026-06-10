@@ -767,6 +767,7 @@ export default function App() {
             onAddMushtagramComment={actions.onAddMushtagramComment}
             onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
             onLikeMushtagramComment={actions.onLikeMushtagramComment}
+            onPinMushtagramComment={actions.onPinMushtagramComment}
             onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
             onSendMushtagramDM={actions.onSendMushtagramDM}
             onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}

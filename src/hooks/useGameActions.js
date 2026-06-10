@@ -5638,6 +5638,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Commentaire supprimé.", "info");
       },
 
+      onPinMushtagramComment: ({ postId, commentId }) => {
+        if (!session || !postId) return;
+        const post = (state.mushtagramPosts || []).find(p => String(p.id) === String(postId));
+        if (!post || String(post.authorId) !== String(session.id)) return;
+        const newPinned = post.pinnedCommentId === commentId ? null : commentId;
+        const updatedPosts = (state.mushtagramPosts || []).map(p =>
+          String(p.id) === String(postId) ? { ...p, pinnedCommentId: newPinned } : p
+        );
+        saveState({ ...state, mushtagramPosts: updatedPosts });
+        notify(newPinned ? "Commentaire épinglé." : "Commentaire désépinglé.", "info");
+      },
+
       onUpdateMushtagramProfile: ({ bio, avatar, handle, banner, photo, officialTitle, externalLink }) => {
         if (!session) return;
         const updated = (state.citizens || []).map((c) =>
