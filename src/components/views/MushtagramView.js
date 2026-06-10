@@ -739,7 +739,7 @@ function PostCard({
 /* ── composant principal ─────────────────────────────────────────────────── */
 
 export default function MushtagramView({
-  session, citizens = [],
+  session, citizens = [], companies = [],
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
   onPostMushtagram, onDeleteMushtagramPost,
   onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment, onPinMushtagramComment,
@@ -805,6 +805,12 @@ export default function MushtagramView({
   const myCitizen = useMemo(() => citizens.find(c => String(c.id) === myId) || session, [citizens, myId, session]);
   const myRole    = ROLES[session?.role];
   const isAdmin   = (myRole?.level ?? 0) >= 90;
+
+  const mushtagramEmployer = useMemo(() =>
+    (companies || []).find(c => (c.employees || []).map(String).includes(myId)),
+    [companies, myId]
+  );
+  const mushtagramSerfRights = mushtagramEmployer?.employmentContracts?.[myId]?.serfRights || {};
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
   const isPP = myCitizen?.mushtagramPublicPersonality === "approved";
 
@@ -992,6 +998,16 @@ export default function MushtagramView({
     if (!myCitizen?.mushtagramPinned) return null;
     return mushtagramPosts.find(p => p.id === myCitizen.mushtagramPinned) || null;
   }, [myCitizen, mushtagramPosts]);
+
+  if (mushtagramSerfRights.mushtagramLocked) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+        <span className="text-3xl">📵</span>
+        <p className="font-black text-red-700 mt-2 text-lg">Mushtagram restreint</p>
+        <p className="text-sm text-red-500 mt-1">Votre employeur a bloqué votre accès à Mushtagram.</p>
+      </div>
+    );
+  }
 
   /* ── render ──────────────────────────────────────────────────────── */
   return (

@@ -641,6 +641,7 @@ export default function App() {
             onPostBulletin={actions.onPostBulletin}
             onDeleteBulletin={actions.onDeleteBulletin}
             onSetEmployeeRank={actions.onSetEmployeeRank}
+            onSetEmployeeSerfRights={actions.onSetEmployeeSerfRights}
             onApplyToCompany={actions.onApplyToCompany}
             onRespondApplication={actions.onRespondApplication}
             onUpdateEmployeeProfile={actions.onUpdateEmployeeProfile}
@@ -761,6 +762,7 @@ export default function App() {
             mushtagramDMs={state.mushtagramDMs || []}
             mushtagramStories={state.mushtagramStories || []}
             mushtagramNotifs={state.mushtagramNotifs || []}
+            companies={state.companies || []}
             onPostMushtagram={actions.onPostMushtagram}
             onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
             onToggleMushtagramLike={actions.onToggleMushtagramLike}
@@ -1208,6 +1210,7 @@ export default function App() {
                       <MushtagramView
                         session={currentUser}
                         citizens={state.citizens}
+                        companies={state.companies || []}
                         mushtagramPosts={state.mushtagramPosts || []}
                         mushtagramDMs={state.mushtagramDMs || []}
                         mushtagramStories={state.mushtagramStories || []}

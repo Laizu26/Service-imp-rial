@@ -716,6 +716,7 @@ const CitizenLayout = (props) => {
     onPostBulletin,
     onDeleteBulletin,
     onSetEmployeeRank,
+    onSetEmployeeSerfRights,
     onApplyToCompany,
     onRespondApplication,
     onUpdateEmployeeProfile,
@@ -1665,6 +1666,7 @@ const CitizenLayout = (props) => {
                 onPostBulletin={onPostBulletin}
                 onDeleteBulletin={onDeleteBulletin}
                 onSetEmployeeRank={onSetEmployeeRank}
+                onSetEmployeeSerfRights={onSetEmployeeSerfRights}
                 onApplyToCompany={onApplyToCompany}
                 onRespondApplication={onRespondApplication}
                 onUpdateEmployeeProfile={onUpdateEmployeeProfile}
@@ -1698,6 +1700,7 @@ const CitizenLayout = (props) => {
               <MushtagramView
                 session={user}
                 citizens={safeUsers}
+                companies={companies}
                 mushtagramPosts={mushtagramPosts}
                 mushtagramDMs={mushtagramDMs}
                 mushtagramStories={mushtagramStories}
@@ -1734,6 +1737,15 @@ const CitizenLayout = (props) => {
               !isBanned &&
               !isPrisoner &&
               canUseTravel && (() => {
+                const travelEmployer = safeCompanies.find(c => (c.employees || []).map(String).includes(String(user.id)));
+                const travelSerfRights = travelEmployer?.employmentContracts?.[user.id]?.serfRights || {};
+                if (travelSerfRights.travelLocked) return (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
+                    <div className="text-3xl">🚫</div>
+                    <p className="font-black text-red-700 text-base">Voyage restreint</p>
+                    <p className="text-xs text-red-500">Votre employeur a restreint vos droits de voyage dans le cadre de votre contrat.</p>
+                  </div>
+                );
                 const currentCountry = safeCountries.find((c) => c.id === (user.locationCountryId || user.countryId));
                 const pendingReq = myPendingRequests[0] || null;
                 const destCountry = safeCountries.find((c) => c.id === travelDestCountry);

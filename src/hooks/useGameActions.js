@@ -3344,6 +3344,22 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(rankData?.title ? `Grade "${rankData.title}" attribué.` : "Grade retiré.", "success");
       },
 
+      onSetEmployeeSerfRights: ({ companyId, citizenId, rights }) => {
+        if (!session) return;
+        const company = (state.companies || []).find(c => c.id === companyId);
+        if (!company || String(company.ownerId) !== String(session.id)) return;
+        const contracts = { ...(company.employmentContracts || {}) };
+        contracts[citizenId] = {
+          ...(contracts[citizenId] || {}),
+          serfRights: { ...((contracts[citizenId] || {}).serfRights || {}), ...rights },
+        };
+        const updatedCompanies = (state.companies || []).map(c =>
+          c.id === companyId ? { ...c, employmentContracts: contracts } : c
+        );
+        saveState({ ...state, companies: updatedCompanies });
+        notify("Droits mis à jour.", "success");
+      },
+
       // --- CANDIDATURE SPONTANÉE ---
       onApplyToCompany: (companyId) => {
         if (!session) return;

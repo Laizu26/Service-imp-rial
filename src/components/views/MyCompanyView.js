@@ -277,6 +277,7 @@ const MyCompanyView = ({
   onPostBulletin,
   onDeleteBulletin,
   onSetEmployeeRank,
+  onSetEmployeeSerfRights,
   onApplyToCompany,
   onRespondApplication,
   onUpdateEmployeeProfile,
@@ -337,6 +338,9 @@ const MyCompanyView = ({
 
   // Babillard
   const [bulletinMsg, setBulletinMsg] = useState("");
+
+  // Droits employé (contrat de servage)
+  const [rightsTarget, setRightsTarget] = useState(null);
 
   // Grades
   const [rankEditTarget, setRankEditTarget] = useState(null);
@@ -1374,37 +1378,72 @@ const MyCompanyView = ({
                     const empDays = (myCompany.employeeSeniority || {})[empId] || 0;
                     const empContract = (myCompany.employmentContracts || {})[empId];
                     const ctMeta = empContract ? CONTRACT_TYPE_META[empContract.type] : null;
+                    const sr = empContract?.serfRights || {};
+                    const isRightsOpen = rightsTarget === empId;
+                    const SERF_RIGHTS = [
+                      { key: "travelLocked", icon: "🚫", label: "Bloquer le voyage" },
+                      { key: "mushtagramLocked", icon: "📵", label: "Bloquer Mushtagram" },
+                      { key: "bankLocked", icon: "🏦", label: "Bloquer le compte bancaire" },
+                      { key: "marketLocked", icon: "🛒", label: "Bloquer le marché / échanges" },
+                    ];
                     return (
-                      <div key={empId} className="py-3 flex justify-between items-center">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-stone-700 text-sm">{emp ? emp.name : "Inconnu"}</span>
-                          {empRank?.title && (
-                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">{empRank.title}</span>
-                          )}
-                          {ctMeta && (
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${ctMeta.badge}`}>{ctMeta.shortLabel}</span>
-                          )}
-                          {empContract?.contractDurationDays ? (
-                            <span className="text-[9px] text-stone-400 font-mono">J{empDays}/{empContract.contractDurationDays}</span>
-                          ) : empDays > 0 ? (
-                            <span className="text-[9px] text-stone-400 font-mono">{empDays}j</span>
-                          ) : null}
-                          {empContract?.buyoutAmount > 0 && (
-                            <span className="text-[8px] text-amber-600 font-black flex items-center gap-0.5"><Lock size={9} />{formatMoney(empContract.buyoutAmount)}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {empContract?.corveeFreeDaysPerMonth > 0 && onClaimCorvee && (
-                            <button onClick={() => onClaimCorvee(myCompany.id, empId)}
-                              className="text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-[9px] font-black uppercase px-2 py-1 rounded">
-                              Corvée
+                      <div key={empId} className="py-2 border-b border-stone-100 last:border-0">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-stone-700 text-sm">{emp ? emp.name : "Inconnu"}</span>
+                            {empRank?.title && (
+                              <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">{empRank.title}</span>
+                            )}
+                            {ctMeta && (
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase border ${ctMeta.badge}`}>{ctMeta.shortLabel}</span>
+                            )}
+                            {empContract?.contractDurationDays ? (
+                              <span className="text-[9px] text-stone-400 font-mono">J{empDays}/{empContract.contractDurationDays}</span>
+                            ) : empDays > 0 ? (
+                              <span className="text-[9px] text-stone-400 font-mono">{empDays}j</span>
+                            ) : null}
+                            {empContract?.buyoutAmount > 0 && (
+                              <span className="text-[8px] text-amber-600 font-black flex items-center gap-0.5"><Lock size={9} />{formatMoney(empContract.buyoutAmount)}</span>
+                            )}
+                            {Object.values(sr).some(Boolean) && (
+                              <span className="text-[8px] text-red-500 font-black flex items-center gap-0.5"><Shield size={9} />Droits restreints</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {empContract?.corveeFreeDaysPerMonth > 0 && onClaimCorvee && (
+                              <button onClick={() => onClaimCorvee(myCompany.id, empId)}
+                                className="text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 text-[9px] font-black uppercase px-2 py-1 rounded">
+                                Corvée
+                              </button>
+                            )}
+                            {onSetEmployeeSerfRights && (
+                              <button onClick={() => setRightsTarget(isRightsOpen ? null : empId)}
+                                className={`text-[9px] font-black uppercase px-2 py-1 rounded border transition-colors ${isRightsOpen ? "bg-stone-800 text-white border-stone-800" : "border-stone-300 text-stone-500 hover:border-stone-500 hover:text-stone-700"}`}>
+                                <Shield size={10} className="inline mr-0.5" />Droits
+                              </button>
+                            )}
+                            <button onClick={() => onCompanyFire(myCompany.id, empId, "FIRE")}
+                              className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50">
+                              Licencier
                             </button>
-                          )}
-                          <button onClick={() => onCompanyFire(myCompany.id, empId, "FIRE")}
-                            className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50">
-                            Licencier
-                          </button>
+                          </div>
                         </div>
+                        {isRightsOpen && (
+                          <div className="mt-2 mb-1 bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
+                            <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-1">Restrictions pour {emp?.name}</div>
+                            {SERF_RIGHTS.map(({ key, icon, label }) => (
+                              <div key={key} className="flex items-center justify-between">
+                                <span className="text-xs text-stone-700">{icon} {label}</span>
+                                <button
+                                  onClick={() => onSetEmployeeSerfRights({ companyId: myCompany.id, citizenId: empId, rights: { [key]: !sr[key] } })}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${sr[key] ? "bg-red-500" : "bg-stone-300"}`}>
+                                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${sr[key] ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </button>
+                              </div>
+                            ))}
+                            <p className="text-[8px] text-stone-400 italic pt-1">Ces restrictions s'appliquent tant que l'employé travaille dans cette entreprise.</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
