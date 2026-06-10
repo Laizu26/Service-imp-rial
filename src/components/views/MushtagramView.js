@@ -579,23 +579,8 @@ function PostCard({
         <PollDisplay poll={post.poll} postId={post.id} myId={myId} onVote={onVotePoll} />
       )}
 
-      {/* Reactions bar summary */}
-      {Object.keys(post.reactions || {}).some(e => (post.reactions[e] || []).length > 0) && (
-        <div className="flex flex-wrap gap-1 px-4 pb-2">
-          {REACTION_EMOJIS.filter(e => ((post.reactions || {})[e] || []).length > 0).map(e => {
-            const count = (post.reactions[e] || []).length;
-            return (
-              <span key={e} className="flex items-center gap-0.5 bg-stone-50 border border-stone-100 rounded-full px-2 py-0.5 text-xs">
-                {e} <span className="text-[10px] text-stone-500 font-bold">{count}</span>
-              </span>
-            );
-          })}
-        </div>
-      )}
-
       {/* Actions bar */}
       <div className="px-4 py-2 border-t border-stone-100 flex items-center gap-4">
-        <ReactionPicker postId={post.id} reactions={post.reactions || {}} myId={myId} onReact={onReact} />
         <button onClick={() => onToggleLike(post.id)}
           className={`flex items-center gap-1.5 text-xs font-bold transition-all ${isLiked ? "text-rose-500" : "text-stone-400 hover:text-rose-400"}`}>
           <Heart size={14} fill={isLiked ? "currentColor" : "none"} />
