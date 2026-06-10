@@ -4,6 +4,7 @@ import {
   BookOpen, Globe, Edit3, CheckCircle, Clock, XCircle,
   AlertTriangle, Eye, EyeOff, ImageIcon, AlignLeft,
 } from "lucide-react";
+import RichTextEditor from "../ui/RichTextEditor";
 
 const CATEGORIES = ["Sciences", "Histoire", "Arts", "Philosophie", "Magie", "Droit", "Géographie", "Médecine", "Théologie"];
 
@@ -38,15 +39,14 @@ function ChapterEditor({ chapter, idx, total, onChange, onDelete, onMoveUp, onMo
           </button>
         </div>
       </div>
-      <textarea
-        className="w-full px-4 py-3 text-sm text-stone-800 font-serif leading-relaxed outline-none resize-none bg-white placeholder:text-stone-300"
-        rows={8}
-        placeholder="Rédigez le contenu de ce chapitre…"
+      <RichTextEditor
         value={chapter.content}
-        onChange={e => onChange({ ...chapter, content: e.target.value })}
+        onChange={val => onChange({ ...chapter, content: val })}
+        placeholder="Rédigez le contenu de ce chapitre…"
+        minHeight={220}
       />
       <div className="px-4 py-1.5 bg-stone-50 border-t border-stone-100 text-[9px] text-stone-400">
-        {(chapter.content || "").trim().split(/\s+/).filter(Boolean).length} mots
+        {(chapter.content || "").replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length} mots
       </div>
     </div>
   );

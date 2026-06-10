@@ -35,8 +35,25 @@ function canAccess(book, session) {
   return true;
 }
 
+const isHtml = (s) => /<[a-z][\s\S]*?>/i.test(s || "");
+const stripHtml = (s) => (s || "").replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+
+function sanitizeHtml(html) {
+  if (!html) return "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  tmp.querySelectorAll("script,style,iframe,object,embed,form").forEach((el) => el.remove());
+  tmp.querySelectorAll("*").forEach((el) => {
+    Array.from(el.attributes)
+      .filter((a) => a.name.startsWith("on") || a.value.toLowerCase().startsWith("javascript:"))
+      .forEach((a) => el.removeAttribute(a.name));
+  });
+  return tmp.innerHTML;
+}
+
 function readingTime(content) {
-  const words = (content || "").split(/\s+/).filter(Boolean).length;
+  const text = isHtml(content) ? stripHtml(content) : (content || "");
+  const words = text.split(/\s+/).filter(Boolean).length;
   const mins = Math.ceil(words / 200);
   return mins <= 1 ? "< 1 min" : `${mins} min`;
 }
@@ -400,9 +417,13 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                   {currentChap?.title && (
                     <h2 className="text-xl font-black font-serif text-stone-800 mb-6 pb-3 border-b border-stone-200">{currentChap.title}</h2>
                   )}
-                  <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
-                    {currentChap?.content || ""}
-                  </div>
+                  {isHtml(currentChap?.content) ? (
+                    <div className="erudit-reading text-lg" dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentChap.content) }} />
+                  ) : (
+                    <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
+                      {currentChap?.content || ""}
+                    </div>
+                  )}
                   {chaps.length > 1 && (
                     <div className="flex justify-between mt-10 pt-4 border-t border-stone-200">
                       <button disabled={readingChapter === 0} onClick={() => setReadingChapter(p => p - 1)}
@@ -417,6 +438,8 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                     </div>
                   )}
                 </>
+              ) : isHtml(readingItem.content) ? (
+                <div className="erudit-reading text-lg" dangerouslySetInnerHTML={{ __html: sanitizeHtml(readingItem.content) }} />
               ) : (
                 <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
                   {readingItem.content}
@@ -619,7 +642,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                               </span>
                             )}
                             <p className="text-xs text-stone-500 mt-2 line-clamp-2 font-serif italic">
-                              {(item.content || "").substring(0, 100)}…
+                              {(isHtml(item.content) ? stripHtml(item.content) : (item.content || "")).substring(0, 100)}…
                             </p>
                           </div>
                         </div>
@@ -945,7 +968,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                           <p className="text-xs italic text-stone-500 mb-2 font-serif">par {book.author}</p>
                         )}
                         <div className="font-serif text-sm leading-relaxed text-stone-600 line-clamp-3 mb-3">
-                          {book.content}
+                          {isHtml(book.content) ? stripHtml(book.content) : book.content}
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-stone-100">
                           <span className="text-[9px] text-stone-400 flex items-center gap-1">
@@ -1013,7 +1036,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                       const readTime = hasChapters ? readingTimeFromChapters(res.chapters) : readingTime(res.content);
                       const previewText = hasChapters
                         ? (res.abstract || res.chapters[0]?.content || "")
-                        : (res.content || "");
+                        : (isHtml(res.content) ? stripHtml(res.content) : (res.content || ""));
                       return (
                         <button
                           key={res.id}
