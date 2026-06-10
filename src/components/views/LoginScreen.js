@@ -42,9 +42,10 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
                           src={account.avatarUrl}
                           alt={account.name}
                           className="w-14 h-14 rounded-full object-cover border-2 border-stone-600 group-hover:border-yellow-600/50 transition-colors"
+                          style={{ width: 56, height: 56, minWidth: 56, minHeight: 56, objectFit: "cover" }}
                         />
                       ) : (
-                        <div className="w-14 h-14 rounded-full bg-stone-700 border-2 border-stone-600 group-hover:border-yellow-600/50 flex items-center justify-center transition-colors">
+                        <div className="w-14 h-14 rounded-full bg-stone-700 border-2 border-stone-600 group-hover:border-yellow-600/50 flex items-center justify-center transition-colors" style={{ width: 56, height: 56, minWidth: 56, minHeight: 56 }}>
                           <span className="text-xl font-black text-stone-300 uppercase select-none">
                             {(account.name || account.id || "?")[0]}
                           </span>

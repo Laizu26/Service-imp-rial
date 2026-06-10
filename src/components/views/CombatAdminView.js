@@ -455,7 +455,7 @@ export default function CombatAdminView({
                     <button key={c.id} onClick={() => selectCitizen(c.id)}
                       className={`w-full text-left px-4 py-3 border-b border-stone-50 flex items-center gap-3 transition-colors hover:bg-stone-50 ${isSel ? "bg-amber-50 border-l-2 border-l-amber-500" : ""}`}
                     >
-                      <div className="w-8 h-8 rounded-full bg-stone-700 text-white text-xs font-black flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-stone-700 text-white text-xs font-black flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
                         {c.name?.[0]?.toUpperCase() || "?"}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -849,7 +849,7 @@ export default function CombatAdminView({
                                 .slice(0, 8).map(c => (
                                   <button key={c.id} onClick={() => { addParticipant(c.id); }}
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center gap-2 border-b border-stone-50 transition-colors">
-                                    <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0">
+                                    <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0" style={{ width: 20, height: 20, minWidth: 20, minHeight: 20 }}>
                                       {c.name?.[0]?.toUpperCase()}
                                     </span>
                                     <span className="font-semibold text-stone-800 flex-1">{c.name}</span>

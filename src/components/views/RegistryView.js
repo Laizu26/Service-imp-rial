@@ -257,9 +257,10 @@ const RegistryView = ({
                     src={c.avatarUrl}
                     className="w-10 h-10 rounded-full object-cover border-2 border-white/20 shrink-0"
                     alt=""
+                    style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, objectFit: "cover" }}
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0" style={{ width: 40, height: 40, minWidth: 40, minHeight: 40 }}>
                     <User size={20} />
                   </div>
                 )}
@@ -779,7 +780,7 @@ const RegistryView = ({
                                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
                                   >
                                     {c.avatarUrl ? (
-                                      <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" />
+                                      <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} />
                                     ) : (
                                       <User size={12} className="text-stone-400 shrink-0" />
                                     )}

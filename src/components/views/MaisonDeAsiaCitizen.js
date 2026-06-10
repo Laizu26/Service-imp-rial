@@ -401,6 +401,7 @@ const MaisonDeAsiaCitizen = ({
           <div className="max-w-md mx-auto bg-black/40 backdrop-blur-md p-8 rounded-2xl border border-fuchsia-500/30 text-center shadow-[0_0_50px_rgba(192,38,211,0.2)]">
             <div
               className="w-28 h-28 mx-auto rounded-full p-1 border-2 border-fuchsia-500 mb-4 shadow-lg overflow-hidden cursor-pointer hover:border-fuchsia-300 transition-colors"
+              style={{ width: 112, height: 112, minWidth: 112, minHeight: 112 }}
               onClick={() => myWorker && setSelectedStaff(myWorker)}
             >
               {myWorker?.avatarUrl ? (
@@ -734,7 +735,7 @@ const MaisonDeAsiaCitizen = ({
                     return (
                       <div key={visit.id} className="bg-stone-900/60 border border-stone-700 rounded-xl p-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full border-2 border-fuchsia-800 overflow-hidden shrink-0">
+                          <div className="w-12 h-12 rounded-full border-2 border-fuchsia-800 overflow-hidden shrink-0" style={{ width: 48, height: 48, minWidth: 48, minHeight: 48 }}>
                             {staff.find((s) => s.id === visit.staffId)?.avatarUrl ? (
                               <img src={staff.find((s) => s.id === visit.staffId)?.avatarUrl} alt="" className="w-full h-full object-cover" />
                             ) : (

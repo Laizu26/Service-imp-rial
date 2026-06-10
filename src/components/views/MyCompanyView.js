@@ -523,7 +523,7 @@ const MyCompanyView = ({
                     {/* Dirigeant */}
                     {owner && (
                       <div className="py-2.5 flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center text-[10px] font-bold text-yellow-700 flex-shrink-0 border border-yellow-300">
+                        <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center text-[10px] font-bold text-yellow-700 flex-shrink-0 border border-yellow-300" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
                           {(owner.name || "?")[0]}
                         </div>
                         <span className="text-sm font-bold text-stone-700">{owner.name}</span>
@@ -537,7 +537,7 @@ const MyCompanyView = ({
                       const cRank = (workerCompany.employeeRanks || {})[c.id];
                       return (
                         <div key={c.id} className="py-2.5 flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-bold text-stone-500 flex-shrink-0" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
                             {(c.name || "?")[0]}
                           </div>
                           <span className="text-sm font-bold text-stone-700">{c.name}</span>

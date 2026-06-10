@@ -65,7 +65,7 @@ const CitizenSelect = ({ users, value, onChange, isMulti = false, label = "Desti
           ) : <span className="text-stone-400 text-xs italic flex-1">En copie (optionnel)…</span>
         ) : selected ? (
           <span className="flex items-center gap-2 flex-1 text-sm font-semibold text-stone-800">
-            <span className={`w-5 h-5 rounded-full text-white text-[9px] font-black flex items-center justify-center ${avatarColor(selected.name)}`}>
+            <span className={`w-5 h-5 rounded-full text-white text-[9px] font-black flex items-center justify-center ${avatarColor(selected.name)}`} style={{ width: 20, height: 20, minWidth: 20, minHeight: 20 }}>
               {selected.name[0]?.toUpperCase()}
             </span>
             {selected.name}
@@ -90,7 +90,7 @@ const CitizenSelect = ({ users, value, onChange, isMulti = false, label = "Desti
                   return (
                     <div key={u.id} onClick={() => handleSelect(u.id)}
                       className={`px-3 py-2 cursor-pointer flex items-center gap-3 transition-colors ${isSel ? "bg-[#b8860b]/20 text-[#b8860b]" : "hover:bg-white/10 text-stone-200"}`}>
-                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white ${avatarColor(u.name)}`}>
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white ${avatarColor(u.name)}`} style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
                         {u.name[0]?.toUpperCase()}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -331,7 +331,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
         {/* Pied sidebar */}
         <div className="p-3 border-t border-stone-800">
           <div className="hidden md:flex items-center gap-2 px-2">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0 ${avatarColor(session?.name || "")}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black text-white shrink-0 ${avatarColor(session?.name || "")}`} style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
               {(session?.name || "?")[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -405,7 +405,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                   >
                     <div className="flex items-start gap-3">
                       {/* Avatar */}
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 mt-0.5 ${avatarColor(isSent ? (msg.toName || "") : (msg.from || ""))}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 mt-0.5 ${avatarColor(isSent ? (msg.toName || "") : (msg.from || ""))}`} style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
                         {(isSent ? (msg.toName || "?") : (msg.from || "?"))[0]?.toUpperCase()}
                       </div>
 

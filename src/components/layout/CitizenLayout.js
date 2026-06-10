@@ -1111,6 +1111,7 @@ const CitizenLayout = (props) => {
                 ? "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)] animate-pulse"
                 : "border-yellow-600/30 shadow-[0_0_15px_rgba(202,138,4,0.1)] hover:border-yellow-600/60 hover:shadow-[0_0_20px_rgba(202,138,4,0.2)]"
             }`}
+            style={settings.sidebarCollapsed ? { width: 40, height: 40, minWidth: 40, minHeight: 40 } : { width: 64, height: 64, minWidth: 64, minHeight: 64 }}
             title=""
             tabIndex={-1}
           >
@@ -1309,6 +1310,7 @@ const CitizenLayout = (props) => {
                   ? "border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]"
                   : "border-stone-700"
               }`}
+              style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}
               tabIndex={-1}
               title=""
             >
@@ -1406,6 +1408,7 @@ const CitizenLayout = (props) => {
                                     ? "border-yellow-500"
                                     : "border-stone-600"
                                 }`}
+                                style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}
                               >
                                 {acc.avatarUrl ? (
                                   <img

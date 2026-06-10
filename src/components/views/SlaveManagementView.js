@@ -256,12 +256,13 @@ const SlaveManagementView = ({
                   : "bg-white hover:bg-stone-50 border-stone-200"
               }`}
             >
-              <div className="w-8 h-8 rounded-full bg-stone-300 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-stone-300 flex items-center justify-center overflow-hidden flex-shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
                 {s.avatarUrl ? (
                   <img
                     src={s.avatarUrl}
                     className="w-full h-full object-cover"
                     alt=""
+                    style={{ objectFit: "cover" }}
                   />
                 ) : (
                   <User size={16} className="text-stone-500" />
@@ -758,9 +759,9 @@ const SlaveManagementView = ({
                             return (
                               <div key={sp.id} className="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
                                 {spouseData?.avatarUrl ? (
-                                  <img src={spouseData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-rose-300 shrink-0" alt="" />
+                                  <img src={spouseData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-rose-300 shrink-0" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
                                     <Heart size={14} className="text-rose-400" />
                                   </div>
                                 )}
@@ -798,9 +799,9 @@ const SlaveManagementView = ({
                           return (
                             <div key={p.fromId} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                               {proposerData?.avatarUrl ? (
-                                <img src={proposerData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-amber-300 shrink-0" alt="" />
+                                <img src={proposerData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-amber-300 shrink-0" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
                                   <User size={14} className="text-amber-500" />
                                 </div>
                               )}
@@ -892,7 +893,7 @@ const SlaveManagementView = ({
                                         className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
                                       >
                                         {c.avatarUrl ? (
-                                          <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" />
+                                          <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} />
                                         ) : (
                                           <User size={12} className="text-stone-400 shrink-0" />
                                         )}

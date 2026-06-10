@@ -331,9 +331,9 @@ const PostOfficeView = ({
                 <div className="flex justify-between items-start mb-3 pl-2">
                   <div className="flex items-center gap-3">
                     {citizen?.avatarUrl ? (
-                      <img src={citizen.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-stone-200 shrink-0" />
+                      <img src={citizen.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-stone-200 shrink-0" style={{ width: 40, height: 40, minWidth: 40, minHeight: 40, objectFit: "cover" }} />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 font-black text-sm shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 font-black text-sm shrink-0" style={{ width: 40, height: 40, minWidth: 40, minHeight: 40 }}>
                         {(req.citizenName || "?")[0]}
                       </div>
                     )}
@@ -459,9 +459,9 @@ const PostOfficeView = ({
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             {citizen?.avatarUrl ? (
-                              <img src={citizen.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-stone-200" />
+                              <img src={citizen.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-stone-200" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28, objectFit: "cover" }} />
                             ) : (
-                              <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-black text-stone-500">{(req.citizenName || "?")[0]}</div>
+                              <div className="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[10px] font-black text-stone-500" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>{(req.citizenName || "?")[0]}</div>
                             )}
                             <span className="font-bold text-stone-800">{req.citizenName || "Inconnu"}</span>
                           </div>

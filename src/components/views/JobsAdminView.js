@@ -620,7 +620,7 @@ const JobsAdminView = ({
                       return (
                         <div key={r.id} className="flex items-center gap-3 p-3 bg-stone-50 rounded-lg border border-stone-200">
                           {citizenData?.avatar ? (
-                            <img src={citizenData.avatar} alt={citizenData.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                            <img src={citizenData.avatar} alt={citizenData.name} className="w-6 h-6 rounded-full object-cover shrink-0" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} />
                           ) : (
                             <TypeIcon size={14} className="text-stone-400 shrink-0" />
                           )}

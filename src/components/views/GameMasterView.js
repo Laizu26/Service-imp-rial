@@ -1033,7 +1033,7 @@ const GMPendingChildren = ({ state, onUpdateState, notify }) => {
         const otherParent = child.otherParentId ? citizens.find((c) => c.id === child.otherParentId) : null;
         return (
           <div key={req.id} className="bg-stone-900 rounded-xl border border-stone-800 p-3 flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-amber-900/40 flex items-center justify-center border border-amber-800/50 shrink-0">
+            <div className="w-9 h-9 rounded-full bg-amber-900/40 flex items-center justify-center border border-amber-800/50 shrink-0" style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}>
               <Baby size={16} className="text-amber-400" />
             </div>
             <div className="flex-1 min-w-0 space-y-0.5">

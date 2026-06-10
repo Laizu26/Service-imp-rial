@@ -343,7 +343,7 @@ const GuardAdminView = ({
                   );
                   return (
                     <div key={m.citizenId} className="bg-white rounded-xl border border-stone-200 px-4 py-3 flex items-center gap-4">
-                      <div className={`w-9 h-9 rounded-full bg-stone-200 flex items-center justify-center font-black text-stone-600 shrink-0`}>
+                      <div className={`w-9 h-9 rounded-full bg-stone-200 flex items-center justify-center font-black text-stone-600 shrink-0`} style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}>
                         {(m.citizenName || "?")[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">

@@ -1000,10 +1000,11 @@ const MaisonDeAsiaAdmin = ({
                             src={img}
                             alt=""
                             className="w-6 h-6 rounded-full object-cover border border-white shadow-sm"
+                            style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }}
                           />
                         ))}
                         {member.gallery.length > 3 && (
-                          <span className="w-6 h-6 rounded-full bg-fuchsia-200 text-fuchsia-700 flex items-center justify-center text-[8px] font-bold border border-white">
+                          <span className="w-6 h-6 rounded-full bg-fuchsia-200 text-fuchsia-700 flex items-center justify-center text-[8px] font-bold border border-white" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24 }}>
                             +{member.gallery.length - 3}
                           </span>
                         )}
@@ -1458,7 +1459,7 @@ const MaisonDeAsiaAdmin = ({
                             <td className="p-4">
                               <div className="flex items-center gap-2">
                                 {(citizenProfile?.avatarUrl || h.citizenAvatarUrl) && (
-                                  <img src={citizenProfile?.avatarUrl || h.citizenAvatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-stone-200" />
+                                  <img src={citizenProfile?.avatarUrl || h.citizenAvatarUrl} alt="" className="w-7 h-7 rounded-full object-cover border border-stone-200" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28, objectFit: "cover" }} />
                                 )}
                                 <div>
                                   <div className="font-bold text-stone-800 flex items-center gap-1.5 flex-wrap">
@@ -1738,7 +1739,7 @@ const MaisonDeAsiaAdmin = ({
                             const expiresDate = new Date(sub.expiresAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
                             return (
                               <div key={sub.citizenId} className={`flex items-center gap-3 p-3 rounded-lg border ${isActive ? "bg-fuchsia-50 border-fuchsia-200" : "bg-stone-50 border-stone-200 opacity-60"}`}>
-                                {citizen?.avatarUrl && <img src={citizen.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-fuchsia-200 shrink-0" />}
+                                {citizen?.avatarUrl && <img src={citizen.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-fuchsia-200 shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />}
                                 <div className="min-w-0 flex-1">
                                   <div className="font-bold text-sm text-stone-800 truncate">{citizen?.name || sub.citizenId}</div>
                                   <div className="flex items-center gap-1.5">

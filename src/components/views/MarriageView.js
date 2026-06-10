@@ -77,7 +77,7 @@ function ParentsSection({ user, safeUsers }) {
 
   const ParentCard = ({ label, parent, parentName, type }) => (
     <div className="flex items-center gap-3 bg-white rounded-xl border border-stone-200 p-3">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${type === "father" ? "bg-blue-100 border-2 border-blue-200" : "bg-pink-100 border-2 border-pink-200"}`}>
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${type === "father" ? "bg-blue-100 border-2 border-blue-200" : "bg-pink-100 border-2 border-pink-200"}`} style={{ width: 40, height: 40, minWidth: 40, minHeight: 40 }}>
         <User size={18} className={type === "father" ? "text-blue-500" : "text-pink-500"} />
       </div>
       <div className="flex-1 min-w-0">
@@ -117,7 +117,7 @@ function ParentsSection({ user, safeUsers }) {
                                     (user.motherId && s.motherId === user.motherId && user.fatherId !== s.fatherId);
               return (
                 <div key={s.id} className="flex items-center gap-2 bg-white rounded-lg border border-stone-100 px-3 py-2">
-                  <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0">
+                  <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
                     {(s.firstName || s.name || "?")[0].toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -531,7 +531,7 @@ const MarriageView = ({
                               className="w-full text-left p-2 rounded-lg hover:bg-rose-50 flex items-center gap-2 transition-colors"
                             >
                               {u.avatarUrl ? (
-                                <img src={u.avatarUrl} className="w-7 h-7 rounded-full object-cover border border-rose-200" alt="" />
+                                <img src={u.avatarUrl} className="w-7 h-7 rounded-full object-cover border border-rose-200" alt="" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28, objectFit: "cover" }} />
                               ) : (
                                 <User size={12} className="text-stone-400 shrink-0" />
                               )}
@@ -720,9 +720,9 @@ const MarriageView = ({
               return (
                 <div key={child.id} className="bg-white rounded-xl border border-amber-200 shadow-sm p-4 flex items-start gap-3">
                   {linkedCitizen?.avatarUrl ? (
-                    <img src={linkedCitizen.avatarUrl} className="w-12 h-12 rounded-full object-cover border-2 border-amber-200 shrink-0" alt="" />
+                    <img src={linkedCitizen.avatarUrl} className="w-12 h-12 rounded-full object-cover border-2 border-amber-200 shrink-0" alt="" style={{ width: 48, height: 48, minWidth: 48, minHeight: 48, objectFit: "cover" }} />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center border-2 border-amber-200 shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center border-2 border-amber-200 shrink-0" style={{ width: 48, height: 48, minWidth: 48, minHeight: 48 }}>
                       <Baby size={20} className="text-amber-500" />
                     </div>
                   )}
@@ -817,7 +817,7 @@ const MarriageView = ({
                 {childCitizenId ? (
                   <div className="flex items-center gap-3 p-3 bg-amber-50 border-2 border-amber-300 rounded-xl">
                     {safeUsers.find((u) => u.id === childCitizenId)?.avatarUrl ? (
-                      <img src={safeUsers.find((u) => u.id === childCitizenId).avatarUrl} className="w-8 h-8 rounded-full object-cover border-2 border-amber-200" alt="" />
+                      <img src={safeUsers.find((u) => u.id === childCitizenId).avatarUrl} className="w-8 h-8 rounded-full object-cover border-2 border-amber-200" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
                     ) : (
                       <Baby size={16} className="text-amber-500 shrink-0" />
                     )}
@@ -843,7 +843,7 @@ const MarriageView = ({
                           .map((u) => (
                             <button key={u.id} onClick={() => { setChildCitizenId(u.id); setChildCitizenName(u.name); setChildSearch(""); }}
                               className="w-full text-left p-2 rounded-lg hover:bg-amber-50 flex items-center gap-2 transition-colors">
-                              {u.avatarUrl ? <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" /> : <User size={12} className="text-stone-400 shrink-0" />}
+                              {u.avatarUrl ? <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} /> : <User size={12} className="text-stone-400 shrink-0" />}
                               <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
                               <span className="text-[9px] text-stone-400 ml-auto font-mono shrink-0">{u.id}</span>
                             </button>
@@ -934,7 +934,7 @@ const MarriageView = ({
                         .map((u) => (
                           <button key={u.id} onClick={() => { setChildOtherParentId(u.id); setChildOtherParentName(u.name); setChildOtherParentSearch(""); }}
                             className="w-full text-left p-2 rounded-lg hover:bg-stone-50 flex items-center gap-2 transition-colors">
-                            {u.avatarUrl ? <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" /> : <User size={12} className="text-stone-400 shrink-0" />}
+                            {u.avatarUrl ? <img src={u.avatarUrl} className="w-6 h-6 rounded-full object-cover" alt="" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} /> : <User size={12} className="text-stone-400 shrink-0" />}
                             <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
                           </button>
                         ))}

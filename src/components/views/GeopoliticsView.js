@@ -1010,7 +1010,7 @@ const GeopoliticsView = ({
                   )}
                   {countryCitizens.map((c) => (
                     <div key={c.id} className="bg-white/70 border border-stone-200 rounded-xl px-4 py-3 flex items-center gap-4">
-                      <div className={`w-9 h-9 rounded-full ${colorCfg.accent} text-white flex items-center justify-center font-black text-sm shrink-0`}>
+                      <div className={`w-9 h-9 rounded-full ${colorCfg.accent} text-white flex items-center justify-center font-black text-sm shrink-0`} style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}>
                         {(c.name || "?")[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
