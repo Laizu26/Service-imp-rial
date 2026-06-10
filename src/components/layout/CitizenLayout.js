@@ -1165,61 +1165,60 @@ const CitizenLayout = (props) => {
         </div>
 
         <nav className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-transparent ${settings.sidebarCollapsed ? "p-2" : "p-4"}`}>
-          {menuGroups.map((group, gIdx) => (
-            <div key={group.id} className={gIdx > 0 ? "mt-4" : ""}>
-              {/* Séparateur de groupe */}
+          {menuGroups.map((group, gIdx) => {
+            const isCollapsed = collapsedGroups.has(group.id);
+            const visibleItems = group.items.filter(item => !hiddenTabs.includes(item.id));
+            if (visibleItems.length === 0) return null;
+            return (
+            <div key={group.id} className={gIdx > 0 ? "mt-3" : ""}>
+              {/* En-tête groupe repliable */}
               {!settings.sidebarCollapsed ? (
-                <div className="flex items-center gap-2 px-1 mb-1.5">
+                <button
+                  onClick={() => setCollapsedGroups(prev => { const next = new Set(prev); isCollapsed ? next.delete(group.id) : next.add(group.id); return next; })}
+                  className="w-full flex items-center gap-2 px-1 mb-1.5 group hover:opacity-80 transition-opacity"
+                >
                   <div className="flex-1 h-px bg-stone-800" />
                   <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-600 whitespace-nowrap">{group.label}</span>
                   <div className="flex-1 h-px bg-stone-800" />
-                </div>
+                  {isCollapsed ? <ChevronDown size={9} className="text-stone-700 shrink-0" /> : <ChevronUp size={9} className="text-stone-700 shrink-0" />}
+                </button>
               ) : (
                 gIdx > 0 && <div className="h-px bg-stone-800 mx-1 mb-2 mt-2" />
               )}
-              <div className="space-y-0.5">
-                {group.items
-                  .filter((item) => !hiddenTabs.includes(item.id))
-                  .map((item) => (
-                  <div key={item.id} className="relative group/tab">
-                    <button
-                      onClick={() => setActive(item.id)}
-                      title={settings.sidebarCollapsed ? item.label : undefined}
-                      className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
-                        active === item.id
-                          ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
-                          : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
-                      }`}
-                    >
-                      <item.icon
-                        size={16}
-                        className={`shrink-0 transition-colors ${
-                          active === item.id
-                            ? "text-stone-900"
-                            : "text-stone-500 group-hover:text-stone-300"
-                        }`}
-                      />
-                      {!settings.sidebarCollapsed && (
-                        <span className="text-[10px] font-black uppercase tracking-widest flex-1 text-left">
-                          {item.label}
-                        </span>
-                      )}
-                    </button>
-                    {/* Bouton fermer — visible au survol, sauf sidebar réduite et non-closeables */}
-                    {!settings.sidebarCollapsed && !NON_CLOSEABLE.has(item.id) && (
+              {!isCollapsed && (
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => (
+                    <div key={item.id} className="relative group/tab">
                       <button
-                        onClick={(e) => { e.stopPropagation(); closeTab(item.id); }}
-                        title={`Fermer « ${item.label} »`}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/tab:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 z-10"
+                        onClick={() => setActive(item.id)}
+                        title={settings.sidebarCollapsed ? item.label : undefined}
+                        className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
+                          active === item.id
+                            ? "bg-[#e6dcc3] text-stone-900 shadow-[0_4px_12px_rgba(0,0,0,0.3)] translate-x-1"
+                            : "text-stone-400 hover:bg-stone-800 hover:text-stone-100 hover:translate-x-1"
+                        }`}
                       >
-                        <X size={11} />
+                        <item.icon size={16} className={`shrink-0 transition-colors ${active === item.id ? "text-stone-900" : "text-stone-500 group-hover:text-stone-300"}`} />
+                        {!settings.sidebarCollapsed && (
+                          <span className="text-[10px] font-black uppercase tracking-widest flex-1 text-left">{item.label}</span>
+                        )}
                       </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      {!settings.sidebarCollapsed && !NON_CLOSEABLE.has(item.id) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); closeTab(item.id); }}
+                          title={`Fermer « ${item.label} »`}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover/tab:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 z-10"
+                        >
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
 
           {/* Notifications — hors catégories */}
           <div className="mt-4">
@@ -1312,6 +1311,12 @@ const CitizenLayout = (props) => {
       <div className="flex-1 flex flex-col min-w-0 bg-[#e6e2d6]/5 relative">
         <header className="h-16 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-3 md:invisible">
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="md:hidden p-2 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
             <button
               onClick={() => onGmTrigger && onGmTrigger()}
               className={`w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border overflow-hidden relative shrink-0 cursor-default focus:outline-none transition-all ${
@@ -1507,23 +1512,80 @@ const CitizenLayout = (props) => {
           </div>
         )}
 
-        <main className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
-          <div className={`${active === "msg" ? "hidden" : ""} md:hidden flex mb-6 bg-stone-900/80 backdrop-blur-sm p-1.5 rounded-2xl border border-stone-800 shadow-xl overflow-x-auto scrollbar-hide snap-x`}>
-            {menuItems.filter((item) => !hiddenTabs.includes(item.id)).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActive(item.id)}
-                className={`flex-1 py-2.5 px-5 text-[10px] font-black uppercase rounded-xl transition-all whitespace-nowrap tracking-widest snap-center ${
-                  active === item.id
-                    ? "bg-[#e6dcc3] text-stone-900 shadow-md transform scale-105"
-                    : "text-stone-500 hover:text-stone-300 hover:bg-stone-800/50"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+        {/* ══ Drawer mobile ══ */}
+        {mobileDrawerOpen && (
+          <>
+            <div className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setMobileDrawerOpen(false)} />
+            <div className="md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-stone-900 border-r border-stone-800 flex flex-col shadow-2xl">
+              {/* Header drawer */}
+              <div className="flex items-center justify-between p-4 border-b border-stone-800 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-stone-800 rounded-full flex items-center justify-center border border-stone-700 overflow-hidden shrink-0" style={{width:36,height:36,minWidth:36,minHeight:36}}>
+                    {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover" alt="" /> : <User size={18} className="text-yellow-600" />}
+                  </div>
+                  <div>
+                    <div className="font-black text-sm text-stone-100 uppercase tracking-wider leading-tight">{user.name}</div>
+                    <div className="text-[9px] text-stone-500 font-mono">{formatRPDate(gd)}</div>
+                  </div>
+                </div>
+                <button onClick={() => setMobileDrawerOpen(false)} className="p-2 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+              {/* Navigation groupée */}
+              <nav className="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-transparent">
+                {menuGroups.map((group, gIdx) => {
+                  const visibleItems = group.items.filter(item => !hiddenTabs.includes(item.id));
+                  if (visibleItems.length === 0) return null;
+                  return (
+                    <div key={group.id} className={gIdx > 0 ? "mt-3" : ""}>
+                      <div className="flex items-center gap-2 px-1 mb-1">
+                        <div className="flex-1 h-px bg-stone-800" />
+                        <span className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-600 whitespace-nowrap">{group.label}</span>
+                        <div className="flex-1 h-px bg-stone-800" />
+                      </div>
+                      <div className="space-y-0.5">
+                        {visibleItems.map(item => (
+                          <button key={item.id}
+                            onClick={() => { setActive(item.id); setMobileDrawerOpen(false); }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
+                              active === item.id
+                                ? "bg-[#e6dcc3] text-stone-900 shadow-md"
+                                : "text-stone-400 hover:bg-stone-800 hover:text-stone-100"
+                            }`}
+                          >
+                            <item.icon size={15} className={`shrink-0 ${active === item.id ? "text-stone-900" : "text-stone-500"}`} />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-left">{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="mt-3">
+                  <button
+                    onClick={() => { setActive("notifications"); setMobileDrawerOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${active === "notifications" ? "bg-[#e6dcc3] text-stone-900 shadow-md" : "text-stone-400 hover:bg-stone-800 hover:text-stone-100"}`}
+                  >
+                    <Bell size={15} className={active === "notifications" ? "text-stone-900" : "text-stone-500"} />
+                    <span className="text-[10px] font-black uppercase tracking-widest flex-1 text-left">Notifications</span>
+                    {unreadCount > 0 && <span className="bg-red-600 text-white text-[8px] font-black rounded-full px-1.5 py-0.5 leading-none">{unreadCount}</span>}
+                  </button>
+                </div>
+              </nav>
+              {/* Footer */}
+              <div className="p-3 border-t border-stone-800 shrink-0">
+                <button onClick={() => { setActive("settings"); setMobileDrawerOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-stone-400 hover:bg-stone-800 hover:text-stone-100 transition-all">
+                  <Settings size={15} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Paramètres</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
+        <main className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
           <div className={(active === "msg" || active === "mushtagram") ? "h-full w-full" : "max-w-[1400px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
           <TabErrorBoundary tabKey={active}>
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
