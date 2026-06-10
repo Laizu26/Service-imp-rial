@@ -5580,11 +5580,13 @@ export const useGameActions = (session, state, saveState, notify) => {
       onSendMushtagramDM: ({ toId, content }) => {
         if (!session || !content?.trim()) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const recipient = (state.citizens || []).find(c => String(c.id) === String(toId));
         const dm = {
           id: `mdm_${Date.now()}`,
           fromId: session.id,
           fromName: session.name,
           toId,
+          toName: recipient?.name || String(toId),
           content: content.trim(),
           date: formatRPDate(gd),
           createdAt: Date.now(),

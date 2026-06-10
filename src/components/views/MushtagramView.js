@@ -852,8 +852,9 @@ export default function MushtagramView({
     const map = {};
     myDMs.forEach(dm => {
       const otherId   = String(dm.fromId) === myId ? String(dm.toId)   : String(dm.fromId);
-      const otherName = String(dm.fromId) === myId ?       dm.toName   :       dm.fromName;
+      const otherName = String(dm.fromId) === myId ? (dm.toName || citizens.find(c => String(c.id) === String(dm.toId))?.name) : dm.fromName;
       if (!map[otherId]) map[otherId] = { id: otherId, name: otherName, messages: [], unread: 0 };
+      if (!map[otherId].name && otherName) map[otherId].name = otherName;
       map[otherId].messages.push(dm);
       if (!dm.read && !dm.readByRecipient && String(dm.toId) === myId) map[otherId].unread++;
     });
