@@ -1,0 +1,4 @@
+## Git
+- Toujours committer sur la branche main
+- Messages de commit en français
+- Format : "type: description" (feat, fix, chore...)
