@@ -190,7 +190,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.companies[compIdx] = { ...ns.companies[compIdx], employeeSeniority: seniority };
         });
 
-        // --- Dîme et expiration des contrats d'emploi ---
+        // --- Salaire journalier et expiration des contrats d'emploi ---
         (ns.companies || []).forEach((company, compIdx) => {
           if (company.frozen) return;
           const contracts = ns.companies[compIdx].employmentContracts || {};
@@ -203,18 +203,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           const ts = Date.now();
           let ledgerEntries = [];
           Object.entries(contracts).forEach(([citizenId, contract], i) => {
-            // — Dîme —
-            if (contract.dimePercent > 0) {
-              const wbal = workerBalances[citizenId] || 0;
-              if (wbal > 0) {
-                const dime = Math.round(wbal * contract.dimePercent / 100 * 10) / 10;
-                if (dime > 0) {
-                  workerBalances[citizenId] = Math.round((wbal - dime) * 10) / 10;
-                  compBalance = Math.round((compBalance + dime) * 10) / 10;
-                  const cit = ns.citizens.find((c) => c.id === citizenId);
-                  ledgerEntries.push({ id: ts + i, fromName: cit?.name || citizenId, toName: company.name, amount: dime, timestamp: ts, reason: `Dîme ${contract.dimePercent}% — contrat ${contract.type}`, type: "DIME" });
-                }
-              }
+            // — Salaire journalier —
+            if (contract.dailyWage > 0 && compBalance >= contract.dailyWage) {
+              const cit = ns.citizens.find((c) => c.id === citizenId);
+              compBalance = Math.round((compBalance - contract.dailyWage) * 10) / 10;
+              workerBalances[citizenId] = Math.round(((workerBalances[citizenId] || 0) + contract.dailyWage) * 10) / 10;
+              ledgerEntries.push({ id: ts + i, fromName: company.name, toName: cit?.name || citizenId, amount: contract.dailyWage, timestamp: ts, reason: `Salaire journalier — contrat ${contract.type}`, type: "DAILY_WAGE" });
             }
             // — Expiration (CDD/Apprentissage/Mercenariat) —
             if (contract.contractDurationDays && (seniority[citizenId] || 0) >= contract.contractDurationDays) {
@@ -866,7 +860,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
-        const terms = contractTerms || { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
+        const terms = contractTerms || { type: "MERCENARIAT", contractDurationDays: null, dailyWage: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
         newCitizens[targetIdx] = {
           ...target,
           jobOffers: [
@@ -912,7 +906,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             // Ajout à l'entreprise
             const seniorityData = { ...(company.employeeSeniority || {}) };
             seniorityData[user.id] = 0;
-            const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
+            const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dailyWage: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
             newCompanies[compIdx] = {
               ...company,
               employees: [...(company.employees || []), user.id],
@@ -3420,7 +3414,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
           const seniorityData = { ...(company.employeeSeniority || {}) };
           seniorityData[app.citizenId] = 0;
-          const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
+          const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dailyWage: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
           newCompanies[compIdx] = {
             ...newCompanies[compIdx],
             employees: [...(newCompanies[compIdx].employees || []), app.citizenId],
