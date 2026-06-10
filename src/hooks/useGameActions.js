@@ -5716,10 +5716,23 @@ export const useGameActions = (session, state, saveState, notify) => {
           authorName: session.name,
           content,
           imageUrl: imageUrl || null,
+          likes: [],
           createdAt: Date.now(),
           date: formatRPDate(gd),
         };
         saveState({ ...state, mushtagramStories: [...(state.mushtagramStories||[]), story] });
+      },
+
+      onLikeMushtagramStory: (storyId) => {
+        if (!session) return;
+        const stories = (state.mushtagramStories || []).map(s => {
+          if (s.id !== storyId) return s;
+          const liked = (s.likes || []).map(String).includes(String(session.id));
+          return { ...s, likes: liked
+            ? (s.likes || []).filter(id => String(id) !== String(session.id))
+            : [...(s.likes || []), session.id] };
+        });
+        saveState({ ...state, mushtagramStories: stories });
       },
 
       onDeleteMushtagramStory: (id) => {

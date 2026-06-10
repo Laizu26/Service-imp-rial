@@ -763,6 +763,7 @@ export default function App() {
             onReportMushtagramPost={actions.onReportMushtagramPost}
             onPostMushtagramStory={actions.onPostMushtagramStory}
             onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
+            onLikeMushtagramStory={actions.onLikeMushtagramStory}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1120,6 +1121,7 @@ export default function App() {
                       onReportMushtagramPost={actions.onReportMushtagramPost}
                       onPostMushtagramStory={actions.onPostMushtagramStory}
                       onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
+                      onLikeMushtagramStory={actions.onLikeMushtagramStory}
                       notify={notify}
                     />
                   )}

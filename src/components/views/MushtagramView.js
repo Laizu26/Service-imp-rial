@@ -149,10 +149,12 @@ function ProfileModal({ citizen, myId, myFollowing, posts, onFollow, onUnfollow,
 
 /* ── StoryViewer ────────────────────────────────────────────────────────── */
 
-function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onClose }) {
+function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onLike, onClose }) {
   if (!story) return null;
   const canDelete = String(story.authorId) === myId || isAdmin;
   const author = (citizens || []).find(c => String(c.id) === String(story.authorId));
+  const isLiked = (story.likes || []).map(String).includes(myId);
+  const likeCount = (story.likes || []).length;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
       onClick={onClose}>
@@ -201,15 +203,28 @@ function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onClose }) {
           <div className="absolute inset-0 bg-gradient-to-br from-rose-900 via-stone-900 to-violet-900" />
         )}
 
-        {/* Text overlay at bottom */}
-        {story.content && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 px-5 pt-16 pb-6"
-            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)" }}>
-            <p className="text-white text-base leading-relaxed whitespace-pre-wrap drop-shadow-lg font-medium">
+        {/* Bottom overlay: text + like */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 px-5 pt-16 pb-5"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, transparent 100%)" }}>
+          {story.content && (
+            <p className="text-white text-base leading-relaxed whitespace-pre-wrap drop-shadow-lg font-medium mb-4">
               {story.content}
             </p>
+          )}
+          {/* Like button */}
+          <div className="flex items-center justify-end">
+            <button
+              onClick={() => onLike && onLike(story.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm transition-all ${
+                isLiked
+                  ? "bg-rose-500/80 text-white"
+                  : "bg-black/30 text-white/70 hover:bg-rose-500/60 hover:text-white"
+              }`}>
+              <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
+              {likeCount > 0 && <span className="text-sm font-black">{likeCount}</span>}
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Click hint */}
@@ -220,7 +235,7 @@ function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onClose }) {
 
 /* ── StoriesBar ─────────────────────────────────────────────────────────── */
 
-function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, onDeleteStory }) {
+function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, onDeleteStory, onLikeStory }) {
   const [composing, setComposing] = useState(false);
   const [storyText, setStoryText] = useState("");
   const [storyImage, setStoryImage] = useState("");
@@ -296,16 +311,20 @@ function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, 
       )}
 
       {/* Story viewer */}
-      {viewing && (
-        <StoryViewer
-          story={viewing}
-          myId={myId}
-          isAdmin={isAdmin}
-          citizens={citizens}
-          onDelete={onDeleteStory}
-          onClose={() => setViewing(null)}
-        />
-      )}
+      {viewing && (() => {
+        const liveStory = activeStories.find(s => s.id === viewing.id) || viewing;
+        return (
+          <StoryViewer
+            story={liveStory}
+            myId={myId}
+            isAdmin={isAdmin}
+            citizens={citizens}
+            onDelete={onDeleteStory}
+            onLike={onLikeStory}
+            onClose={() => setViewing(null)}
+          />
+        );
+      })()}
     </>
   );
 }
@@ -680,7 +699,7 @@ export default function MushtagramView({
   onReactMushtagram, onRepostMushtagram,
   onVoteMushtagramPoll, onPinMushtagramPost,
   onReportMushtagramPost,
-  onPostMushtagramStory, onDeleteMushtagramStory,
+  onPostMushtagramStory, onDeleteMushtagramStory, onLikeMushtagramStory,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -927,6 +946,7 @@ export default function MushtagramView({
             citizens={citizens}
             onPostStory={onPostMushtagramStory}
             onDeleteStory={onDeleteMushtagramStory}
+            onLikeStory={onLikeMushtagramStory}
           />
 
           {/* Layout: main + sidebar */}
