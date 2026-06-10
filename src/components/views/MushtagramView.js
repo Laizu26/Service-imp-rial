@@ -623,6 +623,7 @@ function PostCard({
             const cmtLikeCount = (c.likes || []).length;
             const isReplyingToThis = replyingTo?.commentId === c.id;
             const isPinnedCmt = post.pinnedCommentId === c.id;
+            const authorLikedCmt = (c.likes || []).map(String).includes(String(post.authorId));
             return (
               <div key={c.id} className={`flex items-start gap-2 pt-1.5 ${isPinnedCmt ? "bg-amber-50 -mx-1 px-1 rounded-xl" : ""}`}>
                 <Ava citizen={cAuthor || { name: c.authorName }} size="xs" className="mt-0.5" />
@@ -636,12 +637,20 @@ function PostCard({
                   {isPinnedCmt && (
                     <div className="text-[8px] font-black uppercase text-amber-600 mb-0.5 flex items-center gap-1">📌 Épinglé</div>
                   )}
-                  <div className="bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-1.5">
-                    <span className="text-[10px] font-black text-stone-700">{c.authorName} </span>
-                    <span className="text-[11px] text-stone-700">{c.content}</span>
+                  <div className="relative inline-block max-w-full">
+                    <div className="bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-1.5">
+                      <span className="text-[10px] font-black text-stone-700">{c.authorName} </span>
+                      <span className="text-[11px] text-stone-700">{c.content}</span>
+                    </div>
+                    {authorLikedCmt && (
+                      <div className="absolute -bottom-2 -right-1 flex items-center bg-white rounded-full shadow-sm border border-stone-100 px-1 py-0.5 gap-0.5">
+                        <Ava citizen={author} size="xs" className="w-3 h-3 text-[6px]" />
+                        <Heart size={8} className="text-rose-500" fill="currentColor" />
+                      </div>
+                    )}
                   </div>
                   {/* Comment actions */}
-                  <div className="flex items-center gap-3 mt-0.5 pl-1">
+                  <div className={`flex items-center gap-3 pl-1 ${authorLikedCmt ? "mt-3" : "mt-0.5"}`}>
                     <button onClick={() => onLikeComment && onLikeComment(post.id, c.id)}
                       className={`flex items-center gap-0.5 text-[9px] font-bold transition-colors ${cmtLiked ? "text-rose-500" : "text-stone-400 hover:text-rose-400"}`}>
                       <Heart size={9} fill={cmtLiked ? "currentColor" : "none"} />
