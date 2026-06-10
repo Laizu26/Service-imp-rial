@@ -41,6 +41,16 @@ function readingTime(content) {
   return mins <= 1 ? "< 1 min" : `${mins} min`;
 }
 
+function totalWords(chapters) {
+  return (chapters || []).reduce((s, c) => s + (c.content || "").trim().split(/\s+/).filter(Boolean).length, 0);
+}
+
+function readingTimeFromChapters(chapters) {
+  const words = totalWords(chapters);
+  const mins = Math.ceil(words / 200);
+  return mins <= 1 ? "< 1 min" : `${mins} min`;
+}
+
 function generateLegalCode(laws) {
   const articles = [];
   let count = 1;
@@ -134,6 +144,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
   const [viewingCountryId, setViewingCountryId] = useState(session?.countryId);
   const [search, setSearch] = useState("");
   const [readingItem, setReadingItem] = useState(null);
+  const [readingChapter, setReadingChapter] = useState(0);
   const [expandedDecreeId, setExpandedDecreeId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
   const [sortBooks, setSortBooks] = useState("date");
@@ -310,6 +321,9 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
     const isBook = readingItem._type !== "decree";
     const itemId = readingItem.id;
     const isBookmarked = bookmarks.has(String(itemId));
+    const hasChapters = isBook && readingItem.chapters && readingItem.chapters.length > 0;
+    const chaps = hasChapters ? readingItem.chapters : [];
+    const currentChap = hasChapters ? (chaps[readingChapter] || chaps[0]) : null;
     return (
       <div className="h-full flex flex-col font-serif bg-[#fdf6e3] rounded-2xl shadow-xl overflow-hidden border border-stone-300">
         <div className="bg-stone-900 text-stone-200 px-6 py-4 flex items-center gap-4 shrink-0 border-b-4 border-yellow-600">
@@ -331,7 +345,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
           <div className="flex items-center gap-2 shrink-0">
             {isBook && (
               <span className="text-[9px] font-mono text-stone-400 flex items-center gap-1">
-                <Clock size={10} /> {readingTime(readingItem.content)}
+                <Clock size={10} /> {hasChapters ? readingTimeFromChapters(chaps) : readingTime(readingItem.content)}
               </span>
             )}
             {isBook && readingItem.category && (
@@ -349,6 +363,17 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
             </button>
           </div>
         </div>
+        {/* Chapter tab bar for multi-chapter works */}
+        {hasChapters && chaps.length > 1 && (
+          <div className="bg-stone-800 border-b border-stone-700 px-4 py-1.5 flex gap-1 overflow-x-auto shrink-0">
+            {chaps.map((c, i) => (
+              <button key={c.id || i} onClick={() => setReadingChapter(i)}
+                className={`whitespace-nowrap px-3 py-1.5 rounded text-[9px] font-black uppercase transition-all ${readingChapter === i ? "bg-purple-700 text-white" : "text-stone-400 hover:bg-stone-700 hover:text-stone-200"}`}>
+                {c.title || `Ch. ${i + 1}`}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto p-6 md:p-12 bg-[#fdf6e3]" style={paperTextureBg}>
           <div className="max-w-3xl mx-auto bg-white/90 p-8 md:p-16 shadow-2xl border border-stone-200 relative">
             <div className="absolute left-6 top-0 bottom-0 w-px bg-stone-300 border-l border-dashed border-stone-400" />
@@ -356,17 +381,47 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
               <h1 className="text-3xl md:text-4xl font-black text-stone-900 mb-2 font-serif border-b-2 border-stone-300 pb-4">
                 {isBook ? readingItem.title : readingItem.name}
               </h1>
+              {isBook && readingItem.subtitle && (
+                <p className="text-base italic text-stone-500 mb-1 font-serif">{readingItem.subtitle}</p>
+              )}
               {isBook && readingItem.author && (
                 <p className="text-sm italic text-stone-500 mb-2 font-serif">par {readingItem.author}</p>
+              )}
+              {isBook && readingItem.abstract && (
+                <p className="text-sm text-stone-600 leading-relaxed mb-6 font-serif border-l-2 border-purple-300 pl-4 italic">{readingItem.abstract}</p>
               )}
               {readingItem.date && (
                 <p className="text-[10px] uppercase text-stone-400 font-bold tracking-widest mb-8">
                   {new Date(readingItem.date).toLocaleDateString("fr-FR")}
                 </p>
               )}
-              <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
-                {isBook ? readingItem.content : readingItem.content}
-              </div>
+              {hasChapters ? (
+                <>
+                  {currentChap?.title && (
+                    <h2 className="text-xl font-black font-serif text-stone-800 mb-6 pb-3 border-b border-stone-200">{currentChap.title}</h2>
+                  )}
+                  <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
+                    {currentChap?.content || ""}
+                  </div>
+                  {chaps.length > 1 && (
+                    <div className="flex justify-between mt-10 pt-4 border-t border-stone-200">
+                      <button disabled={readingChapter === 0} onClick={() => setReadingChapter(p => p - 1)}
+                        className="text-[10px] font-black uppercase text-stone-500 hover:text-stone-800 disabled:opacity-30 transition-colors">
+                        ← Chapitre précédent
+                      </button>
+                      <span className="text-[9px] text-stone-400">{readingChapter + 1} / {chaps.length}</span>
+                      <button disabled={readingChapter === chaps.length - 1} onClick={() => setReadingChapter(p => p + 1)}
+                        className="text-[10px] font-black uppercase text-stone-500 hover:text-stone-800 disabled:opacity-30 transition-colors">
+                        Chapitre suivant →
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
+                  {readingItem.content}
+                </div>
+              )}
               <div className="mt-16 pt-6 border-t border-stone-200 text-right text-[10px] uppercase font-bold text-stone-400 tracking-widest">
                 Archivé le {new Date(readingItem.date || Date.now()).toLocaleDateString("fr-FR")}
               </div>
@@ -951,45 +1006,65 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[...filtered].sort((a, b) => String(b.id).localeCompare(String(a.id))).map((res) => (
-                      <button
-                        key={res.id}
-                        type="button"
-                        onClick={() => setReadingItem({ ...res, _type: "book", author: res.authorName, title: res.title, content: res.content, date: null })}
-                        className="bg-white/90 border border-purple-100 shadow-sm rounded-xl overflow-hidden group hover:shadow-md hover:border-purple-300 transition-all text-left"
-                      >
-                        <div className="p-5">
-                          <div className="flex items-start gap-2 mb-2">
-                            <div className="w-1 self-stretch bg-purple-400 rounded-full shrink-0 mr-1" />
-                            <h3 className="font-serif font-bold text-lg text-stone-900 flex-1 line-clamp-2 leading-tight">
-                              {res.title}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            {res.category && (
-                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full border border-purple-200">
-                                <Tag size={7} /> {res.category}
+                    {[...filtered].sort((a, b) => String(b.id).localeCompare(String(a.id))).map((res) => {
+                      const hasChapters = res.chapters && res.chapters.length > 0;
+                      const words = hasChapters ? totalWords(res.chapters) : (res.content || "").split(/\s+/).filter(Boolean).length;
+                      const chapsCount = hasChapters ? res.chapters.length : 0;
+                      const readTime = hasChapters ? readingTimeFromChapters(res.chapters) : readingTime(res.content);
+                      const previewText = hasChapters
+                        ? (res.abstract || res.chapters[0]?.content || "")
+                        : (res.content || "");
+                      return (
+                        <button
+                          key={res.id}
+                          type="button"
+                          onClick={() => { setReadingItem({ ...res, _type: "book", author: res.authorName, title: res.title, content: res.content, date: null }); setReadingChapter(0); }}
+                          className="bg-white/90 border border-purple-100 shadow-sm rounded-xl overflow-hidden group hover:shadow-md hover:border-purple-300 transition-all text-left"
+                        >
+                          {res.coverUrl && (
+                            <img src={res.coverUrl} alt="" className="w-full h-28 object-cover opacity-90" onError={e => e.target.style.display="none"} />
+                          )}
+                          <div className="p-5">
+                            <div className="flex items-start gap-2 mb-2">
+                              <div className="w-1 self-stretch bg-purple-400 rounded-full shrink-0 mr-1" />
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-serif font-bold text-lg text-stone-900 line-clamp-2 leading-tight">
+                                  {res.title}
+                                </h3>
+                                {res.subtitle && <p className="text-xs italic text-stone-400 font-serif mt-0.5 line-clamp-1">{res.subtitle}</p>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              {res.category && (
+                                <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full border border-purple-200">
+                                  <Tag size={7} /> {res.category}
+                                </span>
+                              )}
+                              {chapsCount > 0 && (
+                                <span className="text-[8px] font-black uppercase tracking-widest bg-stone-50 text-stone-500 px-1.5 py-0.5 rounded-full border border-stone-200">
+                                  {chapsCount} chapitre{chapsCount > 1 ? "s" : ""}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs italic text-stone-500 mb-2 font-serif">par {res.authorName}</p>
+                            <div className="font-serif text-sm leading-relaxed text-stone-600 line-clamp-3 mb-3">
+                              {previewText}
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t border-stone-100">
+                              <span className="text-[9px] text-stone-400 flex items-center gap-1">
+                                <Clock size={9} /> {readTime}
                               </span>
-                            )}
+                              <span className="text-[9px] uppercase font-bold text-stone-400">
+                                {words} mots
+                              </span>
+                              <span className="text-[9px] uppercase font-bold text-stone-500 group-hover:text-purple-700 transition-colors tracking-widest">
+                                Lire →
+                              </span>
+                            </div>
                           </div>
-                          <p className="text-xs italic text-stone-500 mb-2 font-serif">par {res.authorName}</p>
-                          <div className="font-serif text-sm leading-relaxed text-stone-600 line-clamp-3 mb-3">
-                            {res.content}
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t border-stone-100">
-                            <span className="text-[9px] text-stone-400 flex items-center gap-1">
-                              <Clock size={9} /> {readingTime(res.content)}
-                            </span>
-                            <span className="text-[9px] uppercase font-bold text-stone-400">
-                              {res.publishedDate}
-                            </span>
-                            <span className="text-[9px] uppercase font-bold text-stone-500 group-hover:text-purple-700 transition-colors tracking-widest">
-                              Lire →
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

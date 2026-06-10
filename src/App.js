@@ -609,6 +609,8 @@ export default function App() {
             onPublishEruditResearch={actions.onPublishEruditResearch}
             onUnpublishEruditResearch={actions.onUnpublishEruditResearch}
             onDeleteEruditResearch={actions.onDeleteEruditResearch}
+            onWithdrawEruditFromCountry={actions.onWithdrawEruditFromCountry}
+            onSetEruditResearchAccess={actions.onSetEruditResearchAccess}
             combatSessions={state.combatSessions || []}
             notify={notify}
             isGraded={canAccessAdmin}
@@ -1487,19 +1489,50 @@ export default function App() {
                                 <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest mt-6 pt-4 border-t border-stone-200">
                                   Traitées ({done.length})
                                 </div>
-                                {done.map((req) => (
-                                  <div key={req.id} className={`border rounded-xl p-4 flex items-center gap-4 ${req.status === "APPROVED" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-black text-stone-800">{req.citizenName}</div>
-                                      <div className="text-xs text-stone-500 mt-0.5">
-                                        {req.countryName} · {req.responseDate} · par {req.respondedBy}
+                                {done.map((req) => {
+                                  const statusColors = {
+                                    APPROVED: "bg-green-50 border-green-200",
+                                    REJECTED: "bg-red-50 border-red-200",
+                                    EXPELLED: "bg-orange-50 border-orange-200",
+                                    WITHDRAWN: "bg-stone-50 border-stone-200",
+                                  };
+                                  const badgeColors = {
+                                    APPROVED: "bg-green-100 text-green-700 border-green-300",
+                                    REJECTED: "bg-red-100 text-red-700 border-red-300",
+                                    EXPELLED: "bg-orange-100 text-orange-700 border-orange-300",
+                                    WITHDRAWN: "bg-stone-100 text-stone-500 border-stone-300",
+                                  };
+                                  const statusLabel = {
+                                    APPROVED: "✓ Validé", REJECTED: "✕ Refusé", EXPELLED: "⛔ Radié", WITHDRAWN: "Retiré",
+                                  };
+                                  return (
+                                    <div key={req.id} className={`border rounded-xl p-4 flex items-center gap-4 ${statusColors[req.status] || "bg-stone-50 border-stone-200"}`}>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-black text-stone-800">{req.citizenName}</div>
+                                        <div className="text-xs text-stone-500 mt-0.5">
+                                          {req.countryName} · {req.responseDate || req.expelledDate || req.withdrawnDate} · {req.respondedBy || req.expelledBy || ""}
+                                        </div>
+                                        {req.expelNote && <div className="text-[10px] text-orange-600 mt-0.5">Motif : {req.expelNote}</div>}
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border ${badgeColors[req.status] || "bg-stone-100 text-stone-500 border-stone-300"}`}>
+                                          {statusLabel[req.status] || req.status}
+                                        </span>
+                                        {req.status === "APPROVED" && (
+                                          <button
+                                            onClick={() => {
+                                              const note = window.prompt(`Motif de radiation de ${req.citizenName} (optionnel) :`);
+                                              if (note !== null) actions.onExpelErudit(req.id, note);
+                                            }}
+                                            className="text-[9px] font-black uppercase px-2 py-1.5 rounded-lg bg-orange-700 hover:bg-orange-600 text-white transition-colors"
+                                          >
+                                            Radier
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
-                                    <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-full border shrink-0 ${req.status === "APPROVED" ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
-                                      {req.status === "APPROVED" ? "✓ Validé" : "✕ Refusé"}
-                                    </span>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </>
                             )}
                           </div>

@@ -57,6 +57,7 @@ import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, 
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
+import EruditView from "../views/EruditView";
 import PostView from "../views/PostView";
 import MushtagramView from "../views/MushtagramView";
 import SlaveManagementView from "../views/SlaveManagementView";
@@ -846,6 +847,8 @@ const CitizenLayout = (props) => {
     onPublishEruditResearch,
     onUnpublishEruditResearch,
     onDeleteEruditResearch,
+    onWithdrawEruditFromCountry,
+    onSetEruditResearchAccess,
     mushtagramPosts = [],
     mushtagramDMs = [],
     mushtagramStories = [],
@@ -933,12 +936,7 @@ const CitizenLayout = (props) => {
   const [travelDestCountry, setTravelDestCountry] = useState("");
   const [travelDestRegion, setTravelDestRegion] = useState("");
 
-  // Érudit — gestion des travaux de recherche
-  const [eruditTab, setEruditTab] = useState("notes");
-  const [editingResearchId, setEditingResearchId] = useState(null);
-  const [researchTitle, setResearchTitle] = useState("");
-  const [researchContent, setResearchContent] = useState("");
-  const [researchCategory, setResearchCategory] = useState("");
+  // Érudit — géré par EruditView
 
   // Garde (citoyen)
   const [guardTab, setGuardTab] = useState("ordres");
@@ -4560,224 +4558,19 @@ const CitizenLayout = (props) => {
               />
             )}
             {active === "erudit" && isErudit && (
-              <div className="space-y-5 animate-fadeIn">
-                {/* ─── En-tête ────────────────────────────────────── */}
-                <div className="bg-[#fdf6e3] rounded-xl shadow-lg border-t-4 border-purple-400 p-5 md:p-6">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-stone-800 flex items-center justify-center shrink-0">
-                      <GraduationCap size={20} className="text-purple-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-black uppercase tracking-widest text-stone-800 font-serif">Statut Érudit</h2>
-                      <p className="text-[9px] text-stone-500 uppercase tracking-widest">Travaux & Reconnaissance dans chaque pays</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-stone-600 leading-relaxed">
-                    Rédigez et publiez vos travaux de recherche dans la Bibliothèque Impériale, et soumettez votre statut à la validation des autorités de chaque pays.
-                  </p>
-                </div>
-
-                {/* ─── Validations par pays ────────────────────────── */}
-                <div className="bg-[#fdf6e3] rounded-xl border border-stone-200 shadow p-4 md:p-5">
-                  <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest mb-3">Validations par pays</div>
-                  <div className="space-y-2">
-                    {safeCountries.map((country) => {
-                      const salary = country.laws?.eruditSalary || 0;
-                      const myReqs = (eruditRequests || []).filter(
-                        (r) => r.citizenId === user.id && r.countryId === country.id
-                      );
-                      const latest = [...myReqs].sort((a, b) => String(b.id).localeCompare(String(a.id)))[0];
-                      const isPending = latest?.status === "PENDING";
-                      const isApproved = latest?.status === "APPROVED";
-                      const isRejected = latest?.status === "REJECTED";
-                      return (
-                        <div key={country.id} className="bg-white border border-stone-200 rounded-xl p-3 flex items-center gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-black text-stone-800 text-sm">{country.name}</div>
-                            <div className="text-[9px] text-stone-400 mt-0.5">
-                              {salary > 0 ? (
-                                <span className="text-purple-600 font-bold">Rémunération : {formatMoney(salary)} / jour</span>
-                              ) : (
-                                <span>Pas de rémunération</span>
-                              )}
-                            </div>
-                            {latest && (
-                              <div className="text-[10px] text-stone-500 mt-0.5">
-                                {isApproved && `Validé le ${latest.responseDate} par ${latest.respondedBy}`}
-                                {isRejected && `Refusé le ${latest.responseDate}${latest.note ? ` — ${latest.note}` : ""}`}
-                                {isPending && `En attente depuis le ${latest.requestDate}`}
-                              </div>
-                            )}
-                          </div>
-                          <div className="shrink-0">
-                            {isApproved && (
-                              <span className="text-[9px] font-black uppercase px-3 py-1.5 rounded-full bg-green-100 text-green-700 border border-green-300">✓ Reconnu</span>
-                            )}
-                            {isPending && (
-                              <span className="text-[9px] font-black uppercase px-3 py-1.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300">⏳ En attente</span>
-                            )}
-                            {(!latest || isRejected) && (
-                              <button
-                                onClick={() => onRequestEruditValidation && onRequestEruditValidation(country.id)}
-                                className="text-[9px] font-black uppercase px-3 py-1.5 rounded-lg bg-stone-800 text-stone-200 hover:bg-stone-700 transition-colors"
-                              >
-                                {isRejected ? "Re-soumettre" : "Demander"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* ─── Travaux de Recherche ─────────────────────────── */}
-                <div className="bg-[#fdf6e3] rounded-xl border border-stone-200 shadow overflow-hidden">
-                  <div className="bg-stone-800 px-5 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Edit3 size={14} className="text-purple-400" />
-                      <span className="text-xs font-black uppercase tracking-widest text-stone-200">Mes Travaux de Recherche</span>
-                      <span className="text-[9px] text-stone-500 ml-1">
-                        {(eruditResearch || []).filter((r) => r.authorId === user.id).length} travaux
-                      </span>
-                    </div>
-                    {eruditTab !== "edit" && (
-                      <button
-                        onClick={() => {
-                          setEditingResearchId(null);
-                          setResearchTitle("");
-                          setResearchContent("");
-                          setResearchCategory("");
-                          setEruditTab("edit");
-                        }}
-                        className="text-[9px] font-black uppercase px-3 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-600 text-white transition-colors"
-                      >
-                        + Nouveau
-                      </button>
-                    )}
-                  </div>
-
-                  {eruditTab === "edit" ? (
-                    <div className="p-5 space-y-3 bg-[#fdf6e3]">
-                      <div className="flex items-center justify-between">
-                        <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest">
-                          {editingResearchId ? "Modifier le travail" : "Nouveau travail de recherche"}
-                        </div>
-                        <button onClick={() => setEruditTab("notes")} className="text-stone-400 hover:text-stone-600 text-xs font-bold">Annuler</button>
-                      </div>
-                      <input
-                        className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2.5 text-sm font-bold text-stone-800 outline-none focus:border-purple-400 transition-colors"
-                        placeholder="Titre du travail..."
-                        value={researchTitle}
-                        onChange={(e) => setResearchTitle(e.target.value)}
-                      />
-                      <input
-                        className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2.5 text-sm text-stone-700 outline-none focus:border-purple-400 transition-colors"
-                        placeholder="Catégorie (Sciences, Histoire, Arts, Philosophie, Magie…)"
-                        value={researchCategory}
-                        onChange={(e) => setResearchCategory(e.target.value)}
-                      />
-                      <textarea
-                        className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2.5 text-sm text-stone-800 outline-none focus:border-purple-400 transition-colors resize-none leading-relaxed font-serif"
-                        rows={14}
-                        placeholder="Rédigez votre travail de recherche ici. Il doit contenir au moins 100 caractères pour être publié."
-                        value={researchContent}
-                        onChange={(e) => setResearchContent(e.target.value)}
-                      />
-                      <div className="flex items-center justify-between gap-3 pt-1">
-                        <span className="text-[10px] text-stone-400">{researchContent.length} caractères{researchContent.length < 100 ? " (100 min. pour publier)" : ""}</span>
-                        <button
-                          disabled={!researchTitle.trim() || researchContent.length < 10}
-                          onClick={() => {
-                            if (!onSaveEruditResearch || !researchTitle.trim()) return;
-                            onSaveEruditResearch({
-                              id: editingResearchId || null,
-                              title: researchTitle.trim(),
-                              content: researchContent,
-                              category: researchCategory.trim(),
-                            });
-                            setEruditTab("notes");
-                            setEditingResearchId(null);
-                            setResearchTitle("");
-                            setResearchContent("");
-                            setResearchCategory("");
-                          }}
-                          className="bg-stone-800 hover:bg-stone-700 disabled:opacity-40 text-white px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
-                        >
-                          Enregistrer
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-stone-100">
-                      {(eruditResearch || []).filter((r) => r.authorId === user.id).length === 0 && (
-                        <p className="text-stone-400 italic text-sm text-center py-10 px-4">
-                          Aucun travail de recherche. Cliquez sur <strong>+ Nouveau</strong> pour commencer.
-                        </p>
-                      )}
-                      {[...(eruditResearch || [])].filter((r) => r.authorId === user.id).sort((a, b) => String(b.id).localeCompare(String(a.id))).map((res) => (
-                        <div key={res.id} className="p-4 bg-white hover:bg-stone-50 transition-colors">
-                          <div className="flex items-start gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                <span className="font-black text-stone-800 text-sm">{res.title}</span>
-                                {res.published ? (
-                                  <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">Publié</span>
-                                ) : (
-                                  <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500 border border-stone-200">Brouillon</span>
-                                )}
-                                {res.category && (
-                                  <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-stone-100 text-stone-500">{res.category}</span>
-                                )}
-                              </div>
-                              <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed mt-1 font-serif">{res.content}</p>
-                              <div className="text-[9px] text-stone-400 mt-1">
-                                {res.published ? `Publié le ${res.publishedDate}` : `Créé le ${res.createdDate}${res.updatedDate !== res.createdDate ? ` · Modifié le ${res.updatedDate}` : ""}`}
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1.5 shrink-0 min-w-[80px]">
-                              {res.published ? (
-                                <button
-                                  onClick={() => onUnpublishEruditResearch && onUnpublishEruditResearch(res.id)}
-                                  className="text-[8px] font-black uppercase px-2 py-1.5 rounded-lg bg-stone-100 border border-stone-300 text-stone-600 hover:bg-stone-200 transition-colors text-center"
-                                >
-                                  Dépublier
-                                </button>
-                              ) : (
-                                <button
-                                  disabled={res.content?.length < 100}
-                                  onClick={() => onPublishEruditResearch && onPublishEruditResearch(res.id)}
-                                  className="text-[8px] font-black uppercase px-2 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white transition-colors text-center"
-                                >
-                                  Publier
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setEditingResearchId(res.id);
-                                  setResearchTitle(res.title);
-                                  setResearchContent(res.content);
-                                  setResearchCategory(res.category || "");
-                                  setEruditTab("edit");
-                                }}
-                                className="text-[8px] font-black uppercase px-2 py-1.5 rounded-lg bg-stone-100 border border-stone-300 text-stone-600 hover:bg-stone-200 transition-colors text-center"
-                              >
-                                Modifier
-                              </button>
-                              <button
-                                onClick={() => onDeleteEruditResearch && onDeleteEruditResearch(res.id)}
-                                className="text-[8px] font-black uppercase px-2 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors text-center"
-                              >
-                                Supprimer
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <EruditView
+                user={user}
+                countries={safeCountries}
+                eruditRequests={eruditRequests}
+                eruditResearch={eruditResearch}
+                onRequestEruditValidation={onRequestEruditValidation}
+                onWithdrawEruditFromCountry={onWithdrawEruditFromCountry}
+                onSaveEruditResearch={onSaveEruditResearch}
+                onPublishEruditResearch={onPublishEruditResearch}
+                onUnpublishEruditResearch={onUnpublishEruditResearch}
+                onDeleteEruditResearch={onDeleteEruditResearch}
+                onSetEruditResearchAccess={onSetEruditResearchAccess}
+              />
             )}
             {/* ----------------------------- */}
           </TabErrorBoundary>
