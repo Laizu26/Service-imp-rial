@@ -5380,7 +5380,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, combatEffects: (state.combatEffects || []).filter((e) => e.id !== id) });
       },
 
-      onSaveEruditResearch: ({ id, title, subtitle, abstract, chapters, category, coverUrl }) => {
+      onSaveEruditResearch: ({ id, title, subtitle, abstract, chapters, category, coverUrl, accessCountries }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const dateStr = formatRPDate(gd);
@@ -5396,6 +5396,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             category: category || "",
             coverUrl: coverUrl || "",
             updatedDate: dateStr,
+            ...(accessCountries !== undefined ? { accessCountries } : {}),
           };
           saveState({ ...state, eruditResearch: existing });
           notify("Œuvre mise à jour.", "success");

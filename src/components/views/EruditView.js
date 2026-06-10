@@ -129,10 +129,8 @@ export default function EruditView({
       chapters,
       category: category.trim(),
       coverUrl: coverUrl.trim(),
+      accessCountries: accessMode === "all" ? null : selectedCountries,
     });
-    if (editingId && onSetEruditResearchAccess) {
-      onSetEruditResearchAccess(editingId, accessMode === "all" ? null : selectedCountries);
-    }
     setTab("oeuvres");
   };
 
