@@ -35,8 +35,25 @@ function canAccess(book, session) {
   return true;
 }
 
+const isHtml = (s) => /<[a-z][\s\S]*?>/i.test(s || "");
+const stripHtml = (s) => (s || "").replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+
+function sanitizeHtml(html) {
+  if (!html) return "";
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  tmp.querySelectorAll("script,style,iframe,object,embed,form").forEach((el) => el.remove());
+  tmp.querySelectorAll("*").forEach((el) => {
+    Array.from(el.attributes)
+      .filter((a) => a.name.startsWith("on") || a.value.toLowerCase().startsWith("javascript:"))
+      .forEach((a) => el.removeAttribute(a.name));
+  });
+  return tmp.innerHTML;
+}
+
 function readingTime(content) {
-  const words = (content || "").split(/\s+/).filter(Boolean).length;
+  const text = isHtml(content) ? stripHtml(content) : (content || "");
+  const words = text.split(/\s+/).filter(Boolean).length;
   const mins = Math.ceil(words / 200);
   return mins <= 1 ? "< 1 min" : `${mins} min`;
 }
@@ -364,9 +381,16 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                   {new Date(readingItem.date).toLocaleDateString("fr-FR")}
                 </p>
               )}
-              <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
-                {isBook ? readingItem.content : readingItem.content}
-              </div>
+              {isHtml(readingItem.content) ? (
+                <div
+                  className="erudit-reading text-lg"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(readingItem.content) }}
+                />
+              ) : (
+                <div className="font-serif text-lg leading-loose text-stone-800 whitespace-pre-line text-justify">
+                  {readingItem.content}
+                </div>
+              )}
               <div className="mt-16 pt-6 border-t border-stone-200 text-right text-[10px] uppercase font-bold text-stone-400 tracking-widest">
                 Archivé le {new Date(readingItem.date || Date.now()).toLocaleDateString("fr-FR")}
               </div>
@@ -564,7 +588,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                               </span>
                             )}
                             <p className="text-xs text-stone-500 mt-2 line-clamp-2 font-serif italic">
-                              {(item.content || "").substring(0, 100)}…
+                              {(isHtml(item.content) ? stripHtml(item.content) : (item.content || "")).substring(0, 100)}…
                             </p>
                           </div>
                         </div>
@@ -890,7 +914,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                           <p className="text-xs italic text-stone-500 mb-2 font-serif">par {book.author}</p>
                         )}
                         <div className="font-serif text-sm leading-relaxed text-stone-600 line-clamp-3 mb-3">
-                          {book.content}
+                          {isHtml(book.content) ? stripHtml(book.content) : book.content}
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-stone-100">
                           <span className="text-[9px] text-stone-400 flex items-center gap-1">
@@ -974,7 +998,7 @@ const LibraryView = ({ countries, session, users = [], onSubmitBook, bookmarks: 
                           </div>
                           <p className="text-xs italic text-stone-500 mb-2 font-serif">par {res.authorName}</p>
                           <div className="font-serif text-sm leading-relaxed text-stone-600 line-clamp-3 mb-3">
-                            {res.content}
+                            {isHtml(res.content) ? stripHtml(res.content) : res.content}
                           </div>
                           <div className="flex justify-between items-center pt-2 border-t border-stone-100">
                             <span className="text-[9px] text-stone-400 flex items-center gap-1">

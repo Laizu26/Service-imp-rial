@@ -73,6 +73,7 @@ import GuildsView from "../views/GuildsView";
 import ContractsView from "../views/ContractsView";
 import PropertyDetailView from "../views/PropertyDetailView";
 import SettingsView from "../views/SettingsView";
+import RichTextEditor from "../ui/RichTextEditor";
 
 // Mini-composant trésorerie famille
 const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw, onTransfer, allFamilies }) => {
@@ -4607,17 +4608,19 @@ const CitizenLayout = (props) => {
                         value={researchCategory}
                         onChange={(e) => setResearchCategory(e.target.value)}
                       />
-                      <textarea
-                        className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2.5 text-sm text-stone-800 outline-none focus:border-purple-400 transition-colors resize-none leading-relaxed font-serif"
-                        rows={14}
-                        placeholder="Rédigez votre travail de recherche ici. Il doit contenir au moins 100 caractères pour être publié."
+                      <RichTextEditor
                         value={researchContent}
-                        onChange={(e) => setResearchContent(e.target.value)}
+                        onChange={setResearchContent}
+                        placeholder="Rédigez votre travail de recherche ici. Il doit contenir au moins 100 caractères pour être publié."
+                        minHeight={320}
                       />
                       <div className="flex items-center justify-between gap-3 pt-1">
-                        <span className="text-[10px] text-stone-400">{researchContent.length} caractères{researchContent.length < 100 ? " (100 min. pour publier)" : ""}</span>
+                        {(() => {
+                          const len = researchContent.replace(/<[^>]*>/g, "").replace(/&[a-z]+;/gi, " ").trim().length;
+                          return <span className="text-[10px] text-stone-400">{len} caractères{len < 100 ? " (100 min. pour publier)" : ""}</span>;
+                        })()}
                         <button
-                          disabled={!researchTitle.trim() || researchContent.length < 10}
+                          disabled={!researchTitle.trim() || researchContent.replace(/<[^>]*>/g, "").trim().length < 10}
                           onClick={() => {
                             if (!onSaveEruditResearch || !researchTitle.trim()) return;
                             onSaveEruditResearch({
