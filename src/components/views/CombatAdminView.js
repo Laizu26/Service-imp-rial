@@ -36,7 +36,11 @@ const EFFECT_STAT_OPTIONS = [
   { key: "spellBonus",       label: "Déf. Mag. (sort)" },
   { key: "maxHp",            label: "PV Max" },
   { key: "maxMana",          label: "Mana Max" },
+  { key: "currentHp",        label: "💔 Drainer PV (courants)" },
+  { key: "currentMana",      label: "💧 Drainer Mana (courant)" },
 ];
+
+const DRAIN_STATS = new Set(["currentHp", "currentMana"]);
 
 const CAMP_STYLES = [
   { id: "A", label: "Camp A", bg: "bg-red-900/30",   border: "border-red-700/60",   badge: "bg-red-800 text-red-200",    dot: "bg-red-500"   },
@@ -397,8 +401,14 @@ export default function CombatAdminView({
   const applyEffect = (effect, citizenId) => {
     const participant = selSession?.participants.find(x => String(x.citizenId) === String(citizenId));
     if (!participant) return;
-    const newMalus = { id: Date.now().toString(), stat: effect.stat, value: effect.value, reason: effect.name, turns: effect.turns || 0 };
-    updateParticipant(citizenId, { malus: [...(participant.malus || []), newMalus] });
+    if (effect.stat === "currentHp") {
+      updateParticipant(citizenId, { currentHp: Math.max(0, (participant.currentHp || 0) + effect.value) });
+    } else if (effect.stat === "currentMana") {
+      updateParticipant(citizenId, { currentMana: Math.max(0, (participant.currentMana || 0) + effect.value) });
+    } else {
+      const newMalus = { id: Date.now().toString(), stat: effect.stat, value: effect.value, reason: effect.name, turns: effect.turns || 0 };
+      updateParticipant(citizenId, { malus: [...(participant.malus || []), newMalus] });
+    }
     setApplyingEffectId(null);
     notify(`${effect.emoji || ""} ${effect.name} appliqué à ${participant.name}.`, "success");
   };
@@ -1029,6 +1039,7 @@ export default function CombatAdminView({
                                   {p.isCreature && <span className="ml-1 text-[7px] font-black text-red-400">★</span>}
                                 </span>
                                 {isCurrent && <span className="text-[7px] bg-amber-500 text-stone-900 px-1.5 py-0.5 rounded font-black animate-pulse">SON TOUR</span>}
+                                {!isDead && p.maxMana > 0 && p.currentMana <= 0 && <span className="text-[7px] bg-blue-900/60 text-blue-300 px-1.5 py-0.5 rounded font-black">0 mana</span>}
                                 {/* Roll de vitesse — verrouillé une fois saisi */}
                                 <div className="flex items-center gap-1 shrink-0">
                                   {p.initiativeRoll !== null && p.initiativeRoll !== undefined ? (
@@ -1159,6 +1170,11 @@ export default function CombatAdminView({
                   className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
                   {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-stone-800 text-stone-100">{o.label}</option>)}
                 </select>
+                {DRAIN_STATS.has(effectForm.stat) && (
+                  <p className="text-[8px] text-amber-400/80 mt-1 italic">
+                    ⚡ Drain immédiat — réduit directement les PV/Mana sans malus persistant. Pas de régénération automatique.
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -1459,20 +1475,29 @@ export default function CombatAdminView({
                     <div className="space-y-1.5">
                       {techs.map(tech => {
                         const isSort = tech.type === "sort";
+                        const noMana = isSort && (p.currentMana || 0) < (tech.manaCost || 1);
+                        const noHp   = (p.currentHp || 0) <= 0;
+                        const blocked = noHp || (isSort && noMana);
                         return (
-                          <div key={tech.id} className="bg-stone-800 border border-stone-700/50 rounded-lg px-3 py-2 flex items-start gap-2.5">
+                          <div key={tech.id} className={`bg-stone-800 border rounded-lg px-3 py-2 flex items-start gap-2.5 ${blocked ? "opacity-40 border-stone-700/30" : "border-stone-700/50"}`}>
                             <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${isSort ? "bg-blue-900/60 text-blue-300" : "bg-red-900/60 text-red-300"}`}>
                               {isSort ? <Zap size={11} /> : <Sword size={11} />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-[11px] font-bold text-stone-100 truncate">{tech.name}</div>
+                              <div className={`text-[11px] font-bold truncate ${blocked ? "line-through text-stone-500" : "text-stone-100"}`}>{tech.name}</div>
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                 {tech.bonusDamage > 0 && <span className="text-[8px] font-mono text-amber-400">+{tech.bonusDamage} dég.</span>}
                                 {tech.effect && <span className="text-[8px] text-stone-400 truncate">{tech.effect}</span>}
-                                {isSort && tech.manaCost > 0 && <span className="text-[8px] font-mono text-blue-400">{tech.manaCost} mana</span>}
+                                {isSort && tech.manaCost > 0 && (
+                                  <span className={`text-[8px] font-mono ${noMana ? "text-red-400" : "text-blue-400"}`}>
+                                    {tech.manaCost} mana{noMana ? " ✗" : ""}
+                                  </span>
+                                )}
                                 {!isSort && tech.cooldown > 0 && <span className="text-[8px] font-mono text-stone-500">{tech.cooldown}t cd</span>}
                               </div>
                               {tech.description && <p className="text-[8px] text-stone-500 italic mt-0.5 line-clamp-2">{tech.description}</p>}
+                              {noHp && <p className="text-[7px] font-black text-red-400 uppercase mt-0.5">KO — ne peut pas agir</p>}
+                              {!noHp && noMana && <p className="text-[7px] font-black text-blue-400/70 uppercase mt-0.5">Mana insuffisant</p>}
                             </div>
                           </div>
                         );
@@ -1503,8 +1528,15 @@ export default function CombatAdminView({
                   const malus = p.malus || [];
                   const addMalus = () => {
                     if (!malusForm.reason.trim()) return;
-                    const newMalus = { id: Date.now().toString(), stat: malusForm.stat, value: -Math.abs(malusForm.value || 1), reason: malusForm.reason, turns: Math.max(0, malusForm.turns || 0) };
-                    updateParticipant(p.citizenId, { malus: [...malus, newMalus] });
+                    const drain = Math.abs(malusForm.value || 1);
+                    if (malusForm.stat === "currentHp") {
+                      updateParticipant(p.citizenId, { currentHp: Math.max(0, (p.currentHp || 0) - drain) });
+                    } else if (malusForm.stat === "currentMana") {
+                      updateParticipant(p.citizenId, { currentMana: Math.max(0, (p.currentMana || 0) - drain) });
+                    } else {
+                      const newMalus = { id: Date.now().toString(), stat: malusForm.stat, value: -drain, reason: malusForm.reason, turns: Math.max(0, malusForm.turns || 0) };
+                      updateParticipant(p.citizenId, { malus: [...malus, newMalus] });
+                    }
                     setMalusForm(prev => ({ ...prev, reason: "", value: -1, turns: 0 }));
                   };
                   const removeMalus = (id) => updateParticipant(p.citizenId, { malus: malus.filter(m => m.id !== id) });
@@ -1580,11 +1612,17 @@ export default function CombatAdminView({
                           <div className="flex flex-wrap gap-1">
                             {combatEffects.map(eff => (
                               <button key={eff.id} onClick={() => {
-                                const newMalus = { id: Date.now().toString(), stat: eff.stat, value: eff.value, reason: eff.name, turns: eff.turns || 0 };
-                                updateParticipant(p.citizenId, { malus: [...(p.malus || []), newMalus] });
+                                if (eff.stat === "currentHp") {
+                                  updateParticipant(p.citizenId, { currentHp: Math.max(0, (p.currentHp || 0) + eff.value) });
+                                } else if (eff.stat === "currentMana") {
+                                  updateParticipant(p.citizenId, { currentMana: Math.max(0, (p.currentMana || 0) + eff.value) });
+                                } else {
+                                  const newMalus = { id: Date.now().toString(), stat: eff.stat, value: eff.value, reason: eff.name, turns: eff.turns || 0 };
+                                  updateParticipant(p.citizenId, { malus: [...(p.malus || []), newMalus] });
+                                }
                                 notify(`${eff.emoji || ""} ${eff.name} appliqué.`, "success");
                               }}
-                                className="flex items-center gap-1 text-[8px] font-bold bg-stone-700 hover:bg-red-900/50 text-stone-200 hover:text-red-200 px-2 py-0.5 rounded transition-all">
+                                className={`flex items-center gap-1 text-[8px] font-bold px-2 py-0.5 rounded transition-all ${DRAIN_STATS.has(eff.stat) ? "bg-red-900/60 hover:bg-red-800 text-red-200" : "bg-stone-700 hover:bg-red-900/50 text-stone-200 hover:text-red-200"}`}>
                                 {eff.emoji} {eff.name}
                               </button>
                             ))}
