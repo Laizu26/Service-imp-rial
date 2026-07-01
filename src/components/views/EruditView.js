@@ -5,6 +5,7 @@ import {
   AlertTriangle, Eye, EyeOff, ImageIcon, AlignLeft,
 } from "lucide-react";
 import RichTextEditor from "../ui/RichTextEditor";
+import { isHtml, sanitizeHtml } from "../../lib/richText";
 
 const CATEGORIES = ["Sciences", "Histoire", "Arts", "Philosophie", "Magie", "Droit", "Géographie", "Médecine", "Théologie"];
 
@@ -207,7 +208,11 @@ export default function EruditView({
           {ch && (
             <>
               {ch.title && <h2 className="text-xl font-black font-serif text-stone-800 mb-6 pb-3 border-b border-stone-200">{ch.title}</h2>}
-              <div className="text-stone-800 font-serif leading-[1.9] text-[15px] whitespace-pre-wrap">{ch.content}</div>
+              {isHtml(ch.content) ? (
+                <div className="erudit-reading text-[15px]" dangerouslySetInnerHTML={{ __html: sanitizeHtml(ch.content) }} />
+              ) : (
+                <div className="text-stone-800 font-serif leading-[1.9] text-[15px] whitespace-pre-wrap">{ch.content}</div>
+              )}
             </>
           )}
           {/* Chapter navigation */}

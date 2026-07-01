@@ -22,6 +22,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { formatMoney, toRoman, isNewEntry } from "../../lib/gameUtils";
+import { isHtml, stripHtml, sanitizeHtml } from "../../lib/richText";
 import SearchInput from "../ui/SearchInput";
 import { ROLES } from "../../lib/constants";
 
@@ -33,22 +34,6 @@ function canAccess(book, session) {
   if (book.access === "roles") return (book.accessRoles || []).includes(session?.role);
   if (book.access === "citizens") return (book.accessCitizenIds || []).includes(session?.id);
   return true;
-}
-
-const isHtml = (s) => /<[a-z][\s\S]*?>/i.test(s || "");
-const stripHtml = (s) => (s || "").replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
-
-function sanitizeHtml(html) {
-  if (!html) return "";
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  tmp.querySelectorAll("script,style,iframe,object,embed,form").forEach((el) => el.remove());
-  tmp.querySelectorAll("*").forEach((el) => {
-    Array.from(el.attributes)
-      .filter((a) => a.name.startsWith("on") || a.value.toLowerCase().startsWith("javascript:"))
-      .forEach((a) => el.removeAttribute(a.name));
-  });
-  return tmp.innerHTML;
 }
 
 function readingTime(content) {
