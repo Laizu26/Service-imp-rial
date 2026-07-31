@@ -2380,6 +2380,67 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Droits mis à jour.", "success");
       },
 
+      // Renégociation de la domination sur une union déjà existante (ex: contractée
+      // avant l'introduction de ce système, ou en "Union Égale") — nécessite l'accord
+      // du conjoint, comme la proposition de mariage elle-même.
+      onProposeMarriageDominance: ({ spouseId, dominance }) => {
+        if (!session) return;
+        if (!["egal", "proposant_dominant", "cible_dominante"].includes(dominance)) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        const pending = { proposedBy: session.id, dominance, timestamp: Date.now() };
+        const updated = (state.citizens || []).map((c) => {
+          if (String(c.id) === String(session.id)) {
+            return { ...c, spouses: (c.spouses || []).map((s) => String(s.id) === String(spouseId) ? { ...s, pendingDominance: pending } : s) };
+          }
+          if (String(c.id) === String(spouseId)) {
+            return { ...c, spouses: (c.spouses || []).map((s) => String(s.id) === String(session.id) ? { ...s, pendingDominance: pending } : s) };
+          }
+          return c;
+        });
+        saveState({ ...state, citizens: updated });
+        notify("Proposition de domination envoyée — en attente de l'accord de votre conjoint.", "success");
+      },
+
+      onAcceptMarriageDominance: ({ spouseId }) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        const pending = mySpouseEntry?.pendingDominance;
+        if (!pending) { notify("Aucune proposition en attente.", "error"); return; }
+        if (String(pending.proposedBy) === String(session.id)) { notify("Vous ne pouvez pas accepter votre propre proposition.", "error"); return; }
+        let dominantId = null;
+        if (pending.dominance === "proposant_dominant") dominantId = pending.proposedBy;
+        else if (pending.dominance === "cible_dominante") dominantId = session.id;
+        const updated = (state.citizens || []).map((c) => {
+          if (String(c.id) === String(session.id)) {
+            return { ...c, spouses: (c.spouses || []).map((s) => String(s.id) === String(spouseId) ? { ...s, dominance: pending.dominance, dominantId, pendingDominance: null } : s) };
+          }
+          if (String(c.id) === String(spouseId)) {
+            return { ...c, spouses: (c.spouses || []).map((s) => String(s.id) === String(session.id) ? { ...s, dominance: pending.dominance, dominantId, pendingDominance: null } : s) };
+          }
+          return c;
+        });
+        saveState({ ...state, citizens: updated });
+        notify("Domination de l'union mise à jour.", "success");
+      },
+
+      onRejectMarriageDominance: ({ spouseId }) => {
+        if (!session) return;
+        const updated = (state.citizens || []).map((c) => {
+          if (String(c.id) === String(session.id)) {
+            return { ...c, spouses: (c.spouses || []).map((s) => String(s.id) === String(spouseId) ? { ...s, pendingDominance: null } : s) };
+          }
+          if (String(c.id) === String(spouseId)) {
+            return { ...c, spouses: (c.spouses || []).map((s) => String(s.id) === String(session.id) ? { ...s, pendingDominance: null } : s) };
+          }
+          return c;
+        });
+        saveState({ ...state, citizens: updated });
+        notify("Proposition de domination refusée.", "info");
+      },
+
       // Dépôt dans le trésor commun / fief
       onSharedAccountDeposit: (pairKey, amount) => {
         if (!session) return;

@@ -775,6 +775,9 @@ const CitizenLayout = (props) => {
     onSharedAccountDeposit,
     onSharedAccountWithdraw,
     onSetSpouseRights,
+    onProposeMarriageDominance,
+    onAcceptMarriageDominance,
+    onRejectMarriageDominance,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -2780,6 +2783,9 @@ const CitizenLayout = (props) => {
                 onSharedAccountDeposit={onSharedAccountDeposit}
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
                 onSetSpouseRights={onSetSpouseRights}
+                onProposeMarriageDominance={onProposeMarriageDominance}
+                onAcceptMarriageDominance={onAcceptMarriageDominance}
+                onRejectMarriageDominance={onRejectMarriageDominance}
                 gameDate={gameDate}
                 notify={notify}
                 readOnly={isSlave}

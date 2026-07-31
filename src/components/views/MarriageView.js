@@ -209,6 +209,9 @@ const MarriageView = ({
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
   onSetSpouseRights,
+  onProposeMarriageDominance,
+  onAcceptMarriageDominance,
+  onRejectMarriageDominance,
   gameDate,
   notify,
   readOnly = false,
@@ -217,6 +220,10 @@ const MarriageView = ({
 
   // Modale de gestion des droits du conjoint dominé
   const [managingSpouseId, setManagingSpouseId] = useState(null);
+
+  // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
+  const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
+  const [renegotiateDominance, setRenegotiateDominance] = useState("proposant_dominant");
 
   // État formulaire de proposition
   const [marrySearch, setMarrySearch] = useState("");
@@ -494,6 +501,72 @@ const MarriageView = ({
                           </span>
                         ))}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Domination non résolue — renégociation possible sur une union déjà existante */}
+                  {!readOnly && !spouse.dominantId && (
+                    <div className="mx-4 mt-4 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 space-y-2">
+                      {spouse.pendingDominance ? (
+                        String(spouse.pendingDominance.proposedBy) === String(user.id) ? (
+                          <p className="text-[10px] text-purple-600 font-bold flex items-center gap-1.5">
+                            ⏳ Proposition de domination envoyée — en attente de l'accord de {spouseUser?.name || spouse.name}.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-purple-700 font-bold">
+                              {spouseUser?.name || spouse.name} propose : {MARRIAGE_DOMINANCE.find((d) => d.id === spouse.pendingDominance.dominance)?.label}
+                            </p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => onAcceptMarriageDominance && onAcceptMarriageDominance({ spouseId: spouse.id })}
+                                className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-purple-500"
+                              >
+                                Accepter
+                              </button>
+                              <button
+                                onClick={() => onRejectMarriageDominance && onRejectMarriageDominance({ spouseId: spouse.id })}
+                                className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500"
+                              >
+                                Refuser
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      ) : renegotiatingSpouseId === spouse.id ? (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-purple-600">Proposer une domination</p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
+                            {MARRIAGE_DOMINANCE.filter((d) => ["egal", "proposant_dominant", "cible_dominante"].includes(d.id)).map((d) => (
+                              <button key={d.id} onClick={() => setRenegotiateDominance(d.id)}
+                                className={`p-2 rounded-lg border text-left text-[10px] font-bold transition-all ${renegotiateDominance === d.id ? "border-purple-500 bg-purple-100 text-purple-700" : "border-stone-200 bg-white text-stone-600 hover:border-purple-300"}`}>
+                                {d.emoji} {d.id === "cible_dominante" ? `${spouseUser?.name || spouse.name}` : d.id === "proposant_dominant" ? "Moi" : d.label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setRenegotiatingSpouseId(null)}
+                              className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:bg-stone-50"
+                            >
+                              Annuler
+                            </button>
+                            <button
+                              onClick={() => { onProposeMarriageDominance && onProposeMarriageDominance({ spouseId: spouse.id, dominance: renegotiateDominance }); setRenegotiatingSpouseId(null); }}
+                              className="px-3 py-1.5 bg-purple-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-purple-500"
+                            >
+                              Proposer
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setRenegotiatingSpouseId(spouse.id); setRenegotiateDominance("proposant_dominant"); }}
+                          className="text-[10px] font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1.5"
+                        >
+                          <Lock size={11} /> Définir la domination de cette union (permet ensuite de restreindre les droits)
+                        </button>
+                      )}
                     </div>
                   )}
 
