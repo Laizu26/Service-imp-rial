@@ -5884,6 +5884,15 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs: [...existingNotifs, dmNotif] });
       },
 
+      onDeleteMushtagramDM: (dmId) => {
+        if (!session) return;
+        const dm = (state.mushtagramDMs || []).find(d => d.id === dmId);
+        if (!dm) return;
+        const isAdmin = ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (String(dm.fromId) !== String(session.id) && !isAdmin) { notify("Vous ne pouvez supprimer que vos propres messages.", "error"); return; }
+        saveState({ ...state, mushtagramDMs: (state.mushtagramDMs || []).filter(d => d.id !== dmId) });
+      },
+
       onMarkMushtagramNotifsRead: (ids) => {
         if (!session) return;
         const idsSet = new Set((ids || []).map(String));

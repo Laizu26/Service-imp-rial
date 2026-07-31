@@ -924,7 +924,7 @@ export default function MushtagramView({
   onMarkMushtagramNotifsRead,
   onBroadcastMushtagram,
   onUpdateMushtagramMonetization, onSubscribeMushtagramCreator, onUnsubscribeMushtagramCreator, onUnlockMushtagramPost,
-  onToggleMushtagramMute, onTipMushtagramCreator, onMarkMushtagramFeedSeen,
+  onToggleMushtagramMute, onTipMushtagramCreator, onMarkMushtagramFeedSeen, onDeleteMushtagramDM,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -1724,8 +1724,15 @@ export default function MushtagramView({
                     ? (myCitizen || session)
                     : (citizens.find(c => String(c.id) === String(dm.fromId)) || { name: dm.fromName || "?" });
                   return (
-                    <div key={dm.id} className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div key={dm.id} className={`flex items-end gap-2 group ${isMine ? "justify-end" : "justify-start"}`}>
                       {!isMine && <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />}
+                      {isMine && onDeleteMushtagramDM && (
+                        <button onClick={() => onDeleteMushtagramDM(dm.id)}
+                          title="Supprimer le message"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500 shrink-0 mb-1 p-1">
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                       <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[72%]`}>
                         <span className="text-[10px] font-bold text-stone-400 px-1 mb-0.5">
                           {isMine ? "Vous" : author.name}

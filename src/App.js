@@ -803,6 +803,7 @@ export default function App() {
             onToggleMushtagramMute={actions.onToggleMushtagramMute}
             onTipMushtagramCreator={actions.onTipMushtagramCreator}
             onMarkMushtagramFeedSeen={actions.onMarkMushtagramFeedSeen}
+            onDeleteMushtagramDM={actions.onDeleteMushtagramDM}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1304,6 +1305,7 @@ export default function App() {
                         onToggleMushtagramMute={actions.onToggleMushtagramMute}
                         onTipMushtagramCreator={actions.onTipMushtagramCreator}
                         onMarkMushtagramFeedSeen={actions.onMarkMushtagramFeedSeen}
+                        onDeleteMushtagramDM={actions.onDeleteMushtagramDM}
                         notify={notify}
                       />
                     </div>

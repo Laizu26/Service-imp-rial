@@ -888,6 +888,7 @@ const CitizenLayout = (props) => {
     onToggleMushtagramMute,
     onTipMushtagramCreator,
     onMarkMushtagramFeedSeen,
+    onDeleteMushtagramDM,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1760,6 +1761,7 @@ const CitizenLayout = (props) => {
                 onToggleMushtagramMute={onToggleMushtagramMute}
                 onTipMushtagramCreator={onTipMushtagramCreator}
                 onMarkMushtagramFeedSeen={onMarkMushtagramFeedSeen}
+                onDeleteMushtagramDM={onDeleteMushtagramDM}
                 notify={notify}
               />
             )}
