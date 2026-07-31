@@ -1419,6 +1419,8 @@ export default function App() {
                       state={state}
                       onUpdateState={saveState}
                       notify={notify}
+                      onApprovePendingChild={actions.onApprovePendingChild}
+                      onRejectPendingChild={actions.onRejectPendingChild}
                     />
                   )}
 

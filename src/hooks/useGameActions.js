@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { formatMoney, toRoman, formatRPDate } from "../lib/gameUtils";
+import { MARRIAGE_INDISSOLUBLE_TYPES } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -1284,11 +1285,83 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         let freshCitizens = [...(state.citizens || [])];
         const index = freshCitizens.findIndex((x) => x.id === formData.id);
+        const previous = index !== -1 ? freshCitizens[index] : null;
+        const justDied = formData.status === "Décédé" && previous?.status !== "Décédé";
 
         if (index !== -1) {
           freshCitizens[index] = { ...freshCitizens[index], ...formData };
         } else {
           freshCitizens.push(formData);
+        }
+
+        let sharedAccounts = { ...(state.sharedAccounts || {}) };
+        const ledgerEntries = [];
+
+        // ── Veuvage + succession + héritage, uniquement au moment du décès (transition vivant → mort) ──
+        if (justDied && previous) {
+          const endedAt = Date.now();
+
+          // Chaque union en cours passe au registre matrimonial du défunt et du conjoint survivant,
+          // et le fief/trésor commun revient intégralement au survivant (personne d'autre pour le partager).
+          (previous.spouses || []).forEach((s) => {
+            const spouseIdx = freshCitizens.findIndex((c) => c.id === s.id);
+            if (spouseIdx === -1) return;
+            const spouse = freshCitizens[spouseIdx];
+            const theirEntry = (spouse.spouses || []).find((x) => x.id === previous.id);
+            const newSpouseSpouses = (spouse.spouses || []).filter((x) => x.id !== previous.id);
+            freshCitizens[spouseIdx] = {
+              ...spouse,
+              spouseId: newSpouseSpouses[0]?.id || null,
+              spouses: newSpouseSpouses,
+              marriageHistory: theirEntry
+                ? [{ ...theirEntry, endedAt, endReason: "veuvage" }, ...(spouse.marriageHistory || [])]
+                : (spouse.marriageHistory || []),
+            };
+            const pairKey = theirEntry?.sharedBalanceKey || theirEntry?.fiefBalanceKey;
+            if (pairKey && sharedAccounts[pairKey]) {
+              const remaining = sharedAccounts[pairKey].balance || 0;
+              if (remaining > 0) {
+                freshCitizens[spouseIdx] = { ...freshCitizens[spouseIdx], balance: (freshCitizens[spouseIdx].balance || 0) + remaining };
+              }
+              delete sharedAccounts[pairKey];
+            }
+          });
+          if ((previous.spouses || []).length > 0) {
+            freshCitizens[index] = {
+              ...freshCitizens[index],
+              spouseId: null,
+              spouses: [],
+              marriageHistory: [
+                ...(previous.spouses || []).map((s) => ({ ...s, endedAt, endReason: "veuvage" })),
+                ...(previous.marriageHistory || []),
+              ],
+            };
+          }
+
+          // Héritage : le trésor personnel du défunt est réparti à parts égales entre les
+          // conjoints survivants et les enfants reconnus comme citoyens ; à défaut d'héritier,
+          // il revient au Trésor Impérial.
+          const estate = previous.balance || 0;
+          if (estate > 0) {
+            const spouseIds = (previous.spouses || []).map((s) => s.id).filter((sid) => freshCitizens.some((c) => c.id === sid));
+            const childIds = (previous.children || []).map((ch) => ch.citizenId).filter((cid) => cid && freshCitizens.some((c) => c.id === cid));
+            const beneficiaryIds = [...new Set([...spouseIds, ...childIds])];
+            if (beneficiaryIds.length > 0) {
+              const share = Math.floor(estate / beneficiaryIds.length);
+              let distributed = 0;
+              beneficiaryIds.forEach((bid, i) => {
+                const bIdx = freshCitizens.findIndex((c) => c.id === bid);
+                if (bIdx === -1) return;
+                const amount = i === beneficiaryIds.length - 1 ? (estate - distributed) : share;
+                distributed += amount;
+                freshCitizens[bIdx] = { ...freshCitizens[bIdx], balance: (freshCitizens[bIdx].balance || 0) + amount };
+                ledgerEntries.push({ id: Date.now() + Math.random(), fromName: previous.name, toName: freshCitizens[bIdx].name, amount, timestamp: Date.now(), reason: `Héritage — succession de ${previous.name}`, type: "INHERITANCE" });
+              });
+            } else {
+              ledgerEntries.push({ id: Date.now() + Math.random(), fromName: previous.name, toName: "Trésor Impérial", amount: estate, timestamp: Date.now(), reason: `Succession en déshérence — ${previous.name}`, type: "INHERITANCE" });
+            }
+            freshCitizens[index] = { ...freshCitizens[index], balance: 0 };
+          }
         }
 
         // Succession automatique si le citoyen décède en étant chef de famille
@@ -1310,7 +1383,13 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
-        saveState({ ...state, citizens: freshCitizens, families: freshFamilies });
+        saveState({
+          ...state,
+          citizens: freshCitizens,
+          families: freshFamilies,
+          sharedAccounts,
+          ...(ledgerEntries.length ? { globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) } : {}),
+        });
         notify("Registres mis à jour.", "success");
       },
       onBuyItem: (itemId, quantity) => {
@@ -2280,12 +2359,28 @@ export const useGameActions = (session, state, saveState, notify) => {
         const spouseEntry = (slave.spouses || []).find((s) => s.id === spouseId);
         const pairKey = spouseEntry?.sharedBalanceKey || spouseEntry?.fiefBalanceKey;
 
+        const endedAt = Date.now();
         const newSlaveSpouses = (slave.spouses || []).filter((s) => s.id !== spouseId);
-        newCitizens[slaveIdx] = { ...slave, spouseId: newSlaveSpouses[0]?.id || null, spouses: newSlaveSpouses };
+        newCitizens[slaveIdx] = {
+          ...slave,
+          spouseId: newSlaveSpouses[0]?.id || null,
+          spouses: newSlaveSpouses,
+          marriageHistory: spouseEntry
+            ? [{ ...spouseEntry, endedAt, endReason: "tutelle" }, ...(slave.marriageHistory || [])]
+            : (slave.marriageHistory || []),
+        };
         if (spouseIdx !== -1) {
           const spouse = newCitizens[spouseIdx];
+          const theirEntry = (spouse.spouses || []).find((s) => s.id === slaveId);
           const newSpouseSpouses = (spouse.spouses || []).filter((s) => s.id !== slaveId);
-          newCitizens[spouseIdx] = { ...spouse, spouseId: newSpouseSpouses[0]?.id || null, spouses: newSpouseSpouses };
+          newCitizens[spouseIdx] = {
+            ...spouse,
+            spouseId: newSpouseSpouses[0]?.id || null,
+            spouses: newSpouseSpouses,
+            marriageHistory: theirEntry
+              ? [{ ...theirEntry, endedAt, endReason: "tutelle" }, ...(spouse.marriageHistory || [])]
+              : (spouse.marriageHistory || []),
+          };
         }
 
         const sharedAccounts = { ...(state.sharedAccounts || {}) };
@@ -2310,19 +2405,42 @@ export const useGameActions = (session, state, saveState, notify) => {
         const user = newCitizens[userIdx];
         const targetSpouseId = spouseId || user.spouseId;
         if (!targetSpouseId) { notify("Vous n'êtes lié(e) à personne.", "error"); return; }
-        if (!window.confirm("Rompre cette union ? Les vœux seront brisés de manière irréversible.")) return;
-        const spouseIdx = newCitizens.findIndex((c) => c.id === targetSpouseId);
 
         // Récupérer la clé du compte commun avant de supprimer le lien
         const spouseEntry = (user.spouses || []).find((s) => s.id === targetSpouseId);
         const pairKey = spouseEntry?.sharedBalanceKey || spouseEntry?.fiefBalanceKey;
 
+        if (spouseEntry && MARRIAGE_INDISSOLUBLE_TYPES.includes(spouseEntry.contractType)) {
+          notify("Cette union est indissoluble par ces vœux — seule la mort peut y mettre fin.", "error");
+          return;
+        }
+
+        if (!window.confirm("Rompre cette union ? Les vœux seront brisés de manière irréversible.")) return;
+        const spouseIdx = newCitizens.findIndex((c) => c.id === targetSpouseId);
+
+        // Archiver l'union rompue dans le registre matrimonial des deux ex-époux
+        const endedAt = Date.now();
         const newUserSpouses = (user.spouses || []).filter((s) => s.id !== targetSpouseId);
-        newCitizens[userIdx] = { ...user, spouseId: newUserSpouses[0]?.id || null, spouses: newUserSpouses };
+        newCitizens[userIdx] = {
+          ...user,
+          spouseId: newUserSpouses[0]?.id || null,
+          spouses: newUserSpouses,
+          marriageHistory: spouseEntry
+            ? [{ ...spouseEntry, endedAt, endReason: "divorce" }, ...(user.marriageHistory || [])]
+            : (user.marriageHistory || []),
+        };
         if (spouseIdx !== -1) {
           const spouse = newCitizens[spouseIdx];
+          const theirEntry = (spouse.spouses || []).find((s) => s.id === session.id);
           const newSpouseSpouses = (spouse.spouses || []).filter((s) => s.id !== session.id);
-          newCitizens[spouseIdx] = { ...spouse, spouseId: newSpouseSpouses[0]?.id || null, spouses: newSpouseSpouses };
+          newCitizens[spouseIdx] = {
+            ...spouse,
+            spouseId: newSpouseSpouses[0]?.id || null,
+            spouses: newSpouseSpouses,
+            marriageHistory: theirEntry
+              ? [{ ...theirEntry, endedAt, endReason: "divorce" }, ...(spouse.marriageHistory || [])]
+              : (spouse.marriageHistory || []),
+          };
         }
 
         // Dissoudre le compte commun / fief si personne d'autre ne partage cette clé
@@ -3509,6 +3627,66 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         saveState({ ...state, citizens: newCitizens });
         notify("Lien de filiation supprimé.", "info");
+      },
+
+      // Validation admin des naissances soumises via la loi "requireChildApproval"
+      // (voir onDeclareChild) — reprend la même logique d'ajout que la déclaration directe.
+      onApprovePendingChild: (pendingId) => {
+        if (!session) return;
+        const pending = (state.pendingChildren || []).find((p) => p.id === pendingId);
+        if (!pending) { notify("Demande introuvable.", "error"); return; }
+
+        const newCitizens = [...state.citizens];
+        const requesterIdx = newCitizens.findIndex((c) => c.id === pending.requestedBy);
+        if (requesterIdx === -1) { notify("Le déclarant n'existe plus.", "error"); return; }
+
+        const child = pending.childData;
+        const requester = newCitizens[requesterIdx];
+        newCitizens[requesterIdx] = { ...requester, children: [...(requester.children || []), child] };
+
+        if (child.otherParentId) {
+          const otherIdx = newCitizens.findIndex((c) => c.id === child.otherParentId);
+          if (otherIdx !== -1) {
+            const other = newCitizens[otherIdx];
+            const alreadyThere = (other.children || []).some((ch) => ch.id === child.id);
+            if (!alreadyThere) {
+              newCitizens[otherIdx] = { ...other, children: [...(other.children || []), { ...child, otherParentId: pending.requestedBy }] };
+            }
+          }
+        }
+
+        if (child.citizenId) {
+          const childIdx = newCitizens.findIndex((c) => c.id === child.citizenId);
+          if (childIdx !== -1) {
+            const childCitizen = newCitizens[childIdx];
+            const parentUpdates = {};
+            const declarantSex = requester.sex || requester.gender;
+            const otherParent = child.otherParentId ? newCitizens.find((c) => c.id === child.otherParentId) : null;
+            if (declarantSex === "F" || declarantSex === "female" || declarantSex === "Femme") {
+              parentUpdates.motherId = pending.requestedBy;
+              parentUpdates.motherName = requester.name;
+              if (otherParent) { parentUpdates.fatherId = otherParent.id; parentUpdates.fatherName = otherParent.name; }
+            } else {
+              parentUpdates.fatherId = pending.requestedBy;
+              parentUpdates.fatherName = requester.name;
+              if (otherParent) { parentUpdates.motherId = otherParent.id; parentUpdates.motherName = otherParent.name; }
+            }
+            newCitizens[childIdx] = { ...childCitizen, ...parentUpdates };
+          }
+        }
+
+        const pendingChildren = (state.pendingChildren || []).filter((p) => p.id !== pendingId);
+        saveState({ ...state, citizens: newCitizens, pendingChildren });
+        notify(`${child.name} a été reconnu(e) — déclaration approuvée.`, "success");
+      },
+
+      onRejectPendingChild: (pendingId) => {
+        if (!session) return;
+        const pending = (state.pendingChildren || []).find((p) => p.id === pendingId);
+        if (!pending) { notify("Demande introuvable.", "error"); return; }
+        const pendingChildren = (state.pendingChildren || []).filter((p) => p.id !== pendingId);
+        saveState({ ...state, pendingChildren });
+        notify(`Déclaration de ${pending.childData?.name || "l'enfant"} refusée.`, "info");
       },
 
       onSetParents: (citizenId, { fatherId, motherId }) => {

@@ -8,6 +8,8 @@ import {
   Coins,
   Scroll,
   MapPin,
+  Crown,
+  Lock,
   X,
   CheckCheck,
   ChevronRight,
@@ -21,6 +23,8 @@ const ICON_MAP = {
   Coins,
   Scroll,
   MapPin,
+  Crown,
+  Lock,
 };
 
 const CATEGORY_COLORS = {
@@ -31,6 +35,7 @@ const CATEGORY_COLORS = {
   Finances: { bg: "#eab30820", text: "#fbbf24", dot: "#eab308" },
   Gazette: { bg: "#10b98120", text: "#34d399", dot: "#10b981" },
   "Bureau de Poste": { bg: "#f59e0b20", text: "#fbbf24", dot: "#f59e0b" },
+  "Liens & Unions": { bg: "#ec489920", text: "#f472b6", dot: "#ec4899" },
 };
 
 const DEFAULT_COLORS = { bg: "#78716c20", text: "#a8a29e", dot: "#78716c" };

@@ -17,6 +17,7 @@ import {
   ArrowUpRight,
   Crown,
   Shield,
+  Baby,
 } from "lucide-react";
 import { formatMoney, logEntryColor, logEntrySign } from "../../lib/gameUtils";
 import Avatar from "../ui/Avatar";
@@ -125,9 +126,10 @@ export const getBranchForCitizen = (citizen, fam) => {
 };
 
 /* ── Composant principal ── */
-const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
+const FamiliesAdminView = ({ state, onUpdateState, notify, onApprovePendingChild, onRejectPendingChild }) => {
   const safeCitizens = Array.isArray(state.citizens) ? state.citizens : [];
   const safeFamilies = Array.isArray(state.families) ? state.families : [];
+  const pendingChildren = Array.isArray(state.pendingChildren) ? state.pendingChildren : [];
 
   const [view,        setView]        = useState("list");
   const [editingId,   setEditingId]   = useState(null);
@@ -889,6 +891,44 @@ const FamiliesAdminView = ({ state, onUpdateState, notify }) => {
         <span>Membres : <strong className="text-stone-200">{new Set(safeFamilies.flatMap((f) => (familyMembersMap[f.id] || []).map((m) => m.id))).size}</strong></span>
         <span className="ml-auto text-amber-500 font-mono font-bold">{formatMoney(safeFamilies.reduce((s, f) => s + (f.treasury || 0), 0))} total</span>
       </div>
+
+      {/* Naissances en attente (loi "requireChildApproval") */}
+      {pendingChildren.length > 0 && (
+        <div className="border border-emerald-800/50 rounded-xl bg-emerald-950/20 p-4 space-y-2.5">
+          <div className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+            <Baby size={14} /> Naissances en attente de validation ({pendingChildren.length})
+          </div>
+          <div className="space-y-1.5">
+            {pendingChildren.map((p) => {
+              const otherParent = p.childData?.otherParentId ? safeCitizens.find((c) => c.id === p.childData.otherParentId) : null;
+              return (
+                <div key={p.id} className="flex items-center justify-between gap-3 bg-stone-800/50 border border-stone-700 rounded-lg px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-stone-200 truncate">{p.childData?.name || "Enfant"}</div>
+                    <div className="text-[9px] text-stone-500 truncate">
+                      Déclaré par {p.requestedByName}{otherParent ? ` · autre parent : ${otherParent.name}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={() => onApprovePendingChild && onApprovePendingChild(p.id)}
+                      className="px-2.5 py-1.5 bg-emerald-900/50 border border-emerald-700/50 text-emerald-300 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-emerald-900/70 transition-colors"
+                    >
+                      Accorder
+                    </button>
+                    <button
+                      onClick={() => onRejectPendingChild && onRejectPendingChild(p.id)}
+                      className="px-2.5 py-1.5 bg-stone-700/50 border border-stone-600 text-stone-300 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-red-900/40 hover:text-red-300 transition-colors"
+                    >
+                      Refuser
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <SearchInput value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Chercher une famille, dynastie ou nom…" />
 

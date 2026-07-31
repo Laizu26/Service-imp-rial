@@ -7,6 +7,8 @@ import {
   ShieldAlert,
   Coins,
   Scroll,
+  Crown,
+  Lock,
   CheckCheck,
   Filter,
   ChevronRight,
@@ -17,7 +19,7 @@ import {
   SortAsc,
 } from "lucide-react";
 
-const ICON_MAP = { Mail, Briefcase, Heart, ShieldAlert, Coins, Scroll };
+const ICON_MAP = { Mail, Briefcase, Heart, ShieldAlert, Coins, Scroll, Crown, Lock };
 
 const CATEGORY_COLORS = {
   Messages:        { bg: "#3b82f620", text: "#3b82f6", textDark: "#60a5fa", dot: "#3b82f6", border: "#3b82f630" },

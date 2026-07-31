@@ -2972,25 +2972,29 @@ const CitizenLayout = (props) => {
                   {familyTab === "members" && (
                     <div className="space-y-4">
                       {(() => {
-                        const memberIds = new Set(members.map((m) => m.id));
-                        const memberById = Object.fromEntries(members.map((m) => [m.id, m]));
+                        const memberIds = new Set(members.map((m) => String(m.id)));
+                        const memberById = Object.fromEntries(members.map((m) => [String(m.id), m]));
                         const seen = new Set();
                         const parentLinks = [];
                         const spouseLinks = [];
                         members.forEach((m) => {
-                          if (m.fatherId && memberIds.has(m.fatherId)) {
+                          if (m.fatherId && memberIds.has(String(m.fatherId))) {
                             const key = `${m.fatherId}-${m.id}-p`;
-                            if (!seen.has(key)) { seen.add(key); parentLinks.push({ parent: memberById[m.fatherId], child: m, rel: "père" }); }
+                            if (!seen.has(key)) { seen.add(key); parentLinks.push({ parent: memberById[String(m.fatherId)], child: m, rel: "père" }); }
                           }
-                          if (m.motherId && memberIds.has(m.motherId)) {
+                          if (m.motherId && memberIds.has(String(m.motherId))) {
                             const key = `${m.motherId}-${m.id}-p`;
-                            if (!seen.has(key)) { seen.add(key); parentLinks.push({ parent: memberById[m.motherId], child: m, rel: "mère" }); }
+                            if (!seen.has(key)) { seen.add(key); parentLinks.push({ parent: memberById[String(m.motherId)], child: m, rel: "mère" }); }
                           }
-                          const spouseIds = Array.isArray(m.spouses) ? m.spouses : (m.spouseId ? [m.spouseId] : []);
+                          // m.spouses est un tableau d'objets {id, ...} (et non d'ids bruts) —
+                          // il faut en extraire les id avant de les comparer aux membres de la famille.
+                          const spouseIds = Array.isArray(m.spouses)
+                            ? m.spouses.map((s) => s.id)
+                            : (m.spouseId ? [m.spouseId] : []);
                           spouseIds.forEach((sid) => {
-                            if (memberIds.has(sid)) {
-                              const key = [m.id, sid].sort().join("-") + "-s";
-                              if (!seen.has(key)) { seen.add(key); spouseLinks.push({ a: m, b: memberById[sid] }); }
+                            if (memberIds.has(String(sid))) {
+                              const key = [String(m.id), String(sid)].sort().join("-") + "-s";
+                              if (!seen.has(key)) { seen.add(key); spouseLinks.push({ a: m, b: memberById[String(sid)] }); }
                             }
                           });
                         });

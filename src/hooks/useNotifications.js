@@ -194,6 +194,61 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
       });
     }
 
+    // --- Propositions de renégociation de domination sur une union existante ---
+    if (prefs.unions !== false) {
+      (user.spouses || []).forEach((s) => {
+        if (s.pendingDominance && String(s.pendingDominance.proposedBy) !== String(user.id)) {
+          notifs.push({
+            id: `domprop_${s.id}_${s.pendingDominance.timestamp}`,
+            type: "marriage_dominance",
+            category: "Liens & Unions",
+            title: "Proposition de domination conjugale",
+            description: `De ${s.name || "votre conjoint"}`,
+            timestamp: s.pendingDominance.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "mariage",
+            icon: "Crown",
+          });
+        }
+      });
+
+      // Réquisitions subies récemment de la part d'un conjoint dominant
+      (user.spouses || []).forEach((s) => {
+        (s.requisitionHistory || []).slice(0, 5).forEach((h) => {
+          notifs.push({
+            id: `requis_${h.id}`,
+            type: "marriage_requisition",
+            category: "Liens & Unions",
+            title: "Réquisition conjugale",
+            description: `${s.name || "Votre conjoint"} a prélevé ${formatMoney(h.amount)}`,
+            timestamp: h.timestamp,
+            rpDate: rpDateStr,
+            route: "mariage",
+            icon: "Coins",
+          });
+        });
+      });
+
+      // Droits restreints par un conjoint dominant — refait surface si l'ensemble des
+      // restrictions actives change (l'id embarque les clés actives).
+      (user.spouses || []).forEach((s) => {
+        const activeKeys = Object.keys(s.spouseRights || {}).filter((k) => s.spouseRights[k]).sort();
+        if (activeKeys.length > 0 && s.dominantId && String(s.dominantId) !== String(user.id)) {
+          notifs.push({
+            id: `spouserights_${s.id}_${activeKeys.join(",")}`,
+            type: "marriage_rights",
+            category: "Liens & Unions",
+            title: "Droits restreints par votre conjoint",
+            description: `${s.name || "Votre conjoint"} — ${activeKeys.length} restriction${activeKeys.length > 1 ? "s" : ""} active${activeKeys.length > 1 ? "s" : ""}`,
+            timestamp: Date.now(),
+            rpDate: rpDateStr,
+            route: "mariage",
+            icon: "Lock",
+          });
+        }
+      });
+    }
+
     // --- Alertes esclaves ---
     if (prefs.esclaves !== false) {
       (user.slaveAlerts || []).forEach((alert) => {

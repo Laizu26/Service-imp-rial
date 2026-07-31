@@ -18,6 +18,7 @@ import {
   MARRIAGE_REGIMES,
   MARRIAGE_DOT_TYPES,
   MARRIAGE_DOMINANCE,
+  MARRIAGE_INDISSOLUBLE_TYPES,
   FILIATION_TYPES,
 } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
@@ -442,6 +443,9 @@ const MarriageView = ({
   // Modale de réquisition du trésor personnel du conjoint dominé
   const [requisitioningSpouseId, setRequisitioningSpouseId] = useState(null);
 
+  // Registre matrimonial (unions passées : divorce, veuvage, rupture tutoriale)
+  const [showMarriageHistory, setShowMarriageHistory] = useState(false);
+
   // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
   const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
   const [renegotiateDominance, setRenegotiateDominance] = useState("proposant_dominant");
@@ -659,6 +663,7 @@ const MarriageView = ({
                 ? (iAmDominant ? "Vous, Dominant(e)" : `${spouseUser?.name || spouse.name}, Dominant(e)`)
                 : (dom?.label || "Union Égale");
               const activeRestrictions = SPOUSE_RIGHTS_LIST.filter((r) => spouse.spouseRights?.[r.key]);
+              const isIndissoluble = MARRIAGE_INDISSOLUBLE_TYPES.includes(spouse.contractType);
 
               return (
                 <div key={spouse.id} className="bg-white rounded-xl border border-rose-200 shadow-sm overflow-hidden">
@@ -707,12 +712,21 @@ const MarriageView = ({
                             </button>
                           </>
                         )}
-                        <button
-                          onClick={() => onDivorce && onDivorce(spouse.id)}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors"
-                        >
-                          <HeartOff size={12} /> Rompre
-                        </button>
+                        {isIndissoluble ? (
+                          <span
+                            title="Cette union est indissoluble par ces vœux — seule la mort peut y mettre fin."
+                            className="flex items-center gap-1.5 px-3 py-2 bg-stone-50 border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg cursor-help"
+                          >
+                            <Lock size={12} /> Indissoluble
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => onDivorce && onDivorce(spouse.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors"
+                          >
+                            <HeartOff size={12} /> Rompre
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -885,6 +899,45 @@ const MarriageView = ({
           <div className="text-center py-10 text-stone-400 italic text-sm">
             <Heart size={32} className="mx-auto mb-3 opacity-20" />
             Aucune union contractée pour le moment.
+          </div>
+        )}
+
+        {/* ── REGISTRE MATRIMONIAL ── */}
+        {(user.marriageHistory || []).length > 0 && (
+          <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <button
+              onClick={() => setShowMarriageHistory((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-stone-50 transition-colors"
+            >
+              <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 flex items-center gap-2">
+                📜 Registre matrimonial ({user.marriageHistory.length})
+              </span>
+              <span className="text-stone-400 text-xs">{showMarriageHistory ? "▲" : "▼"}</span>
+            </button>
+            {showMarriageHistory && (
+              <div className="border-t border-stone-100 divide-y divide-stone-100">
+                {user.marriageHistory.map((h, i) => {
+                  const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === h.contractType);
+                  const endLabel = { divorce: "Divorce", veuvage: "Veuvage", tutelle: "Rompue par le tuteur" }[h.endReason] || "Union rompue";
+                  const endColor = { divorce: "text-stone-500", veuvage: "text-purple-600", tutelle: "text-amber-600" }[h.endReason] || "text-stone-500";
+                  return (
+                    <div key={`${h.id}_${i}`} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-stone-700 truncate">
+                          {ct?.emoji || "💍"} {h.name || safeUsers.find((u) => u.id === h.id)?.name || "Inconnu"}
+                        </div>
+                        <div className="text-[9px] text-stone-400">
+                          {ct?.label || "Mariage"}
+                          {h.date ? ` · uni le ${new Date(h.date).toLocaleDateString("fr-FR")}` : ""}
+                          {h.endedAt ? ` · rompue le ${new Date(h.endedAt).toLocaleDateString("fr-FR")}` : ""}
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase tracking-widest shrink-0 ${endColor}`}>{endLabel}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

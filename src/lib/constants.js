@@ -173,6 +173,10 @@ export const MARRIAGE_CONTRACT_TYPES = [
   { id: "arcane",      label: "Pacte Arcanique",           emoji: "🔮", description: "Union magique liée par un sortilège ancien" },
 ];
 
+// Contrats que les vœux rendent indissolubles : aucun divorce possible, seule la mort
+// (ou une décision tutoriale pour une union d'esclave) peut y mettre fin.
+export const MARRIAGE_INDISSOLUBLE_TYPES = ["sacre", "feodal", "serment", "arcane"];
+
 // Régime de fond : comment les richesses sont gérées au quotidien
 export const MARRIAGE_REGIMES = [
   { id: "separation",    label: "Biens Séparés",    emoji: "🔒", description: "Chaque époux conserve ses terres et possessions en propre" },
