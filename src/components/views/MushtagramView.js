@@ -83,7 +83,12 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
   const isMe = citizenId === myId;
   const isFollowing = (myFollowing || []).includes(citizenId);
   const isSubscribedToThem = (mySubscriptions || []).some(s => String(s.creatorId) === citizenId);
-  const canSeePost = (p) => isMe || isAdmin || !p.followersOnly || isFollowing;
+  const canSeePost = (p) => {
+    if (isMe || isAdmin) return true;
+    if (p.isAnonymous) return false;
+    if (p.followersOnly && !isFollowing) return false;
+    return true;
+  };
   const isPostLocked = (p) => {
     if (isMe || isAdmin) return false;
     if (p.locked && !(p.unlockedBy || []).map(String).includes(myId)) return true;
