@@ -1045,10 +1045,16 @@ const CitizenLayout = (props) => {
     mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked),
     bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked),
     marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked),
+    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked),
   };
+  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : "conjoint";
 
+  // canUsePost / canUseBank : visibilité de l'onglet dans la sidebar (statut d'esclave uniquement).
+  // L'onglet reste visible même verrouillé par contrat de servage/conjoint — le blocage s'affiche
+  // alors à l'intérieur, avec la raison, plutôt que de faire disparaître l'onglet sans explication.
   const canUsePost = !isSlave || !!permissions.post;
-  const canUseBank = (!isSlave || !!permissions.bank) && !combinedRestriction.bankLocked;
+  const canUseBank = !isSlave || !!permissions.bank;
+  const bankAccessAllowed = canUseBank && !combinedRestriction.bankLocked;
   const canUseTravel = !isSlave || !!permissions.travel;
 
   // Sécurité sur users
@@ -1660,7 +1666,7 @@ const CitizenLayout = (props) => {
                 onTransfer={onTransfer}
                 onPayDebt={onPayDebt}
                 onCancelDebt={onCancelDebt}
-                canUseBank={canUseBank}
+                canUseBank={bankAccessAllowed}
                 isBanned={isBanned}
                 onProposeDebt={onProposeDebt}
                 onSignDebt={onSignDebt}
@@ -1731,7 +1737,20 @@ const CitizenLayout = (props) => {
               />
             )}
 
-            {active === "msg" && !isBanned && canUsePost && (
+            {active === "msg" && !isBanned && canUsePost && combinedRestriction.postLocked && (
+              <div className="p-4 md:p-8">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
+                  <div className="text-3xl">🚫</div>
+                  <p className="font-black text-red-700 text-base">Poste restreinte</p>
+                  <p className="text-xs text-red-500">
+                    {restrictionSource("postLocked") === "employeur"
+                      ? "Votre employeur a restreint votre accès à la Poste Impériale dans le cadre de votre contrat."
+                      : "Votre conjoint dominant a restreint votre accès à la Poste Impériale."}
+                  </p>
+                </div>
+              </div>
+            )}
+            {active === "msg" && !isBanned && canUsePost && !combinedRestriction.postLocked && (
               <PostView
                 users={safeUsers}
                 session={user}

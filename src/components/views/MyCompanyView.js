@@ -290,7 +290,8 @@ function EmployeeManagementModal({
     { key: "travelLocked", icon: "🚫", label: "Bloquer le voyage", desc: "Empêche tout déplacement inter-pays" },
     { key: "mushtagramLocked", icon: "📵", label: "Bloquer Mushtagram", desc: "Interdit l'accès au réseau social" },
     { key: "bankLocked", icon: "🏦", label: "Bloquer le compte bancaire", desc: "Interdit les opérations bancaires" },
-    { key: "marketLocked", icon: "🛒", label: "Bloquer le marché", desc: "Interdit les échanges commerciaux" },
+    { key: "marketLocked", icon: "🛒", label: "Bloquer le marché", desc: "Interdit les échanges commerciaux (Bourse)" },
+    { key: "postLocked", icon: "✉️", label: "Bloquer la Poste Impériale", desc: "Interdit l'envoi et la réception de courrier" },
   ];
 
   const TABS = [
