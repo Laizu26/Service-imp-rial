@@ -885,6 +885,8 @@ const CitizenLayout = (props) => {
     onSubscribeMushtagramCreator,
     onUnsubscribeMushtagramCreator,
     onUnlockMushtagramPost,
+    onToggleMushtagramMute,
+    onTipMushtagramCreator,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1718,6 +1720,8 @@ const CitizenLayout = (props) => {
                 session={user}
                 citizens={safeUsers}
                 companies={companies}
+                guilds={guilds}
+                eruditRequests={eruditRequests}
                 gameDate={gd}
                 mushtagramPosts={mushtagramPosts}
                 mushtagramDMs={mushtagramDMs}
@@ -1752,6 +1756,8 @@ const CitizenLayout = (props) => {
                 onSubscribeMushtagramCreator={onSubscribeMushtagramCreator}
                 onUnsubscribeMushtagramCreator={onUnsubscribeMushtagramCreator}
                 onUnlockMushtagramPost={onUnlockMushtagramPost}
+                onToggleMushtagramMute={onToggleMushtagramMute}
+                onTipMushtagramCreator={onTipMushtagramCreator}
                 notify={notify}
               />
             )}

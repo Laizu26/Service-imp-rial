@@ -30,6 +30,7 @@ import {
   Swords,
   Hash,
   X,
+  Flag,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -799,6 +800,8 @@ export default function App() {
             onSubscribeMushtagramCreator={actions.onSubscribeMushtagramCreator}
             onUnsubscribeMushtagramCreator={actions.onUnsubscribeMushtagramCreator}
             onUnlockMushtagramPost={actions.onUnlockMushtagramPost}
+            onToggleMushtagramMute={actions.onToggleMushtagramMute}
+            onTipMushtagramCreator={actions.onTipMushtagramCreator}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1219,10 +1222,51 @@ export default function App() {
                           </div>
                         );
                       })()}
+                      {/* Admin panel: reported posts moderation queue */}
+                      {(() => {
+                        const reported = (state.mushtagramPosts || []).filter(p => (p.reports || []).length > 0);
+                        if (reported.length === 0) return null;
+                        return (
+                          <div className="bg-[#fdf6e3] rounded-2xl border border-red-300 shadow p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Flag size={18} className="text-red-500" />
+                              <h3 className="text-sm font-black uppercase tracking-widest text-stone-800">Publications signalées</h3>
+                              <span className="text-[10px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{reported.length}</span>
+                            </div>
+                            <div className="space-y-2">
+                              {reported.map(p => (
+                                <div key={p.id} className="bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <div className="font-bold text-stone-800 text-sm">{p.authorName}</div>
+                                    <span className="text-[9px] font-black bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
+                                      {(p.reports || []).length} signalement{(p.reports || []).length > 1 ? "s" : ""}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-stone-500 italic line-clamp-2 mb-2">{p.content || "(publication sans texte)"}</p>
+                                  <div className="flex gap-2 justify-end">
+                                    <button
+                                      onClick={() => actions.onDismissMushtagramReport(p.id)}
+                                      className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black uppercase rounded-lg transition-colors">
+                                      Ignorer
+                                    </button>
+                                    <button
+                                      onClick={() => actions.onDeleteMushtagramPost(p.id)}
+                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase rounded-lg transition-colors">
+                                      Supprimer
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <MushtagramView
                         session={currentUser}
                         citizens={state.citizens}
                         companies={state.companies || []}
+                        guilds={state.guilds || []}
+                        eruditRequests={state.eruditRequests || []}
                         gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
                         mushtagramPosts={state.mushtagramPosts || []}
                         mushtagramDMs={state.mushtagramDMs || []}
@@ -1256,6 +1300,8 @@ export default function App() {
                         onSubscribeMushtagramCreator={actions.onSubscribeMushtagramCreator}
                         onUnsubscribeMushtagramCreator={actions.onUnsubscribeMushtagramCreator}
                         onUnlockMushtagramPost={actions.onUnlockMushtagramPost}
+                        onToggleMushtagramMute={actions.onToggleMushtagramMute}
+                        onTipMushtagramCreator={actions.onTipMushtagramCreator}
                         notify={notify}
                       />
                     </div>

@@ -19,6 +19,29 @@ const avatarBg = (name = "") => {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 };
 
+// Rend un texte en colorant/rendant cliquables les mentions @handle qui correspondent
+// à un citoyen existant. Les jetons qui ne matchent personne restent du texte brut.
+const renderWithMentions = (text, citizens, onViewProfile) => {
+  if (!text) return text;
+  const parts = text.split(/(@[\wÀ-ɏ]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("@")) {
+      const handle = part.slice(1).toLowerCase();
+      const mentioned = (citizens || []).find(c => c.mushtagramHandle && c.mushtagramHandle.toLowerCase() === handle);
+      if (mentioned) {
+        return (
+          <span key={i}
+            onClick={(e) => { e.stopPropagation(); onViewProfile(mentioned); }}
+            className="text-rose-600 font-bold hover:underline cursor-pointer">
+            {part}
+          </span>
+        );
+      }
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+};
+
 const AVA_PX = { xs: 20, sm: 28, md: 40, lg: 56, xl: 80 };
 const AVA_TEXT = { xs: "9px", sm: "13px", md: "14px", lg: "22px", xl: "28px" };
 
@@ -52,7 +75,9 @@ const REACTION_EMOJIS = ["❤", "👑", "🗡️", "🔥", "😮"];
 
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
-function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList }) {
+function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList, recognizedEruditIds, onTip }) {
+  const [tipOpen, setTipOpen] = useState(false);
+  const [tipAmount, setTipAmount] = useState("");
   if (!citizen) return null;
   const citizenId = String(citizen.id);
   const isMe = citizenId === myId;
@@ -110,20 +135,48 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${isFollowing ? "bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-500" : "bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90"}`}>
                   {isFollowing ? <><UserMinus size={11} /> Suivi</> : <><UserPlus size={11} /> Suivre</>}
                 </button>
-                {onOpenDM && (
+                {onOpenDM && !citizen.isEntity && (
                   <button onClick={() => onOpenDM(citizenId)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black bg-stone-100 text-stone-600 hover:bg-stone-200 transition-all">
                     <MessageCircle size={11} /> Message
                   </button>
                 )}
+                {onTip && !citizen.isEntity && (
+                  <button onClick={() => setTipOpen(v => !v)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all ${tipOpen ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-600 hover:bg-amber-50 hover:text-amber-600"}`}>
+                    💰 Pourboire
+                  </button>
+                )}
               </div>
             )}
           </div>
+          {tipOpen && (
+            <div className="flex items-center gap-2 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <input type="number" min={0.1} step={0.1} value={tipAmount} onChange={e => setTipAmount(e.target.value)}
+                placeholder="Montant en écus"
+                className="flex-1 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
+              <button
+                onClick={() => { if (Number(tipAmount) > 0) { onTip({ toId: citizenId, amount: Number(tipAmount) }); setTipAmount(""); setTipOpen(false); } }}
+                className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors">
+                Envoyer
+              </button>
+            </div>
+          )}
           {/* Badges */}
           <div className="flex flex-wrap gap-1.5 mt-2">
+            {citizen.isEntity ? (
+              <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full px-2 py-0.5">
+                {citizen.entityType === "guild" ? "🏛️ Guilde" : "🏢 Entreprise"}
+              </span>
+            ) : null}
             {citizen.mushtagramPublicPersonality === true || citizen.mushtagramPublicPersonality === "approved" ? (
               <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-300 rounded-full px-2 py-0.5">
                 <Crown size={9} /> Personnalité Publique
+              </span>
+            ) : null}
+            {recognizedEruditIds?.has(citizenId) ? (
+              <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 border border-indigo-300 rounded-full px-2 py-0.5">
+                🎓 Érudit reconnu
               </span>
             ) : null}
             {citizen.mushtagramPrivate ? (
@@ -479,12 +532,14 @@ function PostCard({
   myRepostedIds,
   setExpandedComments, setCommentInput,
   mySubscriptions, onUnlock,
+  recognizedEruditIds,
 }) {
   const [replyingTo, setReplyingTo] = React.useState(null); // { commentId, authorName }
   const author = citizens.find(c => String(c.id) === String(post.authorId));
   const authorId = String(post.authorId);
   const isMe = authorId === myId;
-  const canDelete = isMe || isAdmin;
+  const isMyEntityPost = !!post.authorType && String(post.postedBy) === myId;
+  const canDelete = isMe || isAdmin || isMyEntityPost;
   const isFollowing = (myFollowing || []).includes(authorId);
   const showCmt = expandedComments[post.id];
   const cmtCount = (post.comments || []).length;
@@ -570,6 +625,9 @@ function PostCard({
             {!showAnon && author?.mushtagramPublicPersonality === "approved" && (
               <span title="Personnalité publique vérifiée" style={{color:"#3b82f6", fontSize:"0.75rem", marginLeft:"3px"}}>✓</span>
             )}
+            {!showAnon && recognizedEruditIds?.has(authorId) && (
+              <span title="Érudit reconnu" className="text-[11px]" style={{ marginLeft: "1px" }}>🎓</span>
+            )}
             {!showAnon && author?.mushtagramHandle && (
               <span className="text-[10px] text-stone-400">@{author.mushtagramHandle}</span>
             )}
@@ -586,6 +644,11 @@ function PostCard({
             {post.subscribersOnly && (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5" title="Abonnés payants uniquement">
                 <Sparkles size={8} /> Cercle privé
+              </span>
+            )}
+            {post.authorType && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-1.5 py-0.5">
+                {post.authorType === "guild" ? "🏛️ Guilde" : "🏢 Entreprise"}
               </span>
             )}
             {!isMe && !isFollowing && !showAnon && (
@@ -655,7 +718,7 @@ function PostCard({
           {/* Content */}
           {post.content && (
             <div className="px-4 pb-2">
-              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{renderWithMentions(post.content, citizens, onViewProfile)}</p>
             </div>
           )}
 
@@ -747,7 +810,7 @@ function PostCard({
                           {cDisplayName}{c.isAnonymous && (String(c.authorId) === myId || isAdmin) ? " 🎭" : ""}
                         </button>
                       )}{" "}
-                      <span className="text-[11px] text-stone-700">{c.content}</span>
+                      <span className="text-[11px] text-stone-700">{renderWithMentions(c.content, citizens, onViewProfile)}</span>
                     </div>
                     {authorLikedCmt && (
                       <div className="absolute -bottom-2 -right-1 flex items-center bg-white rounded-full shadow-sm border border-stone-100 px-1 py-0.5 gap-0.5">
@@ -846,7 +909,7 @@ function PostCard({
 /* ── composant principal ─────────────────────────────────────────────────── */
 
 export default function MushtagramView({
-  session, citizens = [], companies = [], gameDate,
+  session, citizens = [], companies = [], guilds = [], eruditRequests = [], gameDate,
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
   mushtagramSubscriptions = [],
   onPostMushtagram, onDeleteMushtagramPost,
@@ -861,6 +924,7 @@ export default function MushtagramView({
   onMarkMushtagramNotifsRead,
   onBroadcastMushtagram,
   onUpdateMushtagramMonetization, onSubscribeMushtagramCreator, onUnsubscribeMushtagramCreator, onUnlockMushtagramPost,
+  onToggleMushtagramMute, onTipMushtagramCreator,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -890,6 +954,9 @@ export default function MushtagramView({
   const [lockedPrice, setLockedPrice]         = useState("");
   const [subscribersOnlyPost, setSubscribersOnlyPost] = useState(false);
 
+  // Publier au nom d'une guilde/entreprise ("" = en tant que moi-même)
+  const [postAsEntity, setPostAsEntity] = useState("");
+
   // Contenu payant : formulaire d'ajout de palier (paramètres)
   const [newTierName, setNewTierName]   = useState("");
   const [newTierPrice, setNewTierPrice] = useState("");
@@ -897,8 +964,6 @@ export default function MushtagramView({
   // Broadcast (PP feature)
   const [broadcastInput, setBroadcastInput] = useState("");
 
-  // Muted users (local state, not persisted)
-  const [mutedSet, setMutedSet]         = useState(new Set());
 
   // Profile modal
   const [viewingProfile, setViewingProfile] = useState(null);
@@ -925,6 +990,28 @@ export default function MushtagramView({
   const myCitizen = useMemo(() => citizens.find(c => String(c.id) === myId) || session, [citizens, myId, session]);
   const myRole    = ROLES[session?.role];
   const isAdmin   = (myRole?.level ?? 0) >= 90;
+  const mutedSet  = useMemo(() => new Set((myCitizen?.mushtagramMutedUsers || []).map(String)), [myCitizen]);
+
+  // Comptes officiels de guilde/entreprise : profils "citoyen-compatibles" virtuels,
+  // fusionnés uniquement pour la résolution d'auteur des posts (PostCard/ProfileModal),
+  // jamais dans la liste `citizens` générale (mentions, DM, recherche…).
+  const entityProfiles = useMemo(() => [
+    ...guilds.map(g => ({
+      id: `guild_${g.id}`, name: g.name,
+      mushtagramPhoto: g.icon || null, mushtagramAvatar: g.emoji || "🏛️",
+      mushtagramBio: g.description || "", mushtagramFollowing: [],
+      isEntity: true, entityType: "guild", entityId: g.id, entityLeaderId: g.leaderId,
+    })),
+    ...companies.map(c => ({
+      id: `company_${c.id}`, name: c.name,
+      mushtagramPhoto: c.icon || null, mushtagramAvatar: c.emoji || "🏢",
+      mushtagramBio: c.description || "", mushtagramFollowing: [],
+      isEntity: true, entityType: "company", entityId: c.id, entityLeaderId: c.ownerId,
+    })),
+  ], [guilds, companies]);
+  const authorResolutionCitizens = useMemo(() => [...citizens, ...entityProfiles], [citizens, entityProfiles]);
+  const myLeaderGuilds = useMemo(() => guilds.filter(g => String(g.leaderId) === myId), [guilds, myId]);
+  const myOwnerCompanies = useMemo(() => companies.filter(c => String(c.ownerId) === myId), [companies, myId]);
 
   const mushtagramEmployer = useMemo(() =>
     (companies || []).find(c => (c.employees || []).map(String).includes(myId)),
@@ -933,6 +1020,9 @@ export default function MushtagramView({
   const mushtagramSerfRights = mushtagramEmployer?.employmentContracts?.[myId]?.serfRights || {};
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
   const isPP = myCitizen?.mushtagramPublicPersonality === "approved";
+  const recognizedEruditIds = useMemo(() =>
+    new Set((eruditRequests || []).filter(r => r.status === "APPROVED").map(r => String(r.citizenId))),
+  [eruditRequests]);
   const monetizationEnabled = !!myCitizen?.mushtagramMonetizationEnabled;
   const myTiers = myCitizen?.mushtagramSubTiers || [];
   const todayRPDate = formatRPDate(gameDate || { day: 1, month: 1, year: 1200 });
@@ -956,12 +1046,7 @@ export default function MushtagramView({
 
   /* ── follow helpers ────────────────────────────────────────────────── */
   const handleMute = (authorId) => {
-    setMutedSet(prev => {
-      const next = new Set(prev);
-      if (next.has(authorId)) next.delete(authorId);
-      else next.add(authorId);
-      return next;
-    });
+    onToggleMushtagramMute && onToggleMushtagramMute(authorId);
   };
 
   /* ── feed ────────────────────────────────────────────────────────── */
@@ -970,6 +1055,21 @@ export default function MushtagramView({
     const normal   = mushtagramPosts.filter(p => !p.isOfficial).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return [...official, ...normal];
   }, [mushtagramPosts]);
+
+  const explorePosts = useMemo(() => {
+    const base = mushtagramPosts.filter(p => {
+      if (p.repostOf) return false;
+      if (!p.followersOnly) return true;
+      if (String(p.authorId) === myId) return true;
+      if (isAdmin) return true;
+      return (myFollowing || []).includes(String(p.authorId));
+    });
+    const scored = base.map(p => ({
+      post: p,
+      score: (p.likes || []).length + (p.comments || []).length * 2 + mushtagramPosts.filter(r => r.repostOf?.postId === p.id).length * 3,
+    }));
+    return scored.sort((a, b) => b.score - a.score).slice(0, 40).map(x => x.post);
+  }, [mushtagramPosts, myId, isAdmin, myFollowing]);
 
   const filteredPosts = useMemo(() => {
     let base = sortedPosts;
@@ -1018,10 +1118,18 @@ export default function MushtagramView({
 
   /* ── follow suggestions ───────────────────────────────────────────── */
   const followSuggestions = useMemo(() => {
-    return citizens
-      .filter(c => String(c.id) !== myId && !(myFollowing || []).includes(String(c.id)))
-      .slice(0, 5);
-  }, [citizens, myId, myFollowing]);
+    const myGuildIds = new Set(
+      guilds.filter(g => (g.members || []).some(m => String(m.id) === myId)).map(g => g.id)
+    );
+    const candidates = citizens.filter(c => String(c.id) !== myId && !(myFollowing || []).includes(String(c.id)));
+    const scored = candidates.map(c => {
+      let score = 0;
+      if (myCitizen?.countryId && c.countryId === myCitizen.countryId) score += 1;
+      if (myGuildIds.size > 0 && guilds.some(g => myGuildIds.has(g.id) && (g.members || []).some(m => String(m.id) === String(c.id)))) score += 2;
+      return { c, score };
+    });
+    return scored.sort((a, b) => b.score - a.score).slice(0, 5).map(x => x.c);
+  }, [citizens, myId, myFollowing, guilds, myCitizen]);
 
   const submitPost = () => {
     if (!postContent.trim() && !(showPoll && pollOptions.some(o => o.trim()))) return;
@@ -1029,11 +1137,13 @@ export default function MushtagramView({
     const pollData = showPoll && pollOptions.filter(o => o.trim()).length >= 2
       ? { question: pollQuestion.trim(), options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })) }
       : null;
+    const [entityType, entityId] = postAsEntity ? postAsEntity.split(":") : [null, null];
     onPostMushtagram({
       content: postContent.trim(), imageUrl: postImage.trim(), hashtags, poll: pollData,
       isOfficial: isAdmin && isOfficial, followersOnly: isPP && followersOnly,
       locked: monetizationEnabled && lockedPost, price: lockedPrice,
       subscribersOnly: monetizationEnabled && subscribersOnlyPost,
+      ...(entityType ? { postAsEntity: { type: entityType, id: entityId } } : {}),
     });
     setPostContent(""); setPostImage(""); setShowImgInput(false);
     setShowPoll(false); setPollOptions(["", ""]); setPollQuestion(""); setIsOfficial(false);
@@ -1041,6 +1151,42 @@ export default function MushtagramView({
     setLockedPost(false); setLockedPrice(""); setSubscribersOnlyPost(false);
     notify("Publication envoyée !", "success");
   };
+
+  const renderPostCard = (post) => (
+    <PostCard
+      key={post.id}
+      post={post}
+      myId={myId}
+      isAdmin={isAdmin}
+      citizens={authorResolutionCitizens}
+      myCitizen={myCitizen}
+      myFollowing={myFollowing}
+      mutedSet={mutedSet}
+      expandedComments={expandedComments}
+      commentInput={commentInput}
+      onDelete={onDeleteMushtagramPost}
+      onToggleLike={onToggleMushtagramLike}
+      onAddComment={onAddMushtagramComment}
+      onDeleteComment={onDeleteMushtagramComment}
+      onLikeComment={onLikeMushtagramComment}
+      onPinComment={onPinMushtagramComment}
+      onReact={onReactMushtagram}
+      onRepost={onRepostMushtagram}
+      onVotePoll={onVoteMushtagramPoll}
+      onPin={onPinMushtagramPost}
+      onReport={onReportMushtagramPost}
+      onMute={handleMute}
+      onFollow={onFollowMushtagram}
+      onUnfollow={onUnfollowMushtagram}
+      onViewProfile={setViewingProfile}
+      myRepostedIds={myRepostedIds}
+      setExpandedComments={setExpandedComments}
+      setCommentInput={setCommentInput}
+      mySubscriptions={mySubscriptions}
+      onUnlock={onUnlockMushtagramPost}
+      recognizedEruditIds={recognizedEruditIds}
+    />
+  );
 
   /* ── messages ────────────────────────────────────────────────────── */
   const myDMs = useMemo(() =>
@@ -1126,8 +1272,8 @@ export default function MushtagramView({
   const followingCount = followingList.length;
 
   const followListTarget = useMemo(() =>
-    citizens.find(c => String(c.id) === String(followListTargetId)),
-  [citizens, followListTargetId]);
+    authorResolutionCitizens.find(c => String(c.id) === String(followListTargetId)),
+  [authorResolutionCitizens, followListTargetId]);
 
   const followListTargetFollowers = useMemo(() =>
     citizens.filter(c => (c.mushtagramFollowing || []).map(String).includes(String(followListTargetId))),
@@ -1171,6 +1317,7 @@ export default function MushtagramView({
       <div className="flex gap-1 bg-stone-200 rounded-xl p-1">
         {[
           { id: "feed",     label: "Fil" },
+          { id: "explore",  label: "Explorer" },
           { id: "notifs",   label: "Notifs", badge: unreadNotifsCount },
           { id: "messages", label: "Messages", badge: totalUnread },
           { id: "profile",  label: "Profil" },
@@ -1224,8 +1371,25 @@ export default function MushtagramView({
 
               {/* Rédaction */}
               <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
+                {(myLeaderGuilds.length + myOwnerCompanies.length) > 0 && (
+                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-stone-100">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-stone-400 shrink-0">Publier en tant que</span>
+                    <select value={postAsEntity} onChange={e => setPostAsEntity(e.target.value)}
+                      className="flex-1 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-800 outline-none focus:border-rose-300">
+                      <option value="">{myCitizen?.name} (moi-même)</option>
+                      {myLeaderGuilds.map(g => <option key={g.id} value={`guild:${g.id}`}>🏛️ {g.name}</option>)}
+                      {myOwnerCompanies.map(c => <option key={c.id} value={`company:${c.id}`}>🏢 {c.name}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="flex gap-3">
-                  <Ava citizen={myCitizen} size="md" />
+                  {postAsEntity ? (
+                    <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-lg shrink-0">
+                      {postAsEntity.startsWith("guild:") ? "🏛️" : "🏢"}
+                    </div>
+                  ) : (
+                    <Ava citizen={myCitizen} size="md" />
+                  )}
                   <div className="flex-1 space-y-2">
                     <textarea value={postContent} onChange={e => setPostContent(e.target.value)}
                       onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) submitPost(); }}
@@ -1282,19 +1446,19 @@ export default function MushtagramView({
                           className={`flex items-center gap-1 text-xs font-bold transition-all ${showPoll ? "text-blue-500" : "text-stone-400 hover:text-blue-400"}`}>
                           <BarChart2 size={13} /> Sondage
                         </button>
-                        {isAdmin && (
+                        {isAdmin && !postAsEntity && (
                           <button onClick={() => setIsOfficial(v => !v)}
                             className={`flex items-center gap-1 text-xs font-bold transition-all ${isOfficial ? "text-amber-500" : "text-stone-400 hover:text-amber-400"}`}>
                             <Crown size={13} /> Officiel
                           </button>
                         )}
-                        {isPP && (
+                        {isPP && !postAsEntity && (
                           <button onClick={() => setFollowersOnly(v => !v)}
                             className={`flex items-center gap-1 text-xs font-bold transition-all ${followersOnly ? "text-violet-600" : "text-stone-400 hover:text-violet-400"}`}>
                             <Lock size={13} /> Abonnés uniquement
                           </button>
                         )}
-                        {monetizationEnabled && (
+                        {monetizationEnabled && !postAsEntity && (
                           <button
                             onClick={() => { if (!ppvUsedToday) { setLockedPost(v => !v); setSubscribersOnlyPost(false); } }}
                             disabled={ppvUsedToday && !lockedPost}
@@ -1303,7 +1467,7 @@ export default function MushtagramView({
                             <Coins size={13} /> Verrouiller (PPV)
                           </button>
                         )}
-                        {monetizationEnabled && myTiers.length > 0 && (
+                        {monetizationEnabled && myTiers.length > 0 && !postAsEntity && (
                           <button onClick={() => { setSubscribersOnlyPost(v => !v); setLockedPost(false); }}
                             className={`flex items-center gap-1 text-xs font-bold transition-all ${subscribersOnlyPost ? "text-emerald-600" : "text-stone-400 hover:text-emerald-500"}`}>
                             <Sparkles size={13} /> Abonnés payants
@@ -1370,40 +1534,7 @@ export default function MushtagramView({
               {/* Posts */}
               {filteredPosts.length === 0 ? (
                 <div className="text-center py-14 text-stone-400 italic">Aucune publication pour l'instant</div>
-              ) : filteredPosts.map(post => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  myId={myId}
-                  isAdmin={isAdmin}
-                  citizens={citizens}
-                  myCitizen={myCitizen}
-                  myFollowing={myFollowing}
-                  mutedSet={mutedSet}
-                  expandedComments={expandedComments}
-                  commentInput={commentInput}
-                  onDelete={onDeleteMushtagramPost}
-                  onToggleLike={onToggleMushtagramLike}
-                  onAddComment={onAddMushtagramComment}
-                  onDeleteComment={onDeleteMushtagramComment}
-                  onLikeComment={onLikeMushtagramComment}
-                  onPinComment={onPinMushtagramComment}
-                  onReact={onReactMushtagram}
-                  onRepost={onRepostMushtagram}
-                  onVotePoll={onVoteMushtagramPoll}
-                  onPin={onPinMushtagramPost}
-                  onReport={onReportMushtagramPost}
-                  onMute={handleMute}
-                  onFollow={onFollowMushtagram}
-                  onUnfollow={onUnfollowMushtagram}
-                  onViewProfile={setViewingProfile}
-                  myRepostedIds={myRepostedIds}
-                  setExpandedComments={setExpandedComments}
-                  setCommentInput={setCommentInput}
-                  mySubscriptions={mySubscriptions}
-                  onUnlock={onUnlockMushtagramPost}
-                />
-              ))}
+              ) : filteredPosts.map(renderPostCard)}
             </div>
 
             {/* Right column: sidebar */}
@@ -1462,6 +1593,19 @@ export default function MushtagramView({
         </div>
       )}
 
+      {/* ══════════════════════ EXPLORER ══════════════════════ */}
+      {tab === "explore" && (
+        <div className="space-y-4 max-w-2xl mx-auto">
+          <div className="bg-white border border-stone-200 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-2">
+            <TrendingUp size={15} className="text-rose-500 shrink-0" />
+            <p className="text-xs text-stone-500">Les publications les plus populaires de l'Empire, tous comptes confondus.</p>
+          </div>
+          {explorePosts.length === 0 ? (
+            <div className="text-center py-14 text-stone-400 italic">Rien à explorer pour l'instant.</div>
+          ) : explorePosts.map(renderPostCard)}
+        </div>
+      )}
+
       {/* ══════════════════════ NOTIFICATIONS ══════════════════════ */}
       {tab === "notifs" && (
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden" style={{ minHeight: 400 }}>
@@ -1483,7 +1627,12 @@ export default function MushtagramView({
             <div className="divide-y divide-stone-50">
               {myNotifs.map(notif => {
                 const sender = citizens.find(c => String(c.id) === String(notif.fromId));
-                const typeLabel = {
+                const typeLabel = notif.entityName ? {
+                  like:    `a aimé la publication de ${notif.entityName}`,
+                  comment: `a commenté la publication de ${notif.entityName}`,
+                  repost:  `a republié la publication de ${notif.entityName}`,
+                  follow:  `s'est abonné à ${notif.entityName}`,
+                }[notif.type] || "vous a notifié" : {
                   like:    "a aimé votre publication",
                   comment: "a commenté votre publication",
                   reply:   "a répondu à votre commentaire",
@@ -1493,6 +1642,8 @@ export default function MushtagramView({
                   subscribe: "s'est abonné à votre cercle privé",
                   unlock:    "a déverrouillé votre publication",
                   new_paid_post: "a publié un nouveau contenu payant",
+                  mention: "vous a mentionné dans une publication",
+                  tip:     "vous a envoyé un pourboire",
                 }[notif.type] || "vous a notifié";
                 const isHigh = notif.priority === "high";
                 const notifAva = notif.isAnonymous ? { name: "Citoyen Anonyme" } : (sender || { name: notif.fromName });
@@ -1775,6 +1926,9 @@ export default function MushtagramView({
                     {isPP && (
                       <span title="Personnalité publique vérifiée" style={{color:"#3b82f6", fontSize:"0.85rem", marginLeft:"3px"}}>✓</span>
                     )}
+                    {recognizedEruditIds.has(myId) && (
+                      <span title="Érudit reconnu" className="text-sm" style={{ marginLeft: "1px" }}>🎓</span>
+                    )}
                   </div>
                   {myCitizen?.mushtagramHandle && (
                     <p className="text-sm text-stone-400">@{myCitizen.mushtagramHandle}</p>
@@ -1866,6 +2020,7 @@ export default function MushtagramView({
                     setCommentInput={setCommentInput}
                     mySubscriptions={mySubscriptions}
                     onUnlock={onUnlockMushtagramPost}
+                    recognizedEruditIds={recognizedEruditIds}
                   />
                 </div>
               )}
@@ -2309,6 +2464,8 @@ export default function MushtagramView({
           onSubscribe={onSubscribeMushtagramCreator}
           onUnsubscribe={onUnsubscribeMushtagramCreator}
           onOpenFollowList={(mode) => { openFollowList(mode, viewingProfile.id); setViewingProfile(null); }}
+          recognizedEruditIds={recognizedEruditIds}
+          onTip={onTipMushtagramCreator}
         />
       )}
     </div>

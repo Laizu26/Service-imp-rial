@@ -17,6 +17,35 @@ const wrapActions = (actionsObj, notify) =>
     ])
   );
 
+// Résout le destinataire réel d'une notification liée à un post : un citoyen classique
+// reçoit directement la notif, une guilde/entreprise la redirige vers son chef/propriétaire
+// (aucun citoyen n'a "guild_X" comme id de session, la notif n'arriverait jamais sinon).
+const resolveNotifRecipient = (authorId, state) => {
+  const id = String(authorId || "");
+  if (id.startsWith("guild_")) {
+    const guild = (state.guilds || []).find(g => `guild_${g.id}` === id);
+    return guild ? String(guild.leaderId) : id;
+  }
+  if (id.startsWith("company_")) {
+    const company = (state.companies || []).find(c => `company_${c.id}` === id);
+    return company ? String(company.ownerId) : id;
+  }
+  return id;
+};
+
+// Extrait les mentions @handle d'un texte et les résout vers des ids de citoyens
+// (via mushtagramHandle, insensible à la casse). Exclut l'auteur lui-même.
+const extractMentions = (content, citizens, excludeId) => {
+  const handles = [...new Set((content || "").match(/@[\wÀ-ɏ]+/g) || [])].map(h => h.slice(1).toLowerCase());
+  if (handles.length === 0) return [];
+  const ids = [];
+  (citizens || []).forEach(c => {
+    if (String(c.id) === String(excludeId)) return;
+    if (c.mushtagramHandle && handles.includes(c.mushtagramHandle.toLowerCase())) ids.push(String(c.id));
+  });
+  return [...new Set(ids)];
+};
+
 // Helper : distribue le paiement d'une session Maison selon le contrat lié au worker,
 // ou en fallback sur le split 80/20 classique (maisonCompanyId).
 // Retourne { newCitizens, updatedCompanies, updatedCountries, newTreasury, toName }
@@ -5586,18 +5615,30 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // ── MUSHTAGRAM ───────────────────────────────────────────────
-      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly, locked, price, subscribersOnly }) => {
+      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly, locked, price, subscribersOnly, postAsEntity }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const dateStr = formatRPDate(gd);
         const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
         const isPP = me?.mushtagramPublicPersonality === "approved";
 
+        // — Publication au nom d'une guilde/entreprise —
+        let entityAuthor = null;
+        if (postAsEntity?.type === "guild") {
+          const guild = (state.guilds || []).find(g => String(g.id) === String(postAsEntity.id));
+          if (!guild || String(guild.leaderId) !== String(session.id)) { notify("Seul le chef de guilde peut publier en son nom.", "error"); return; }
+          entityAuthor = { authorId: `guild_${guild.id}`, authorName: guild.name, authorType: "guild" };
+        } else if (postAsEntity?.type === "company") {
+          const company = (state.companies || []).find(c => String(c.id) === String(postAsEntity.id));
+          if (!company || String(company.ownerId) !== String(session.id)) { notify("Seul le propriétaire peut publier au nom de l'entreprise.", "error"); return; }
+          entityAuthor = { authorId: `company_${company.id}`, authorName: company.name, authorType: "company" };
+        }
+
         let finalLocked = false;
         let finalPrice = 0;
         let citizensPatch = null;
 
-        if (locked && me?.mushtagramMonetizationEnabled) {
+        if (!entityAuthor && locked && me?.mushtagramMonetizationEnabled) {
           if (!isPP) {
             if (me?.mushtagramLastPPVDate === dateStr) {
               notify("Un seul post verrouillé par jour (non-PP).", "error");
@@ -5613,13 +5654,14 @@ export const useGameActions = (session, state, saveState, notify) => {
           );
         }
 
-        const finalSubscribersOnly = !!(subscribersOnly && me?.mushtagramMonetizationEnabled && (me?.mushtagramSubTiers || []).length > 0);
-        const isAnonymous = !!me?.mushtagramAnonymous;
+        const finalSubscribersOnly = !entityAuthor && !!(subscribersOnly && me?.mushtagramMonetizationEnabled && (me?.mushtagramSubTiers || []).length > 0);
+        const isAnonymous = !entityAuthor && !!me?.mushtagramAnonymous;
 
         const newPost = {
           id: `mpost_${Date.now()}`,
-          authorId: session.id,
-          authorName: isAnonymous ? "Citoyen Anonyme" : session.name,
+          authorId: entityAuthor ? entityAuthor.authorId : session.id,
+          authorName: entityAuthor ? entityAuthor.authorName : (isAnonymous ? "Citoyen Anonyme" : session.name),
+          ...(entityAuthor ? { authorType: entityAuthor.authorType, postedBy: session.id } : {}),
           isAnonymous,
           content,
           imageUrl: imageUrl || null,
@@ -5659,6 +5701,26 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
+        const mentionedIds = extractMentions(content, state.citizens, session.id);
+        if (mentionedIds.length > 0) {
+          const now = Date.now();
+          newNotifs = [
+            ...newNotifs,
+            ...mentionedIds.map((id, i) => ({
+              id: `mnotif_mention_${now}_${i}`,
+              toId: id,
+              type: "mention",
+              fromId: String(session.id),
+              fromName: isAnonymous ? "Citoyen Anonyme" : (entityAuthor ? entityAuthor.authorName : session.name),
+              isAnonymous,
+              postId: newPost.id,
+              timestamp: now,
+              read: false,
+              priority: "low",
+            })),
+          ];
+        }
+
         saveState({
           ...state,
           mushtagramPosts: [...(state.mushtagramPosts || []), newPost],
@@ -5686,7 +5748,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!wasLiked && origPost && String(origPost.authorId) !== String(session.id)) {
           const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
           const isAnonymous = !!me?.mushtagramAnonymous;
-          newNotifs = [...existingNotifs, { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "like", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, timestamp: Date.now(), read: false, priority: "low" }];
+          const recipientId = resolveNotifRecipient(origPost.authorId, state);
+          newNotifs = [...existingNotifs, { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: recipientId, type: "like", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, ...(origPost.authorType ? { entityName: origPost.authorName } : {}), timestamp: Date.now(), read: false, priority: "low" }];
         }
         saveState({ ...state, mushtagramPosts: posts, mushtagramNotifs: newNotifs });
       },
@@ -5714,13 +5777,23 @@ export const useGameActions = (session, state, saveState, notify) => {
         const existingNotifs = state.mushtagramNotifs || [];
         const addedNotifs = [];
         if (origPost && String(origPost.authorId) !== String(session.id)) {
-          addedNotifs.push({ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "comment", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
+          const recipientId = resolveNotifRecipient(origPost.authorId, state);
+          addedNotifs.push({ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: recipientId, type: "comment", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, ...(origPost.authorType ? { entityName: origPost.authorName } : {}), content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
         }
         if (replyTo && origPost) {
           const parentComment = (origPost.comments || []).find(c => c.id === replyTo);
           if (parentComment && String(parentComment.authorId) !== String(session.id) && String(parentComment.authorId) !== String(origPost.authorId)) {
             addedNotifs.push({ id: `mnotif_${Date.now()+1}_${Math.random().toString(36).slice(2,6)}`, toId: String(parentComment.authorId), type: "reply", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
           }
+        }
+        const mentionedIds = extractMentions(content, state.citizens, session.id);
+        if (mentionedIds.length > 0) {
+          const now = Date.now();
+          mentionedIds.forEach((id, i) => addedNotifs.push({
+            id: `mnotif_mention_${now}_${i}`, toId: id, type: "mention", fromId: String(session.id),
+            fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId,
+            content: content.trim().slice(0, 80), timestamp: now, read: false, priority: "low",
+          }));
         }
         saveState({ ...state, mushtagramPosts: posts, mushtagramNotifs: [...existingNotifs, ...addedNotifs] });
       },
@@ -5836,7 +5909,11 @@ export const useGameActions = (session, state, saveState, notify) => {
             : c
         );
         const existingNotifs = state.mushtagramNotifs || [];
-        const notif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(userId), type: "follow", fromId: String(session.id), fromName: session.name, timestamp: Date.now(), read: false, priority: "high" };
+        const recipientId = resolveNotifRecipient(userId, state);
+        const entityGuild = String(userId).startsWith("guild_") ? (state.guilds || []).find(g => `guild_${g.id}` === String(userId)) : null;
+        const entityCompany = String(userId).startsWith("company_") ? (state.companies || []).find(c => `company_${c.id}` === String(userId)) : null;
+        const entityName = entityGuild?.name || entityCompany?.name || null;
+        const notif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: recipientId, type: "follow", fromId: String(session.id), fromName: session.name, ...(entityName ? { entityName } : {}), timestamp: Date.now(), read: false, priority: "high" };
         saveState({ ...state, citizens: updated, mushtagramNotifs: [...existingNotifs, notif] });
       },
 
@@ -5847,6 +5924,17 @@ export const useGameActions = (session, state, saveState, notify) => {
             ? { ...c, mushtagramFollowing: (c.mushtagramFollowing||[]).filter(id => id !== String(userId)) }
             : c
         );
+        saveState({ ...state, citizens: updated });
+      },
+
+      onToggleMushtagramMute: (userId) => {
+        if (!session) return;
+        const updated = (state.citizens || []).map(c => {
+          if (String(c.id) !== String(session.id)) return c;
+          const muted = c.mushtagramMutedUsers || [];
+          const isMuted = muted.map(String).includes(String(userId));
+          return { ...c, mushtagramMutedUsers: isMuted ? muted.filter(id => String(id) !== String(userId)) : [...muted, String(userId)] };
+        });
         saveState({ ...state, citizens: updated });
       },
 
@@ -5949,6 +6037,37 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Publication déverrouillée.", "success");
       },
 
+      onTipMushtagramCreator: ({ toId, amount }) => {
+        if (!session) return;
+        if (String(toId) === String(session.id)) return;
+        const amt = Math.max(0.1, Number(amount) || 0);
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        if ((me?.balance || 0) < amt) { notify("Solde insuffisant.", "error"); return; }
+        const recipient = (state.citizens || []).find(c => String(c.id) === String(toId));
+        if (!recipient) return;
+        const updatedCitizens = (state.citizens || []).map(c => {
+          if (String(c.id) === String(session.id)) return { ...c, balance: Math.round(((c.balance || 0) - amt) * 10) / 10 };
+          if (String(c.id) === String(toId)) return { ...c, balance: Math.round(((c.balance || 0) + amt) * 10) / 10 };
+          return c;
+        });
+        const isAnonymous = !!me?.mushtagramAnonymous;
+        const notifs = [...(state.mushtagramNotifs || []), {
+          id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          toId: String(toId), type: "tip", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous,
+          content: formatMoney(amt), timestamp: Date.now(), read: false, priority: "high",
+        }];
+        const ledger = [{ id: Date.now() + Math.random(), fromName: session.name, toName: recipient.name, amount: amt, timestamp: Date.now(), reason: "Pourboire Mushtagram", type: "MUSHTAGRAM_TIP" }, ...(state.globalLedger || [])];
+        saveState({ ...state, citizens: updatedCitizens, mushtagramNotifs: notifs, globalLedger: ledger });
+        notify(`Pourboire de ${formatMoney(amt)} envoyé.`, "success");
+      },
+
+      onDismissMushtagramReport: (postId) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts || []).map(p => p.id === postId ? { ...p, reports: [] } : p);
+        saveState({ ...state, mushtagramPosts: posts });
+        notify("Signalements ignorés.", "info");
+      },
+
       onReactMushtagram: (postId, emoji) => {
         if (!session) return;
         const posts = (state.mushtagramPosts||[]).map(p => {
@@ -6002,7 +6121,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         const existingNotifs = state.mushtagramNotifs || [];
         const repostNotif = String(original.authorId) !== String(session.id)
-          ? [{ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(original.authorId), type: "repost", fromId: String(session.id), fromName: session.name, postId, timestamp: Date.now(), read: false, priority: "low" }]
+          ? [{ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: resolveNotifRecipient(original.authorId, state), type: "repost", fromId: String(session.id), fromName: session.name, postId, ...(original.authorType ? { entityName: original.authorName } : {}), timestamp: Date.now(), read: false, priority: "low" }]
           : [];
         saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost], mushtagramNotifs: [...existingNotifs, ...repostNotif] });
         notify("Publication republiée.", "success");
