@@ -562,7 +562,7 @@ function PostCard({
   if (mutedSet.has(authorId) && !isMe) return null;
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm overflow-hidden ${isOfficial ? "border-2 border-amber-300" : "border border-stone-200"}`}>
+    <div id={`mpost-${post.id}`} className={`bg-white rounded-2xl shadow-sm overflow-hidden ${isOfficial ? "border-2 border-amber-300" : "border border-stone-200"}`}>
       {/* Official banner */}
       {isOfficial && (
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200">
@@ -924,7 +924,7 @@ export default function MushtagramView({
   onMarkMushtagramNotifsRead,
   onBroadcastMushtagram,
   onUpdateMushtagramMonetization, onSubscribeMushtagramCreator, onUnsubscribeMushtagramCreator, onUnlockMushtagramPost,
-  onToggleMushtagramMute, onTipMushtagramCreator,
+  onToggleMushtagramMute, onTipMushtagramCreator, onMarkMushtagramFeedSeen,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -1095,6 +1095,26 @@ export default function MushtagramView({
       (p.hashtags || []).some(h => h.toLowerCase().includes(q))
     );
   }, [sortedPosts, feedFilter, myFollowing, myId, search, myCitizen, isAdmin]);
+
+  // À l'ouverture de Mushtagram, ramène l'utilisateur au plus ancien post qu'il n'a
+  // pas encore vu (au lieu de toujours atterrir sur le plus récent en haut du fil).
+  const hasScrolledToUnseenRef = useRef(false);
+  useEffect(() => {
+    if (hasScrolledToUnseenRef.current) return;
+    if (tab !== "feed" || filteredPosts.length === 0) return;
+    hasScrolledToUnseenRef.current = true;
+    const lastSeenAt = myCitizen?.mushtagramLastSeenAt || 0;
+    if (lastSeenAt > 0) {
+      const unseen = filteredPosts.filter(p => (p.createdAt || 0) > lastSeenAt);
+      if (unseen.length > 0) {
+        const oldestUnseen = unseen[unseen.length - 1];
+        requestAnimationFrame(() => {
+          document.getElementById(`mpost-${oldestUnseen.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+    }
+    onMarkMushtagramFeedSeen && onMarkMushtagramFeedSeen();
+  }, [tab, filteredPosts, myCitizen, onMarkMushtagramFeedSeen]);
 
   const filteredProfiles = useMemo(() => {
     if (!search || search.length < 2) return [];

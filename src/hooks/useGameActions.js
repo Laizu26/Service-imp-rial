@@ -5938,6 +5938,14 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: updated });
       },
 
+      onMarkMushtagramFeedSeen: () => {
+        if (!session) return;
+        const updated = (state.citizens || []).map(c =>
+          String(c.id) === String(session.id) ? { ...c, mushtagramLastSeenAt: Date.now() } : c
+        );
+        saveState({ ...state, citizens: updated });
+      },
+
       onUpdateMushtagramMonetization: ({ enabled, tiers }) => {
         if (!session) return;
         const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
