@@ -187,12 +187,17 @@ export const MARRIAGE_DOT_TYPES = [
   { id: "dotal_epoux",  label: "Dot du Prétendant",  emoji: "💰", description: "Le prétendant verse une dot à la famille de l'épouse lors des noces" },
 ];
 
-// Domination : qui dirige l'union et ses droits sur les biens
+// Domination : qui dirige l'union, gère le fief/biens et peut restreindre l'accès de l'autre
+// (voyage, Mushtagram, banque, marché) — à la manière d'un contrat de servage.
+// "egal" / "proposant_dominant" / "cible_dominante" résolvent toujours vers un dominantId
+// concret des deux côtés. "epoux_dominant"/"epouse_dominante" sont conservés pour l'affichage
+// des unions existantes mais ne sont plus proposés lors d'une nouvelle union.
 export const MARRIAGE_DOMINANCE = [
-  { id: "egal",              label: "Union Égale",          emoji: "⚖️", description: "Les deux époux ont les mêmes droits sur les biens et la lignée" },
-  { id: "epoux_dominant",    label: "Époux Dominant",       emoji: "🛡️", description: "L'époux masculin dirige l'union, gère le fief et impose sa lignée" },
-  { id: "epouse_dominante",  label: "Épouse Dominante",     emoji: "👑", description: "L'épouse dirige l'union, gère le fief et impose sa lignée" },
-  { id: "proposant_dominant",label: "Proposant Dominant",   emoji: "📜", description: "Celui qui a fait la proposition dirige l'union et gère les biens" },
+  { id: "egal",               label: "Union Égale",        emoji: "⚖️", description: "Les deux époux ont les mêmes droits sur les biens, la lignée et l'autre" },
+  { id: "proposant_dominant", label: "Moi, Dominant(e)",   emoji: "📜", description: "Vous dirigez l'union, gérez les biens et pouvez restreindre l'accès de votre partenaire" },
+  { id: "cible_dominante",    label: "Partenaire Dominant(e)", emoji: "👑", description: "Votre partenaire dirige l'union, gère les biens et peut restreindre votre accès" },
+  { id: "epoux_dominant",     label: "Époux Dominant",     emoji: "🛡️", description: "L'époux masculin dirige l'union, gère le fief et impose sa lignée" },
+  { id: "epouse_dominante",   label: "Épouse Dominante",   emoji: "👑", description: "L'épouse dirige l'union, gère le fief et impose sa lignée" },
 ];
 
 export const FILIATION_TYPES = [

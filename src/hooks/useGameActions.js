@@ -2034,6 +2034,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           // Le proposant (proposerIdx) est le dominant
           dominantIdForUser = proposerId;      // vu de userIdx : le dominant est proposerId
           dominantIdForProposer = proposerId;  // vu de proposerIdx : lui-même est dominant
+        } else if (dominance === "cible_dominante") {
+          // Celui qui accepte (userIdx) est le dominant
+          dominantIdForUser = session.id;
+          dominantIdForProposer = session.id;
         }
 
         // ── Transfert de dot (transaction unique aux noces) ──
@@ -2099,6 +2103,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           // Déterminer qui est le dominant du fief
           let fiefDominantId = null;
           if (dominance === "proposant_dominant") fiefDominantId = proposerId;
+          else if (dominance === "cible_dominante") fiefDominantId = session.id;
           else if (dominance === "epoux_dominant") fiefDominantId = null; // résolu à l'affichage selon genre
           else if (dominance === "epouse_dominante") fiefDominantId = null;
           sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [session.id, proposerId], dominance, fiefDominantId };
@@ -2337,6 +2342,42 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
         notify("L'union a été rompue. Les vœux sont brisés.", "info");
+      },
+
+      // Droits restreints par le conjoint dominant (voyage/Mushtagram/banque/marché) —
+      // même principe que serfRights pour un employeur, mais porté par le mariage.
+      // Stocké en miroir sur les deux entrées spouses[] de la paire pour rester cohérent
+      // quel que soit le côté depuis lequel on le relit.
+      onSetSpouseRights: ({ spouseId, rights }) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        if (!mySpouseEntry.dominantId || String(mySpouseEntry.dominantId) !== String(session.id)) {
+          notify("Seul le conjoint dominant peut définir ces droits.", "error");
+          return;
+        }
+        const updated = (state.citizens || []).map((c) => {
+          if (String(c.id) === String(session.id)) {
+            return {
+              ...c,
+              spouses: (c.spouses || []).map((s) =>
+                String(s.id) === String(spouseId) ? { ...s, spouseRights: { ...(s.spouseRights || {}), ...rights } } : s
+              ),
+            };
+          }
+          if (String(c.id) === String(spouseId)) {
+            return {
+              ...c,
+              spouses: (c.spouses || []).map((s) =>
+                String(s.id) === String(session.id) ? { ...s, spouseRights: { ...(s.spouseRights || {}), ...rights } } : s
+              ),
+            };
+          }
+          return c;
+        });
+        saveState({ ...state, citizens: updated });
+        notify("Droits mis à jour.", "success");
       },
 
       // Dépôt dans le trésor commun / fief

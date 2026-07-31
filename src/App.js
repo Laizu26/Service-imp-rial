@@ -718,6 +718,7 @@ export default function App() {
             sharedAccounts={state.sharedAccounts || {}}
             onSharedAccountDeposit={actions.onSharedAccountDeposit}
             onSharedAccountWithdraw={actions.onSharedAccountWithdraw}
+            onSetSpouseRights={actions.onSetSpouseRights}
             maisonQueue={state.maisonQueue || []}
             maisonHistory={state.maisonHistory || []}
             maisonReviews={state.maisonReviews || []}

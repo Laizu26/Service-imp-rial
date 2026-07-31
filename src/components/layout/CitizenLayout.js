@@ -774,6 +774,7 @@ const CitizenLayout = (props) => {
     sharedAccounts = {},
     onSharedAccountDeposit,
     onSharedAccountWithdraw,
+    onSetSpouseRights,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -1027,8 +1028,24 @@ const CitizenLayout = (props) => {
 
   const permissions = user?.permissions || {};
 
+  // Droits restreints par un conjoint dominant (union "type contrat de servage") —
+  // même principe que serfRights côté employeur, mais porté par le mariage.
+  const spouseRestriction = (user?.spouses || []).find(
+    (s) => s.dominantId && String(s.dominantId) !== String(user?.id) && s.spouseRights
+  )?.spouseRights || {};
+  const myEmployer = (Array.isArray(companies) ? companies : []).find(
+    (c) => (c.employees || []).map(String).includes(String(user?.id))
+  );
+  const employerSerfRights = myEmployer?.employmentContracts?.[user?.id]?.serfRights || {};
+  const combinedRestriction = {
+    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked),
+    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked),
+    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked),
+    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked),
+  };
+
   const canUsePost = !isSlave || !!permissions.post;
-  const canUseBank = !isSlave || !!permissions.bank;
+  const canUseBank = (!isSlave || !!permissions.bank) && !combinedRestriction.bankLocked;
   const canUseTravel = !isSlave || !!permissions.travel;
 
   // Sécurité sur users
@@ -1774,13 +1791,15 @@ const CitizenLayout = (props) => {
               !isBanned &&
               !isPrisoner &&
               canUseTravel && (() => {
-                const travelEmployer = safeCompanies.find(c => (c.employees || []).map(String).includes(String(user.id)));
-                const travelSerfRights = travelEmployer?.employmentContracts?.[user.id]?.serfRights || {};
-                if (travelSerfRights.travelLocked) return (
+                if (combinedRestriction.travelLocked) return (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
                     <div className="text-3xl">🚫</div>
                     <p className="font-black text-red-700 text-base">Voyage restreint</p>
-                    <p className="text-xs text-red-500">Votre employeur a restreint vos droits de voyage dans le cadre de votre contrat.</p>
+                    <p className="text-xs text-red-500">
+                      {employerSerfRights.travelLocked
+                        ? "Votre employeur a restreint vos droits de voyage dans le cadre de votre contrat."
+                        : "Votre conjoint dominant a restreint vos droits de voyage."}
+                    </p>
                   </div>
                 );
                 const currentCountry = safeCountries.find((c) => c.id === (user.locationCountryId || user.countryId));
@@ -2760,6 +2779,7 @@ const CitizenLayout = (props) => {
                 onRemoveChild={onRemoveChild}
                 onSharedAccountDeposit={onSharedAccountDeposit}
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
+                onSetSpouseRights={onSetSpouseRights}
                 gameDate={gameDate}
                 notify={notify}
                 readOnly={isSlave}
@@ -3145,7 +3165,18 @@ const CitizenLayout = (props) => {
             })()}
 
             {/* === BOURSE === */}
-            {active === "bourse" && !isSlave && (
+            {active === "bourse" && !isSlave && combinedRestriction.marketLocked && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
+                <div className="text-3xl">🚫</div>
+                <p className="font-black text-red-700 text-base">Marché restreint</p>
+                <p className="text-xs text-red-500">
+                  {employerSerfRights.marketLocked
+                    ? "Votre employeur a restreint vos droits de commerce dans le cadre de votre contrat."
+                    : "Votre conjoint dominant a restreint vos droits de commerce."}
+                </p>
+              </div>
+            )}
+            {active === "bourse" && !isSlave && !combinedRestriction.marketLocked && (
               <CitizenBourse
                 user={user}
                 bourseListings={bourseListings}

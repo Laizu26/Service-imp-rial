@@ -9,6 +9,8 @@ import {
   Baby,
   Trash2,
   UserPlus,
+  Lock,
+  X,
 } from "lucide-react";
 import {
   MARRIAGE_STRUCTURES,
@@ -19,6 +21,58 @@ import {
   FILIATION_TYPES,
 } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
+
+// Droits pouvant être restreints par le conjoint dominant — même principe que
+// le contrat de servage utilisé pour les employés d'une entreprise.
+const SPOUSE_RIGHTS_LIST = [
+  { key: "travelLocked",     icon: "🚫", label: "Bloquer le voyage",             desc: "Empêche tout déplacement inter-pays" },
+  { key: "mushtagramLocked", icon: "📵", label: "Bloquer Mushtagram",            desc: "Interdit l'accès au réseau social" },
+  { key: "bankLocked",       icon: "🏦", label: "Bloquer le compte bancaire",    desc: "Interdit les opérations bancaires" },
+  { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",             desc: "Interdit les échanges commerciaux" },
+];
+
+// ── Modale de gestion des droits du conjoint dominé ─────────────────────────
+function SpouseRightsModal({ spouse, spouseUser, onClose, onSetSpouseRights }) {
+  const rights = spouse.spouseRights || {};
+  const name = spouseUser?.name || spouse.name || "votre conjoint";
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-purple-50">
+          <div className="w-10 h-10 rounded-full bg-purple-100 border-2 border-purple-200 flex items-center justify-center flex-shrink-0">
+            <Lock size={16} className="text-purple-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Droits de {name}</div>
+            <div className="text-[10px] text-stone-500">En tant que conjoint(e) dominant(e), vous pouvez restreindre son accès.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-2">
+          {SPOUSE_RIGHTS_LIST.map(({ key, icon, label, desc }) => (
+            <div key={key} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-xs font-bold text-stone-700">{icon} {label}</div>
+                <div className="text-[10px] text-stone-400">{desc}</div>
+              </div>
+              <button
+                onClick={() => onSetSpouseRights({ spouseId: spouse.id, rights: { [key]: !rights[key] } })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${rights[key] ? "bg-red-500" : "bg-stone-300"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${rights[key] ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Panneau dépôt / retrait trésor commun ou fief ───────────────────────────
 function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw }) {
@@ -154,11 +208,15 @@ const MarriageView = ({
   onRemoveChild,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
+  onSetSpouseRights,
   gameDate,
   notify,
   readOnly = false,
 }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
+
+  // Modale de gestion des droits du conjoint dominé
+  const [managingSpouseId, setManagingSpouseId] = useState(null);
 
   // État formulaire de proposition
   const [marrySearch, setMarrySearch] = useState("");
@@ -283,6 +341,9 @@ const MarriageView = ({
             const reg = MARRIAGE_REGIMES.find((r) => r.id === proposal.regime);
             const fil = FILIATION_TYPES.find((f) => f.id === proposal.filiation);
             const dom = MARRIAGE_DOMINANCE.find((d) => d.id === proposal.dominance);
+            const domLabel = proposal.dominance === "proposant_dominant" ? `${proposal.fromName}, Dominant(e)`
+              : proposal.dominance === "cible_dominante" ? "Vous, Dominant(e)"
+              : dom?.label || "Égale";
             return (
               <div key={proposal.fromId} className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -324,7 +385,7 @@ const MarriageView = ({
                   </div>
                   <div>
                     <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Domination</span>
-                    <span className="font-bold text-stone-700">{dom?.emoji} {dom?.label || "Égale"}</span>
+                    <span className="font-bold text-stone-700">{dom?.emoji} {domLabel}</span>
                   </div>
                   <div>
                     <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Filiation</span>
@@ -364,6 +425,12 @@ const MarriageView = ({
               const fil = FILIATION_TYPES.find((f) => f.id === spouse.filiation);
               const pairKey = spouse.sharedBalanceKey || spouse.fiefBalanceKey;
               const sharedAccount = pairKey ? (sharedAccounts || {})[pairKey] : null;
+              const iAmDominant = !!spouse.dominantId && spouse.dominantId === user.id;
+              const iAmDominated = !!spouse.dominantId && spouse.dominantId !== user.id;
+              const domLabel = spouse.dominantId
+                ? (iAmDominant ? "Vous, Dominant(e)" : `${spouseUser?.name || spouse.name}, Dominant(e)`)
+                : (dom?.label || "Union Égale");
+              const activeRestrictions = SPOUSE_RIGHTS_LIST.filter((r) => spouse.spouseRights?.[r.key]);
 
               return (
                 <div key={spouse.id} className="bg-white rounded-xl border border-rose-200 shadow-sm overflow-hidden">
@@ -395,14 +462,40 @@ const MarriageView = ({
                       </div>
                     </div>
                     {!readOnly && (
-                      <button
-                        onClick={() => onDivorce && onDivorce(spouse.id)}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors shrink-0"
-                      >
-                        <HeartOff size={12} /> Rompre
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {iAmDominant && (
+                          <button
+                            onClick={() => setManagingSpouseId(spouse.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-600 text-[10px] font-black uppercase rounded-lg hover:bg-purple-100 transition-colors"
+                          >
+                            <Lock size={12} /> Gérer les droits
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onDivorce && onDivorce(spouse.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors"
+                        >
+                          <HeartOff size={12} /> Rompre
+                        </button>
+                      </div>
                     )}
                   </div>
+
+                  {/* Droits restreints par ce conjoint dominant */}
+                  {iAmDominated && activeRestrictions.length > 0 && (
+                    <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-red-600 flex items-center gap-1.5 mb-1.5">
+                        <Lock size={11} /> Droits restreints par {spouseUser?.name || spouse.name}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {activeRestrictions.map((r) => (
+                          <span key={r.key} className="text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
+                            {r.icon} {r.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Contrat détaillé */}
                   <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
@@ -412,7 +505,7 @@ const MarriageView = ({
                     </div>
                     <div className="bg-stone-50 rounded-lg p-2.5">
                       <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Domination</span>
-                      <span className="font-bold text-stone-700">{dom?.emoji} {dom?.label || "Union Égale"}</span>
+                      <span className="font-bold text-stone-700">{dom?.emoji} {domLabel}</span>
                     </div>
                     <div className="bg-stone-50 rounded-lg p-2.5">
                       <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Lignée</span>
@@ -615,19 +708,21 @@ const MarriageView = ({
               {/* Domination du Mariage */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Domination de l'Union</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {MARRIAGE_DOMINANCE.map((d) => (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {MARRIAGE_DOMINANCE.filter((d) => ["egal", "proposant_dominant", "cible_dominante"].includes(d.id)).map((d) => (
                     <button key={d.id} onClick={() => setMarryDominance(d.id)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${marryDominance === d.id ? "border-purple-500 bg-purple-50" : "border-stone-200 bg-white hover:border-purple-300"}`}>
                       <div className="text-xl mb-1">{d.emoji}</div>
-                      <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">{d.label}</div>
+                      <div className="text-[10px] font-black uppercase tracking-wide text-stone-700">
+                        {d.id === "cible_dominante" && marryTargetName ? `${marryTargetName}, Dominant(e)` : d.label}
+                      </div>
                       <div className="text-[9px] text-stone-400 mt-0.5">{d.description}</div>
                     </button>
                   ))}
                 </div>
                 {marryDominance !== "egal" && (
                   <p className="text-[9px] text-purple-700 italic bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                    ⚠️ Le dominant imposera sa lignée aux héritiers (sauf si filiation Bilinéaire ou Au Choix).
+                    ⚠️ Le/la dominant(e) impose sa lignée aux héritiers (sauf filiation Bilinéaire ou Au Choix), et pourra restreindre l'accès de l'autre au voyage, à Mushtagram, à la banque et au marché — comme un contrat de servage.
                   </p>
                 )}
               </div>
@@ -972,6 +1067,20 @@ const MarriageView = ({
           </div>
         ) )}
       </div>
+
+      {managingSpouseId && (() => {
+        const managedSpouse = currentSpouses.find((s) => s.id === managingSpouseId);
+        if (!managedSpouse) return null;
+        const managedSpouseUser = safeUsers.find((u) => u.id === managedSpouse.id);
+        return (
+          <SpouseRightsModal
+            spouse={managedSpouse}
+            spouseUser={managedSpouseUser}
+            onClose={() => setManagingSpouseId(null)}
+            onSetSpouseRights={onSetSpouseRights}
+          />
+        );
+      })()}
     </div>
   );
 };
