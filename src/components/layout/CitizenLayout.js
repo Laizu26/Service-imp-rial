@@ -845,6 +845,7 @@ const CitizenLayout = (props) => {
     onUnsubscribeBague,
     eruditRequests = [],
     onRequestEruditValidation,
+    onRequestEruditTitle,
     eruditResearch = [],
     onSaveEruditResearch,
     onPublishEruditResearch,
@@ -1019,7 +1020,9 @@ const CitizenLayout = (props) => {
   // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
   // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
   const isSlave = user?.status === "Esclave";
-  const isErudit = user?.role === "ERUDIT";
+  // Le titre d'Érudit est additif : soit accordé via le rôle historique "ERUDIT",
+  // soit via une demande de titre approuvée (sans écraser un rôle plus élevé).
+  const isErudit = user?.role === "ERUDIT" || user?.eruditTitleStatus === "approved";
 
   const permissions = user?.permissions || {};
 
@@ -1062,7 +1065,7 @@ const CitizenLayout = (props) => {
         { id: "physique_magie", label: "Physique & Magie", icon: Zap },
         { id: "combat", label: "Fiche de Combat", icon: Swords },
         isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
-        isErudit && { id: "erudit", label: "Statut Érudit", icon: GraduationCap },
+        { id: "erudit", label: isErudit ? "Statut Érudit" : "Devenir Érudit", icon: GraduationCap },
       ].filter(Boolean),
     },
     {
@@ -4620,6 +4623,36 @@ const CitizenLayout = (props) => {
                 onDeleteEruditResearch={onDeleteEruditResearch}
                 onSetEruditResearchAccess={onSetEruditResearchAccess}
               />
+            )}
+            {active === "erudit" && !isErudit && (
+              <div className="max-w-xl mx-auto space-y-4 animate-fadeIn">
+                <div className="bg-[#fdf6e3] rounded-xl shadow-lg border-t-4 border-purple-400 p-6 text-center">
+                  <GraduationCap size={36} className="mx-auto text-purple-500 mb-3" />
+                  <h2 className="text-lg font-black uppercase tracking-widest text-stone-800 font-serif mb-2">Devenir Érudit</h2>
+                  <p className="text-sm text-stone-600 leading-relaxed mb-5">
+                    Le titre d'Érudit s'ajoute à votre rôle actuel — vous ne perdez aucune fonction en l'obtenant.
+                    Il vous permet de rédiger des travaux de recherche et de demander une reconnaissance
+                    (et une rémunération) auprès des pays de votre choix.
+                  </p>
+                  {user?.eruditTitleStatus === "pending" ? (
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-stone-100 border border-stone-200 rounded-xl text-stone-500 text-sm font-bold">
+                      ⏳ Demande en attente de validation
+                    </div>
+                  ) : (
+                    <>
+                      {user?.eruditTitleStatus === "rejected" && (
+                        <p className="text-xs text-red-500 mb-3">Votre précédente demande a été refusée. Vous pouvez la soumettre à nouveau.</p>
+                      )}
+                      <button
+                        onClick={() => onRequestEruditTitle && onRequestEruditTitle()}
+                        className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-800 text-white text-sm font-black uppercase tracking-widest rounded-xl hover:opacity-90 transition-all shadow"
+                      >
+                        Demander le titre d'Érudit
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             )}
             {/* ----------------------------- */}
           </TabErrorBoundary>

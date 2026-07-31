@@ -31,6 +31,7 @@ import {
   Hash,
   X,
   Flag,
+  GraduationCap,
 } from "lucide-react";
 
 // Hooks & Lib
@@ -611,6 +612,7 @@ export default function App() {
             onUnsubscribeBague={actions.onUnsubscribeBague}
             eruditRequests={state.eruditRequests || []}
             onRequestEruditValidation={actions.onRequestEruditValidation}
+            onRequestEruditTitle={actions.onRequestEruditTitle}
             eruditResearch={state.eruditResearch || []}
             onSaveEruditResearch={actions.onSaveEruditResearch}
             onPublishEruditResearch={actions.onPublishEruditResearch}
@@ -1508,8 +1510,44 @@ export default function App() {
                     );
                     const pending = allReqs.filter((r) => r.status === "PENDING");
                     const done = allReqs.filter((r) => r.status !== "PENDING");
+                    const pendingTitles = effectiveScope === "GLOBAL" ? (state.citizens || []).filter((c) => c.eruditTitleStatus === "pending") : [];
                     return (
                       <div className="space-y-6 animate-in fade-in">
+                        {pendingTitles.length > 0 && (
+                          <div className="bg-[#fdf6e3] rounded-2xl border border-purple-300 shadow p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                              <GraduationCap size={20} className="text-purple-600" />
+                              <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-stone-800 font-serif">Demandes de titre d'Érudit</h3>
+                                <p className="text-xs text-stone-500">Titre additif — n'affecte pas le rôle/fonction actuel du citoyen</p>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              {pendingTitles.map((c) => (
+                                <div key={c.id} className="flex items-center justify-between bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
+                                  <div>
+                                    <div className="font-bold text-stone-800 text-sm">{c.name}</div>
+                                    <div className="text-[10px] text-stone-400">{ROLES[c.role]?.label || c.role}</div>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                    <button
+                                      onClick={() => actions.onApproveEruditTitle(c.id)}
+                                      className="bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+                                    >
+                                      ✓ Accorder
+                                    </button>
+                                    <button
+                                      onClick={() => actions.onRejectEruditTitle(c.id)}
+                                      className="bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+                                    >
+                                      ✕ Refuser
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="bg-[#fdf6e3] rounded-2xl border border-stone-300 shadow p-6">
                           <div className="flex items-center gap-3 mb-6">
                             <Library size={22} className="text-purple-700" />

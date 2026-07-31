@@ -5590,6 +5590,40 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(approved ? "Statut Érudit validé." : "Demande refusée.", approved ? "success" : "info");
       },
 
+      // Titre d'Érudit — statut additif indépendant du rôle (grade/fonction) du citoyen,
+      // pour ne pas lui faire perdre un rôle plus élevé en devenant Érudit.
+      onRequestEruditTitle: () => {
+        if (!session) return;
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        if (!me) return;
+        if (me.role === "ERUDIT") { notify("Vous êtes déjà Érudit.", "info"); return; }
+        if (me.eruditTitleStatus === "pending") { notify("Demande déjà en cours.", "info"); return; }
+        if (me.eruditTitleStatus === "approved") { notify("Vous détenez déjà le titre d'Érudit.", "info"); return; }
+        const updated = (state.citizens || []).map(c =>
+          String(c.id) === String(session.id) ? { ...c, eruditTitleStatus: "pending" } : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Demande de titre d'Érudit soumise.", "success");
+      },
+
+      onApproveEruditTitle: (citizenId) => {
+        if (!session) return;
+        const updated = (state.citizens || []).map(c =>
+          String(c.id) === String(citizenId) ? { ...c, eruditTitleStatus: "approved" } : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Titre d'Érudit accordé.", "success");
+      },
+
+      onRejectEruditTitle: (citizenId) => {
+        if (!session) return;
+        const updated = (state.citizens || []).map(c =>
+          String(c.id) === String(citizenId) ? { ...c, eruditTitleStatus: "rejected" } : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Demande de titre d'Érudit refusée.", "info");
+      },
+
       onExpelErudit: (requestId, note = "") => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
