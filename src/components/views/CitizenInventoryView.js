@@ -55,6 +55,8 @@ const CitizenInventoryView = ({
   onRespondTrade,
   onCancelTrade,
   tradeProposals = [],
+  marketLocked = false,
+  marketLockedByEmployer = false,
 }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const [activeTab, setActiveTab] = useState("bag");
@@ -454,8 +456,21 @@ const CitizenInventoryView = ({
           </div>
         )}
 
+        {/* Restriction commerciale (conjoint dominant / employeur) */}
+        {marketLocked && activeTab !== "bag" && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
+            <div className="text-3xl">🚫</div>
+            <p className="font-black text-red-700 text-base">Marché restreint</p>
+            <p className="text-xs text-red-500">
+              {marketLockedByEmployer
+                ? "Votre employeur a restreint vos droits de commerce dans le cadre de votre contrat."
+                : "Votre conjoint dominant a restreint vos droits de commerce."}
+            </p>
+          </div>
+        )}
+
         {/* MARCHÉ */}
-        {activeTab === "market" && (
+        {activeTab === "market" && !marketLocked && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {marketItems.map((item) => {
               const isMyOwnSale = item.ownerId === user.id;
@@ -568,7 +583,7 @@ const CitizenInventoryView = ({
         )}
 
         {/* === TAB BAZAR (Marché entre joueurs) === */}
-        {activeTab === "bazar" && (
+        {activeTab === "bazar" && !marketLocked && (
           <div className="space-y-4">
             {/* Vendre un objet */}
             <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4">
@@ -681,7 +696,7 @@ const CitizenInventoryView = ({
         )}
 
         {/* === TAB ÉCHANGES === */}
-        {activeTab === "trades" && (
+        {activeTab === "trades" && !marketLocked && (
           <div className="space-y-4">
             {/* Propositions reçues */}
             {tradeProposals.filter((t) => t.toId === user.id && t.status === "PENDING").length > 0 && (

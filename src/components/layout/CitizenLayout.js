@@ -1692,6 +1692,8 @@ const CitizenLayout = (props) => {
                 onRespondTrade={onRespondTrade}
                 onCancelTrade={onCancelTrade}
                 tradeProposals={tradeProposals}
+                marketLocked={!isSlave && combinedRestriction.marketLocked}
+                marketLockedByEmployer={!!employerSerfRights.marketLocked}
               />
             )}
 
