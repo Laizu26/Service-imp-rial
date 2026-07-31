@@ -2441,6 +2441,65 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Proposition de domination refusée.", "info");
       },
 
+      // Réquisition d'argent par le conjoint dominant sur le trésor personnel du
+      // conjoint dominé — prélèvement direct, indépendant du trésor commun.
+      onRequisitionSpouseMoney: ({ spouseId, amount, reason = "" }) => {
+        if (!session) return;
+        const amt = parseFloat(amount);
+        if (!amt || amt <= 0) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        if (!mySpouseEntry.dominantId || String(mySpouseEntry.dominantId) !== String(session.id)) {
+          notify("Seul le conjoint dominant peut réquisitionner de l'argent.", "error");
+          return;
+        }
+        const spouseCitizen = (state.citizens || []).find((c) => String(c.id) === String(spouseId));
+        if (!spouseCitizen) { notify("Conjoint introuvable.", "error"); return; }
+        if ((spouseCitizen.balance || 0) < amt) {
+          notify("Votre conjoint ne possède pas cette somme.", "error");
+          return;
+        }
+        const tx = {
+          id: `req_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          amount: amt,
+          reason: String(reason || "").slice(0, 120),
+          timestamp: Date.now(),
+        };
+        const updated = (state.citizens || []).map((c) => {
+          if (String(c.id) === String(session.id)) {
+            return {
+              ...c,
+              balance: (c.balance || 0) + amt,
+              spouses: (c.spouses || []).map((s) =>
+                String(s.id) === String(spouseId) ? { ...s, requisitionHistory: [tx, ...(s.requisitionHistory || [])].slice(0, 20) } : s
+              ),
+            };
+          }
+          if (String(c.id) === String(spouseId)) {
+            return {
+              ...c,
+              balance: Math.max(0, (c.balance || 0) - amt),
+              spouses: (c.spouses || []).map((s) =>
+                String(s.id) === String(session.id) ? { ...s, requisitionHistory: [tx, ...(s.requisitionHistory || [])].slice(0, 20) } : s
+              ),
+            };
+          }
+          return c;
+        });
+        const ledgerEntry = {
+          id: Date.now() + Math.random(),
+          fromName: spouseCitizen.name,
+          toName: session.name,
+          amount: amt,
+          timestamp: Date.now(),
+          reason: reason ? `Réquisition conjugale — ${reason}` : "Réquisition conjugale",
+          type: "SPOUSE_REQUISITION",
+        };
+        saveState({ ...state, citizens: updated, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`${formatMoney(amt)} réquisitionnés à ${spouseCitizen.name}.`, "success");
+      },
+
       // Dépôt dans le trésor commun / fief
       onSharedAccountDeposit: (pairKey, amount, reason = "") => {
         if (!session) return;

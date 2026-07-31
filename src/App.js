@@ -722,6 +722,7 @@ export default function App() {
             onProposeMarriageDominance={actions.onProposeMarriageDominance}
             onAcceptMarriageDominance={actions.onAcceptMarriageDominance}
             onRejectMarriageDominance={actions.onRejectMarriageDominance}
+            onRequisitionSpouseMoney={actions.onRequisitionSpouseMoney}
             maisonQueue={state.maisonQueue || []}
             maisonHistory={state.maisonHistory || []}
             maisonReviews={state.maisonReviews || []}

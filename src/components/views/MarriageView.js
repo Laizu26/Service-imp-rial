@@ -75,6 +75,105 @@ function SpouseRightsModal({ spouse, spouseUser, onClose, onSetSpouseRights }) {
   );
 }
 
+// ── Modale de réquisition du trésor personnel du conjoint dominé ───────────
+function RequisitionModal({ spouse, spouseUser, onClose, onRequisition }) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const name = spouseUser?.name || spouse.name || "votre conjoint";
+  const spouseBalance = spouseUser?.balance || 0;
+  const history = spouse.requisitionHistory || [];
+  const amt = parseFloat(amount);
+  const canSubmit = amt > 0 && amt <= spouseBalance;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    onRequisition({ spouseId: spouse.id, amount: amt, reason: reason.trim() });
+    setAmount(""); setReason("");
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-amber-50">
+          <div className="w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-200 flex items-center justify-center flex-shrink-0">
+            <Coins size={16} className="text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Réquisitionner — {name}</div>
+            <div className="text-[10px] text-stone-500">Prélever directement sur son trésor personnel.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Trésor de {name}</span>
+            <span className="text-sm font-black text-stone-800">{formatMoney(spouseBalance)}</span>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Montant</label>
+            <input
+              type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+              className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-amber-300/30 focus:bg-white"
+            />
+            <div className="flex gap-1.5 mt-1.5">
+              {[0.25, 0.5, 1].map((frac) => (
+                <button
+                  key={frac}
+                  onClick={() => setAmount(String(Math.floor(spouseBalance * frac)))}
+                  disabled={spouseBalance <= 0}
+                  className="flex-1 py-1 bg-white border border-stone-200 text-stone-500 text-[9px] font-black uppercase rounded-lg hover:border-amber-300 hover:text-amber-600 disabled:opacity-40 transition-colors"
+                >
+                  {frac === 1 ? "Tout" : `${frac * 100}%`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Raison (optionnel)</label>
+            <input
+              value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="ex : dîme du foyer…"
+              maxLength={120}
+              className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-amber-300/30 focus:bg-white"
+            />
+          </div>
+
+          <button
+            onClick={submit}
+            disabled={!canSubmit}
+            className="w-full py-2.5 bg-amber-600 text-white text-xs font-black uppercase rounded-xl hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Réquisitionner {amt > 0 ? formatMoney(amt) : ""}
+          </button>
+          {amt > spouseBalance && (
+            <p className="text-[10px] text-red-500 font-bold text-center">Votre conjoint ne possède pas cette somme.</p>
+          )}
+
+          {history.length > 0 && (
+            <div className="pt-2 border-t border-stone-100 space-y-1.5">
+              <div className="text-[9px] font-black uppercase tracking-widest text-stone-400">Réquisitions récentes</div>
+              {history.slice(0, 5).map((h) => (
+                <div key={h.id} className="flex items-center justify-between text-[10px] text-stone-500">
+                  <span className="truncate flex-1">{h.reason || "Sans raison précisée"}</span>
+                  <span className="font-bold text-stone-700 shrink-0 ml-2">{formatMoney(h.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Panneau complet du trésor commun / fief conjoint ────────────────────────
 // Historique des mouvements, contributions par conjoint, montants rapides et
 // raison optionnelle — plus qu'un simple champ + deux boutons.
@@ -325,6 +424,7 @@ const MarriageView = ({
   onProposeMarriageDominance,
   onAcceptMarriageDominance,
   onRejectMarriageDominance,
+  onRequisitionSpouseMoney,
   gameDate,
   notify,
   readOnly = false,
@@ -333,6 +433,9 @@ const MarriageView = ({
 
   // Modale de gestion des droits du conjoint dominé
   const [managingSpouseId, setManagingSpouseId] = useState(null);
+
+  // Modale de réquisition du trésor personnel du conjoint dominé
+  const [requisitioningSpouseId, setRequisitioningSpouseId] = useState(null);
 
   // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
   const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
@@ -584,12 +687,20 @@ const MarriageView = ({
                     {!readOnly && (
                       <div className="flex items-center gap-2 shrink-0">
                         {iAmDominant && (
-                          <button
-                            onClick={() => setManagingSpouseId(spouse.id)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-600 text-[10px] font-black uppercase rounded-lg hover:bg-purple-100 transition-colors"
-                          >
-                            <Lock size={12} /> Gérer les droits
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setRequisitioningSpouseId(spouse.id)}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-600 text-[10px] font-black uppercase rounded-lg hover:bg-amber-100 transition-colors"
+                            >
+                              <Coins size={12} /> Réquisitionner
+                            </button>
+                            <button
+                              onClick={() => setManagingSpouseId(spouse.id)}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 border border-purple-200 text-purple-600 text-[10px] font-black uppercase rounded-lg hover:bg-purple-100 transition-colors"
+                            >
+                              <Lock size={12} /> Gérer les droits
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => onDivorce && onDivorce(spouse.id)}
@@ -612,6 +723,23 @@ const MarriageView = ({
                           <span key={r.key} className="text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
                             {r.icon} {r.label}
                           </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Réquisitions subies de la part du conjoint dominant */}
+                  {iAmDominated && (spouse.requisitionHistory || []).length > 0 && (
+                    <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 flex items-center gap-1.5 mb-1.5">
+                        <Coins size={11} /> Réquisitions par {spouseUser?.name || spouse.name}
+                      </div>
+                      <div className="space-y-1">
+                        {spouse.requisitionHistory.slice(0, 3).map((h) => (
+                          <div key={h.id} className="flex items-center justify-between text-[10px] text-amber-800">
+                            <span className="truncate flex-1">{h.reason || "Sans raison précisée"}</span>
+                            <span className="font-bold shrink-0 ml-2">{formatMoney(h.amount)}</span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -1268,6 +1396,20 @@ const MarriageView = ({
             spouseUser={managedSpouseUser}
             onClose={() => setManagingSpouseId(null)}
             onSetSpouseRights={onSetSpouseRights}
+          />
+        );
+      })()}
+
+      {requisitioningSpouseId && (() => {
+        const targetSpouse = currentSpouses.find((s) => s.id === requisitioningSpouseId);
+        if (!targetSpouse) return null;
+        const targetSpouseUser = safeUsers.find((u) => u.id === targetSpouse.id);
+        return (
+          <RequisitionModal
+            spouse={targetSpouse}
+            spouseUser={targetSpouseUser}
+            onClose={() => setRequisitioningSpouseId(null)}
+            onRequisition={(payload) => onRequisitionSpouseMoney && onRequisitionSpouseMoney(payload)}
           />
         );
       })()}

@@ -778,6 +778,7 @@ const CitizenLayout = (props) => {
     onProposeMarriageDominance,
     onAcceptMarriageDominance,
     onRejectMarriageDominance,
+    onRequisitionSpouseMoney,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -2805,6 +2806,7 @@ const CitizenLayout = (props) => {
                 onProposeMarriageDominance={onProposeMarriageDominance}
                 onAcceptMarriageDominance={onAcceptMarriageDominance}
                 onRejectMarriageDominance={onRejectMarriageDominance}
+                onRequisitionSpouseMoney={onRequisitionSpouseMoney}
                 gameDate={gameDate}
                 notify={notify}
                 readOnly={isSlave}
