@@ -75,14 +75,22 @@ const REACTION_EMOJIS = ["❤", "👑", "🗡️", "🔥", "😮"];
 
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
-function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList, recognizedEruditIds, onTip }) {
+function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList, recognizedEruditIds, onTip, isAdmin }) {
   const [tipOpen, setTipOpen] = useState(false);
   const [tipAmount, setTipAmount] = useState("");
   if (!citizen) return null;
   const citizenId = String(citizen.id);
   const isMe = citizenId === myId;
   const isFollowing = (myFollowing || []).includes(citizenId);
-  const citizenPosts = (posts || []).filter(p => String(p.authorId) === citizenId)
+  const isSubscribedToThem = (mySubscriptions || []).some(s => String(s.creatorId) === citizenId);
+  const canSeePost = (p) => isMe || isAdmin || !p.followersOnly || isFollowing;
+  const isPostLocked = (p) => {
+    if (isMe || isAdmin) return false;
+    if (p.locked && !(p.unlockedBy || []).map(String).includes(myId)) return true;
+    if (p.subscribersOnly && !isSubscribedToThem) return true;
+    return false;
+  };
+  const citizenPosts = (posts || []).filter(p => String(p.authorId) === citizenId && canSeePost(p))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(0, 10);
   const followerCount = (citizens || []).filter(c => (c.mushtagramFollowing||[]).map(String).includes(citizenId)).length;
@@ -238,21 +246,31 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
         <div className="overflow-y-auto flex-1 border-t border-stone-100 divide-y divide-stone-50">
           {citizenPosts.length === 0 ? (
             <div className="text-center text-stone-400 italic text-sm py-8">Aucune publication</div>
-          ) : citizenPosts.map(p => (
-            <div key={p.id} className="px-4 py-3">
-              {p.isOfficial && (
-                <div className="flex items-center gap-1 text-amber-600 text-[9px] font-black uppercase mb-1">
-                  <Crown size={10} /> Proclamation Officielle
+          ) : citizenPosts.map(p => {
+            const locked = isPostLocked(p);
+            return (
+              <div key={p.id} className="px-4 py-3">
+                {p.isOfficial && (
+                  <div className="flex items-center gap-1 text-amber-600 text-[9px] font-black uppercase mb-1">
+                    <Crown size={10} /> Proclamation Officielle
+                  </div>
+                )}
+                {locked ? (
+                  <p className="text-xs text-stone-400 italic flex items-center gap-1.5">
+                    {p.locked ? <Coins size={11} /> : <Sparkles size={11} />}
+                    {p.locked ? `Publication verrouillée — ${formatMoney(p.price)}` : "Réservé au cercle privé"}
+                  </p>
+                ) : (
+                  <p className="text-xs text-stone-700 leading-relaxed">{p.content || (p.repostOf ? `(Republication de ${p.repostOf.authorName})` : "")}</p>
+                )}
+                <div className="flex items-center gap-3 mt-1.5 text-[9px] text-stone-400">
+                  <span>❤ {(p.likes||[]).length}</span>
+                  <span>💬 {(p.comments||[]).length}</span>
+                  <span className="ml-auto">{p.rpDate || p.date || ""}</span>
                 </div>
-              )}
-              <p className="text-xs text-stone-700 leading-relaxed">{p.content || (p.repostOf ? `(Republication de ${p.repostOf.authorName})` : "")}</p>
-              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-stone-400">
-                <span>❤ {(p.likes||[]).length}</span>
-                <span>💬 {(p.comments||[]).length}</span>
-                <span className="ml-auto">{p.rpDate || p.date || ""}</span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -2493,6 +2511,7 @@ export default function MushtagramView({
           onOpenFollowList={(mode) => { openFollowList(mode, viewingProfile.id); setViewingProfile(null); }}
           recognizedEruditIds={recognizedEruditIds}
           onTip={onTipMushtagramCreator}
+          isAdmin={isAdmin}
         />
       )}
     </div>
