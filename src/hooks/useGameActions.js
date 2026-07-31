@@ -461,14 +461,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         // --- Abonnement Bague Impériale : débit + reset compteur voyages ---
         const BAGUE_COUT = ns.bagueCost || 10;
         let bagueResiliations = 0;
-        ns.citizens = (ns.citizens || []).map((c) => {
+        const bagueTs = Date.now();
+        const bagueLedgerEntries = [];
+        ns.citizens = (ns.citizens || []).map((c, i) => {
           if (!c.bagueImperiale) return c;
           if ((c.balance || 0) < BAGUE_COUT) {
             bagueResiliations++;
+            bagueLedgerEntries.push({ id: bagueTs + i, fromName: c.name, toName: "Trésor Impérial", amount: 0, timestamp: bagueTs, reason: "Abonnement Bague Impériale résilié (solde insuffisant)", type: "BAGUE_CANCEL" });
             return { ...c, bagueImperiale: false, bagueVoyagesUsed: 0 };
           }
+          bagueLedgerEntries.push({ id: bagueTs + i, fromName: c.name, toName: "Trésor Impérial", amount: BAGUE_COUT, timestamp: bagueTs, reason: "Abonnement Bague Impériale (journalier)", type: "BAGUE" });
           return { ...c, balance: (c.balance || 0) - BAGUE_COUT, bagueVoyagesUsed: 0 };
         });
+        if (bagueLedgerEntries.length > 0) {
+          ns.globalLedger = [...bagueLedgerEntries, ...(ns.globalLedger || [])];
+        }
 
         // --- Rémunération journalière des Érudits ---
         let eruditPayments = 0;
@@ -1202,7 +1209,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         if ((citizen.balance || 0) < bagueCout) { notify(`Fonds insuffisants — ${bagueCout} écus requis.`, "error"); return; }
         const newCitizens = [...state.citizens];
         newCitizens[idx] = { ...citizen, bagueImperiale: true, bagueVoyagesUsed: 0, balance: (citizen.balance || 0) - bagueCout };
-        saveState({ ...state, citizens: newCitizens });
+        const ledgerEntry = { id: Date.now() + Math.random(), fromName: citizen.name, toName: "Trésor Impérial", amount: bagueCout, timestamp: Date.now(), reason: "Abonnement Bague Impériale (souscription)", type: "BAGUE" };
+        saveState({ ...state, citizens: newCitizens, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
         notify(`💍 Abonnement Bague Impériale activé — ${bagueCout} écus prélevés.`, "success");
       },
 
