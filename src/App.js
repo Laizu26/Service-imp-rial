@@ -39,10 +39,12 @@ import { useGameActions } from "./hooks/useGameActions";
 import { ROLES } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { useSettings } from "./hooks/useSettings";
+import { useVersionCheck } from "./hooks/useVersionCheck";
 
 // UI Components
 import Toast from "./components/ui/Toast";
 import ErrorBoundary from "./components/ui/ErrorBoundary";
+import UpdateBanner from "./components/ui/UpdateBanner";
 import SettingsPanel from "./components/ui/SettingsPanel";
 import NotificationCenter from "./components/ui/NotificationCenter";
 import { useNotifications } from "./hooks/useNotifications";
@@ -113,6 +115,7 @@ export default function App() {
 
   const { settings, isDark, updateSetting, resetSettings } = useSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const updateAvailable = useVersionCheck();
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -387,6 +390,8 @@ export default function App() {
           onClose={() => setToast({ ...toast, msg: null })}
         />
 
+        {updateAvailable && <UpdateBanner />}
+
         {settingsOpen && (
           <SettingsPanel
             settings={settings}
@@ -559,6 +564,7 @@ export default function App() {
             user={gmBoostActive
               ? { ...currentUser, permissions: { bank: true, post: true, travel: true, grade: true } }
               : currentUser}
+            updateAvailable={updateAvailable}
             users={state.citizens || []}
             companies={state.companies || []}
             houseRegistry={state.maisonRegistry || []}

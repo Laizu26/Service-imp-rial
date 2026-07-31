@@ -666,6 +666,7 @@ const CitizenLayout = (props) => {
     debtRegistry,
     catalog,
     gazette,
+    updateAvailable,
     onLogout,
     onUpdateUser,
     onSend,
@@ -889,7 +890,16 @@ const CitizenLayout = (props) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
-  const [active, setActive] = useState("gazette");
+  const [active, setActiveRaw] = useState("gazette");
+  // Verrouille la navigation entre onglets tant qu'une nouvelle version du site
+  // n'a pas été rechargée — l'onglet en cours reste utilisable (ex: finir un message).
+  const setActive = (id) => {
+    if (updateAvailable) {
+      notify("Rechargez la page pour continuer à naviguer.", "info");
+      return;
+    }
+    setActiveRaw(id);
+  };
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showRestorePanel, setShowRestorePanel] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
