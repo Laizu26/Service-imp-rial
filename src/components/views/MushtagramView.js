@@ -1465,9 +1465,10 @@ export default function MushtagramView({
                   new_paid_post: "a publié un nouveau contenu payant",
                 }[notif.type] || "vous a notifié";
                 const isHigh = notif.priority === "high";
+                const notifAva = notif.isAnonymous ? { name: "Citoyen Anonyme" } : (sender || { name: notif.fromName });
                 return (
                   <div key={notif.id} className={`flex items-start gap-3 px-4 py-3 transition-colors ${!notif.read ? "bg-rose-50/60" : "hover:bg-stone-50"}`}>
-                    <Ava citizen={sender || { name: notif.fromName }} size="sm" />
+                    <Ava citizen={notifAva} size="sm" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-stone-800 leading-snug">
                         <span className="font-black">{notif.fromName}</span>{" "}

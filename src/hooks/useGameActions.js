@@ -5684,7 +5684,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         const existingNotifs = state.mushtagramNotifs || [];
         let newNotifs = existingNotifs;
         if (!wasLiked && origPost && String(origPost.authorId) !== String(session.id)) {
-          newNotifs = [...existingNotifs, { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "like", fromId: String(session.id), fromName: session.name, postId, timestamp: Date.now(), read: false, priority: "low" }];
+          const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+          const isAnonymous = !!me?.mushtagramAnonymous;
+          newNotifs = [...existingNotifs, { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "like", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, timestamp: Date.now(), read: false, priority: "low" }];
         }
         saveState({ ...state, mushtagramPosts: posts, mushtagramNotifs: newNotifs });
       },
@@ -5712,12 +5714,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         const existingNotifs = state.mushtagramNotifs || [];
         const addedNotifs = [];
         if (origPost && String(origPost.authorId) !== String(session.id)) {
-          addedNotifs.push({ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "comment", fromId: String(session.id), fromName: session.name, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
+          addedNotifs.push({ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(origPost.authorId), type: "comment", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
         }
         if (replyTo && origPost) {
           const parentComment = (origPost.comments || []).find(c => c.id === replyTo);
           if (parentComment && String(parentComment.authorId) !== String(session.id) && String(parentComment.authorId) !== String(origPost.authorId)) {
-            addedNotifs.push({ id: `mnotif_${Date.now()+1}_${Math.random().toString(36).slice(2,6)}`, toId: String(parentComment.authorId), type: "reply", fromId: String(session.id), fromName: session.name, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
+            addedNotifs.push({ id: `mnotif_${Date.now()+1}_${Math.random().toString(36).slice(2,6)}`, toId: String(parentComment.authorId), type: "reply", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
           }
         }
         saveState({ ...state, mushtagramPosts: posts, mushtagramNotifs: [...existingNotifs, ...addedNotifs] });
@@ -5936,9 +5938,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           return c;
         });
         const posts = (state.mushtagramPosts || []).map(p => p.id === postId ? { ...p, unlockedBy: [...(p.unlockedBy || []), String(session.id)] } : p);
+        const isAnonymous = !!me?.mushtagramAnonymous;
         const notifs = [...(state.mushtagramNotifs || []), {
           id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          toId: String(post.authorId), type: "unlock", fromId: String(session.id), fromName: session.name,
+          toId: String(post.authorId), type: "unlock", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous,
           postId, timestamp: Date.now(), read: false, priority: "high",
         }];
         const ledger = [{ id: Date.now() + Math.random(), fromName: session.name, toName: post.authorName, amount: post.price, timestamp: Date.now(), reason: "Déverrouillage publication Mushtagram", type: "MUSHTAGRAM_PPV" }, ...(state.globalLedger || [])];
