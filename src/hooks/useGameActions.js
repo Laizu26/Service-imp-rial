@@ -5971,6 +5971,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         const original = (state.mushtagramPosts||[]).find(p => p.id === postId);
         if (!original) return;
+        if (original.locked || original.subscribersOnly) {
+          notify("Impossible de republier un contenu payant.", "error");
+          return;
+        }
         const alreadyReposted = (state.mushtagramPosts||[]).some(
           p => String(p.authorId) === String(session.id) && p.repostOf?.postId === postId
         );

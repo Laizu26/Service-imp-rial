@@ -489,6 +489,7 @@ function PostCard({
   const isPinned = myCitizen?.mushtagramPinned === post.id;
   const isOfficial = !!post.isOfficial;
   const alreadyReposted = myRepostedIds?.has(post.id);
+  const isPaidContent = !!(post.locked || post.subscribersOnly);
 
   const hasUnlocked = (post.unlockedBy || []).map(String).includes(myId);
   const isSubscribed = (mySubscriptions || []).some(s => String(s.creatorId) === authorId);
@@ -691,12 +692,14 @@ function PostCard({
           <MessageCircle size={14} />
           {cmtCount > 0 && <span>{cmtCount}</span>}
         </button>
-        <button onClick={() => !alreadyReposted && onRepost(post.id)}
-          title={alreadyReposted ? "Déjà republié" : "Republier"}
-          className={`flex items-center gap-1.5 text-xs font-bold transition-all ${alreadyReposted ? "text-emerald-500 cursor-default" : "text-stone-400 hover:text-emerald-500"}`}>
-          <Repeat2 size={14} />
-          {alreadyReposted && <span className="text-[10px]">Republié</span>}
-        </button>
+        {!isPaidContent && (
+          <button onClick={() => !alreadyReposted && onRepost(post.id)}
+            title={alreadyReposted ? "Déjà republié" : "Republier"}
+            className={`flex items-center gap-1.5 text-xs font-bold transition-all ${alreadyReposted ? "text-emerald-500 cursor-default" : "text-stone-400 hover:text-emerald-500"}`}>
+            <Repeat2 size={14} />
+            {alreadyReposted && <span className="text-[10px]">Republié</span>}
+          </button>
+        )}
       </div>
 
       {/* Comments */}
