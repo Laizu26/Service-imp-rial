@@ -470,9 +470,36 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.globalLedger = [...eruditLedgerEntries, ...(ns.globalLedger || [])];
         }
 
+        // --- Facturation journalière des abonnements Mushtagram ---
+        let subBillings = 0;
+        let subCancellations = 0;
+        const subDateStr = formatRPDate(ns.gameDate);
+        const subLedgerEntries = [];
+        const survivingSubs = [];
+        (ns.mushtagramSubscriptions || []).forEach((sub, i) => {
+          if (sub.lastBilledDate === subDateStr) { survivingSubs.push(sub); return; }
+          const subIdx = (ns.citizens || []).findIndex(c => String(c.id) === String(sub.subscriberId));
+          const creatorIdx = (ns.citizens || []).findIndex(c => String(c.id) === String(sub.creatorId));
+          if (subIdx === -1 || creatorIdx === -1) return;
+          if ((ns.citizens[subIdx].balance || 0) < sub.price) {
+            subCancellations++;
+            subLedgerEntries.push({ id: Date.now() + i, fromName: sub.subscriberName, toName: sub.creatorName, amount: 0, timestamp: Date.now(), reason: `Abonnement Mushtagram résilié (solde insuffisant) — ${sub.tierName}`, type: "MUSHTAGRAM_SUB_CANCEL" });
+            return;
+          }
+          ns.citizens[subIdx] = { ...ns.citizens[subIdx], balance: Math.round(((ns.citizens[subIdx].balance || 0) - sub.price) * 10) / 10 };
+          ns.citizens[creatorIdx] = { ...ns.citizens[creatorIdx], balance: Math.round(((ns.citizens[creatorIdx].balance || 0) + sub.price) * 10) / 10, mushtagramTotalPaidRevenue: Math.round((((ns.citizens[creatorIdx].mushtagramTotalPaidRevenue || 0) + sub.price)) * 10) / 10 };
+          subLedgerEntries.push({ id: Date.now() + i + 1, fromName: sub.subscriberName, toName: sub.creatorName, amount: sub.price, timestamp: Date.now(), reason: `Abonnement Mushtagram — ${sub.tierName}`, type: "MUSHTAGRAM_SUB" });
+          subBillings++;
+          survivingSubs.push({ ...sub, lastBilledDate: subDateStr });
+        });
+        ns.mushtagramSubscriptions = survivingSubs;
+        if (subLedgerEntries.length > 0) {
+          ns.globalLedger = [...subLedgerEntries, ...(ns.globalLedger || [])];
+        }
+
         saveState(ns);
         notify(
-          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}`,
+          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}${subBillings > 0 ? ` — ${subBillings} abonnement(s) Mushtagram facturé(s)` : ""}${subCancellations > 0 ? ` — ${subCancellations} résilié(s)` : ""}`,
           "info"
         );
       },
@@ -5559,9 +5586,35 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // ── MUSHTAGRAM ───────────────────────────────────────────────
-      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly }) => {
+      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly, locked, price, subscribersOnly }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const dateStr = formatRPDate(gd);
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        const isPP = me?.mushtagramPublicPersonality === "approved";
+
+        let finalLocked = false;
+        let finalPrice = 0;
+        let citizensPatch = null;
+
+        if (locked && me?.mushtagramMonetizationEnabled) {
+          if (!isPP) {
+            if (me?.mushtagramLastPPVDate === dateStr) {
+              notify("Un seul post verrouillé par jour (non-PP).", "error");
+              return;
+            }
+            finalPrice = Math.max(0.1, Math.min(5, Number(price) || 0));
+          } else {
+            finalPrice = Math.max(0.1, Number(price) || 0);
+          }
+          finalLocked = true;
+          citizensPatch = (state.citizens || []).map(c =>
+            String(c.id) === String(session.id) ? { ...c, mushtagramLastPPVDate: dateStr } : c
+          );
+        }
+
+        const finalSubscribersOnly = !!(subscribersOnly && me?.mushtagramMonetizationEnabled && (me?.mushtagramSubTiers || []).length > 0);
+
         const newPost = {
           id: `mpost_${Date.now()}`,
           authorId: session.id,
@@ -5571,13 +5624,45 @@ export const useGameActions = (session, state, saveState, notify) => {
           hashtags: hashtags || [],
           likes: [],
           comments: [],
-          date: formatRPDate(gd),
+          date: dateStr,
           createdAt: Date.now(),
           followersOnly: followersOnly || false,
+          locked: finalLocked,
+          price: finalLocked ? finalPrice : 0,
+          unlockedBy: [],
+          subscribersOnly: finalSubscribersOnly,
           ...(poll ? { poll } : {}),
           ...(isOfficial ? { isOfficial: true } : {}),
         };
-        saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts || []), newPost] });
+
+        let newNotifs = state.mushtagramNotifs || [];
+        if (isPP && (finalLocked || finalSubscribersOnly)) {
+          const subscribers = (state.mushtagramSubscriptions || []).filter(s => String(s.creatorId) === String(session.id));
+          if (subscribers.length > 0) {
+            const now = Date.now();
+            newNotifs = [
+              ...newNotifs,
+              ...subscribers.map((s, i) => ({
+                id: `mnotif_paid_${now}_${i}`,
+                toId: String(s.subscriberId),
+                type: "new_paid_post",
+                fromId: String(session.id),
+                fromName: session.name,
+                postId: newPost.id,
+                timestamp: now,
+                read: false,
+                priority: "high",
+              })),
+            ];
+          }
+        }
+
+        saveState({
+          ...state,
+          mushtagramPosts: [...(state.mushtagramPosts || []), newPost],
+          mushtagramNotifs: newNotifs,
+          ...(citizensPatch ? { citizens: citizensPatch } : {}),
+        });
       },
 
       onDeleteMushtagramPost: (id) => {
@@ -5756,6 +5841,104 @@ export const useGameActions = (session, state, saveState, notify) => {
             : c
         );
         saveState({ ...state, citizens: updated });
+      },
+
+      onUpdateMushtagramMonetization: ({ enabled, tiers }) => {
+        if (!session) return;
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        const isPP = me?.mushtagramPublicPersonality === "approved";
+        let cleanTiers = (Array.isArray(tiers) ? tiers : [])
+          .filter(t => t?.name?.trim())
+          .map(t => ({
+            id: t.id || `tier_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: String(t.name).trim().slice(0, 40),
+            price: Math.max(0.1, Number(t.price) || 0),
+          }));
+        if (!isPP) {
+          cleanTiers = cleanTiers.slice(0, 1).map(t => ({ ...t, price: Math.min(5, t.price) }));
+        } else {
+          cleanTiers = cleanTiers.slice(0, 6);
+        }
+        const wasEnabled = !!me?.mushtagramMonetizationEnabled;
+        const nowEnabled = !!enabled;
+        const updated = (state.citizens || []).map(c =>
+          String(c.id) === String(session.id)
+            ? { ...c, mushtagramMonetizationEnabled: nowEnabled, mushtagramSubTiers: cleanTiers }
+            : c
+        );
+        let subs = state.mushtagramSubscriptions || [];
+        if (wasEnabled && !nowEnabled) {
+          subs = subs.filter(s => String(s.creatorId) !== String(session.id));
+        }
+        saveState({ ...state, citizens: updated, mushtagramSubscriptions: subs });
+        notify(nowEnabled ? "Contenu payant activé." : "Contenu payant désactivé.", "success");
+      },
+
+      onSubscribeMushtagramCreator: ({ creatorId, tierId }) => {
+        if (!session) return;
+        if (String(creatorId) === String(session.id)) return;
+        const creator = (state.citizens || []).find(c => String(c.id) === String(creatorId));
+        if (!creator?.mushtagramMonetizationEnabled) { notify("Ce compte n'a pas de contenu payant actif.", "error"); return; }
+        const tier = (creator.mushtagramSubTiers || []).find(t => t.id === tierId);
+        if (!tier) { notify("Palier introuvable.", "error"); return; }
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        if ((me?.balance || 0) < tier.price) { notify("Solde insuffisant.", "error"); return; }
+
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const dateStr = formatRPDate(gd);
+        const updatedCitizens = (state.citizens || []).map(c => {
+          if (String(c.id) === String(session.id)) return { ...c, balance: Math.round(((c.balance || 0) - tier.price) * 10) / 10 };
+          if (String(c.id) === String(creatorId)) return { ...c, balance: Math.round(((c.balance || 0) + tier.price) * 10) / 10, mushtagramTotalPaidRevenue: Math.round((((c.mushtagramTotalPaidRevenue || 0) + tier.price)) * 10) / 10 };
+          return c;
+        });
+        const subs = (state.mushtagramSubscriptions || []).filter(s => !(String(s.subscriberId) === String(session.id) && String(s.creatorId) === String(creatorId)));
+        subs.push({
+          id: `msub_${Date.now()}`,
+          subscriberId: String(session.id), subscriberName: session.name,
+          creatorId: String(creatorId), creatorName: creator.name,
+          tierId: tier.id, tierName: tier.name, price: tier.price,
+          startedAt: Date.now(), lastBilledDate: dateStr,
+        });
+        const notifs = [...(state.mushtagramNotifs || []), {
+          id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          toId: String(creatorId), type: "subscribe", fromId: String(session.id), fromName: session.name,
+          content: tier.name, timestamp: Date.now(), read: false, priority: "high",
+        }];
+        const ledger = [{ id: Date.now() + Math.random(), fromName: session.name, toName: creator.name, amount: tier.price, timestamp: Date.now(), reason: `Abonnement Mushtagram — ${tier.name}`, type: "MUSHTAGRAM_SUB" }, ...(state.globalLedger || [])];
+        saveState({ ...state, citizens: updatedCitizens, mushtagramSubscriptions: subs, mushtagramNotifs: notifs, globalLedger: ledger });
+        notify(`Abonné à ${creator.name} — ${tier.name}.`, "success");
+      },
+
+      onUnsubscribeMushtagramCreator: ({ creatorId }) => {
+        if (!session) return;
+        const subs = (state.mushtagramSubscriptions || []).filter(s => !(String(s.subscriberId) === String(session.id) && String(s.creatorId) === String(creatorId)));
+        saveState({ ...state, mushtagramSubscriptions: subs });
+        notify("Désabonné.", "info");
+      },
+
+      onUnlockMushtagramPost: (postId) => {
+        if (!session) return;
+        const post = (state.mushtagramPosts || []).find(p => p.id === postId);
+        if (!post || !post.locked) return;
+        if (String(post.authorId) === String(session.id)) return;
+        if ((post.unlockedBy || []).map(String).includes(String(session.id))) return;
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        if ((me?.balance || 0) < post.price) { notify("Solde insuffisant.", "error"); return; }
+
+        const updatedCitizens = (state.citizens || []).map(c => {
+          if (String(c.id) === String(session.id)) return { ...c, balance: Math.round(((c.balance || 0) - post.price) * 10) / 10 };
+          if (String(c.id) === String(post.authorId)) return { ...c, balance: Math.round(((c.balance || 0) + post.price) * 10) / 10, mushtagramTotalPaidRevenue: Math.round((((c.mushtagramTotalPaidRevenue || 0) + post.price)) * 10) / 10 };
+          return c;
+        });
+        const posts = (state.mushtagramPosts || []).map(p => p.id === postId ? { ...p, unlockedBy: [...(p.unlockedBy || []), String(session.id)] } : p);
+        const notifs = [...(state.mushtagramNotifs || []), {
+          id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          toId: String(post.authorId), type: "unlock", fromId: String(session.id), fromName: session.name,
+          postId, timestamp: Date.now(), read: false, priority: "high",
+        }];
+        const ledger = [{ id: Date.now() + Math.random(), fromName: session.name, toName: post.authorName, amount: post.price, timestamp: Date.now(), reason: "Déverrouillage publication Mushtagram", type: "MUSHTAGRAM_PPV" }, ...(state.globalLedger || [])];
+        saveState({ ...state, citizens: updatedCitizens, mushtagramPosts: posts, mushtagramNotifs: notifs, globalLedger: ledger });
+        notify("Publication déverrouillée.", "success");
       },
 
       onReactMushtagram: (postId, emoji) => {

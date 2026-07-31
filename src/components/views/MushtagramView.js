@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Heart, MessageCircle, Send, Search, Trash2, ArrowLeft,
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
-  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell,
+  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell, Coins, Sparkles,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
+import { formatMoney, formatRPDate } from "../../lib/gameUtils";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 
@@ -51,7 +52,7 @@ const REACTION_EMOJIS = ["❤", "👑", "🗡️", "🔥", "😮"];
 
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
-function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM }) {
+function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe }) {
   if (!citizen) return null;
   const citizenId = String(citizen.id);
   const isMe = citizenId === myId;
@@ -139,6 +140,41 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
             <span><strong className="text-stone-700">{followerCount}</strong> abonné{followerCount !== 1 ? "s" : ""}</span>
             <span><strong className="text-stone-700">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}</span>
           </div>
+
+          {/* Cercle privé — paliers d'abonnement payant */}
+          {!isMe && citizen.mushtagramMonetizationEnabled && (citizen.mushtagramSubTiers || []).length > 0 && (() => {
+            const activeSub = (mySubscriptions || []).find(s => String(s.creatorId) === citizenId);
+            return (
+              <div className="mt-3 pt-3 border-t border-stone-100 space-y-2">
+                <div className="text-[9px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1">
+                  <Sparkles size={10} /> Cercle privé
+                </div>
+                {activeSub && (
+                  <div className="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                    <span className="text-xs font-bold text-emerald-700">Abonné · {activeSub.tierName}</span>
+                    <button onClick={() => onUnsubscribe({ creatorId: citizenId })}
+                      className="text-[10px] font-black text-emerald-600 hover:text-red-500 transition-colors">
+                      Se désabonner
+                    </button>
+                  </div>
+                )}
+                {(citizen.mushtagramSubTiers || []).map(tier => (
+                  <div key={tier.id} className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 border ${activeSub?.tierId === tier.id ? "bg-stone-50 border-stone-200 opacity-60" : "bg-white border-emerald-200"}`}>
+                    <div>
+                      <div className="text-xs font-bold text-stone-800">{tier.name}</div>
+                      <div className="text-[10px] text-stone-400">{formatMoney(tier.price)} / jour</div>
+                    </div>
+                    {activeSub?.tierId !== tier.id && (
+                      <button onClick={() => onSubscribe({ creatorId: citizenId, tierId: tier.id })}
+                        className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[10px] font-black rounded-lg hover:opacity-90 transition-all">
+                        S'abonner
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Posts list */}
@@ -438,6 +474,7 @@ function PostCard({
   onViewProfile,
   myRepostedIds,
   setExpandedComments, setCommentInput,
+  mySubscriptions, onUnlock,
 }) {
   const [replyingTo, setReplyingTo] = React.useState(null); // { commentId, authorName }
   const author = citizens.find(c => String(c.id) === String(post.authorId));
@@ -452,6 +489,11 @@ function PostCard({
   const isPinned = myCitizen?.mushtagramPinned === post.id;
   const isOfficial = !!post.isOfficial;
   const alreadyReposted = myRepostedIds?.has(post.id);
+
+  const hasUnlocked = (post.unlockedBy || []).map(String).includes(myId);
+  const isSubscribed = (mySubscriptions || []).some(s => String(s.creatorId) === authorId);
+  const paidLocked = post.locked && !isMe && !isAdmin && !hasUnlocked;
+  const subLocked = post.subscribersOnly && !isMe && !isAdmin && !isSubscribed;
 
   if (mutedSet.has(authorId) && !isMe) return null;
 
@@ -518,6 +560,16 @@ function PostCard({
                 <Lock size={8} /> Abonnés
               </span>
             )}
+            {post.locked && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5" title="Contenu verrouillé">
+                <Coins size={8} /> {formatMoney(post.price)}
+              </span>
+            )}
+            {post.subscribersOnly && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5" title="Abonnés payants uniquement">
+                <Sparkles size={8} /> Cercle privé
+              </span>
+            )}
             {!isMe && !isFollowing && (
               <button onClick={() => onFollow(authorId)}
                 className="text-[9px] font-black text-rose-500 hover:text-rose-700 transition-colors ml-1 flex items-center gap-0.5">
@@ -561,34 +613,57 @@ function PostCard({
         </div>
       </div>
 
-      {/* Content */}
-      {post.content && (
-        <div className="px-4 pb-2">
-          <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+      {/* Contenu verrouillé (PPV ou cercle privé payant) */}
+      {(paidLocked || subLocked) ? (
+        <div className="mx-4 mb-3 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 px-4 py-8 flex flex-col items-center gap-2 text-center">
+          {paidLocked ? <Coins size={22} className="text-amber-500" /> : <Sparkles size={22} className="text-emerald-500" />}
+          <p className="text-xs font-bold text-stone-600">
+            {paidLocked ? "Publication verrouillée" : "Réservé au cercle privé de cet auteur"}
+          </p>
+          {paidLocked ? (
+            <button onClick={() => onUnlock(post.id)}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-black rounded-lg hover:opacity-90 transition-all">
+              <Coins size={12} /> Débloquer pour {formatMoney(post.price)}
+            </button>
+          ) : (
+            <button onClick={() => onViewProfile(author || { name: post.authorName, id: post.authorId })}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-black rounded-lg hover:opacity-90 transition-all">
+              <Sparkles size={12} /> Voir les abonnements
+            </button>
+          )}
         </div>
-      )}
+      ) : (
+        <>
+          {/* Content */}
+          {post.content && (
+            <div className="px-4 pb-2">
+              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+            </div>
+          )}
 
-      {/* Hashtags */}
-      {(post.hashtags || []).length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-4 pb-2">
-          {post.hashtags.map(h => (
-            <span key={h} className="text-[10px] text-violet-600 font-bold hover:underline cursor-pointer">#{h}</span>
-          ))}
-        </div>
-      )}
+          {/* Hashtags */}
+          {(post.hashtags || []).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-4 pb-2">
+              {post.hashtags.map(h => (
+                <span key={h} className="text-[10px] text-violet-600 font-bold hover:underline cursor-pointer">#{h}</span>
+              ))}
+            </div>
+          )}
 
-      {/* Image */}
-      {post.imageUrl && (
-        <div className="mx-4 mb-3 rounded-xl overflow-hidden border border-stone-100 bg-stone-50">
-          <img src={post.imageUrl} alt=""
-            className="w-full max-h-[520px] object-contain"
-            onError={e => { e.target.style.display = "none"; }} />
-        </div>
-      )}
+          {/* Image */}
+          {post.imageUrl && (
+            <div className="mx-4 mb-3 rounded-xl overflow-hidden border border-stone-100 bg-stone-50">
+              <img src={post.imageUrl} alt=""
+                className="w-full max-h-[520px] object-contain"
+                onError={e => { e.target.style.display = "none"; }} />
+            </div>
+          )}
 
-      {/* Poll */}
-      {post.poll && (
-        <PollDisplay poll={post.poll} postId={post.id} myId={myId} onVote={onVotePoll} />
+          {/* Poll */}
+          {post.poll && (
+            <PollDisplay poll={post.poll} postId={post.id} myId={myId} onVote={onVotePoll} />
+          )}
+        </>
       )}
 
       {/* Actions bar */}
@@ -739,8 +814,9 @@ function PostCard({
 /* ── composant principal ─────────────────────────────────────────────────── */
 
 export default function MushtagramView({
-  session, citizens = [], companies = [],
+  session, citizens = [], companies = [], gameDate,
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
+  mushtagramSubscriptions = [],
   onPostMushtagram, onDeleteMushtagramPost,
   onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment, onPinMushtagramComment,
   onUpdateMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
@@ -752,6 +828,7 @@ export default function MushtagramView({
   onUpdateMushtagramSettings, onRequestPublicPersonality,
   onMarkMushtagramNotifsRead,
   onBroadcastMushtagram,
+  onUpdateMushtagramMonetization, onSubscribeMushtagramCreator, onUnsubscribeMushtagramCreator, onUnlockMushtagramPost,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -775,6 +852,15 @@ export default function MushtagramView({
 
   // Followers-only post (PP feature)
   const [followersOnly, setFollowersOnly] = useState(false);
+
+  // Contenu payant : verrouillage PPV et post abonnés-payants
+  const [lockedPost, setLockedPost]           = useState(false);
+  const [lockedPrice, setLockedPrice]         = useState("");
+  const [subscribersOnlyPost, setSubscribersOnlyPost] = useState(false);
+
+  // Contenu payant : formulaire d'ajout de palier (paramètres)
+  const [newTierName, setNewTierName]   = useState("");
+  const [newTierPrice, setNewTierPrice] = useState("");
 
   // Broadcast (PP feature)
   const [broadcastInput, setBroadcastInput] = useState("");
@@ -813,6 +899,11 @@ export default function MushtagramView({
   const mushtagramSerfRights = mushtagramEmployer?.employmentContracts?.[myId]?.serfRights || {};
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
   const isPP = myCitizen?.mushtagramPublicPersonality === "approved";
+  const monetizationEnabled = !!myCitizen?.mushtagramMonetizationEnabled;
+  const myTiers = myCitizen?.mushtagramSubTiers || [];
+  const todayRPDate = formatRPDate(gameDate || { day: 1, month: 1, year: 1200 });
+  const ppvUsedToday = !isPP && myCitizen?.mushtagramLastPPVDate === todayRPDate;
+  const mySubscriptions = useMemo(() => (mushtagramSubscriptions || []).filter(s => String(s.subscriberId) === myId), [mushtagramSubscriptions, myId]);
 
   /* ── notifications ──────────────────────────────────────────────────── */
   const myNotifs = useMemo(() =>
@@ -904,10 +995,16 @@ export default function MushtagramView({
     const pollData = showPoll && pollOptions.filter(o => o.trim()).length >= 2
       ? { question: pollQuestion.trim(), options: pollOptions.filter(o => o.trim()).map(o => ({ text: o, votes: [] })) }
       : null;
-    onPostMushtagram({ content: postContent.trim(), imageUrl: postImage.trim(), hashtags, poll: pollData, isOfficial: isAdmin && isOfficial, followersOnly: isPP && followersOnly });
+    onPostMushtagram({
+      content: postContent.trim(), imageUrl: postImage.trim(), hashtags, poll: pollData,
+      isOfficial: isAdmin && isOfficial, followersOnly: isPP && followersOnly,
+      locked: monetizationEnabled && lockedPost, price: lockedPrice,
+      subscribersOnly: monetizationEnabled && subscribersOnlyPost,
+    });
     setPostContent(""); setPostImage(""); setShowImgInput(false);
     setShowPoll(false); setPollOptions(["", ""]); setPollQuestion(""); setIsOfficial(false);
     setFollowersOnly(false);
+    setLockedPost(false); setLockedPrice(""); setSubscribersOnlyPost(false);
     notify("Publication envoyée !", "success");
   };
 
@@ -1151,12 +1248,40 @@ export default function MushtagramView({
                             <Lock size={13} /> Abonnés uniquement
                           </button>
                         )}
+                        {monetizationEnabled && (
+                          <button
+                            onClick={() => { if (!ppvUsedToday) { setLockedPost(v => !v); setSubscribersOnlyPost(false); } }}
+                            disabled={ppvUsedToday && !lockedPost}
+                            title={ppvUsedToday && !lockedPost ? "1 seul post verrouillé par jour (non-PP)" : ""}
+                            className={`flex items-center gap-1 text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${lockedPost ? "text-amber-600" : "text-stone-400 hover:text-amber-500"}`}>
+                            <Coins size={13} /> Verrouiller (PPV)
+                          </button>
+                        )}
+                        {monetizationEnabled && myTiers.length > 0 && (
+                          <button onClick={() => { setSubscribersOnlyPost(v => !v); setLockedPost(false); }}
+                            className={`flex items-center gap-1 text-xs font-bold transition-all ${subscribersOnlyPost ? "text-emerald-600" : "text-stone-400 hover:text-emerald-500"}`}>
+                            <Sparkles size={13} /> Abonnés payants
+                          </button>
+                        )}
                       </div>
                       <button onClick={submitPost} disabled={!postContent.trim() && !(showPoll && pollOptions.filter(o => o.trim()).length >= 2)}
                         className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black rounded-lg hover:opacity-90 disabled:opacity-40 transition-all">
                         <Send size={11} /> Publier
                       </button>
                     </div>
+                    {lockedPost && (
+                      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <Coins size={13} className="text-amber-500 shrink-0" />
+                        <span className="text-[10px] font-bold text-amber-700 shrink-0">Prix de déverrouillage :</span>
+                        <input
+                          type="number" min={0.1} step={0.1} max={isPP ? undefined : 5}
+                          value={lockedPrice}
+                          onChange={e => setLockedPrice(e.target.value)}
+                          placeholder="écus"
+                          className="w-20 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
+                        {!isPP && <span className="text-[9px] text-amber-500">max 5 écus/jour</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1229,6 +1354,8 @@ export default function MushtagramView({
                   myRepostedIds={myRepostedIds}
                   setExpandedComments={setExpandedComments}
                   setCommentInput={setCommentInput}
+                  mySubscriptions={mySubscriptions}
+                  onUnlock={onUnlockMushtagramPost}
                 />
               ))}
             </div>
@@ -1317,6 +1444,9 @@ export default function MushtagramView({
                   repost:  "a republié votre publication",
                   follow:  "vous suit maintenant",
                   dm:      "vous a envoyé un message",
+                  subscribe: "s'est abonné à votre cercle privé",
+                  unlock:    "a déverrouillé votre publication",
+                  new_paid_post: "a publié un nouveau contenu payant",
                 }[notif.type] || "vous a notifié";
                 const isHigh = notif.priority === "high";
                 return (
@@ -1687,6 +1817,8 @@ export default function MushtagramView({
                     myRepostedIds={myRepostedIds}
                     setExpandedComments={setExpandedComments}
                     setCommentInput={setCommentInput}
+                    mySubscriptions={mySubscriptions}
+                    onUnlock={onUnlockMushtagramPost}
                   />
                 </div>
               )}
@@ -1715,6 +1847,11 @@ export default function MushtagramView({
                       <div className="flex items-center gap-4 mt-2 text-[10px] text-stone-400">
                         <span>❤ {(post.likes || []).length}</span>
                         <span>💬 {(post.comments || []).length}</span>
+                        {post.locked && (
+                          <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                            <Coins size={9} /> {(post.unlockedBy || []).length} déverrouillage{(post.unlockedBy || []).length !== 1 ? "s" : ""} · {formatMoney((post.unlockedBy || []).length * (post.price || 0))}
+                          </span>
+                        )}
                         {myCitizen?.mushtagramPinned === post.id && (
                           <span className="text-amber-500 flex items-center gap-0.5"><Pin size={9} /> Épinglé</span>
                         )}
@@ -1822,6 +1959,68 @@ export default function MushtagramView({
             );
           })()}
 
+          {/* ── Statistiques (PP) ── */}
+          {profileSubTab === "stats" && (() => {
+            const totalLikes = myPosts.reduce((s, p) => s + (p.likes || []).length, 0);
+            const totalComments = myPosts.reduce((s, p) => s + (p.comments || []).length, 0);
+            const totalReposts = mushtagramPosts.filter(p => p.repostOf && myPosts.some(mp => mp.id === p.repostOf.postId)).length;
+            const activeSubs = (mushtagramSubscriptions || []).filter(s => String(s.creatorId) === myId);
+            const dailyRevenue = activeSubs.reduce((s, sub) => s + (sub.price || 0), 0);
+            const totalRevenue = myCitizen?.mushtagramTotalPaidRevenue || 0;
+            const lockedPosts = myPosts.filter(p => p.locked);
+            const bestUnlocked = [...lockedPosts].sort((a, b) => (b.unlockedBy || []).length - (a.unlockedBy || []).length)[0];
+            return (
+              <div className="space-y-4">
+                <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3">Engagement</div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <div className="text-lg font-black text-rose-500">{totalLikes}</div>
+                      <div className="text-[9px] text-stone-400">Likes cumulés</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-blue-500">{totalComments}</div>
+                      <div className="text-[9px] text-stone-400">Commentaires</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-emerald-500">{totalReposts}</div>
+                      <div className="text-[9px] text-stone-400">Reposts reçus</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-amber-200 rounded-2xl p-4 shadow-sm">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-amber-600 mb-3 flex items-center gap-1.5">
+                    <Coins size={11} /> Monétisation
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div>
+                      <div className="text-lg font-black text-emerald-600">{activeSubs.length}</div>
+                      <div className="text-[9px] text-stone-400">Abonné{activeSubs.length !== 1 ? "s" : ""} actif{activeSubs.length !== 1 ? "s" : ""}</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-amber-600">{formatMoney(dailyRevenue)}</div>
+                      <div className="text-[9px] text-stone-400">Revenu récurrent/jour</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-amber-700">{formatMoney(totalRevenue)}</div>
+                      <div className="text-[9px] text-stone-400">Revenu total cumulé</div>
+                    </div>
+                  </div>
+                  {bestUnlocked && (bestUnlocked.unlockedBy || []).length > 0 ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <div className="text-[9px] font-black uppercase text-amber-600 mb-0.5">Publication la plus débloquée</div>
+                      <p className="text-xs text-stone-700 line-clamp-2">{bestUnlocked.content}</p>
+                      <div className="text-[10px] text-amber-600 font-bold mt-1">{(bestUnlocked.unlockedBy || []).length} déverrouillage{(bestUnlocked.unlockedBy || []).length !== 1 ? "s" : ""}</div>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-stone-400 italic">Aucune publication verrouillée débloquée pour l'instant.</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* ── Paramètres ── */}
           {profileSubTab === "settings" && (
             <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm space-y-6">
@@ -1905,6 +2104,70 @@ export default function MushtagramView({
                 </div>
               </div>
 
+              {/* Section Contenu Payant */}
+              <div className="border-t border-stone-100 pt-5">
+                <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3 flex items-center gap-1.5">
+                  <Coins size={11} className="text-amber-500" /> Contenu Payant
+                  {isPP && <span className="text-[8px] normal-case font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">PP · sans limite</span>}
+                </div>
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <div>
+                    <div className="text-sm font-bold text-stone-800">Activer le contenu payant</div>
+                    <div className="text-[10px] text-stone-400">Autorise l'abonnement payant et les publications verrouillées (PPV)</div>
+                  </div>
+                  <button
+                    onClick={() => onUpdateMushtagramMonetization && onUpdateMushtagramMonetization({ enabled: !monetizationEnabled, tiers: myTiers })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${monetizationEnabled ? "bg-amber-500" : "bg-stone-300"}`}>
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 mt-0.5 ${monetizationEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+
+                {monetizationEnabled && (
+                  <div className="space-y-2">
+                    {myTiers.map(tier => (
+                      <div key={tier.id} className="flex items-center justify-between gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                        <div>
+                          <div className="text-xs font-bold text-stone-800">{tier.name}</div>
+                          <div className="text-[10px] text-stone-400">{formatMoney(tier.price)} / jour</div>
+                        </div>
+                        <button
+                          onClick={() => onUpdateMushtagramMonetization({ enabled: true, tiers: myTiers.filter(t => t.id !== tier.id) })}
+                          className="text-stone-300 hover:text-red-500 transition-colors">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {(isPP || myTiers.length === 0) && (
+                      <div className="flex items-center gap-2 bg-white border border-stone-200 rounded-lg p-2">
+                        <input value={newTierName} onChange={e => setNewTierName(e.target.value)}
+                          placeholder="Nom du palier (ex: Cercle privé)"
+                          className="flex-1 px-2 py-1.5 text-xs text-stone-800 outline-none placeholder:text-stone-300" />
+                        <input type="number" min={0.1} step={0.1} max={isPP ? undefined : 5}
+                          value={newTierPrice} onChange={e => setNewTierPrice(e.target.value)}
+                          placeholder="écus/jour"
+                          className="w-20 px-2 py-1.5 text-xs text-stone-800 outline-none placeholder:text-stone-300 border-l border-stone-100" />
+                        <button
+                          onClick={() => {
+                            if (!newTierName.trim() || !(Number(newTierPrice) > 0)) return;
+                            onUpdateMushtagramMonetization({
+                              enabled: true,
+                              tiers: [...myTiers, { name: newTierName.trim(), price: Number(newTierPrice) }],
+                            });
+                            setNewTierName(""); setNewTierPrice("");
+                          }}
+                          className="p-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors shrink-0">
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    )}
+                    {!isPP && myTiers.length >= 1 && (
+                      <p className="text-[9px] text-stone-400 italic">Un seul palier (max 5 écus/jour) pour les comptes non-PP. Devenez Personnalité Publique pour plusieurs paliers sans limite.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
         </div>
@@ -1986,6 +2249,9 @@ export default function MushtagramView({
             setTab("messages");
             setViewingProfile(null);
           }}
+          mySubscriptions={mySubscriptions}
+          onSubscribe={onSubscribeMushtagramCreator}
+          onUnsubscribe={onUnsubscribeMushtagramCreator}
         />
       )}
     </div>

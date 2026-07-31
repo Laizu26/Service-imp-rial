@@ -763,6 +763,7 @@ export default function App() {
             mushtagramDMs={state.mushtagramDMs || []}
             mushtagramStories={state.mushtagramStories || []}
             mushtagramNotifs={state.mushtagramNotifs || []}
+            mushtagramSubscriptions={state.mushtagramSubscriptions || []}
             companies={state.companies || []}
             onPostMushtagram={actions.onPostMushtagram}
             onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
@@ -788,6 +789,10 @@ export default function App() {
             onRequestPublicPersonality={actions.onRequestPublicPersonality}
             onMarkMushtagramNotifsRead={actions.onMarkMushtagramNotifsRead}
             onBroadcastMushtagram={actions.onBroadcastMushtagram}
+            onUpdateMushtagramMonetization={actions.onUpdateMushtagramMonetization}
+            onSubscribeMushtagramCreator={actions.onSubscribeMushtagramCreator}
+            onUnsubscribeMushtagramCreator={actions.onUnsubscribeMushtagramCreator}
+            onUnlockMushtagramPost={actions.onUnlockMushtagramPost}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1212,10 +1217,12 @@ export default function App() {
                         session={currentUser}
                         citizens={state.citizens}
                         companies={state.companies || []}
+                        gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
                         mushtagramPosts={state.mushtagramPosts || []}
                         mushtagramDMs={state.mushtagramDMs || []}
                         mushtagramStories={state.mushtagramStories || []}
                         mushtagramNotifs={state.mushtagramNotifs || []}
+                        mushtagramSubscriptions={state.mushtagramSubscriptions || []}
                         onPostMushtagram={actions.onPostMushtagram}
                         onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
                         onToggleMushtagramLike={actions.onToggleMushtagramLike}
@@ -1239,6 +1246,10 @@ export default function App() {
                         onRequestPublicPersonality={actions.onRequestPublicPersonality}
                         onMarkMushtagramNotifsRead={actions.onMarkMushtagramNotifsRead}
                         onBroadcastMushtagram={actions.onBroadcastMushtagram}
+                        onUpdateMushtagramMonetization={actions.onUpdateMushtagramMonetization}
+                        onSubscribeMushtagramCreator={actions.onSubscribeMushtagramCreator}
+                        onUnsubscribeMushtagramCreator={actions.onUnsubscribeMushtagramCreator}
+                        onUnlockMushtagramPost={actions.onUnlockMushtagramPost}
                         notify={notify}
                       />
                     </div>

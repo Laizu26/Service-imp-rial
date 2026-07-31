@@ -855,6 +855,7 @@ const CitizenLayout = (props) => {
     mushtagramDMs = [],
     mushtagramStories = [],
     mushtagramNotifs = [],
+    mushtagramSubscriptions = [],
     onPostMushtagram,
     onDeleteMushtagramPost,
     onToggleMushtagramLike,
@@ -879,6 +880,10 @@ const CitizenLayout = (props) => {
     onRequestPublicPersonality,
     onMarkMushtagramNotifsRead,
     onBroadcastMushtagram,
+    onUpdateMushtagramMonetization,
+    onSubscribeMushtagramCreator,
+    onUnsubscribeMushtagramCreator,
+    onUnlockMushtagramPost,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1703,10 +1708,12 @@ const CitizenLayout = (props) => {
                 session={user}
                 citizens={safeUsers}
                 companies={companies}
+                gameDate={gd}
                 mushtagramPosts={mushtagramPosts}
                 mushtagramDMs={mushtagramDMs}
                 mushtagramStories={mushtagramStories}
                 mushtagramNotifs={mushtagramNotifs}
+                mushtagramSubscriptions={mushtagramSubscriptions}
                 onPostMushtagram={onPostMushtagram}
                 onDeleteMushtagramPost={onDeleteMushtagramPost}
                 onToggleMushtagramLike={onToggleMushtagramLike}
@@ -1731,6 +1738,10 @@ const CitizenLayout = (props) => {
                 onRequestPublicPersonality={onRequestPublicPersonality}
                 onMarkMushtagramNotifsRead={onMarkMushtagramNotifsRead}
                 onBroadcastMushtagram={onBroadcastMushtagram}
+                onUpdateMushtagramMonetization={onUpdateMushtagramMonetization}
+                onSubscribeMushtagramCreator={onSubscribeMushtagramCreator}
+                onUnsubscribeMushtagramCreator={onUnsubscribeMushtagramCreator}
+                onUnlockMushtagramPost={onUnlockMushtagramPost}
                 notify={notify}
               />
             )}
