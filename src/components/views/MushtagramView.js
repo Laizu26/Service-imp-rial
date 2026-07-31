@@ -52,7 +52,7 @@ const REACTION_EMOJIS = ["❤", "👑", "🗡️", "🔥", "😮"];
 
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
-function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe }) {
+function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList }) {
   if (!citizen) return null;
   const citizenId = String(citizen.id);
   const isMe = citizenId === myId;
@@ -137,8 +137,12 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
           )}
           <div className="flex gap-4 mt-2 flex-wrap text-xs text-stone-400">
             <span><strong className="text-stone-700">{citizenPosts.length}</strong> publication{citizenPosts.length !== 1 ? "s" : ""}</span>
-            <span><strong className="text-stone-700">{followerCount}</strong> abonné{followerCount !== 1 ? "s" : ""}</span>
-            <span><strong className="text-stone-700">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}</span>
+            <button onClick={() => onOpenFollowList("followers")} className="hover:text-rose-600 transition-colors">
+              <strong className="text-stone-700">{followerCount}</strong> abonné{followerCount !== 1 ? "s" : ""}
+            </button>
+            <button onClick={() => onOpenFollowList("following")} className="hover:text-rose-600 transition-colors">
+              <strong className="text-stone-700">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}
+            </button>
           </div>
 
           {/* Cercle privé — paliers d'abonnement payant */}
@@ -720,7 +724,8 @@ function PostCard({
             const cDisplayName = cShowAnon ? "Citoyen Anonyme" : (c.isAnonymous ? (cAuthor?.name || c.authorName) : c.authorName);
             return (
               <div key={c.id} className={`flex items-start gap-2 pt-1.5 ${isPinnedCmt ? "bg-amber-50 -mx-1 px-1 rounded-xl" : ""}`}>
-                <Ava citizen={cDisplayAuthor} size="xs" className="mt-0.5" />
+                <Ava citizen={cDisplayAuthor} size="xs" className="mt-0.5"
+                  onClick={cShowAnon ? undefined : () => onViewProfile(cAuthor || { name: c.authorName, id: c.authorId })} />
                 <div className="flex-1 min-w-0">
                   {/* Reply context */}
                   {c.replyTo && (
@@ -733,7 +738,15 @@ function PostCard({
                   )}
                   <div className="relative inline-block max-w-full">
                     <div className="bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-1.5">
-                      <span className={`text-[10px] font-black ${cShowAnon ? "text-stone-500 italic" : "text-stone-700"}`}>{cDisplayName}{c.isAnonymous && (String(c.authorId) === myId || isAdmin) ? " 🎭" : ""} </span>
+                      {cShowAnon ? (
+                        <span className="text-[10px] font-black text-stone-500 italic">{cDisplayName} </span>
+                      ) : (
+                        <button
+                          onClick={() => onViewProfile(cAuthor || { name: c.authorName, id: c.authorId })}
+                          className="text-[10px] font-black text-stone-700 hover:text-rose-600 transition-colors">
+                          {cDisplayName}{c.isAnonymous && (String(c.authorId) === myId || isAdmin) ? " 🎭" : ""}
+                        </button>
+                      )}{" "}
                       <span className="text-[11px] text-stone-700">{c.content}</span>
                     </div>
                     {authorLikedCmt && (
@@ -895,6 +908,8 @@ export default function MushtagramView({
 
   // Followers / Following list modal
   const [followListMode, setFollowListMode] = useState(null); // null | "followers" | "following"
+  const [followListTargetId, setFollowListTargetId] = useState(null);
+  const openFollowList = (mode, targetId) => { setFollowListTargetId(String(targetId)); setFollowListMode(mode); };
 
   // Messages
   const [selConv, setSelConv]       = useState(null);
@@ -1109,6 +1124,18 @@ export default function MushtagramView({
 
   const followerCount = followersList.length;
   const followingCount = followingList.length;
+
+  const followListTarget = useMemo(() =>
+    citizens.find(c => String(c.id) === String(followListTargetId)),
+  [citizens, followListTargetId]);
+
+  const followListTargetFollowers = useMemo(() =>
+    citizens.filter(c => (c.mushtagramFollowing || []).map(String).includes(String(followListTargetId))),
+  [citizens, followListTargetId]);
+
+  const followListTargetFollowing = useMemo(() =>
+    citizens.filter(c => (followListTarget?.mushtagramFollowing || []).map(String).includes(String(c.id))),
+  [citizens, followListTarget]);
 
   const pinnedPost = useMemo(() => {
     if (!myCitizen?.mushtagramPinned) return null;
@@ -1770,11 +1797,11 @@ export default function MushtagramView({
                     <span className="text-xs text-stone-500">
                       <strong className="text-stone-800">{myPosts.length}</strong> publication{myPosts.length !== 1 ? "s" : ""}
                     </span>
-                    <button onClick={() => setFollowListMode("followers")}
+                    <button onClick={() => openFollowList("followers", myId)}
                       className="text-xs text-stone-500 hover:text-rose-600 transition-colors">
                       <strong className="text-stone-800">{followerCount}</strong> abonné{followerCount !== 1 ? "s" : ""}
                     </button>
-                    <button onClick={() => setFollowListMode("following")}
+                    <button onClick={() => openFollowList("following", myId)}
                       className="text-xs text-stone-500 hover:text-rose-600 transition-colors">
                       <strong className="text-stone-800">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}
                     </button>
@@ -2194,7 +2221,10 @@ export default function MushtagramView({
       )}
 
       {/* Followers / Following list modal */}
-      {followListMode && (
+      {followListMode && (() => {
+        const targetIsMe = String(followListTargetId) === myId;
+        const targetName = targetIsMe ? "Vous" : (followListTarget?.name || "Ce citoyen");
+        return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setFollowListMode(null)}>
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
             {/* Header */}
@@ -2202,25 +2232,30 @@ export default function MushtagramView({
               <div className="flex gap-1 bg-stone-100 rounded-xl p-1">
                 <button onClick={() => setFollowListMode("followers")}
                   className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${followListMode === "followers" ? "bg-white text-stone-900 shadow" : "text-stone-500"}`}>
-                  Abonnés <span className="ml-1 text-stone-400">{followerCount}</span>
+                  Abonnés <span className="ml-1 text-stone-400">{followListTargetFollowers.length}</span>
                 </button>
                 <button onClick={() => setFollowListMode("following")}
                   className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${followListMode === "following" ? "bg-white text-stone-900 shadow" : "text-stone-500"}`}>
-                  Abonnements <span className="ml-1 text-stone-400">{followingCount}</span>
+                  Abonnements <span className="ml-1 text-stone-400">{followListTargetFollowing.length}</span>
                 </button>
               </div>
               <button onClick={() => setFollowListMode(null)} className="text-stone-400 hover:text-stone-700 transition-colors">
                 <X size={18} />
               </button>
             </div>
+            {!targetIsMe && (
+              <div className="px-4 pt-2 text-[10px] text-stone-400 font-bold uppercase tracking-widest">{targetName}</div>
+            )}
             {/* List */}
             <div className="overflow-y-auto flex-1 divide-y divide-stone-50">
-              {(followListMode === "followers" ? followersList : followingList).length === 0 ? (
+              {(followListMode === "followers" ? followListTargetFollowers : followListTargetFollowing).length === 0 ? (
                 <p className="text-center text-xs text-stone-400 py-10 italic">
-                  {followListMode === "followers" ? "Personne ne vous suit encore." : "Vous ne suivez personne."}
+                  {followListMode === "followers"
+                    ? (targetIsMe ? "Personne ne vous suit encore." : `Personne ne suit ${targetName} encore.`)
+                    : (targetIsMe ? "Vous ne suivez personne." : `${targetName} ne suit personne.`)}
                 </p>
               ) : (
-                (followListMode === "followers" ? followersList : followingList).map(c => {
+                (followListMode === "followers" ? followListTargetFollowers : followListTargetFollowing).map(c => {
                   const isFollowingThem = (myFollowing || []).map(String).includes(String(c.id));
                   const isMe = String(c.id) === myId;
                   return (
@@ -2251,7 +2286,8 @@ export default function MushtagramView({
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Profile modal */}
       {viewingProfile && (
@@ -2272,6 +2308,7 @@ export default function MushtagramView({
           mySubscriptions={mySubscriptions}
           onSubscribe={onSubscribeMushtagramCreator}
           onUnsubscribe={onUnsubscribeMushtagramCreator}
+          onOpenFollowList={(mode) => { openFollowList(mode, viewingProfile.id); setViewingProfile(null); }}
         />
       )}
     </div>
