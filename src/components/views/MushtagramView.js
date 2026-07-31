@@ -1272,6 +1272,14 @@ export default function MushtagramView({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages.length]);
 
+  // Si un message arrive pendant que la conversation est déjà ouverte, sa
+  // notification ne doit pas rester non lue jusqu'à un aller-retour d'onglet.
+  useEffect(() => {
+    if (!selConv) return;
+    const unreadNotifIds = myNotifs.filter(n => n.type === "dm" && String(n.fromId) === String(selConv) && !n.read).map(n => n.id);
+    if (unreadNotifIds.length > 0 && onMarkMushtagramNotifsRead) onMarkMushtagramNotifsRead(unreadNotifIds);
+  }, [selConv, myNotifs, onMarkMushtagramNotifsRead]);
+
   const sendDM = () => {
     if (!dmInput.trim() || !selConv) return;
     onSendMushtagramDM({ toId: selConv, content: dmInput.trim() });
