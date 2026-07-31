@@ -495,6 +495,10 @@ function PostCard({
   const paidLocked = post.locked && !isMe && !isAdmin && !hasUnlocked;
   const subLocked = post.subscribersOnly && !isMe && !isAdmin && !isSubscribed;
 
+  const showAnon = post.isAnonymous && !isMe && !isAdmin;
+  const displayAuthor = showAnon ? { name: "Citoyen Anonyme" } : (author || { name: post.authorName });
+  const displayName = showAnon ? "Citoyen Anonyme" : (post.isAnonymous ? (author?.name || post.authorName) : post.authorName);
+
   if (mutedSet.has(authorId) && !isMe) return null;
 
   return (
@@ -541,18 +545,27 @@ function PostCard({
 
       {/* Header */}
       <div className="flex items-start gap-3 p-4 pb-2">
-        <Ava citizen={author || { name: post.authorName }} size="md"
-          onClick={() => onViewProfile(author || { name: post.authorName, id: post.authorId })} />
+        <Ava citizen={displayAuthor} size="md"
+          onClick={showAnon ? undefined : () => onViewProfile(author || { name: post.authorName, id: post.authorId })} />
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap">
-            <button onClick={() => onViewProfile(author || { name: post.authorName, id: post.authorId })}
-              className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
-              {post.authorName}
-            </button>
-            {author?.mushtagramPublicPersonality === "approved" && (
+            {showAnon ? (
+              <span className="text-sm font-black text-stone-500 italic">{displayName}</span>
+            ) : (
+              <button onClick={() => onViewProfile(author || { name: post.authorName, id: post.authorId })}
+                className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
+                {displayName}
+              </button>
+            )}
+            {post.isAnonymous && (isMe || isAdmin) && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-stone-500 bg-stone-100 border border-stone-200 rounded-full px-1.5 py-0.5" title="Publié en mode anonyme">
+                🎭 Anonyme
+              </span>
+            )}
+            {!showAnon && author?.mushtagramPublicPersonality === "approved" && (
               <span title="Personnalité publique vérifiée" style={{color:"#3b82f6", fontSize:"0.75rem", marginLeft:"3px"}}>✓</span>
             )}
-            {(author?.mushtagramHandle) && (
+            {!showAnon && author?.mushtagramHandle && (
               <span className="text-[10px] text-stone-400">@{author.mushtagramHandle}</span>
             )}
             {post.followersOnly && (
@@ -570,14 +583,14 @@ function PostCard({
                 <Sparkles size={8} /> Cercle privé
               </span>
             )}
-            {!isMe && !isFollowing && (
+            {!isMe && !isFollowing && !showAnon && (
               <button onClick={() => onFollow(authorId)}
                 className="text-[9px] font-black text-rose-500 hover:text-rose-700 transition-colors ml-1 flex items-center gap-0.5">
                 <UserPlus size={9} /> Suivre
               </button>
             )}
           </div>
-          {author?.mushtagramOfficialTitle && (
+          {!showAnon && author?.mushtagramOfficialTitle && (
             <div className="text-[10px] text-stone-400 italic">{author.mushtagramOfficialTitle}</div>
           )}
           <div className="text-[10px] text-stone-400">{post.rpDate || post.date || ""}</div>
@@ -699,9 +712,12 @@ function PostCard({
             const isReplyingToThis = replyingTo?.commentId === c.id;
             const isPinnedCmt = post.pinnedCommentId === c.id;
             const authorLikedCmt = (c.likes || []).map(String).includes(String(post.authorId));
+            const cShowAnon = c.isAnonymous && String(c.authorId) !== myId && !isAdmin;
+            const cDisplayAuthor = cShowAnon ? { name: "Citoyen Anonyme" } : (cAuthor || { name: c.authorName });
+            const cDisplayName = cShowAnon ? "Citoyen Anonyme" : (c.isAnonymous ? (cAuthor?.name || c.authorName) : c.authorName);
             return (
               <div key={c.id} className={`flex items-start gap-2 pt-1.5 ${isPinnedCmt ? "bg-amber-50 -mx-1 px-1 rounded-xl" : ""}`}>
-                <Ava citizen={cAuthor || { name: c.authorName }} size="xs" className="mt-0.5" />
+                <Ava citizen={cDisplayAuthor} size="xs" className="mt-0.5" />
                 <div className="flex-1 min-w-0">
                   {/* Reply context */}
                   {c.replyTo && (
@@ -714,7 +730,7 @@ function PostCard({
                   )}
                   <div className="relative inline-block max-w-full">
                     <div className="bg-stone-50 rounded-2xl rounded-tl-sm px-3 py-1.5">
-                      <span className="text-[10px] font-black text-stone-700">{c.authorName} </span>
+                      <span className={`text-[10px] font-black ${cShowAnon ? "text-stone-500 italic" : "text-stone-700"}`}>{cDisplayName}{c.isAnonymous && (String(c.authorId) === myId || isAdmin) ? " 🎭" : ""} </span>
                       <span className="text-[11px] text-stone-700">{c.content}</span>
                     </div>
                     {authorLikedCmt && (

@@ -5614,11 +5614,13 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
 
         const finalSubscribersOnly = !!(subscribersOnly && me?.mushtagramMonetizationEnabled && (me?.mushtagramSubTiers || []).length > 0);
+        const isAnonymous = !!me?.mushtagramAnonymous;
 
         const newPost = {
           id: `mpost_${Date.now()}`,
           authorId: session.id,
-          authorName: session.name,
+          authorName: isAnonymous ? "Citoyen Anonyme" : session.name,
+          isAnonymous,
           content,
           imageUrl: imageUrl || null,
           hashtags: hashtags || [],
@@ -5691,12 +5693,15 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session || !content?.trim()) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const origPost = (state.mushtagramPosts || []).find(p => p.id === postId);
+        const me = (state.citizens || []).find(c => String(c.id) === String(session.id));
+        const isAnonymous = !!me?.mushtagramAnonymous;
         const posts = (state.mushtagramPosts || []).map((p) => {
           if (p.id !== postId) return p;
           const comment = {
             id: `mc_${Date.now()}`,
             authorId: session.id,
-            authorName: session.name,
+            authorName: isAnonymous ? "Citoyen Anonyme" : session.name,
+            isAnonymous,
             content: content.trim(),
             likes: [],
             replyTo: replyTo || null,
