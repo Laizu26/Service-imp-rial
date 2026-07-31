@@ -177,7 +177,7 @@ function RequisitionModal({ spouse, spouseUser, onClose, onRequisition }) {
 // ── Panneau complet du trésor commun / fief conjoint ────────────────────────
 // Historique des mouvements, contributions par conjoint, montants rapides et
 // raison optionnelle — plus qu'un simple champ + deux boutons.
-function SharedAccountPanel({ pairKey, account, userId, userName, spouseName, onDeposit, onWithdraw }) {
+function SharedAccountPanel({ pairKey, account, resolvedDominance, resolvedDominantId, userId, userName, spouseName, onDeposit, onWithdraw }) {
   const [amount, setAmount] = React.useState("");
   const [reason, setReason] = React.useState("");
   const [mode, setMode] = React.useState("deposit"); // "deposit" | "withdraw"
@@ -185,7 +185,12 @@ function SharedAccountPanel({ pairKey, account, userId, userName, spouseName, on
 
   const isFief = account?.type === "fief";
   const balance = account?.balance || 0;
-  const canWithdraw = !isFief || account?.dominance === "egal" || String(account?.fiefDominantId) === String(userId);
+  // La domination affichée provient en priorité de l'entrée spouses[] du citoyen
+  // (source de vérité, toujours à jour), et non des champs dominance/fiefDominantId
+  // du compte lui-même qui peuvent rester figés après une renégociation.
+  const dominance = resolvedDominance !== undefined ? resolvedDominance : account?.dominance;
+  const dominantId = resolvedDominantId !== undefined ? resolvedDominantId : account?.fiefDominantId;
+  const canWithdraw = !isFief || dominance === "egal" || String(dominantId) === String(userId);
   const transactions = account?.transactions;
 
   const contributions = React.useMemo(() => {
@@ -858,6 +863,8 @@ const MarriageView = ({
                           <SharedAccountPanel
                             pairKey={pairKey}
                             account={sharedAccount}
+                            resolvedDominance={spouse.dominance}
+                            resolvedDominantId={spouse.dominantId}
                             userId={user.id}
                             userName={user.name}
                             spouseName={spouseUser?.name || spouse.name}

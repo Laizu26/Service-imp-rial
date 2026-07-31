@@ -2551,12 +2551,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         const account = sharedAccounts[pairKey];
         if (!account) { notify("Compte introuvable.", "error"); return; }
 
-        // Vérification droits pour le fief : seul le dominant résolu (fiefDominantId) peut retirer,
-        // sauf union égale où tout le monde peut.
-        if (account.type === "fief" && account.dominance !== "egal") {
-          if (!account.fiefDominantId || String(account.fiefDominantId) !== String(session.id)) {
-            notify("Seul l'époux dominant peut retirer du Fief Conjoint.", "error");
-            return;
+        // Vérification droits pour le fief : seul le dominant résolu peut retirer, sauf
+        // union égale où tout le monde peut. On relit la domination depuis l'entrée
+        // spouses[] du citoyen (source de vérité, toujours à jour) plutôt que depuis les
+        // champs dominance/fiefDominantId du compte, qui peuvent rester figés sur une
+        // ancienne valeur si la domination a été renégociée après la création du fief.
+        if (account.type === "fief") {
+          const otherId = (account.members || []).find((m) => String(m) !== String(session.id));
+          const mySpouseEntry = (newCitizens[userIdx].spouses || []).find((s) => String(s.id) === String(otherId));
+          const currentDominance = mySpouseEntry ? mySpouseEntry.dominance : account.dominance;
+          const currentDominantId = mySpouseEntry ? mySpouseEntry.dominantId : account.fiefDominantId;
+          if (currentDominance !== "egal") {
+            if (!currentDominantId || String(currentDominantId) !== String(session.id)) {
+              notify("Seul l'époux dominant peut retirer du Fief Conjoint.", "error");
+              return;
+            }
           }
         }
 
