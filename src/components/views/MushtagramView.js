@@ -1091,6 +1091,7 @@ export default function MushtagramView({
   const [feedFilter, setFeedFilter] = useState("tous"); // "tous" | "abonnements"
 
   // Feed
+  const postTextareaRef = useRef(null);
   const [postContent, setPostContent]   = useState("");
   const [postImage, setPostImage]       = useState("");
   const [showImgInput, setShowImgInput] = useState(false);
@@ -1332,6 +1333,7 @@ export default function MushtagramView({
     setShowPoll(false); setPollOptions(["", ""]); setPollQuestion(""); setIsOfficial(false);
     setFollowersOnly(false);
     setLockedPost(false); setLockedPrice(""); setSubscribersOnlyPost(false);
+    if (postTextareaRef.current) postTextareaRef.current.style.height = "auto";
     notify("Publication envoyée !", "success");
   };
 
@@ -1588,11 +1590,16 @@ export default function MushtagramView({
                     <Ava citizen={myCitizen} size="md" />
                   )}
                   <div className="flex-1 space-y-2">
-                    <textarea value={postContent} onChange={e => setPostContent(e.target.value)}
+                    <textarea ref={postTextareaRef} value={postContent}
+                      onChange={e => {
+                        setPostContent(e.target.value);
+                        e.target.style.height = "auto";
+                        e.target.style.height = `${e.target.scrollHeight}px`;
+                      }}
                       onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) submitPost(); }}
                       placeholder="Partagez quelque chose avec l'Empire… (Ctrl+Entrée pour publier)"
                       rows={3}
-                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all" />
+                      className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all overflow-hidden" />
                     <p className="text-[9px] text-stone-400 px-1">
                       **gras** · *italique* · __souligné__ · ~~barré~~ · `code`
                     </p>
