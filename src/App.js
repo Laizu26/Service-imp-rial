@@ -610,6 +610,7 @@ export default function App() {
             onUseItem={actions.onUseItem}
             onSubscribeBague={actions.onSubscribeBague}
             onUnsubscribeBague={actions.onUnsubscribeBague}
+            bagueCost={state.bagueCost}
             eruditRequests={state.eruditRequests || []}
             onRequestEruditValidation={actions.onRequestEruditValidation}
             onRequestEruditTitle={actions.onRequestEruditTitle}
@@ -1088,6 +1089,7 @@ export default function App() {
                         dbError={dbError}
                         onForceInit={forceInit}
                         onAddTreasury={actions.onAddTreasury}
+                        onSetBagueCost={actions.onSetBagueCost}
                       />
                     )}
                   {activeTab === "country" && (

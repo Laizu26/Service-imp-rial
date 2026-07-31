@@ -14,6 +14,7 @@ import {
   Leaf, // Printemps
   Hammer, // Frappe monnaie
   ArrowRightCircle, // Pour le bouton jour suivant
+  Gem,
 } from "lucide-react";
 import Card from "../ui/Card";
 import { formatMoney } from "../../lib/gameUtils";
@@ -26,9 +27,11 @@ const DashboardView = ({
   onUpdateState,
   onAddTreasury,
   onPassDay,
+  onSetBagueCost,
 }) => {
   const [editingDate, setEditingDate] = useState(false);
   const [mintAmount, setMintAmount] = useState("");
+  const [bagueCostInput, setBagueCostInput] = useState(String(state.bagueCost || 10));
 
   const defaultDate = { day: 1, month: 1, year: 1200 };
   const currentDate = state.gameDate || defaultDate;
@@ -276,6 +279,41 @@ const DashboardView = ({
               <p className="text-[10px] text-stone-400 mt-2 italic px-2">
                 * Toute création monétaire est consignée dans le Grand Livre
                 Impérial pour audit.
+              </p>
+            </Card>
+          )}
+
+          {/* BAGUE IMPÉRIALE — prix de l'abonnement (Visible seulement pour l'Empire) */}
+          {isGlobal && (
+            <Card title="Bague Impériale" icon={Gem}>
+              <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1 block">
+                    Prix de l'abonnement (par jour)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      className="w-full p-3 pl-4 bg-white border border-stone-300 rounded-lg font-mono font-bold text-stone-900 outline-none focus:border-amber-500 transition-colors"
+                      value={bagueCostInput}
+                      onChange={(e) => setBagueCostInput(e.target.value)}
+                    />
+                    <span className="absolute right-4 top-3 text-xs font-bold text-stone-400">
+                      ÉCUS
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onSetBagueCost && onSetBagueCost(bagueCostInput)}
+                  className="bg-stone-900 hover:bg-stone-800 text-amber-400 px-6 py-3.5 rounded-lg font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all flex items-center gap-2"
+                >
+                  <Gem size={16} /> Appliquer
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-400 mt-2 italic px-2">
+                * Prix actuel : {state.bagueCost || 10} écus/jour. S'applique au prochain prélèvement journalier.
               </p>
             </Card>
           )}

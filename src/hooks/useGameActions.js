@@ -458,8 +458,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           });
         });
 
-        // --- Abonnement Bague Impériale : débit 10 écus + reset compteur voyages ---
-        const BAGUE_COUT = 10;
+        // --- Abonnement Bague Impériale : débit + reset compteur voyages ---
+        const BAGUE_COUT = ns.bagueCost || 10;
         let bagueResiliations = 0;
         ns.citizens = (ns.citizens || []).map((c) => {
           if (!c.bagueImperiale) return c;
@@ -1194,16 +1194,16 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
       onSubscribeBague: () => {
         if (!session) return;
-        const BAGUE_COUT = 10;
+        const bagueCout = state.bagueCost || 10;
         const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (idx === -1) return;
         const citizen = state.citizens[idx];
         if (citizen.bagueImperiale) { notify("Abonnement Bague Impériale déjà actif.", "info"); return; }
-        if ((citizen.balance || 0) < BAGUE_COUT) { notify(`Fonds insuffisants — ${BAGUE_COUT} écus requis.`, "error"); return; }
+        if ((citizen.balance || 0) < bagueCout) { notify(`Fonds insuffisants — ${bagueCout} écus requis.`, "error"); return; }
         const newCitizens = [...state.citizens];
-        newCitizens[idx] = { ...citizen, bagueImperiale: true, bagueVoyagesUsed: 0, balance: (citizen.balance || 0) - BAGUE_COUT };
+        newCitizens[idx] = { ...citizen, bagueImperiale: true, bagueVoyagesUsed: 0, balance: (citizen.balance || 0) - bagueCout };
         saveState({ ...state, citizens: newCitizens });
-        notify("💍 Abonnement Bague Impériale activé — 10 écus prélevés.", "success");
+        notify(`💍 Abonnement Bague Impériale activé — ${bagueCout} écus prélevés.`, "success");
       },
 
       onUnsubscribeBague: () => {
@@ -1214,6 +1214,13 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCitizens[idx] = { ...newCitizens[idx], bagueImperiale: false, bagueVoyagesUsed: 0 };
         saveState({ ...state, citizens: newCitizens });
         notify("Abonnement Bague Impériale résilié.", "info");
+      },
+
+      onSetBagueCost: (amount) => {
+        const val = parseFloat(amount);
+        if (isNaN(val) || val < 0) return;
+        saveState({ ...state, bagueCost: val });
+        notify(`Prix de l'abonnement Bague Impériale fixé à ${val} écus/jour.`, "success");
       },
 
       onRequestTravel: (toCountryId, toRegion) => {

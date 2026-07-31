@@ -843,6 +843,7 @@ const CitizenLayout = (props) => {
     combatSessions = [],
     onSubscribeBague,
     onUnsubscribeBague,
+    bagueCost,
     eruditRequests = [],
     onRequestEruditValidation,
     onRequestEruditTitle,
@@ -1845,7 +1846,7 @@ const CitizenLayout = (props) => {
                                 <div className="text-[9px] text-amber-400/70 uppercase tracking-widest mt-0.5">Voyages aujourd'hui</div>
                               </div>
                               <div className="bg-amber-900/20 rounded-lg p-3 border border-amber-700/30">
-                                <div className="text-lg font-black text-amber-300">10 écus</div>
+                                <div className="text-lg font-black text-amber-300">{bagueCost || 10} écus</div>
                                 <div className="text-[9px] text-amber-400/70 uppercase tracking-widest mt-0.5">Par jour</div>
                               </div>
                               <div className="bg-amber-900/20 rounded-lg p-3 border border-amber-700/30">
@@ -1871,7 +1872,7 @@ const CitizenLayout = (props) => {
                               onClick={() => onSubscribeBague && onSubscribeBague()}
                               className="w-full py-2.5 bg-amber-700 hover:bg-amber-600 text-stone-900 font-black text-[10px] uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
-                              <Gem size={12} /> S'abonner — 10 écus/jour
+                              <Gem size={12} /> S'abonner — {bagueCost || 10} écus/jour
                             </button>
                           </div>
                         )}
