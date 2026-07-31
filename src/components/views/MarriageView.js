@@ -75,41 +75,153 @@ function SpouseRightsModal({ spouse, spouseUser, onClose, onSetSpouseRights }) {
   );
 }
 
-// ── Panneau dépôt / retrait trésor commun ou fief ───────────────────────────
-function SharedAccountPanel({ pairKey, account, userId, onDeposit, onWithdraw }) {
-  const [amount, setAmount] = React.useState(0);
+// ── Panneau complet du trésor commun / fief conjoint ────────────────────────
+// Historique des mouvements, contributions par conjoint, montants rapides et
+// raison optionnelle — plus qu'un simple champ + deux boutons.
+function SharedAccountPanel({ pairKey, account, userId, userName, spouseName, onDeposit, onWithdraw }) {
+  const [amount, setAmount] = React.useState("");
+  const [reason, setReason] = React.useState("");
+  const [mode, setMode] = React.useState("deposit"); // "deposit" | "withdraw"
+  const [showAllHistory, setShowAllHistory] = React.useState(false);
+
   const isFief = account?.type === "fief";
-  const canWithdraw =
-    !isFief ||
-    account?.dominance === "egal" ||
-    account?.fiefDominantId === userId;
+  const balance = account?.balance || 0;
+  const canWithdraw = !isFief || account?.dominance === "egal" || String(account?.fiefDominantId) === String(userId);
+  const transactions = account?.transactions;
+
+  const contributions = React.useMemo(() => {
+    const byId = {};
+    (transactions || []).forEach((tx) => {
+      if (tx.type !== "deposit") return;
+      byId[tx.citizenId] = (byId[tx.citizenId] || 0) + tx.amount;
+    });
+    return byId;
+  }, [transactions]);
+  const safeTransactions = transactions || [];
+  const myContribution = contributions[userId] || 0;
+  const totalContributed = Object.values(contributions).reduce((s, v) => s + v, 0);
+  const myShare = totalContributed > 0 ? Math.round((myContribution / totalContributed) * 100) : 0;
+
+  const QUICK_AMOUNTS = [10, 50, 100, 500];
+  const numAmount = parseFloat(amount) || 0;
+
+  const submit = () => {
+    if (numAmount <= 0) return;
+    if (mode === "deposit") onDeposit(pairKey, numAmount, reason.trim());
+    else onWithdraw(pairKey, numAmount, reason.trim());
+    setAmount(""); setReason("");
+  };
+
+  const visibleTx = showAllHistory ? safeTransactions : safeTransactions.slice(0, 5);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <input
-        type="number" step="0.1"
-        min={0}
-        value={amount}
-        onChange={(e) => setAmount(parseInt(e.target.value) || 0)}
-        className="w-28 p-1.5 border border-stone-200 rounded-lg text-xs font-bold bg-white outline-none"
-        placeholder="Écus"
-      />
-      <button
-        onClick={() => { if (amount > 0) { onDeposit(pairKey, amount); setAmount(0); } }}
-        className="px-3 py-1.5 bg-yellow-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-yellow-500"
-      >
-        Déposer
-      </button>
-      {canWithdraw && (
-        <button
-          onClick={() => { if (amount > 0) { onWithdraw(pairKey, amount); setAmount(0); } }}
-          className="px-3 py-1.5 bg-stone-700 text-white text-[9px] font-black uppercase rounded-lg hover:bg-stone-600"
-        >
+    <div className="space-y-3">
+      {/* Contributions respectives */}
+      {totalContributed > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-stone-500">
+            <span>Contributions</span>
+            <span>{formatMoney(totalContributed)} versés au total</span>
+          </div>
+          <div className="h-2 rounded-full bg-stone-200 overflow-hidden flex">
+            <div className="h-full bg-yellow-500" style={{ width: `${myShare}%` }} title={`Vous : ${myShare}%`} />
+            <div className="h-full bg-amber-800" style={{ width: `${100 - myShare}%` }} title={`${spouseName} : ${100 - myShare}%`} />
+          </div>
+          <div className="flex items-center justify-between text-[9px] text-stone-500">
+            <span>Vous : {formatMoney(myContribution)} ({myShare}%)</span>
+            <span>{spouseName} : {formatMoney(totalContributed - myContribution)} ({100 - myShare}%)</span>
+          </div>
+        </div>
+      )}
+
+      {/* Mode dépôt / retrait */}
+      <div className="flex gap-1 bg-white rounded-lg p-1 border border-stone-200">
+        <button onClick={() => setMode("deposit")}
+          className={`flex-1 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${mode === "deposit" ? "bg-yellow-500 text-white" : "text-stone-500 hover:bg-stone-50"}`}>
+          Déposer
+        </button>
+        <button onClick={() => setMode("withdraw")} disabled={!canWithdraw}
+          className={`flex-1 py-1.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed ${mode === "withdraw" ? "bg-stone-700 text-white" : "text-stone-500 hover:bg-stone-50"}`}>
           Retirer
         </button>
+      </div>
+
+      {mode === "withdraw" && !canWithdraw ? (
+        <p className="text-[9px] text-amber-700 italic bg-amber-100 border border-amber-200 rounded-lg px-3 py-2">
+          Seul l'époux dominant peut retirer du Fief Conjoint.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {QUICK_AMOUNTS.map((v) => (
+              <button key={v} onClick={() => setAmount(String(v))}
+                className="px-2.5 py-1 bg-white border border-stone-200 rounded-lg text-[9px] font-bold text-stone-600 hover:border-yellow-400 hover:text-yellow-700 transition-colors">
+                {v}
+              </button>
+            ))}
+            {mode === "withdraw" && balance > 0 && (
+              <button onClick={() => setAmount(String(balance))}
+                className="px-2.5 py-1 bg-white border border-stone-200 rounded-lg text-[9px] font-bold text-stone-600 hover:border-yellow-400 hover:text-yellow-700 transition-colors">
+                Tout ({formatMoney(balance)})
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="number" step="0.1" min={0}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-24 p-2 border border-stone-200 rounded-lg text-xs font-bold bg-white outline-none focus:border-yellow-400"
+              placeholder="Écus"
+            />
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value.slice(0, 120))}
+              className="flex-1 min-w-[120px] p-2 border border-stone-200 rounded-lg text-xs bg-white outline-none focus:border-yellow-400"
+              placeholder="Raison (optionnel)…"
+            />
+            <button
+              onClick={submit}
+              disabled={numAmount <= 0}
+              className={`px-4 py-2 text-white text-[10px] font-black uppercase rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${mode === "deposit" ? "bg-yellow-600 hover:bg-yellow-500" : "bg-stone-700 hover:bg-stone-600"}`}
+            >
+              {mode === "deposit" ? "Déposer" : "Retirer"}
+            </button>
+          </div>
+        </div>
       )}
-      {isFief && !canWithdraw && (
-        <span className="text-[9px] text-amber-700 italic">Seul le dominant peut retirer.</span>
+
+      {/* Historique */}
+      {safeTransactions.length > 0 && (
+        <div className="pt-2 border-t border-stone-200 space-y-1">
+          <div className="text-[9px] font-black uppercase tracking-widest text-stone-400">Historique récent</div>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {visibleTx.map((tx) => {
+              const isMine = String(tx.citizenId) === String(userId);
+              const isDeposit = tx.type === "deposit";
+              return (
+                <div key={tx.id} className="flex items-center gap-2 bg-white rounded-lg px-2.5 py-1.5 text-[10px]">
+                  <span className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${isDeposit ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"}`}>
+                    {isDeposit ? "↓" : "↑"}
+                  </span>
+                  <span className="flex-1 min-w-0 truncate">
+                    <span className="font-bold text-stone-700">{isMine ? "Vous" : (tx.citizenName || spouseName)}</span>
+                    <span className="text-stone-400"> {isDeposit ? "a déposé" : "a retiré"} </span>
+                    <span className={`font-bold ${isDeposit ? "text-green-600" : "text-red-500"}`}>{formatMoney(tx.amount)}</span>
+                    {tx.reason && <span className="text-stone-400 italic"> — {tx.reason}</span>}
+                  </span>
+                  <span className="text-stone-300 text-[9px] shrink-0">{new Date(tx.timestamp).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}</span>
+                </div>
+              );
+            })}
+          </div>
+          {safeTransactions.length > 5 && (
+            <button onClick={() => setShowAllHistory((v) => !v)} className="text-[9px] font-bold text-yellow-700 hover:text-yellow-800">
+              {showAllHistory ? "Réduire" : `Voir tout l'historique (${safeTransactions.length})`}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -603,25 +715,29 @@ const MarriageView = ({
 
                   {/* Trésor Commun / Fief Conjoint */}
                   {sharedAccount && (
-                    <div className={`mx-4 mb-4 rounded-xl border-2 p-3 space-y-2 ${sharedAccount.type === "fief" ? "border-amber-300 bg-amber-50" : "border-yellow-300 bg-yellow-50"}`}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 flex items-center gap-1">
+                    <div className={`mx-4 mb-4 rounded-2xl border-2 overflow-hidden ${sharedAccount.type === "fief" ? "border-amber-300" : "border-yellow-300"}`}>
+                      <div className={`px-4 py-3 flex items-center justify-between ${sharedAccount.type === "fief" ? "bg-gradient-to-r from-amber-100 to-amber-50" : "bg-gradient-to-r from-yellow-100 to-yellow-50"}`}>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 flex items-center gap-1.5">
                           {sharedAccount.type === "fief" ? "🏰 Fief Conjoint" : "🪙 Trésor Commun"}
                         </span>
-                        <span className="font-black text-stone-800 text-sm flex items-center gap-1">
-                          <Coins size={13} className="text-yellow-600" />
+                        <span className="font-black text-stone-800 text-lg flex items-center gap-1.5">
+                          <Coins size={16} className="text-yellow-600" />
                           {formatMoney((sharedAccount.balance || 0))}
                         </span>
                       </div>
-                      {onSharedAccountDeposit && onSharedAccountWithdraw && (
-                        <SharedAccountPanel
-                          pairKey={pairKey}
-                          account={sharedAccount}
-                          userId={user.id}
-                          onDeposit={onSharedAccountDeposit}
-                          onWithdraw={onSharedAccountWithdraw}
-                        />
-                      )}
+                      <div className={`p-3 ${sharedAccount.type === "fief" ? "bg-amber-50/60" : "bg-yellow-50/60"}`}>
+                        {onSharedAccountDeposit && onSharedAccountWithdraw && (
+                          <SharedAccountPanel
+                            pairKey={pairKey}
+                            account={sharedAccount}
+                            userId={user.id}
+                            userName={user.name}
+                            spouseName={spouseUser?.name || spouse.name}
+                            onDeposit={onSharedAccountDeposit}
+                            onWithdraw={onSharedAccountWithdraw}
+                          />
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

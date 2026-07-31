@@ -2442,7 +2442,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // Dépôt dans le trésor commun / fief
-      onSharedAccountDeposit: (pairKey, amount) => {
+      onSharedAccountDeposit: (pairKey, amount, reason = "") => {
         if (!session) return;
         const amt = parseFloat(amount);
         if (!amt || amt <= 0) return;
@@ -2450,16 +2450,30 @@ export const useGameActions = (session, state, saveState, notify) => {
         const userIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
         const sharedAccounts = { ...(state.sharedAccounts || {}) };
-        if (!sharedAccounts[pairKey]) { notify("Compte introuvable.", "error"); return; }
+        const account = sharedAccounts[pairKey];
+        if (!account) { notify("Compte introuvable.", "error"); return; }
         if ((newCitizens[userIdx].balance || 0) < amt) { notify("Votre trésor personnel est insuffisant.", "error"); return; }
+        const tx = {
+          id: `satx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          type: "deposit",
+          citizenId: session.id,
+          citizenName: session.name,
+          amount: amt,
+          reason: String(reason || "").slice(0, 120),
+          timestamp: Date.now(),
+        };
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) - amt };
-        sharedAccounts[pairKey] = { ...sharedAccounts[pairKey], balance: (sharedAccounts[pairKey].balance || 0) + amt };
+        sharedAccounts[pairKey] = {
+          ...account,
+          balance: (account.balance || 0) + amt,
+          transactions: [tx, ...(account.transactions || [])].slice(0, 50),
+        };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
-        notify(`${formatMoney(amt)} versés dans le trésor commun.`, "success");
+        notify(`${formatMoney(amt)} versés dans ${account.type === "fief" ? "le fief conjoint" : "le trésor commun"}.`, "success");
       },
 
       // Retrait du trésor commun / fief (avec vérification de domination pour le fief)
-      onSharedAccountWithdraw: (pairKey, amount) => {
+      onSharedAccountWithdraw: (pairKey, amount, reason = "") => {
         if (!session) return;
         const amt = parseFloat(amount);
         if (!amt || amt <= 0) return;
@@ -2470,26 +2484,33 @@ export const useGameActions = (session, state, saveState, notify) => {
         const account = sharedAccounts[pairKey];
         if (!account) { notify("Compte introuvable.", "error"); return; }
 
-        // Vérification droits pour le fief
-        if (account.type === "fief") {
-          const userSpouseEntry = (newCitizens[userIdx].spouses || []).find((s) => s.fiefBalanceKey === pairKey);
-          const dominance = userSpouseEntry?.dominance || "egal";
-          const iAmDominant =
-            dominance === "egal" ||
-            (dominance === "proposant_dominant" && account.fiefDominantId === session.id) ||
-            // Pour epoux_dominant / epouse_dominante on résout selon un champ genre si existant
-            (dominance === "proposant_dominant" && account.fiefDominantId === session.id);
-          if (!iAmDominant && dominance !== "egal") {
+        // Vérification droits pour le fief : seul le dominant résolu (fiefDominantId) peut retirer,
+        // sauf union égale où tout le monde peut.
+        if (account.type === "fief" && account.dominance !== "egal") {
+          if (!account.fiefDominantId || String(account.fiefDominantId) !== String(session.id)) {
             notify("Seul l'époux dominant peut retirer du Fief Conjoint.", "error");
             return;
           }
         }
 
         if ((account.balance || 0) < amt) { notify("Le trésor commun ne contient pas assez de fonds.", "error"); return; }
-        sharedAccounts[pairKey] = { ...account, balance: account.balance - amt };
+        const tx = {
+          id: `satx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          type: "withdraw",
+          citizenId: session.id,
+          citizenName: session.name,
+          amount: amt,
+          reason: String(reason || "").slice(0, 120),
+          timestamp: Date.now(),
+        };
+        sharedAccounts[pairKey] = {
+          ...account,
+          balance: account.balance - amt,
+          transactions: [tx, ...(account.transactions || [])].slice(0, 50),
+        };
         newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + amt };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
-        notify(`${formatMoney(amt)} retirés du trésor commun.`, "success");
+        notify(`${formatMoney(amt)} retirés ${account.type === "fief" ? "du fief conjoint" : "du trésor commun"}.`, "success");
       },
 
       onSelfManumit: () => {
