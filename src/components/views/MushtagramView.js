@@ -19,27 +19,55 @@ const avatarBg = (name = "") => {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 };
 
-// Rend un texte en colorant/rendant cliquables les mentions @handle qui correspondent
-// à un citoyen existant. Les jetons qui ne matchent personne restent du texte brut.
-const renderWithMentions = (text, citizens, onViewProfile) => {
-  if (!text) return text;
-  const parts = text.split(/(@[\wÀ-ɏ]+)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("@")) {
-      const handle = part.slice(1).toLowerCase();
-      const mentioned = (citizens || []).find(c => c.mushtagramHandle && c.mushtagramHandle.toLowerCase() === handle);
-      if (mentioned) {
-        return (
-          <span key={i}
-            onClick={(e) => { e.stopPropagation(); onViewProfile(mentioned); }}
-            className="text-rose-600 font-bold hover:underline cursor-pointer">
-            {part}
-          </span>
-        );
-      }
+// Applique une regex à tous les segments texte d'un tableau texte/JSX déjà partiellement
+// rendu, sans jamais retoucher les segments déjà transformés en JSX par une passe précédente.
+const applyTextPattern = (parts, regex, renderMatch) => {
+  const out = [];
+  parts.forEach((part, pi) => {
+    if (typeof part !== "string") { out.push(part); return; }
+    let lastIndex = 0;
+    let m;
+    const re = new RegExp(regex.source, regex.flags);
+    while ((m = re.exec(part))) {
+      if (m.index > lastIndex) out.push(part.slice(lastIndex, m.index));
+      out.push(renderMatch(m, `${pi}-${m.index}`));
+      lastIndex = m.index + m[0].length;
+      if (m[0].length === 0) re.lastIndex++;
     }
-    return <React.Fragment key={i}>{part}</React.Fragment>;
+    if (lastIndex < part.length) out.push(part.slice(lastIndex));
   });
+  return out;
+};
+
+// Rend un texte enrichi : mentions @handle cliquables + mise en forme façon Discord
+// (**gras**, *italique*/_italique_, __souligné__, ~~barré~~, `code`).
+const renderRichText = (text, citizens, onViewProfile) => {
+  if (!text) return text;
+  let parts = [text];
+
+  parts = applyTextPattern(parts, /`([^`]+)`/g, (m, key) => (
+    <code key={key} className="bg-stone-200 text-rose-700 px-1 py-0.5 rounded text-[0.9em] font-mono">{m[1]}</code>
+  ));
+
+  parts = applyTextPattern(parts, /@[\wÀ-ɏ]+/g, (m, key) => {
+    const handle = m[0].slice(1).toLowerCase();
+    const mentioned = (citizens || []).find(c => c.mushtagramHandle && c.mushtagramHandle.toLowerCase() === handle);
+    if (!mentioned) return m[0];
+    return (
+      <span key={key}
+        onClick={(e) => { e.stopPropagation(); onViewProfile(mentioned); }}
+        className="text-rose-600 font-bold hover:underline cursor-pointer">
+        {m[0]}
+      </span>
+    );
+  });
+
+  parts = applyTextPattern(parts, /\*\*([^*]+)\*\*/g, (m, key) => <strong key={key}>{m[1]}</strong>);
+  parts = applyTextPattern(parts, /__([^_]+)__/g, (m, key) => <u key={key}>{m[1]}</u>);
+  parts = applyTextPattern(parts, /~~([^~]+)~~/g, (m, key) => <s key={key}>{m[1]}</s>);
+  parts = applyTextPattern(parts, /\*([^*]+)\*|_([^_]+)_/g, (m, key) => <em key={key}>{m[1] || m[2]}</em>);
+
+  return parts.map((part, i) => <React.Fragment key={i}>{part}</React.Fragment>);
 };
 
 const AVA_PX = { xs: 20, sm: 28, md: 40, lg: 56, xl: 80 };
@@ -741,7 +769,7 @@ function PostCard({
           {/* Content */}
           {post.content && (
             <div className="px-4 pb-2">
-              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{renderWithMentions(post.content, citizens, onViewProfile)}</p>
+              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{renderRichText(post.content, citizens, onViewProfile)}</p>
             </div>
           )}
 
@@ -833,7 +861,7 @@ function PostCard({
                           {cDisplayName}{c.isAnonymous && (String(c.authorId) === myId || isAdmin) ? " 🎭" : ""}
                         </button>
                       )}{" "}
-                      <span className="text-[11px] text-stone-700">{renderWithMentions(c.content, citizens, onViewProfile)}</span>
+                      <span className="text-[11px] text-stone-700 whitespace-pre-wrap">{renderRichText(c.content, citizens, onViewProfile)}</span>
                     </div>
                     {authorLikedCmt && (
                       <div className="absolute -bottom-2 -right-1 flex items-center bg-white rounded-full shadow-sm border border-stone-100 px-1 py-0.5 gap-0.5">
@@ -896,18 +924,28 @@ function PostCard({
                 </div>
               )}
               <div className="flex gap-1.5">
-                <input
+                <textarea
+                  rows={1}
                   value={commentInput[post.id] || ""}
-                  onChange={e => setCommentInput(p => ({ ...p, [post.id]: e.target.value }))}
+                  onChange={e => {
+                    setCommentInput(p => ({ ...p, [post.id]: e.target.value }));
+                    e.target.style.height = "auto";
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                  }}
                   onKeyDown={e => {
-                    if (e.key === "Enter" && commentInput[post.id]?.trim()) {
-                      onAddComment(post.id, commentInput[post.id].trim(), replyingTo);
-                      setCommentInput(p => ({ ...p, [post.id]: "" }));
-                      setReplyingTo(null);
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (commentInput[post.id]?.trim()) {
+                        onAddComment(post.id, commentInput[post.id].trim(), replyingTo);
+                        setCommentInput(p => ({ ...p, [post.id]: "" }));
+                        setReplyingTo(null);
+                        e.target.style.height = "auto";
+                      }
                     }
                   }}
-                  placeholder={replyingTo ? `Répondre à ${replyingTo.authorName}…` : "Ajouter un commentaire… (Entrée)"}
-                  className="flex-1 px-3 py-1.5 bg-stone-100 rounded-full text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-stone-200 transition-all" />
+                  placeholder={replyingTo ? `Répondre à ${replyingTo.authorName}…` : "Ajouter un commentaire… (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)"}
+                  className="flex-1 px-3 py-1.5 bg-stone-100 rounded-2xl text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-stone-200 transition-all resize-none leading-relaxed"
+                  style={{ minHeight: "30px", maxHeight: "120px" }} />
                 <button
                   onClick={() => {
                     if (commentInput[post.id]?.trim()) {
@@ -1447,6 +1485,9 @@ export default function MushtagramView({
                       placeholder="Partagez quelque chose avec l'Empire… (Ctrl+Entrée pour publier)"
                       rows={3}
                       className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all" />
+                    <p className="text-[9px] text-stone-400 px-1">
+                      **gras** · *italique* · __souligné__ · ~~barré~~ · `code`
+                    </p>
 
                     {showImgInput && (
                       <div className="flex items-center gap-2">
