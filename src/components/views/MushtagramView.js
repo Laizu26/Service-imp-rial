@@ -1905,14 +1905,20 @@ export default function MushtagramView({
                 {convMessages.length === 0 && (
                   <div className="text-center text-stone-400 italic text-sm py-8">Commencez la conversation !</div>
                 )}
-                {convMessages.map(dm => {
+                {convMessages.map((dm, i) => {
                   const isMine = String(dm.fromId) === myId;
                   const author = isMine
                     ? (myCitizen || session)
                     : (citizens.find(c => String(c.id) === String(dm.fromId)) || { name: dm.fromName || "?" });
+                  const prevDm = convMessages[i - 1];
+                  const nextDm = convMessages[i + 1];
+                  const isFirstOfGroup = !prevDm || String(prevDm.fromId) !== String(dm.fromId);
+                  const isLastOfGroup = !nextDm || String(nextDm.fromId) !== String(dm.fromId);
                   return (
-                    <div key={dm.id} className={`flex items-end gap-2 group ${isMine ? "justify-end" : "justify-start"}`}>
-                      {!isMine && <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />}
+                    <div key={dm.id} className={`flex items-end gap-2 group ${isMine ? "justify-end" : "justify-start"} ${isFirstOfGroup ? "mt-2" : "mt-0.5"}`}>
+                      {!isMine && (isLastOfGroup
+                        ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
+                        : <div className="w-7 shrink-0" />)}
                       {isMine && onDeleteMushtagramDM && (
                         <button onClick={() => onDeleteMushtagramDM(dm.id)}
                           title="Supprimer le message"
@@ -1921,18 +1927,22 @@ export default function MushtagramView({
                         </button>
                       )}
                       <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[72%]`}>
-                        <span className="text-[10px] font-bold text-stone-400 px-1 mb-0.5">
-                          {isMine ? "Vous" : author.name}
-                        </span>
+                        {isFirstOfGroup && (
+                          <span className="text-[10px] font-bold text-stone-400 px-1 mb-0.5">
+                            {isMine ? "Vous" : author.name}
+                          </span>
+                        )}
                         <div className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
                           isMine
-                            ? "bg-gradient-to-r from-rose-500 to-violet-600 text-white rounded-br-sm"
-                            : "bg-stone-100 text-stone-800 rounded-bl-sm"
+                            ? `bg-gradient-to-r from-rose-500 to-violet-600 text-white ${isLastOfGroup ? "rounded-br-sm" : "rounded-r-md"}`
+                            : `bg-stone-100 text-stone-800 ${isLastOfGroup ? "rounded-bl-sm" : "rounded-l-md"}`
                         }`}>
                           {dm.content}
                         </div>
                       </div>
-                      {isMine && <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />}
+                      {isMine && (isLastOfGroup
+                        ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
+                        : <div className="w-7 shrink-0" />)}
                     </div>
                   );
                 })}
