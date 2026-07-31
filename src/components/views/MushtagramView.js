@@ -362,12 +362,20 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
 
 /* ── StoryViewer ────────────────────────────────────────────────────────── */
 
-function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onLike, onClose }) {
+function StoryViewer({ stories, startIndex = 0, myId, isAdmin, citizens, onDelete, onLike, onClose }) {
+  const [index, setIndex] = useState(Math.min(startIndex, Math.max(0, (stories || []).length - 1)));
+  if (!stories || stories.length === 0) return null;
+  const story = stories[index];
   if (!story) return null;
+
   const canDelete = String(story.authorId) === myId || isAdmin;
   const author = (citizens || []).find(c => String(c.id) === String(story.authorId));
   const isLiked = (story.likes || []).map(String).includes(myId);
   const likeCount = (story.likes || []).length;
+
+  const goNext = () => { if (index < stories.length - 1) setIndex(i => i + 1); else onClose(); };
+  const goPrev = () => { if (index > 0) setIndex(i => i - 1); };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm"
       onClick={onClose}>
@@ -380,22 +388,28 @@ function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onLike, onClose
         }}
         onClick={e => e.stopPropagation()}>
 
-        {/* Progress bar (decorative) */}
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-stone-700 z-10">
-          <div className="h-full bg-white/80 w-full" />
+        {/* Progress bar — un segment par story de la pile */}
+        <div className="absolute top-2 left-2 right-2 z-10 flex gap-1">
+          {stories.map((s, i) => (
+            <div key={s.id} className="flex-1 h-0.5 rounded-full bg-white/25 overflow-hidden">
+              <div className={`h-full bg-white transition-all ${i <= index ? "w-full" : "w-0"}`} />
+            </div>
+          ))}
         </div>
 
         {/* Header overlay */}
-        <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-4 pt-3 pb-8"
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-3 px-4 pt-5 pb-8"
           style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)" }}>
           <Ava citizen={author || { name: story.authorName }} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-black text-white drop-shadow">{story.authorName}</div>
-            <div className="text-[9px] text-white/60">{story.date || ""}</div>
+            <div className="text-[9px] text-white/60">
+              {story.date || ""}{stories.length > 1 ? ` · ${index + 1}/${stories.length}` : ""}
+            </div>
           </div>
           <div className="flex items-center gap-1">
             {canDelete && (
-              <button onClick={() => { onDelete(story.id); onClose(); }}
+              <button onClick={(e) => { e.stopPropagation(); onDelete(story.id); if (stories.length <= 1) onClose(); else goNext(); }}
                 className="p-1.5 rounded-full bg-black/30 text-white/70 hover:text-red-400 transition-all">
                 <Trash2 size={14} />
               </button>
@@ -406,6 +420,14 @@ function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onLike, onClose
             </button>
           </div>
         </div>
+
+        {/* Zones de navigation (tap gauche = précédent, droite = suivant) */}
+        {index > 0 && (
+          <button onClick={(e) => { e.stopPropagation(); goPrev(); }}
+            className="absolute left-0 top-0 bottom-0 w-1/3 z-[5] cursor-pointer" aria-label="Story précédente" />
+        )}
+        <button onClick={(e) => { e.stopPropagation(); goNext(); }}
+          className="absolute right-0 top-0 bottom-0 w-2/3 z-[5] cursor-pointer" aria-label="Story suivante" />
 
         {/* Image — fills entire card */}
         {story.imageUrl ? (
@@ -427,8 +449,8 @@ function StoryViewer({ story, myId, isAdmin, citizens, onDelete, onLike, onClose
           {/* Like button */}
           <div className="flex items-center justify-end">
             <button
-              onClick={() => onLike && onLike(story.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm transition-all ${
+              onClick={(e) => { e.stopPropagation(); onLike && onLike(story.id); }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm transition-all z-10 ${
                 isLiked
                   ? "bg-rose-500/80 text-white"
                   : "bg-black/30 text-white/70 hover:bg-rose-500/60 hover:text-white"
@@ -456,6 +478,22 @@ function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, 
 
   const activeStories = (stories || []).filter(s => (s.createdAt || 0) + 86_400_000 > Date.now());
 
+  const storyGroups = useMemo(() => {
+    const byAuthor = new Map();
+    activeStories.forEach(s => {
+      const key = String(s.authorId);
+      if (!byAuthor.has(key)) byAuthor.set(key, []);
+      byAuthor.get(key).push(s);
+    });
+    return Array.from(byAuthor.values())
+      .map(list => list.slice().sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)))
+      .sort((a, b) => {
+        const lastA = a[a.length - 1]?.createdAt || 0;
+        const lastB = b[b.length - 1]?.createdAt || 0;
+        return lastB - lastA;
+      });
+  }, [activeStories]);
+
   const submitStory = () => {
     if (!storyText.trim() && !storyImage.trim()) return;
     onPostStory({ content: storyText.trim(), imageUrl: storyImage.trim() || null });
@@ -478,17 +516,23 @@ function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, 
             <span className="text-[9px] font-bold text-stone-400 group-hover:text-stone-600 transition-all max-w-[60px] truncate">Votre story</span>
           </button>
 
-          {/* Active stories */}
-          {activeStories.map(story => {
-            const author = citizens.find(c => String(c.id) === String(story.authorId)) || { name: story.authorName };
+          {/* Active stories, stacked per auteur */}
+          {storyGroups.map(group => {
+            const first = group[0];
+            const author = citizens.find(c => String(c.id) === String(first.authorId)) || { name: first.authorName };
             return (
-              <button key={story.id} onClick={() => setViewing(story)}
+              <button key={first.authorId} onClick={() => setViewing({ authorId: first.authorId, storyId: group[group.length - 1].id })}
                 className="flex flex-col items-center gap-1.5 group">
                 <div className="relative">
                   <Ava citizen={author} size="lg"
                     className="ring-2 ring-rose-400 ring-offset-2 group-hover:ring-violet-500 transition-all" />
+                  {group.length > 1 && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white border border-rose-300 flex items-center justify-center">
+                      <span className="text-[8px] font-black text-rose-500">{group.length}</span>
+                    </div>
+                  )}
                 </div>
-                <span className="text-[9px] font-bold text-stone-500 group-hover:text-stone-700 transition-all max-w-[60px] truncate">{story.authorName}</span>
+                <span className="text-[9px] font-bold text-stone-500 group-hover:text-stone-700 transition-all max-w-[60px] truncate">{first.authorName}</span>
               </button>
             );
           })}
@@ -525,10 +569,15 @@ function StoriesBar({ stories, myId, myCitizen, isAdmin, citizens, onPostStory, 
 
       {/* Story viewer */}
       {viewing && (() => {
-        const liveStory = activeStories.find(s => s.id === viewing.id) || viewing;
+        const liveGroup = activeStories
+          .filter(s => String(s.authorId) === String(viewing.authorId))
+          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        if (liveGroup.length === 0) return null;
+        const startIndex = Math.max(0, liveGroup.findIndex(s => s.id === viewing.storyId));
         return (
           <StoryViewer
-            story={liveStory}
+            stories={liveGroup}
+            startIndex={startIndex}
             myId={myId}
             isAdmin={isAdmin}
             citizens={citizens}
