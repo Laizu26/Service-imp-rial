@@ -5995,19 +5995,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(newPinned ? "Commentaire épinglé." : "Commentaire désépinglé.", "info");
       },
 
-      onUpdateMushtagramProfile: ({ bio, avatar, handle, banner, photo, officialTitle, externalLink }) => {
+      onUpdateMushtagramProfile: ({ bio, avatar, handle, banner, photo, officialTitle, externalLink, bannerPosition, photoPosition }) => {
         if (!session) return;
         const updated = (state.citizens || []).map((c) =>
           String(c.id) === String(session.id)
             ? {
                 ...c,
-                mushtagramBio:           bio           !== undefined ? String(bio).slice(0, 300)           : c.mushtagramBio,
-                mushtagramAvatar:        avatar        !== undefined ? avatar                               : c.mushtagramAvatar,
-                mushtagramHandle:        handle        !== undefined ? handle                               : c.mushtagramHandle,
-                mushtagramBanner:        banner        !== undefined ? banner                               : c.mushtagramBanner,
-                mushtagramPhoto:         photo         !== undefined ? photo                                : c.mushtagramPhoto,
-                mushtagramOfficialTitle: officialTitle !== undefined ? String(officialTitle).slice(0, 80)  : c.mushtagramOfficialTitle,
-                mushtagramExternalLink:  externalLink  !== undefined ? String(externalLink).slice(0, 200)  : c.mushtagramExternalLink,
+                mushtagramBio:            bio            !== undefined ? String(bio).slice(0, 300)          : c.mushtagramBio,
+                mushtagramAvatar:         avatar         !== undefined ? avatar                              : c.mushtagramAvatar,
+                mushtagramHandle:         handle         !== undefined ? handle                              : c.mushtagramHandle,
+                mushtagramBanner:         banner         !== undefined ? banner                              : c.mushtagramBanner,
+                mushtagramPhoto:          photo          !== undefined ? photo                               : c.mushtagramPhoto,
+                mushtagramOfficialTitle:  officialTitle  !== undefined ? String(officialTitle).slice(0, 80)  : c.mushtagramOfficialTitle,
+                mushtagramExternalLink:   externalLink   !== undefined ? String(externalLink).slice(0, 200)  : c.mushtagramExternalLink,
+                mushtagramBannerPosition: bannerPosition !== undefined ? bannerPosition                      : c.mushtagramBannerPosition,
+                mushtagramPhotoPosition:  photoPosition  !== undefined ? photoPosition                       : c.mushtagramPhotoPosition,
               }
             : c
         );

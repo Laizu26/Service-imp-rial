@@ -88,7 +88,7 @@ const Ava = ({ citizen, size = "md", className = "", onClick }) => {
         ${className}`}
     >
       {photo ? (
-        <img src={photo} alt={name} style={{ width: px, height: px, objectFit: "cover" }}
+        <img src={photo} alt={name} style={{ width: px, height: px, objectFit: "cover", objectPosition: citizen?.mushtagramPhotoPosition || "50% 50%" }}
           onError={e => { e.target.style.display = "none"; }} />
       ) : emoji ? (
         <span style={{ lineHeight: 1 }}>{emoji}</span>
@@ -100,6 +100,54 @@ const Ava = ({ citizen, size = "md", className = "", onClick }) => {
 };
 
 const REACTION_EMOJIS = ["❤", "👑", "🗡️", "🔥", "😮"];
+
+// Recadrage par glisser-déposer : l'utilisateur clique/glisse dans le cadre pour choisir
+// le point focal de l'image (objectPosition), sans upload ni traitement d'image côté serveur.
+function ImageRepositioner({ src, position, onChange, shape = "rect", heightClass = "h-28" }) {
+  const containerRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  const parsePos = (p) => {
+    const [x, y] = (p || "50% 50%").replace(/%/g, "").split(" ").map(Number);
+    return { x: isNaN(x) ? 50 : x, y: isNaN(y) ? 50 : y };
+  };
+  const pos = parsePos(position);
+
+  const updateFromEvent = (e) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    onChange(`${x.toFixed(0)}% ${y.toFixed(0)}%`);
+  };
+
+  if (!src) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      className={`group relative w-full ${heightClass} overflow-hidden ${shape === "circle" ? "rounded-full" : "rounded-xl"} border-2 border-rose-200 cursor-move select-none bg-stone-100`}
+      onMouseDown={(e) => { setDragging(true); updateFromEvent(e); }}
+      onMouseMove={(e) => { if (dragging) updateFromEvent(e); }}
+      onMouseUp={() => setDragging(false)}
+      onMouseLeave={() => setDragging(false)}
+      onTouchStart={(e) => { setDragging(true); updateFromEvent(e); }}
+      onTouchMove={(e) => { if (dragging) updateFromEvent(e); }}
+      onTouchEnd={() => setDragging(false)}
+    >
+      <img src={src} alt="" draggable={false}
+        className="w-full h-full object-cover pointer-events-none"
+        style={{ objectPosition: `${pos.x}% ${pos.y}%` }}
+        onError={(e) => { e.target.style.display = "none"; }} />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none">
+        <span className="text-white text-[9px] font-black uppercase bg-black/60 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+          Glisser pour recadrer
+        </span>
+      </div>
+    </div>
+  );
+}
 
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
@@ -138,6 +186,7 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
         <div className="relative h-28 shrink-0">
           {citizen.mushtagramBanner ? (
             <img src={citizen.mushtagramBanner} alt="" className="w-full h-full object-cover"
+              style={{ objectPosition: citizen.mushtagramBannerPosition || "50% 50%" }}
               onError={e => { e.target.style.display = "none"; e.target.parentNode.classList.add("bg-gradient-to-r","from-rose-400","via-purple-500","to-violet-600"); }} />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-rose-400 via-purple-500 to-violet-600" />
@@ -148,6 +197,7 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
           <div className="absolute -bottom-8 left-4 w-16 h-16 rounded-full border-4 border-white shadow-lg overflow-hidden">
             {citizen.mushtagramPhoto ? (
               <img src={citizen.mushtagramPhoto} alt="" className="w-full h-full object-cover"
+                style={{ objectPosition: citizen.mushtagramPhotoPosition || "50% 50%" }}
                 onError={e => { e.target.style.display = "none"; }} />
             ) : citizen.mushtagramAvatar ? (
               <div className="w-full h-full flex items-center justify-center bg-stone-100 text-2xl">
@@ -1330,13 +1380,15 @@ export default function MushtagramView({
   /* ── profil ──────────────────────────────────────────────────────── */
   const startEdit = () => {
     setProfileDraft({
-      bio:           myCitizen?.mushtagramBio            || "",
-      avatar:        myCitizen?.mushtagramAvatar         || "",
-      handle:        myCitizen?.mushtagramHandle         || "",
-      banner:        myCitizen?.mushtagramBanner         || "",
-      photo:         myCitizen?.mushtagramPhoto          || "",
-      officialTitle: myCitizen?.mushtagramOfficialTitle  || "",
-      externalLink:  myCitizen?.mushtagramExternalLink   || "",
+      bio:            myCitizen?.mushtagramBio            || "",
+      avatar:         myCitizen?.mushtagramAvatar         || "",
+      handle:         myCitizen?.mushtagramHandle         || "",
+      banner:         myCitizen?.mushtagramBanner         || "",
+      photo:          myCitizen?.mushtagramPhoto          || "",
+      officialTitle:  myCitizen?.mushtagramOfficialTitle  || "",
+      externalLink:   myCitizen?.mushtagramExternalLink   || "",
+      bannerPosition: myCitizen?.mushtagramBannerPosition || "50% 50%",
+      photoPosition:  myCitizen?.mushtagramPhotoPosition  || "50% 50%",
     });
     setEditingProfile(true);
   };
@@ -1914,6 +1966,7 @@ export default function MushtagramView({
               {myCitizen?.mushtagramBanner ? (
                 <img src={myCitizen.mushtagramBanner} alt="bannière"
                   className="w-full h-full object-cover"
+                  style={{ objectPosition: myCitizen.mushtagramBannerPosition || "50% 50%" }}
                   onError={e => { e.target.style.display = "none"; e.target.parentNode.classList.add("bg-gradient-to-r","from-rose-400","via-purple-500","to-violet-600"); }} />
               ) : (
                 <div className="w-full h-full bg-gradient-to-r from-rose-400 via-purple-500 to-violet-600" />
@@ -1922,6 +1975,7 @@ export default function MushtagramView({
                 {myCitizen?.mushtagramPhoto ? (
                   <img src={myCitizen.mushtagramPhoto} alt="avatar"
                     className="w-full h-full object-cover"
+                    style={{ objectPosition: myCitizen.mushtagramPhotoPosition || "50% 50%" }}
                     onError={e => { e.target.style.display = "none"; }} />
                 ) : myCitizen?.mushtagramAvatar ? (
                   <span>{myCitizen.mushtagramAvatar}</span>
@@ -1954,6 +2008,16 @@ export default function MushtagramView({
                       <input value={profileDraft.photo} onChange={e => setProfileDraft(p => ({ ...p, photo: e.target.value }))}
                         placeholder="https://…"
                         className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+                      {profileDraft.photo && (
+                        <div className="mt-2 w-24 mx-auto">
+                          <ImageRepositioner
+                            src={profileDraft.photo}
+                            position={profileDraft.photoPosition}
+                            onChange={(pos) => setProfileDraft(p => ({ ...p, photoPosition: pos }))}
+                            shape="circle"
+                            heightClass="h-24" />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
@@ -1971,6 +2035,16 @@ export default function MushtagramView({
                     <input value={profileDraft.banner} onChange={e => setProfileDraft(p => ({ ...p, banner: e.target.value }))}
                       placeholder="https://…"
                       className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+                    {profileDraft.banner && (
+                      <div className="mt-2">
+                        <ImageRepositioner
+                          src={profileDraft.banner}
+                          position={profileDraft.bannerPosition}
+                          onChange={(pos) => setProfileDraft(p => ({ ...p, bannerPosition: pos }))}
+                          shape="rect"
+                          heightClass="h-28" />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
