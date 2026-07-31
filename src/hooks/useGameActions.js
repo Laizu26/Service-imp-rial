@@ -2422,7 +2422,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
           return c;
         });
-        saveState({ ...state, citizens: updated });
+        // Répercute la nouvelle domination sur le Fief Conjoint (state.sharedAccounts),
+        // sans quoi son fiefDominantId reste figé sur l'ancienne valeur (souvent null)
+        // et le retrait resterait bloqué même après une renégociation réussie.
+        const pairKey = mySpouseEntry?.fiefBalanceKey || mySpouseEntry?.sharedBalanceKey;
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (pairKey && sharedAccounts[pairKey]?.type === "fief") {
+          sharedAccounts[pairKey] = { ...sharedAccounts[pairKey], dominance: pending.dominance, fiefDominantId: dominantId };
+        }
+        saveState({ ...state, citizens: updated, sharedAccounts });
         notify("Domination de l'union mise à jour.", "success");
       },
 
