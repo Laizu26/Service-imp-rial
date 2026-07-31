@@ -425,8 +425,8 @@ const MarriageView = ({
               const fil = FILIATION_TYPES.find((f) => f.id === spouse.filiation);
               const pairKey = spouse.sharedBalanceKey || spouse.fiefBalanceKey;
               const sharedAccount = pairKey ? (sharedAccounts || {})[pairKey] : null;
-              const iAmDominant = !!spouse.dominantId && spouse.dominantId === user.id;
-              const iAmDominated = !!spouse.dominantId && spouse.dominantId !== user.id;
+              const iAmDominant = !!spouse.dominantId && String(spouse.dominantId) === String(user.id);
+              const iAmDominated = !!spouse.dominantId && String(spouse.dominantId) !== String(user.id);
               const domLabel = spouse.dominantId
                 ? (iAmDominant ? "Vous, Dominant(e)" : `${spouseUser?.name || spouse.name}, Dominant(e)`)
                 : (dom?.label || "Union Égale");
