@@ -877,6 +877,7 @@ const CitizenLayout = (props) => {
     onLikeMushtagramComment,
     onPinMushtagramComment,
     onUpdateMushtagramProfile,
+    onUpdateEntityMushtagramProfile,
     onSendMushtagramDM,
     onMarkMushtagramDMsRead,
     onFollowMushtagram,
@@ -1795,6 +1796,7 @@ const CitizenLayout = (props) => {
                 onLikeMushtagramComment={onLikeMushtagramComment}
                 onPinMushtagramComment={onPinMushtagramComment}
                 onUpdateMushtagramProfile={onUpdateMushtagramProfile}
+                onUpdateEntityMushtagramProfile={onUpdateEntityMushtagramProfile}
                 onSendMushtagramDM={onSendMushtagramDM}
                 onMarkMushtagramDMsRead={onMarkMushtagramDMsRead}
                 onFollowMushtagram={onFollowMushtagram}

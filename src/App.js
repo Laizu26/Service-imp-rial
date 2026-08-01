@@ -794,6 +794,7 @@ export default function App() {
             onLikeMushtagramComment={actions.onLikeMushtagramComment}
             onPinMushtagramComment={actions.onPinMushtagramComment}
             onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
+            onUpdateEntityMushtagramProfile={actions.onUpdateEntityMushtagramProfile}
             onSendMushtagramDM={actions.onSendMushtagramDM}
             onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
             onFollowMushtagram={actions.onFollowMushtagram}
@@ -1314,6 +1315,7 @@ export default function App() {
                         onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
                         onLikeMushtagramComment={actions.onLikeMushtagramComment}
                         onUpdateMushtagramProfile={actions.onUpdateMushtagramProfile}
+                        onUpdateEntityMushtagramProfile={actions.onUpdateEntityMushtagramProfile}
                         onSendMushtagramDM={actions.onSendMushtagramDM}
                         onMarkMushtagramDMsRead={actions.onMarkMushtagramDMsRead}
                         onFollowMushtagram={actions.onFollowMushtagram}

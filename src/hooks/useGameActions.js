@@ -6505,6 +6505,45 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Profil mis à jour.", "success");
       },
 
+      // Personnalisation Mushtagram d'un compte officiel de guilde/entreprise —
+      // même principe que onUpdateMushtagramProfile, mais réservé au chef de guilde
+      // ou au propriétaire de l'entreprise concernée.
+      onUpdateEntityMushtagramProfile: ({ entityType, entityId, bio, avatar, handle, banner, photo, bannerPosition, photoPosition }) => {
+        if (!session) return;
+        const applyFields = (entity) => ({
+          ...entity,
+          mushtagramBio:            bio            !== undefined ? String(bio).slice(0, 300) : entity.mushtagramBio,
+          mushtagramAvatar:         avatar         !== undefined ? avatar                     : entity.mushtagramAvatar,
+          mushtagramHandle:         handle         !== undefined ? handle                     : entity.mushtagramHandle,
+          mushtagramBanner:         banner         !== undefined ? banner                     : entity.mushtagramBanner,
+          mushtagramPhoto:          photo          !== undefined ? photo                      : entity.mushtagramPhoto,
+          mushtagramBannerPosition: bannerPosition !== undefined ? bannerPosition             : entity.mushtagramBannerPosition,
+          mushtagramPhotoPosition:  photoPosition  !== undefined ? photoPosition              : entity.mushtagramPhotoPosition,
+        });
+
+        if (entityType === "guild") {
+          const guilds = [...(state.guilds || [])];
+          const idx = guilds.findIndex((g) => g.id === entityId);
+          if (idx === -1) { notify("Guilde introuvable.", "error"); return; }
+          const isLeader = String(guilds[idx].leaderId) === String(session.id) || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+          if (!isLeader) { notify("Seul le chef de guilde peut modifier son compte Mushtagram.", "error"); return; }
+          guilds[idx] = applyFields(guilds[idx]);
+          saveState({ ...state, guilds });
+          notify("Profil de la guilde mis à jour.", "success");
+        } else if (entityType === "company") {
+          const companies = [...(state.companies || [])];
+          const idx = companies.findIndex((c) => c.id === entityId);
+          if (idx === -1) { notify("Entreprise introuvable.", "error"); return; }
+          const isOwner = String(companies[idx].ownerId) === String(session.id) || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+          if (!isOwner) { notify("Seul le propriétaire peut modifier le compte Mushtagram de l'entreprise.", "error"); return; }
+          companies[idx] = applyFields(companies[idx]);
+          saveState({ ...state, companies });
+          notify("Profil de l'entreprise mis à jour.", "success");
+        } else {
+          notify("Type d'entité invalide.", "error");
+        }
+      },
+
       onSendMushtagramDM: ({ toId, content }) => {
         if (!session || !content?.trim()) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };

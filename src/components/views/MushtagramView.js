@@ -149,6 +149,113 @@ function ImageRepositioner({ src, position, onChange, shape = "rect", heightClas
   );
 }
 
+/* ── EntityProfileModal (compte officiel de guilde/entreprise) ───────────── */
+
+function EntityProfileModal({ entityType, entity, onClose, onSave }) {
+  const [draft, setDraft] = useState({
+    bio: entity.mushtagramBio || "",
+    avatar: entity.mushtagramAvatar || (entityType === "guild" ? "🏛️" : "🏢"),
+    photo: entity.mushtagramPhoto || "",
+    photoPosition: entity.mushtagramPhotoPosition || "50% 50%",
+    banner: entity.mushtagramBanner || "",
+    bannerPosition: entity.mushtagramBannerPosition || "50% 50%",
+    handle: entity.mushtagramHandle || "",
+  });
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.6)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-rose-50 shrink-0">
+          <div className="w-10 h-10 rounded-full bg-rose-100 border-2 border-rose-200 flex items-center justify-center flex-shrink-0 text-lg">
+            {entityType === "guild" ? "🏛️" : "🏢"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Personnaliser — {entity.name}</div>
+            <div className="text-[10px] text-stone-500">Compte officiel Mushtagram {entityType === "guild" ? "de la guilde" : "de l'entreprise"}</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                <ImageIcon size={8} className="inline mr-0.5" /> Photo (URL)
+              </label>
+              <input value={draft.photo} onChange={e => setDraft(d => ({ ...d, photo: e.target.value }))}
+                placeholder="https://…"
+                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+              {draft.photo && (
+                <div className="mt-2 w-24 mx-auto">
+                  <ImageRepositioner
+                    src={draft.photo}
+                    position={draft.photoPosition}
+                    onChange={(pos) => setDraft(d => ({ ...d, photoPosition: pos }))}
+                    shape="circle"
+                    heightClass="h-24" />
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+                Avatar emoji (si pas de photo)
+              </label>
+              <input value={draft.avatar} onChange={e => setDraft(d => ({ ...d, avatar: e.target.value }))}
+                placeholder="🏰 ⚔️ 🦁…"
+                className="w-full px-3 py-2 border border-stone-200 rounded-lg text-base text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+              <ImageIcon size={8} className="inline mr-0.5" /> Bannière (URL image)
+            </label>
+            <input value={draft.banner} onChange={e => setDraft(d => ({ ...d, banner: e.target.value }))}
+              placeholder="https://…"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+            {draft.banner && (
+              <div className="mt-2">
+                <ImageRepositioner
+                  src={draft.banner}
+                  position={draft.bannerPosition}
+                  onChange={(pos) => setDraft(d => ({ ...d, bannerPosition: pos }))}
+                  shape="rect"
+                  heightClass="h-28" />
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+              <AtSign size={8} className="inline mr-0.5" /> Identifiant
+            </label>
+            <input value={draft.handle}
+              onChange={e => setDraft(d => ({ ...d, handle: e.target.value.replace(/[^a-zA-Z0-9_À-ɏ]/g, "").toLowerCase() }))}
+              placeholder="identifiant_officiel"
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+          </div>
+          <div>
+            <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">
+              Biographie
+            </label>
+            <textarea value={draft.bio} onChange={e => setDraft(d => ({ ...d, bio: e.target.value.slice(0, 300) }))}
+              rows={3} placeholder="Présentez la guilde/entreprise en quelques mots…"
+              maxLength={300}
+              className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:border-rose-300" />
+            <div className="text-right text-[9px] text-stone-400 mt-0.5">{(draft.bio || "").length}/300</div>
+          </div>
+          <button onClick={() => onSave(draft)}
+            className="w-full py-2.5 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black uppercase rounded-xl hover:opacity-90 shadow transition-all">
+            Enregistrer le profil
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
 function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList, recognizedEruditIds, onTip, isAdmin }) {
@@ -1074,7 +1181,7 @@ export default function MushtagramView({
   mushtagramSubscriptions = [],
   onPostMushtagram, onDeleteMushtagramPost,
   onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment, onPinMushtagramComment,
-  onUpdateMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
+  onUpdateMushtagramProfile, onUpdateEntityMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
   onFollowMushtagram, onUnfollowMushtagram,
   onReactMushtagram, onRepostMushtagram,
   onVoteMushtagramPoll, onPinMushtagramPost,
@@ -1117,6 +1224,7 @@ export default function MushtagramView({
 
   // Publier au nom d'une guilde/entreprise ("" = en tant que moi-même)
   const [postAsEntity, setPostAsEntity] = useState("");
+  const [editingEntityKey, setEditingEntityKey] = useState(null); // "guild:<id>" | "company:<id>"
 
   // Contenu payant : formulaire d'ajout de palier (paramètres)
   const [newTierName, setNewTierName]   = useState("");
@@ -1159,14 +1267,24 @@ export default function MushtagramView({
   const entityProfiles = useMemo(() => [
     ...guilds.map(g => ({
       id: `guild_${g.id}`, name: g.name,
-      mushtagramPhoto: g.icon || null, mushtagramAvatar: g.emoji || "🏛️",
-      mushtagramBio: g.description || "", mushtagramFollowing: [],
+      mushtagramPhoto: g.mushtagramPhoto || null,
+      mushtagramPhotoPosition: g.mushtagramPhotoPosition,
+      mushtagramAvatar: g.mushtagramAvatar || "🏛️",
+      mushtagramBanner: g.mushtagramBanner || null,
+      mushtagramBannerPosition: g.mushtagramBannerPosition,
+      mushtagramHandle: g.mushtagramHandle || "",
+      mushtagramBio: g.mushtagramBio || g.description || "", mushtagramFollowing: [],
       isEntity: true, entityType: "guild", entityId: g.id, entityLeaderId: g.leaderId,
     })),
     ...companies.map(c => ({
       id: `company_${c.id}`, name: c.name,
-      mushtagramPhoto: c.icon || null, mushtagramAvatar: c.emoji || "🏢",
-      mushtagramBio: c.description || "", mushtagramFollowing: [],
+      mushtagramPhoto: c.mushtagramPhoto || null,
+      mushtagramPhotoPosition: c.mushtagramPhotoPosition,
+      mushtagramAvatar: c.mushtagramAvatar || "🏢",
+      mushtagramBanner: c.mushtagramBanner || null,
+      mushtagramBannerPosition: c.mushtagramBannerPosition,
+      mushtagramHandle: c.mushtagramHandle || "",
+      mushtagramBio: c.mushtagramBio || c.description || "", mushtagramFollowing: [],
       isEntity: true, entityType: "company", entityId: c.id, entityLeaderId: c.ownerId,
     })),
   ], [guilds, companies]);
@@ -1585,14 +1703,20 @@ export default function MushtagramView({
                       {myLeaderGuilds.map(g => <option key={g.id} value={`guild:${g.id}`}>🏛️ {g.name}</option>)}
                       {myOwnerCompanies.map(c => <option key={c.id} value={`company:${c.id}`}>🏢 {c.name}</option>)}
                     </select>
+                    {postAsEntity && (
+                      <button onClick={() => setEditingEntityKey(postAsEntity)}
+                        title="Personnaliser le compte Mushtagram"
+                        className="shrink-0 p-1.5 text-stone-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                        <Edit3 size={13} />
+                      </button>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-3">
-                  {postAsEntity ? (
-                    <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-lg shrink-0">
-                      {postAsEntity.startsWith("guild:") ? "🏛️" : "🏢"}
-                    </div>
-                  ) : (
+                  {postAsEntity ? (() => {
+                    const selectedEntity = entityProfiles.find(e => e.id === postAsEntity.replace(":", "_"));
+                    return <Ava citizen={selectedEntity} size="md" />;
+                  })() : (
                     <Ava citizen={myCitizen} size="md" />
                   )}
                   <div className="flex-1 space-y-2">
@@ -2728,6 +2852,24 @@ export default function MushtagramView({
           isAdmin={isAdmin}
         />
       )}
+
+      {/* Entity (guild/company) profile customization modal */}
+      {editingEntityKey && (() => {
+        const [eType, eId] = editingEntityKey.split(":");
+        const entity = entityProfiles.find(e => e.id === `${eType}_${eId}`);
+        if (!entity) return null;
+        return (
+          <EntityProfileModal
+            entityType={eType}
+            entity={entity}
+            onClose={() => setEditingEntityKey(null)}
+            onSave={(draft) => {
+              onUpdateEntityMushtagramProfile && onUpdateEntityMushtagramProfile({ entityType: eType, entityId: eId, ...draft });
+              setEditingEntityKey(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
