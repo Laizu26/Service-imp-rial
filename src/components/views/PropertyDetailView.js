@@ -12,6 +12,7 @@ const PROP_TYPES = {
   MAISON: "Maison", DOMAINE: "Domaine", TERRAIN: "Terrain",
   COMMERCE: "Local Commercial", FERME: "Ferme",
   MANOIR: "Manoir / Château", ATELIER: "Atelier", AUBERGE: "Auberge / Taverne",
+  BATEAU: "Bateau",
 };
 
 const PropertyDetailView = ({

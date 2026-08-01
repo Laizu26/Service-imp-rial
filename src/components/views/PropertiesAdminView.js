@@ -3,7 +3,7 @@ import {
   Plus, MapPin, Pencil, X, Save, Home, User, Globe, Key, UserX,
   Search, Filter, Building2, Coins, TrendingUp, ChevronDown, ChevronUp,
   ShieldAlert, DoorOpen, Ban, Tag, RotateCcw, Eye, Users as UsersIcon,
-  Hammer, ShoppingBag, Utensils, Wheat, Castle,
+  Hammer, ShoppingBag, Utensils, Wheat, Castle, Ship,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -19,6 +19,7 @@ const PROPERTY_TYPES = {
   MANOIR: { label: "Manoir / Château", icon: Castle, color: "bg-yellow-100 text-yellow-700" },
   ATELIER: { label: "Atelier", icon: Hammer, color: "bg-orange-100 text-orange-600" },
   AUBERGE: { label: "Auberge / Taverne", icon: Utensils, color: "bg-rose-100 text-rose-600" },
+  BATEAU: { label: "Bateau", icon: Ship, color: "bg-blue-100 text-blue-600" },
 };
 
 const StatCard = ({ icon: Icon, label, value, color, sub }) => (

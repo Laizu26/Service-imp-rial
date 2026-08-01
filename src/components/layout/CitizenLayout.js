@@ -3733,6 +3733,7 @@ const CitizenLayout = (props) => {
                     MAISON: "Maison", DOMAINE: "Domaine", TERRAIN: "Terrain",
                     COMMERCE: "Local Commercial", FERME: "Ferme",
                     MANOIR: "Manoir / Château", ATELIER: "Atelier",
+                    BATEAU: "Bateau",
                   };
 
                   const getLocation = (prop) => {
