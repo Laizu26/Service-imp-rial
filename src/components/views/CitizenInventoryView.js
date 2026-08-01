@@ -56,7 +56,7 @@ const CitizenInventoryView = ({
   onCancelTrade,
   tradeProposals = [],
   marketLocked = false,
-  marketLockedByEmployer = false,
+  marketLockSource = "conjoint",
 }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const [activeTab, setActiveTab] = useState("bag");
@@ -462,8 +462,10 @@ const CitizenInventoryView = ({
             <div className="text-3xl">🚫</div>
             <p className="font-black text-red-700 text-base">Marché restreint</p>
             <p className="text-xs text-red-500">
-              {marketLockedByEmployer
+              {marketLockSource === "employeur"
                 ? "Votre employeur a restreint vos droits de commerce dans le cadre de votre contrat."
+                : marketLockSource === "tuteur"
+                ? "Votre tuteur a restreint vos droits de commerce."
                 : "Votre conjoint dominant a restreint vos droits de commerce."}
             </p>
           </div>

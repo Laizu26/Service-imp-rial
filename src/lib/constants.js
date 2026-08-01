@@ -210,3 +210,15 @@ export const FILIATION_TYPES = [
   { id: "bilineaire",    label: "Bilinéaire",    description: "Les deux lignées sont reconnues à parts égales" },
   { id: "cognatique",    label: "Au Choix",      description: "Les époux décident librement de la lignée à transmettre" },
 ];
+
+// Tutelle parentale : condition activable unilatéralement par un parent sur son enfant
+// devenu citoyen (même adulte), à la manière du contrat de servage — le parent peut alors
+// restreindre certains droits de l'enfant tant que la tutelle reste active.
+export const CHILD_RIGHTS_LIST = [
+  { key: "marriageLocked",   icon: "💍", label: "Bloquer le mariage",             desc: "Interdit de proposer ou d'accepter une union sans lever la tutelle" },
+  { key: "travelLocked",     icon: "🚫", label: "Bloquer le voyage",              desc: "Empêche tout déplacement inter-pays" },
+  { key: "mushtagramLocked", icon: "📵", label: "Bloquer Mushtagram",             desc: "Interdit l'accès au réseau social" },
+  { key: "bankLocked",       icon: "🏦", label: "Bloquer le compte bancaire",     desc: "Interdit les opérations bancaires" },
+  { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",              desc: "Interdit les échanges commerciaux (Bourse, Bazar, Échanges)" },
+  { key: "postLocked",       icon: "✉️", label: "Bloquer la Poste Impériale",     desc: "Interdit l'envoi et la réception de courrier" },
+];

@@ -2028,6 +2028,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         const sender = newCitizens[senderIdx];
         const target = newCitizens[targetIdx];
 
+        if (sender.guardianship?.active && sender.guardianship.rights?.marriageLocked) {
+          notify("Votre tuteur a restreint votre droit de contracter une union.", "error");
+          return;
+        }
+
         // Vérifier loi matrimoniale du pays de l'expéditeur
         const userCountry = (state.countries || []).find((c) => c.id === session.countryId);
         const structure = userCountry?.laws?.marriageStructure || "monogamie";
@@ -2071,6 +2076,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (userIdx === -1 || proposerIdx === -1) return;
         const user = newCitizens[userIdx];
         const proposer = newCitizens[proposerIdx];
+
+        if (user.guardianship?.active && user.guardianship.rights?.marriageLocked) {
+          notify("Votre tuteur a restreint votre droit de contracter une union.", "error");
+          return;
+        }
 
         const proposal = (user.marriageProposals || []).find((p) => p.fromId === proposerId);
         if (!proposal) return;
@@ -3627,6 +3637,44 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         saveState({ ...state, citizens: newCitizens });
         notify("Lien de filiation supprimé.", "info");
+      },
+
+      // Tutelle parentale : condition activable unilatéralement par un parent (père ou mère
+      // reconnu) sur son enfant devenu citoyen, même adulte — contrairement au mariage, pas
+      // besoin d'accord de l'enfant, l'autorité parentale est de fait tant que le lien existe.
+      onSetChildGuardianship: (childCitizenId, active) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const childIdx = newCitizens.findIndex((c) => c.id === childCitizenId);
+        if (childIdx === -1) { notify("Enfant introuvable.", "error"); return; }
+        const child = newCitizens[childIdx];
+        const isParent = String(child.fatherId) === String(session.id) || String(child.motherId) === String(session.id);
+        if (!isParent) { notify("Vous n'êtes pas reconnu(e) comme parent de ce citoyen.", "error"); return; }
+
+        newCitizens[childIdx] = active
+          ? { ...child, guardianship: { guardianId: session.id, guardianName: session.name, active: true, rights: child.guardianship?.guardianId === session.id ? (child.guardianship.rights || {}) : {}, since: Date.now() } }
+          : { ...child, guardianship: null };
+
+        saveState({ ...state, citizens: newCitizens });
+        notify(active ? `Tutelle établie sur ${child.name}.` : `Tutelle levée sur ${child.name}.`, active ? "success" : "info");
+      },
+
+      onSetChildRights: ({ childId, rights }) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const childIdx = newCitizens.findIndex((c) => c.id === childId);
+        if (childIdx === -1) { notify("Enfant introuvable.", "error"); return; }
+        const child = newCitizens[childIdx];
+        if (!child.guardianship?.active || String(child.guardianship.guardianId) !== String(session.id)) {
+          notify("Vous n'exercez pas de tutelle active sur ce citoyen.", "error");
+          return;
+        }
+        newCitizens[childIdx] = {
+          ...child,
+          guardianship: { ...child.guardianship, rights: { ...(child.guardianship.rights || {}), ...rights } },
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Droits de tutelle mis à jour.", "success");
       },
 
       // Validation admin des naissances soumises via la loi "requireChildApproval"

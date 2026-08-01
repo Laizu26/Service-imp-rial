@@ -714,6 +714,8 @@ export default function App() {
             onDivorce={actions.onDivorce}
             onDeclareChild={actions.onDeclareChild}
             onRemoveChild={actions.onRemoveChild}
+            onSetChildGuardianship={actions.onSetChildGuardianship}
+            onSetChildRights={actions.onSetChildRights}
             onSetParents={actions.onSetParents}
             sharedAccounts={state.sharedAccounts || {}}
             onSharedAccountDeposit={actions.onSharedAccountDeposit}

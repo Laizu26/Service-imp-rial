@@ -1182,6 +1182,7 @@ export default function MushtagramView({
   const mushtagramSpouseRights = (myCitizen?.spouses || []).find(
     s => s.dominantId && String(s.dominantId) !== myId && s.spouseRights
   )?.spouseRights || {};
+  const mushtagramGuardianRights = myCitizen?.guardianship?.active ? (myCitizen.guardianship.rights || {}) : {};
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
   const isPP = myCitizen?.mushtagramPublicPersonality === "approved";
   const recognizedEruditIds = useMemo(() =>
@@ -1486,7 +1487,7 @@ export default function MushtagramView({
     return mushtagramPosts.find(p => p.id === myCitizen.mushtagramPinned) || null;
   }, [myCitizen, mushtagramPosts]);
 
-  if (mushtagramSerfRights.mushtagramLocked || mushtagramSpouseRights.mushtagramLocked) {
+  if (mushtagramSerfRights.mushtagramLocked || mushtagramSpouseRights.mushtagramLocked || mushtagramGuardianRights.mushtagramLocked) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
         <span className="text-3xl">📵</span>
@@ -1494,6 +1495,8 @@ export default function MushtagramView({
         <p className="text-sm text-red-500 mt-1">
           {mushtagramSerfRights.mushtagramLocked
             ? "Votre employeur a bloqué votre accès à Mushtagram."
+            : mushtagramGuardianRights.mushtagramLocked
+            ? "Votre tuteur a bloqué votre accès à Mushtagram."
             : "Votre conjoint dominant a bloqué votre accès à Mushtagram."}
         </p>
       </div>

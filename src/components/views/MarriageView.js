@@ -20,6 +20,7 @@ import {
   MARRIAGE_DOMINANCE,
   MARRIAGE_INDISSOLUBLE_TYPES,
   FILIATION_TYPES,
+  CHILD_RIGHTS_LIST,
 } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
 
@@ -64,6 +65,49 @@ function SpouseRightsModal({ spouse, spouseUser, onClose, onSetSpouseRights }) {
               </div>
               <button
                 onClick={() => onSetSpouseRights({ spouseId: spouse.id, rights: { [key]: !rights[key] } })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${rights[key] ? "bg-red-500" : "bg-stone-300"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${rights[key] ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modale de gestion des droits de tutelle sur un enfant ──────────────────
+function ChildRightsModal({ child, onClose, onSetChildRights }) {
+  const rights = child.guardianship?.rights || {};
+  const name = child.name || "votre enfant";
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-amber-50">
+          <div className="w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-200 flex items-center justify-center flex-shrink-0">
+            <Lock size={16} className="text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Tutelle sur {name}</div>
+            <div className="text-[10px] text-stone-500">En tant que tuteur légal, vous pouvez restreindre son accès.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-2">
+          {CHILD_RIGHTS_LIST.map(({ key, icon, label, desc }) => (
+            <div key={key} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+              <div>
+                <div className="text-xs font-bold text-stone-700">{icon} {label}</div>
+                <div className="text-[10px] text-stone-400">{desc}</div>
+              </div>
+              <button
+                onClick={() => onSetChildRights({ childId: child.id, rights: { [key]: !rights[key] } })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${rights[key] ? "bg-red-500" : "bg-stone-300"}`}
               >
                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${rights[key] ? "translate-x-6" : "translate-x-1"}`} />
@@ -424,6 +468,8 @@ const MarriageView = ({
   onDivorce,
   onDeclareChild,
   onRemoveChild,
+  onSetChildGuardianship,
+  onSetChildRights,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
   onSetSpouseRights,
@@ -445,6 +491,9 @@ const MarriageView = ({
 
   // Registre matrimonial (unions passées : divorce, veuvage, rupture tutoriale)
   const [showMarriageHistory, setShowMarriageHistory] = useState(false);
+
+  // Modale de gestion des droits de tutelle sur un enfant
+  const [managingChildId, setManagingChildId] = useState(null);
 
   // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
   const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
@@ -1229,6 +1278,60 @@ const MarriageView = ({
                     {child.notes && (
                       <div className="text-[9px] text-stone-400 italic mt-1 border-t border-stone-100 pt-1">{child.notes}</div>
                     )}
+                    {linkedCitizen && (() => {
+                      const isRecognizedParent = String(linkedCitizen.fatherId) === String(user.id) || String(linkedCitizen.motherId) === String(user.id);
+                      const guardianship = linkedCitizen.guardianship;
+                      const iAmGuardian = guardianship?.active && String(guardianship.guardianId) === String(user.id);
+                      const activeChildRestrictions = CHILD_RIGHTS_LIST.filter((r) => guardianship?.rights?.[r.key]);
+                      if (!isRecognizedParent) return null;
+                      return (
+                        <div className="mt-2 pt-2 border-t border-amber-100 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {iAmGuardian ? (
+                              <>
+                                <span className="text-[9px] font-black uppercase text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
+                                  🛡️ Sous votre tutelle
+                                </span>
+                                <button
+                                  onClick={() => setManagingChildId(linkedCitizen.id)}
+                                  className="flex items-center gap-1 px-2 py-1 bg-purple-50 border border-purple-200 text-purple-600 text-[9px] font-black uppercase rounded-lg hover:bg-purple-100 transition-colors"
+                                >
+                                  <Lock size={10} /> Gérer les droits
+                                </button>
+                                {onSetChildGuardianship && (
+                                  <button
+                                    onClick={() => onSetChildGuardianship(linkedCitizen.id, false)}
+                                    className="px-2 py-1 bg-white border border-stone-200 text-stone-400 text-[9px] font-black uppercase rounded-lg hover:text-red-500 hover:border-red-200 transition-colors"
+                                  >
+                                    Lever la tutelle
+                                  </button>
+                                )}
+                              </>
+                            ) : guardianship?.active ? (
+                              <span className="text-[9px] font-bold text-stone-400 italic">Sous tutelle d'un autre parent</span>
+                            ) : (
+                              onSetChildGuardianship && (
+                                <button
+                                  onClick={() => onSetChildGuardianship(linkedCitizen.id, true)}
+                                  className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-black uppercase rounded-lg hover:bg-amber-100 transition-colors"
+                                >
+                                  🛡️ Établir la tutelle
+                                </button>
+                              )
+                            )}
+                          </div>
+                          {iAmGuardian && activeChildRestrictions.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {activeChildRestrictions.map((r) => (
+                                <span key={r.key} className="text-[8px] font-bold bg-red-100 text-red-700 border border-red-200 px-1.5 py-0.5 rounded-full">
+                                  {r.icon} {r.label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {onRemoveChild && (
                     <button
@@ -1470,6 +1573,18 @@ const MarriageView = ({
             spouseUser={targetSpouseUser}
             onClose={() => setRequisitioningSpouseId(null)}
             onRequisition={(payload) => onRequisitionSpouseMoney && onRequisitionSpouseMoney(payload)}
+          />
+        );
+      })()}
+
+      {managingChildId && (() => {
+        const managedChild = safeUsers.find((u) => u.id === managingChildId);
+        if (!managedChild) return null;
+        return (
+          <ChildRightsModal
+            child={managedChild}
+            onClose={() => setManagingChildId(null)}
+            onSetChildRights={(payload) => onSetChildRights && onSetChildRights(payload)}
           />
         );
       })()}

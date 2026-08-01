@@ -775,6 +775,8 @@ const CitizenLayout = (props) => {
     onSharedAccountDeposit,
     onSharedAccountWithdraw,
     onSetSpouseRights,
+    onSetChildGuardianship,
+    onSetChildRights,
     onProposeMarriageDominance,
     onAcceptMarriageDominance,
     onRejectMarriageDominance,
@@ -1042,14 +1044,17 @@ const CitizenLayout = (props) => {
     (c) => (c.employees || []).map(String).includes(String(user?.id))
   );
   const employerSerfRights = myEmployer?.employmentContracts?.[user?.id]?.serfRights || {};
+  // Tutelle parentale (condition activable unilatéralement par un parent sur son enfant
+  // devenu citoyen) — même principe, troisième source de restriction possible.
+  const guardianRights = user?.guardianship?.active ? (user.guardianship.rights || {}) : {};
   const combinedRestriction = {
-    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked),
-    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked),
-    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked),
-    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked),
-    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked),
+    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked || guardianRights.travelLocked),
+    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked || guardianRights.mushtagramLocked),
+    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked),
+    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked),
+    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked),
   };
-  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : "conjoint";
+  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : "conjoint");
 
   // canUsePost / canUseBank : visibilité de l'onglet dans la sidebar (statut d'esclave uniquement).
   // L'onglet reste visible même verrouillé par contrat de servage/conjoint — le blocage s'affiche
@@ -1694,7 +1699,7 @@ const CitizenLayout = (props) => {
                 onCancelTrade={onCancelTrade}
                 tradeProposals={tradeProposals}
                 marketLocked={!isSlave && combinedRestriction.marketLocked}
-                marketLockedByEmployer={!!employerSerfRights.marketLocked}
+                marketLockSource={restrictionSource("marketLocked")}
               />
             )}
 
@@ -1749,6 +1754,8 @@ const CitizenLayout = (props) => {
                   <p className="text-xs text-red-500">
                     {restrictionSource("postLocked") === "employeur"
                       ? "Votre employeur a restreint votre accès à la Poste Impériale dans le cadre de votre contrat."
+                      : restrictionSource("postLocked") === "tuteur"
+                      ? "Votre tuteur a restreint votre accès à la Poste Impériale."
                       : "Votre conjoint dominant a restreint votre accès à la Poste Impériale."}
                   </p>
                 </div>
@@ -1823,8 +1830,10 @@ const CitizenLayout = (props) => {
                     <div className="text-3xl">🚫</div>
                     <p className="font-black text-red-700 text-base">Voyage restreint</p>
                     <p className="text-xs text-red-500">
-                      {employerSerfRights.travelLocked
+                      {restrictionSource("travelLocked") === "employeur"
                         ? "Votre employeur a restreint vos droits de voyage dans le cadre de votre contrat."
+                        : restrictionSource("travelLocked") === "tuteur"
+                        ? "Votre tuteur a restreint vos droits de voyage."
                         : "Votre conjoint dominant a restreint vos droits de voyage."}
                     </p>
                   </div>
@@ -2804,6 +2813,8 @@ const CitizenLayout = (props) => {
                 onDivorce={onDivorce}
                 onDeclareChild={onDeclareChild}
                 onRemoveChild={onRemoveChild}
+                onSetChildGuardianship={onSetChildGuardianship}
+                onSetChildRights={onSetChildRights}
                 onSharedAccountDeposit={onSharedAccountDeposit}
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
                 onSetSpouseRights={onSetSpouseRights}
@@ -3205,8 +3216,10 @@ const CitizenLayout = (props) => {
                 <div className="text-3xl">🚫</div>
                 <p className="font-black text-red-700 text-base">Marché restreint</p>
                 <p className="text-xs text-red-500">
-                  {employerSerfRights.marketLocked
+                  {restrictionSource("marketLocked") === "employeur"
                     ? "Votre employeur a restreint vos droits de commerce dans le cadre de votre contrat."
+                    : restrictionSource("marketLocked") === "tuteur"
+                    ? "Votre tuteur a restreint vos droits de commerce."
                     : "Votre conjoint dominant a restreint vos droits de commerce."}
                 </p>
               </div>
