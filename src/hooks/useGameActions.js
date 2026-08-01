@@ -389,6 +389,11 @@ export const useGameActions = (session, state, saveState, notify) => {
           const dailyRate = prop.rental.dailyRate;
           if ((tenant.balance || 0) < dailyRate) {
             ns.properties[propIdx] = { ...ns.properties[propIdx], rental: null };
+            ns.propertyAlerts = [
+              ...(ns.propertyAlerts || []),
+              { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: prop.ownerId, type: "rent_failed", propertyId: prop.id, propertyName: prop.name, otherName: tenant.name, timestamp: Date.now() },
+              { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: tenant.id, type: "evicted_nonpayment", propertyId: prop.id, propertyName: prop.name, timestamp: Date.now() },
+            ];
             return;
           }
           ns.citizens[tenantIdx] = { ...ns.citizens[tenantIdx], balance: (ns.citizens[tenantIdx].balance || 0) - dailyRate };
@@ -402,6 +407,22 @@ export const useGameActions = (session, state, saveState, notify) => {
             if (ownerIdx !== -1) ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + dailyRate };
           }
           ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: tenant.name, toName: ownerName, amount: dailyRate, timestamp: Date.now(), reason: `Loyer : ${prop.name}`, type: "RENT" }, ...(ns.globalLedger || [])];
+        });
+
+        // --- Revenu passif des propriétés (champ "income", affiché mais jusqu'ici jamais versé) ---
+        (ns.properties || []).forEach((prop) => {
+          if (!prop.ownerId || !(prop.income > 0)) return;
+          let ownerName = prop.ownerName;
+          if (prop.ownerType === "COMPANY") {
+            const cIdx = (ns.companies || []).findIndex((c) => c.id === prop.ownerId);
+            if (cIdx !== -1) { ns.companies[cIdx] = { ...ns.companies[cIdx], balance: (ns.companies[cIdx].balance || 0) + prop.income }; ownerName = ns.companies[cIdx].name; }
+            else return;
+          } else {
+            const ownerIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
+            if (ownerIdx === -1) return;
+            ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + prop.income };
+          }
+          ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: prop.name, toName: ownerName, amount: prop.income, timestamp: Date.now(), reason: `Revenu — ${prop.name}`, type: "PROPERTY_INCOME" }, ...(ns.globalLedger || [])];
         });
 
         // --- Production journalière (Ferme) ---
@@ -455,6 +476,11 @@ export const useGameActions = (session, state, saveState, notify) => {
               const sIdx = (ns.citizens || []).findIndex((c) => c.id === s.id);
               if (sIdx !== -1) ns.citizens[sIdx] = { ...ns.citizens[sIdx], balance: (ns.citizens[sIdx].balance || 0) + s.salary };
               ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: prop.ownerName, toName: s.name, amount: s.salary, timestamp: Date.now(), reason: `Salaire (${s.role}) — ${prop.name}`, type: "PROPERTY_STAFF" }, ...(ns.globalLedger || [])];
+            } else {
+              ns.propertyAlerts = [
+                ...(ns.propertyAlerts || []),
+                { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: s.id, type: "staff_unpaid", propertyId: prop.id, propertyName: prop.name, amount: s.salary, timestamp: Date.now() },
+              ];
             }
           });
         });
@@ -4713,11 +4739,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           reason: `Achat propriété: ${prop.name}`,
           type: "PROPERTY_PURCHASE",
         };
+        const propertyAlerts = sellerIdx !== -1
+          ? [...(state.propertyAlerts || []), { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: prop.ownerId, type: "sold", propertyId: prop.id, propertyName: prop.name, otherName: buyer.name, amount: prop.salePrice, timestamp: Date.now() }]
+          : (state.propertyAlerts || []);
         saveState({
           ...state,
           citizens: newCitizens,
           properties,
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+          propertyAlerts,
         });
         notify(`Propriété "${prop.name}" acquise !`, "success");
       },
@@ -4783,6 +4813,11 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // Château: cachot
+      // Le cachot d'une propriété privée (Manoir, Bateau) reflète désormais une véritable
+      // incarcération — même mécanisme que le système judiciaire (onGuardImprison/
+      // onGuardRelease) : citizen.status passe à "Prisonnier", ce qui le restreint
+      // réellement (banque/voyage/marché) ailleurs dans le jeu, au lieu d'un simple
+      // enregistrement décoratif sans effet.
       onImprison: (propertyId, citizenId, reason) => {
         if (!session) return;
         const properties = [...(state.properties || [])];
@@ -4790,10 +4825,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (pIdx === -1) return;
         const citizen = (state.citizens || []).find((c) => c.id === citizenId);
         if (!citizen) return;
+        if (citizen.status === "Prisonnier") { notify("Ce citoyen est déjà incarcéré.", "error"); return; }
         const dungeon = [...(properties[pIdx].dungeon || [])];
         dungeon.push({ citizenId, citizenName: citizen.name, reason: reason || "Non précisé", since: Date.now() });
         properties[pIdx] = { ...properties[pIdx], dungeon };
-        saveState({ ...state, properties });
+        const newCitizens = (state.citizens || []).map((c) => c.id === citizenId ? { ...c, status: "Prisonnier" } : c);
+        saveState({ ...state, properties, citizens: newCitizens });
         notify(`${citizen.name} emprisonné(e) dans le cachot.`, "info");
       },
 
@@ -4802,9 +4839,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
         properties[pIdx] = { ...properties[pIdx], dungeon: (properties[pIdx].dungeon || []).filter((d) => d.citizenId !== citizenId) };
-        saveState({ ...state, properties });
-        notify("Prisonnier libéré.", "success");
+        const newCitizens = (state.citizens || []).map((c) => c.id === citizenId ? { ...c, status: "Actif" } : c);
+        saveState({ ...state, properties, citizens: newCitizens });
+        notify(`${citizen?.name || "Prisonnier"} libéré(e).`, "success");
       },
 
       // Château: audiences
@@ -5151,11 +5190,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           reason: `Loyer (1er jour) : ${prop.name}`,
           type: "RENT",
         };
+        const propertyAlerts = ownerIdx !== -1
+          ? [...(state.propertyAlerts || []), { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: prop.ownerId, type: "new_tenant", propertyId: prop.id, propertyName: prop.name, otherName: user.name, amount: prop.rental.dailyRate, timestamp: Date.now() }]
+          : (state.propertyAlerts || []);
         saveState({
           ...state,
           citizens: newCitizens,
           properties,
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+          propertyAlerts,
         });
         notify(`Vous louez "${prop.name}" pour ${formatMoney(prop.rental.dailyRate)}/jour.`, "success");
       },
@@ -5169,8 +5212,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
         if (!prop.rental || !prop.rental.tenantId) { notify("Aucun locataire.", "error"); return; }
         const tenantName = prop.rental.tenantName;
+        const tenantId = prop.rental.tenantId;
         properties[pIdx] = { ...prop, rental: { ...prop.rental, tenantId: null, tenantName: null, startDate: null } };
-        saveState({ ...state, properties });
+        const propertyAlerts = [...(state.propertyAlerts || []), { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: tenantId, type: "evicted", propertyId: prop.id, propertyName: prop.name, timestamp: Date.now() }];
+        saveState({ ...state, properties, propertyAlerts });
         notify(`${tenantName} a été expulsé(e) de "${prop.name}".`, "info");
       },
 

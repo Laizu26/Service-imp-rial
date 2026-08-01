@@ -3684,6 +3684,7 @@ const CitizenLayout = (props) => {
                     companies={safeCompanies}
                     users={safeUsers}
                     families={families}
+                    properties={properties}
                     gameDate={gd}
                     onClose={() => setSelectedCitizen(null)}
                     onAddJournalEntry={onAddJournalEntry}

@@ -286,6 +286,35 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes propriétés (loyer, locataire, vente, salaire) ---
+    if (prefs.finances !== false) {
+      const PROPERTY_ALERT_META = {
+        sold:               { title: "Bien vendu",             icon: "Building2", desc: (a) => `${a.propertyName} vendu à ${a.otherName} — ${formatMoney(a.amount)}` },
+        new_tenant:         { title: "Nouveau locataire",       icon: "Building2", desc: (a) => `${a.otherName} loue ${a.propertyName} — ${formatMoney(a.amount)}/jour` },
+        evicted:            { title: "Expulsion",               icon: "Building2", desc: (a) => `Vous avez été expulsé(e) de ${a.propertyName}` },
+        evicted_nonpayment: { title: "Bail résilié (impayé)",    icon: "Building2", desc: (a) => `Loyer impayé — vous avez quitté ${a.propertyName}` },
+        rent_failed:        { title: "Loyer impayé",             icon: "Building2", desc: (a) => `${a.otherName} n'a pas pu payer le loyer de ${a.propertyName}` },
+        staff_unpaid:       { title: "Salaire impayé",           icon: "Building2", desc: (a) => `Le propriétaire de ${a.propertyName} n'a pas pu vous verser ${formatMoney(a.amount)}` },
+      };
+      (state?.propertyAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = PROPERTY_ALERT_META[a.type];
+          if (!meta) return;
+          notifs.push({
+            id: `palert_${a.id}`,
+            type: `property_${a.type}`,
+            category: "Finances",
+            title: meta.title,
+            description: meta.desc(a),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "properties",
+            icon: meta.icon,
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -358,7 +387,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

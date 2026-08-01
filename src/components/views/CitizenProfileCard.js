@@ -12,10 +12,10 @@ import {
   X,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
-import { getCitizenAge, formatRPDate, getRoleTheme } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, getRoleTheme, formatMoney } from "../../lib/gameUtils";
 import { normalizeBranches, getFamilyForCitizen, getBranchForCitizen, getFamilyDisplayName } from "./FamiliesAdminView";
 
-const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], families = [], onClose, gameDate }) => {
+const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [], families = [], properties = [], onClose, gameDate }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   if (!citizen) return null;
 
@@ -32,6 +32,8 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
     (c) => (c.employees || []).includes(citizen.id) || (c.slaves || []).includes(citizen.id)
   );
   const slaves = (users || []).filter((u) => u.ownerId === citizen.id);
+  const ownedProperties = (Array.isArray(properties) ? properties : []).filter((p) => p.ownerId === citizen.id);
+  const propertiesValue = ownedProperties.reduce((s, p) => s + (p.price || 0), 0);
 
   return (
     <div className={`bg-[#fdf6e3] text-stone-900 rounded-lg shadow-2xl border-t-8 ${theme.border} overflow-hidden`}>
@@ -114,6 +116,11 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
                     <Building2 size={9} /> Patron
                   </span>
                 )}
+                {ownedProperties.length > 0 && (
+                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-stone-100 text-stone-700 border border-stone-300 flex items-center gap-1">
+                    <MapPin size={9} /> {ownedProperties.length} bien{ownedProperties.length > 1 ? "s" : ""}
+                  </span>
+                )}
                 {slaves.length > 0 && (
                   <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-stone-200 text-stone-700 border border-stone-300 flex items-center gap-1">
                     <Gavel size={9} /> {slaves.length} esclave{slaves.length > 1 ? "s" : ""}
@@ -169,6 +176,16 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
             <div className="font-bold text-stone-800 flex items-center gap-1">
               <Building2 size={12} className="text-stone-400" />
               {employedCompany.name}
+            </div>
+          </div>
+        )}
+        {ownedProperties.length > 0 && (
+          <div>
+            <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Patrimoine immobilier</span>
+            <div className="font-bold text-stone-800 flex items-center gap-1">
+              <MapPin size={12} className="text-stone-400" />
+              {ownedProperties.length} bien{ownedProperties.length > 1 ? "s" : ""}
+              {propertiesValue > 0 && <span className="text-xs text-stone-500 font-normal ml-1">— {formatMoney(propertiesValue)}</span>}
             </div>
           </div>
         )}

@@ -10,6 +10,7 @@ import {
   MapPin,
   Crown,
   Lock,
+  Building2,
   X,
   CheckCheck,
   ChevronRight,
@@ -25,6 +26,7 @@ const ICON_MAP = {
   MapPin,
   Crown,
   Lock,
+  Building2,
 };
 
 const CATEGORY_COLORS = {
