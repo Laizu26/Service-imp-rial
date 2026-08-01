@@ -120,6 +120,134 @@ function ChildRightsModal({ child, onClose, onSetChildRights }) {
   );
 }
 
+// ── Modale de mariage arrangé au nom d'un enfant sous tutelle active ────────
+function GuardianMarriageModal({ child, safeUsers, onClose, onPropose }) {
+  const [search, setSearch] = useState("");
+  const [targetId, setTargetId] = useState("");
+  const [contractType, setContractType] = useState("sacre");
+  const [regime, setRegime] = useState("separation");
+  const [dotType, setDotType] = useState("aucune");
+  const [dot, setDot] = useState(0);
+  const [dominance, setDominance] = useState("egal");
+
+  const target = safeUsers.find((u) => u.id === targetId);
+  const results = search.trim()
+    ? safeUsers.filter((u) => u.id !== child.id && u.name?.toLowerCase().includes(search.toLowerCase())).slice(0, 6)
+    : [];
+
+  const submit = () => {
+    if (!targetId) return;
+    onPropose(child.id, targetId, { contractType, regime, dotType, dot: parseFloat(dot) || 0, dominance });
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-rose-50 shrink-0">
+          <div className="w-10 h-10 rounded-full bg-rose-100 border-2 border-rose-200 flex items-center justify-center flex-shrink-0">
+            <Heart size={16} className="text-rose-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Arranger un mariage — {child.name}</div>
+            <div className="text-[10px] text-stone-500">En tant que tuteur, vous proposez cette union en son nom.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4 overflow-y-auto">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Le prétendant(e)</label>
+            {target ? (
+              <div className="flex items-center justify-between gap-2 p-2.5 bg-rose-50 border-2 border-rose-300 rounded-xl">
+                <span className="text-sm font-bold text-stone-800">{target.name}</span>
+                <button onClick={() => { setTargetId(""); setSearch(""); }} className="text-stone-400 hover:text-stone-600"><X size={14} /></button>
+              </div>
+            ) : (
+              <>
+                <input value={search} onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Rechercher un citoyen…"
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+                {results.length > 0 && (
+                  <div className="border border-stone-200 rounded-xl overflow-hidden divide-y divide-stone-100 mt-1">
+                    {results.map((u) => (
+                      <button key={u.id} onClick={() => { setTargetId(u.id); setSearch(""); }}
+                        className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-rose-50 transition-colors">
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Type d'union</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {MARRIAGE_CONTRACT_TYPES.map((ct) => (
+                <button key={ct.id} onClick={() => setContractType(ct.id)}
+                  className={`p-2 rounded-lg border text-left text-xs transition-all ${contractType === ct.id ? "border-rose-500 bg-rose-50 font-bold text-rose-700" : "border-stone-200 text-stone-600 hover:border-rose-300"}`}>
+                  {ct.emoji} {ct.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Régime</label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {MARRIAGE_REGIMES.map((r) => (
+                <button key={r.id} onClick={() => setRegime(r.id)}
+                  className={`p-2 rounded-lg border text-left text-xs transition-all ${regime === r.id ? "border-rose-500 bg-rose-50 font-bold text-rose-700" : "border-stone-200 text-stone-600 hover:border-rose-300"}`}>
+                  {r.emoji} {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Domination</label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {MARRIAGE_DOMINANCE.filter((d) => ["egal", "proposant_dominant", "cible_dominante"].includes(d.id)).map((d) => (
+                <button key={d.id} onClick={() => setDominance(d.id)}
+                  className={`p-2 rounded-lg border text-left text-xs transition-all ${dominance === d.id ? "border-purple-500 bg-purple-50 font-bold text-purple-700" : "border-stone-200 text-stone-600 hover:border-purple-300"}`}>
+                  {d.emoji} {d.id === "proposant_dominant" ? `${child.name}, dominant(e)` : d.id === "cible_dominante" ? "Partenaire, dominant(e)" : d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block">Dot</label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {MARRIAGE_DOT_TYPES.map((d) => (
+                <button key={d.id} onClick={() => setDotType(d.id)}
+                  className={`p-2 rounded-lg border text-left text-xs transition-all ${dotType === d.id ? "border-amber-500 bg-amber-50 font-bold text-amber-700" : "border-stone-200 text-stone-600 hover:border-amber-300"}`}>
+                  {d.emoji} {d.label}
+                </button>
+              ))}
+            </div>
+            {dotType !== "aucune" && (
+              <input type="number" min="0" value={dot} onChange={(e) => setDot(e.target.value)}
+                placeholder="Montant de la dot"
+                className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-amber-300 mt-1.5" />
+            )}
+          </div>
+
+          <button onClick={submit} disabled={!targetId}
+            className="w-full py-2.5 bg-rose-600 text-white text-xs font-black uppercase rounded-xl hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            Envoyer la proposition
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Modale de réquisition du trésor personnel du conjoint dominé ───────────
 function RequisitionModal({ spouse, spouseUser, onClose, onRequisition }) {
   const [amount, setAmount] = useState("");
@@ -470,6 +598,9 @@ const MarriageView = ({
   onRemoveChild,
   onSetChildGuardianship,
   onSetChildRights,
+  onGuardianProposeMarriage,
+  onGuardianAcceptMarriage,
+  onGuardianRejectMarriage,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
   onSetSpouseRights,
@@ -494,6 +625,9 @@ const MarriageView = ({
 
   // Modale de gestion des droits de tutelle sur un enfant
   const [managingChildId, setManagingChildId] = useState(null);
+
+  // Modale de mariage arrangé au nom d'un enfant sous tutelle active
+  const [arrangingMarriageChildId, setArrangingMarriageChildId] = useState(null);
 
   // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
   const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
@@ -1298,6 +1432,14 @@ const MarriageView = ({
                                 >
                                   <Lock size={10} /> Gérer les droits
                                 </button>
+                                {onGuardianProposeMarriage && (linkedCitizen.spouses || []).length === 0 && (
+                                  <button
+                                    onClick={() => setArrangingMarriageChildId(linkedCitizen.id)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-rose-50 border border-rose-200 text-rose-600 text-[9px] font-black uppercase rounded-lg hover:bg-rose-100 transition-colors"
+                                  >
+                                    <Heart size={10} /> Arranger un mariage
+                                  </button>
+                                )}
                                 {onSetChildGuardianship && (
                                   <button
                                     onClick={() => onSetChildGuardianship(linkedCitizen.id, false)}
@@ -1327,6 +1469,33 @@ const MarriageView = ({
                                   {r.icon} {r.label}
                                 </span>
                               ))}
+                            </div>
+                          )}
+                          {iAmGuardian && (linkedCitizen.marriageProposals || []).length > 0 && (
+                            <div className="space-y-1.5 pt-1.5 border-t border-amber-100">
+                              <div className="text-[9px] font-black uppercase tracking-widest text-rose-500">Propositions reçues pour {linkedCitizen.name}</div>
+                              {linkedCitizen.marriageProposals.map((proposal) => {
+                                const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === proposal.contractType);
+                                return (
+                                  <div key={proposal.fromId} className="flex items-center justify-between gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+                                    <span className="text-xs font-bold text-stone-700">{ct?.emoji || "💍"} {proposal.fromName}</span>
+                                    <div className="flex gap-1.5 shrink-0">
+                                      <button
+                                        onClick={() => onGuardianAcceptMarriage && onGuardianAcceptMarriage(linkedCitizen.id, proposal.fromId)}
+                                        className="px-2 py-1 bg-rose-600 text-white text-[9px] font-black uppercase rounded-lg hover:bg-rose-500"
+                                      >
+                                        Consentir
+                                      </button>
+                                      <button
+                                        onClick={() => onGuardianRejectMarriage && onGuardianRejectMarriage(linkedCitizen.id, proposal.fromId)}
+                                        className="px-2 py-1 bg-white border border-stone-200 text-stone-500 text-[9px] font-black uppercase rounded-lg hover:text-red-500"
+                                      >
+                                        Décliner
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -1585,6 +1754,22 @@ const MarriageView = ({
             child={managedChild}
             onClose={() => setManagingChildId(null)}
             onSetChildRights={(payload) => onSetChildRights && onSetChildRights(payload)}
+          />
+        );
+      })()}
+
+      {arrangingMarriageChildId && (() => {
+        const arrangedChild = safeUsers.find((u) => u.id === arrangingMarriageChildId);
+        if (!arrangedChild) return null;
+        return (
+          <GuardianMarriageModal
+            child={arrangedChild}
+            safeUsers={safeUsers}
+            onClose={() => setArrangingMarriageChildId(null)}
+            onPropose={(childId, targetId, contractData) => {
+              onGuardianProposeMarriage && onGuardianProposeMarriage(childId, targetId, contractData);
+              setArrangingMarriageChildId(null);
+            }}
           />
         );
       })()}

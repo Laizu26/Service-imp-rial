@@ -3677,6 +3677,154 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Droits de tutelle mis à jour.", "success");
       },
 
+      // --- MARIAGE ARRANGÉ (au nom d'un enfant sous tutelle active) ---
+      // Même principe que le mariage arrangé pour un esclave (tutelle du propriétaire),
+      // mais l'autorisation repose sur une tutelle parentale active plutôt que la propriété.
+
+      onGuardianProposeMarriage: (childId, targetId, contractData = {}) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const childIdx = newCitizens.findIndex((c) => c.id === childId);
+        const targetIdx = newCitizens.findIndex((c) => c.id === targetId);
+        if (childIdx === -1 || targetIdx === -1) return;
+        const child = newCitizens[childIdx];
+        const target = newCitizens[targetIdx];
+        if (!child.guardianship?.active || String(child.guardianship.guardianId) !== String(session.id)) {
+          notify("Vous n'exercez pas de tutelle active sur ce citoyen.", "error");
+          return;
+        }
+
+        const childCountry = (state.countries || []).find((c) => c.id === child.countryId);
+        const structure = childCountry?.laws?.marriageStructure || "monogamie";
+        const childSpouses = child.spouses || (child.spouseId ? [{ id: child.spouseId }] : []);
+        const targetSpouses = target.spouses || (target.spouseId ? [{ id: target.spouseId }] : []);
+        if (structure === "monogamie") {
+          if (childSpouses.length >= 1) { notify(`${child.name} est déjà lié(e) par les vœux.`, "error"); return; }
+          if (targetSpouses.length >= 1) { notify(`${target.name} est déjà lié(e) par les vœux.`, "error"); return; }
+        }
+        if (childSpouses.some((s) => s.id === targetId)) { notify("Leurs destins sont déjà liés.", "error"); return; }
+        if ((target.marriageProposals || []).some((p) => p.fromId === childId)) { notify("Une proposition a déjà été envoyée.", "error"); return; }
+
+        const defaultFiliation = childCountry?.laws?.marriageDefaultFiliation || "patrilineaire";
+        newCitizens[targetIdx] = {
+          ...target,
+          marriageProposals: [...(target.marriageProposals || []), {
+            fromId: childId,
+            fromName: child.name,
+            timestamp: Date.now(),
+            contractType: contractData.contractType || "sacre",
+            regime: contractData.regime || "separation",
+            dotType: contractData.dotType || "aucune",
+            dot: contractData.dot || 0,
+            dominance: contractData.dominance || "egal",
+            filiation: contractData.filiation || defaultFiliation,
+            clauses: contractData.clauses || "",
+          }],
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Proposition d'union envoyée à ${target.name} au nom de ${child.name}.`, "success");
+      },
+
+      onGuardianAcceptMarriage: (childId, proposerId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const childIdx = newCitizens.findIndex((c) => c.id === childId);
+        const proposerIdx = newCitizens.findIndex((c) => c.id === proposerId);
+        if (childIdx === -1 || proposerIdx === -1) return;
+        const child = newCitizens[childIdx];
+        const proposer = newCitizens[proposerIdx];
+        if (!child.guardianship?.active || String(child.guardianship.guardianId) !== String(session.id)) {
+          notify("Vous n'exercez pas de tutelle active sur ce citoyen.", "error");
+          return;
+        }
+
+        const proposal = (child.marriageProposals || []).find((p) => p.fromId === proposerId);
+        if (!proposal) return;
+
+        const contractType = proposal.contractType || "sacre";
+        const regime = proposal.regime || "separation";
+        const dotType = proposal.dotType || "aucune";
+        const dot = proposal.dot || 0;
+        const dominance = proposal.dominance || "egal";
+        const clauses = proposal.clauses || "";
+        const date = Date.now();
+
+        let filiation = proposal.filiation || "patrilineaire";
+        if (dominance === "epoux_dominant" && filiation !== "bilineaire" && filiation !== "cognatique") filiation = "patrilineaire";
+        else if (dominance === "epouse_dominante" && filiation !== "bilineaire" && filiation !== "cognatique") filiation = "matrilineaire";
+
+        let dominantIdForChild = null;
+        let dominantIdForProposer = null;
+        if (dominance === "proposant_dominant") {
+          dominantIdForChild = proposerId;
+          dominantIdForProposer = proposerId;
+        } else if (dominance === "cible_dominante") {
+          dominantIdForChild = childId;
+          dominantIdForProposer = childId;
+        }
+
+        if (dot > 0 && dotType !== "aucune") {
+          if (dotType === "dotal_epouse") {
+            if ((newCitizens[childIdx].balance || 0) < dot) { notify("Trésor insuffisant pour honorer la dot.", "error"); return; }
+            newCitizens[childIdx] = { ...newCitizens[childIdx], balance: (newCitizens[childIdx].balance || 0) - dot };
+            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (newCitizens[proposerIdx].balance || 0) + dot };
+          } else if (dotType === "dotal_epoux") {
+            if ((newCitizens[proposerIdx].balance || 0) < dot) { notify("Trésor du prétendant insuffisant.", "error"); return; }
+            newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], balance: (newCitizens[proposerIdx].balance || 0) - dot };
+            newCitizens[childIdx] = { ...newCitizens[childIdx], balance: (newCitizens[childIdx].balance || 0) + dot };
+          }
+        }
+
+        const pairKey = [childId, proposerId].sort().join("_");
+        const spouseEntryForChild = { id: proposerId, name: proposer.name, contractType, regime, dotType, dot, dominance, dominantId: dominantIdForChild, filiation, clauses, date,
+          ...(regime === "communaute" ? { sharedBalanceKey: pairKey } : {}),
+          ...(regime === "fief_conjoint" ? { fiefBalanceKey: pairKey } : {}),
+        };
+        const spouseEntryForProposer = { id: childId, name: child.name, contractType, regime, dotType, dot, dominance, dominantId: dominantIdForProposer, filiation, clauses, date,
+          ...(regime === "communaute" ? { sharedBalanceKey: pairKey } : {}),
+          ...(regime === "fief_conjoint" ? { fiefBalanceKey: pairKey } : {}),
+        };
+
+        const childSpouses = [...(newCitizens[childIdx].spouses || []), spouseEntryForChild];
+        const proposerSpouses = [...(newCitizens[proposerIdx].spouses || []), spouseEntryForProposer];
+
+        const sharedAccounts = { ...(state.sharedAccounts || {}) };
+        if (regime === "communaute" && !(pairKey in sharedAccounts)) {
+          sharedAccounts[pairKey] = { type: "commun", balance: 0, members: [childId, proposerId] };
+        }
+        if (regime === "fief_conjoint" && !(pairKey in sharedAccounts)) {
+          let fiefDominantId = null;
+          if (dominance === "proposant_dominant") fiefDominantId = proposerId;
+          else if (dominance === "cible_dominante") fiefDominantId = childId;
+          sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [childId, proposerId], dominance, fiefDominantId };
+        }
+
+        newCitizens[childIdx] = { ...newCitizens[childIdx], spouseId: childSpouses[0]?.id || proposerId, spouses: childSpouses,
+          marriageProposals: (child.marriageProposals || []).filter((p) => p.fromId !== proposerId) };
+        newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], spouseId: proposerSpouses[0]?.id || childId, spouses: proposerSpouses };
+        saveState({ ...state, citizens: newCitizens, sharedAccounts });
+        const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
+        notify(`${child.name} est désormais uni(e) à ${proposer.name} par ${ctLabel}.`, "success");
+      },
+
+      onGuardianRejectMarriage: (childId, proposerId) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const childIdx = newCitizens.findIndex((c) => c.id === childId);
+        if (childIdx === -1) return;
+        const child = newCitizens[childIdx];
+        if (!child.guardianship?.active || String(child.guardianship.guardianId) !== String(session.id)) {
+          notify("Vous n'exercez pas de tutelle active sur ce citoyen.", "error");
+          return;
+        }
+        newCitizens[childIdx] = {
+          ...child,
+          marriageProposals: (child.marriageProposals || []).filter((p) => p.fromId !== proposerId),
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("La proposition d'union a été déclinée.", "info");
+      },
+
       // Validation admin des naissances soumises via la loi "requireChildApproval"
       // (voir onDeclareChild) — reprend la même logique d'ajout que la déclaration directe.
       onApprovePendingChild: (pendingId) => {

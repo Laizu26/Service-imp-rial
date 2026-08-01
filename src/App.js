@@ -716,6 +716,9 @@ export default function App() {
             onRemoveChild={actions.onRemoveChild}
             onSetChildGuardianship={actions.onSetChildGuardianship}
             onSetChildRights={actions.onSetChildRights}
+            onGuardianProposeMarriage={actions.onGuardianProposeMarriage}
+            onGuardianAcceptMarriage={actions.onGuardianAcceptMarriage}
+            onGuardianRejectMarriage={actions.onGuardianRejectMarriage}
             onSetParents={actions.onSetParents}
             sharedAccounts={state.sharedAccounts || {}}
             onSharedAccountDeposit={actions.onSharedAccountDeposit}
