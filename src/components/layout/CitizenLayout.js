@@ -2853,6 +2853,7 @@ const CitizenLayout = (props) => {
                 onGuardianProposeMarriage={onGuardianProposeMarriage}
                 onGuardianAcceptMarriage={onGuardianAcceptMarriage}
                 onGuardianRejectMarriage={onGuardianRejectMarriage}
+                onSetParents={onSetParents}
                 onSharedAccountDeposit={onSharedAccountDeposit}
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
                 onSetSpouseRights={onSetSpouseRights}

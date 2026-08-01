@@ -598,8 +598,120 @@ function SharedAccountPanel({ pairKey, account, resolvedDominance, resolvedDomin
   );
 }
 
-// ── Section Parents & Fratrie (lecture seule) ─────────────────────────────
-function ParentsSection({ user, safeUsers }) {
+// ── Modale de définition d'un parent : citoyen existant ou NPC ─────────────
+function EditParentModal({ type, userId, currentId, currentName, safeUsers, onClose, onSave }) {
+  const [mode, setMode] = useState(currentId ? "citizen" : "npc");
+  const [search, setSearch] = useState("");
+  const [citizenId, setCitizenId] = useState(currentId || "");
+  const [citizenName, setCitizenName] = useState(currentId ? (currentName || "") : "");
+  const [npcName, setNpcName] = useState(!currentId ? (currentName || "") : "");
+
+  const label = type === "father" ? "Père" : "Mère";
+  const results = search.trim()
+    ? safeUsers.filter((u) => u.id !== userId && u.name?.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    : [];
+
+  const save = () => {
+    if (mode === "citizen") {
+      if (!citizenId) return;
+      onSave({ id: citizenId, name: citizenName });
+    } else {
+      if (!npcName.trim()) return;
+      onSave({ id: null, name: npcName.trim() });
+    }
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-stone-50">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${type === "father" ? "bg-blue-100 border-2 border-blue-200" : "bg-pink-100 border-2 border-pink-200"}`}>
+            <User size={16} className={type === "father" ? "text-blue-500" : "text-pink-500"} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Définir — {label}</div>
+            <div className="text-[10px] text-stone-500">Un citoyen existant, ou un personnage (NPC).</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode("citizen")}
+              className={`flex-1 py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${mode === "citizen" ? "border-stone-500 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+            >
+              Citoyen existant
+            </button>
+            <button
+              onClick={() => setMode("npc")}
+              className={`flex-1 py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${mode === "npc" ? "border-stone-500 bg-stone-50 text-stone-700" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+            >
+              Personnage (NPC)
+            </button>
+          </div>
+
+          {mode === "citizen" ? (
+            <div className="space-y-1">
+              {citizenId ? (
+                <div className="flex items-center gap-3 p-3 bg-stone-50 border-2 border-stone-200 rounded-xl">
+                  <User size={14} className="text-stone-400 shrink-0" />
+                  <span className="flex-1 font-bold text-stone-700 text-sm">{citizenName}</span>
+                  <button onClick={() => { setCitizenId(""); setCitizenName(""); setSearch(""); }} className="text-stone-400 hover:text-red-500">✕</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-400">
+                    <Search size={14} className="text-stone-300 shrink-0" />
+                    <input
+                      className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                      placeholder="Nom du citoyen…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  {search && (
+                    <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                      {results.map((u) => (
+                        <button key={u.id} onClick={() => { setCitizenId(u.id); setCitizenName(u.name); setSearch(""); }}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-50 flex items-center gap-2 transition-colors">
+                          <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
+                        </button>
+                      ))}
+                      {results.length === 0 && (
+                        <div className="text-xs text-stone-400 italic text-center py-2">Aucun citoyen trouvé.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <input
+              className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold focus:border-stone-400 text-sm"
+              placeholder="Nom du personnage…"
+              value={npcName}
+              onChange={(e) => setNpcName(e.target.value)}
+            />
+          )}
+
+          <button onClick={save} disabled={mode === "citizen" ? !citizenId : !npcName.trim()}
+            className="w-full py-2.5 bg-stone-800 text-white text-xs font-black uppercase rounded-xl hover:bg-stone-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Section Parents & Fratrie ──────────────────────────────────────────────
+function ParentsSection({ user, safeUsers, onSetParents }) {
+  const [editingParentType, setEditingParentType] = useState(null); // "father" | "mother" | null
   const father = user.fatherId ? safeUsers.find((c) => c.id === user.fatherId) : null;
   const mother = user.motherId ? safeUsers.find((c) => c.id === user.motherId) : null;
 
@@ -628,6 +740,15 @@ function ParentsSection({ user, safeUsers }) {
           <div className="text-xs text-stone-400 italic">Non défini</div>
         )}
       </div>
+      {onSetParents && (
+        <button
+          onClick={() => setEditingParentType(type)}
+          className="text-stone-400 hover:text-stone-700 p-1 rounded shrink-0"
+          title={`Définir — ${label}`}
+        >
+          <Edit3 size={13} />
+        </button>
+      )}
     </div>
   );
 
@@ -674,6 +795,24 @@ function ParentsSection({ user, safeUsers }) {
           Aucun parent déclaré.
         </div>
       )}
+
+      {editingParentType && (
+        <EditParentModal
+          type={editingParentType}
+          userId={user.id}
+          currentId={editingParentType === "father" ? user.fatherId : user.motherId}
+          currentName={editingParentType === "father" ? (father?.name || user.fatherName) : (mother?.name || user.motherName)}
+          safeUsers={safeUsers}
+          onClose={() => setEditingParentType(null)}
+          onSave={({ id, name }) => {
+            const payload = editingParentType === "father"
+              ? { fatherId: id, fatherName: name }
+              : { motherId: id, motherName: name };
+            onSetParents && onSetParents(user.id, payload);
+            setEditingParentType(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -697,6 +836,7 @@ const MarriageView = ({
   onGuardianProposeMarriage,
   onGuardianAcceptMarriage,
   onGuardianRejectMarriage,
+  onSetParents,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
   onSetSpouseRights,
@@ -1484,7 +1624,7 @@ const MarriageView = ({
       </div>
 
       {/* ── MES PARENTS & FRATRIE ── */}
-      <ParentsSection user={user} safeUsers={safeUsers} />
+      <ParentsSection user={user} safeUsers={safeUsers} onSetParents={onSetParents} />
 
       {/* ── ENFANTS & DESCENDANCE ── */}
       <div className="border-t-4 border-amber-200 bg-amber-50/40 p-5 space-y-4">

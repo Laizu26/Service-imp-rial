@@ -4046,27 +4046,34 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Déclaration de ${pending.childData?.name || "l'enfant"} refusée.`, "info");
       },
 
-      onSetParents: (citizenId, { fatherId, motherId }) => {
+      // Un citoyen ne peut définir que sa propre filiation. Chaque parent peut être un
+      // citoyen existant (fatherId/motherId résolu) ou un personnage NPC (id null, nom
+      // libre) — même principe que le mode NPC déjà disponible pour les enfants.
+      onSetParents: (citizenId, { fatherId, fatherName, motherId, motherName }) => {
+        if (!session) return;
+        if (String(session.id) !== String(citizenId)) { notify("Vous ne pouvez modifier que votre propre filiation.", "error"); return; }
         const newCitizens = [...(state.citizens || [])];
         const idx = newCitizens.findIndex((c) => c.id === citizenId);
         if (idx === -1) return;
         const updates = {};
         if (fatherId !== undefined) {
-          updates.fatherId = fatherId || null;
           if (fatherId) {
             const father = newCitizens.find((c) => c.id === fatherId);
-            updates.fatherName = father ? father.name : null;
+            updates.fatherId = fatherId;
+            updates.fatherName = father ? father.name : (fatherName || null);
           } else {
-            updates.fatherName = null;
+            updates.fatherId = null;
+            updates.fatherName = fatherName ? String(fatherName).trim().slice(0, 80) : null;
           }
         }
         if (motherId !== undefined) {
-          updates.motherId = motherId || null;
           if (motherId) {
             const mother = newCitizens.find((c) => c.id === motherId);
-            updates.motherName = mother ? mother.name : null;
+            updates.motherId = motherId;
+            updates.motherName = mother ? mother.name : (motherName || null);
           } else {
-            updates.motherName = null;
+            updates.motherId = null;
+            updates.motherName = motherName ? String(motherName).trim().slice(0, 80) : null;
           }
         }
         newCitizens[idx] = { ...newCitizens[idx], ...updates };
