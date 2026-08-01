@@ -29,7 +29,7 @@ const PropertyDetailView = ({
   onSetupRooms, onBookRoom, onCheckoutRoom,
   onPostTavernMessage, onPostRumor, onDeleteRumor,
   onBuyFromMenu, onBuyFromShop,
-  onAddPropertyStaff, onRemovePropertyStaff,
+  onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
   onAddPropertyGuest, onRemovePropertyGuest,
   onAddPropertyEvent, onRemovePropertyEvent,
   onBack,
@@ -41,6 +41,9 @@ const PropertyDetailView = ({
   const [staffRole, setStaffRole] = useState("");
   const [staffSalary, setStaffSalary] = useState("");
   const [guestCitizenId, setGuestCitizenId] = useState("");
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [editStaffRole, setEditStaffRole] = useState("");
+  const [editStaffSalary, setEditStaffSalary] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [eventDesc, setEventDesc] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -123,26 +126,6 @@ const PropertyDetailView = ({
             </div>
           </Card>
 
-          {/* Cachot */}
-          <Card title="Cachot" icon={Lock}>
-            <div className="space-y-2">
-              {(prop.dungeon || []).length === 0 && <p className="text-stone-400 text-xs italic">Le cachot est vide.</p>}
-              {(prop.dungeon || []).map((d) => (
-                <div key={d.citizenId} className="flex items-center justify-between bg-red-50 border border-red-200 rounded px-3 py-2 text-xs">
-                  <div><span className="font-bold text-red-700">{d.citizenName}</span> — <span className="text-red-500">{d.reason}</span></div>
-                  {isOwner && <button onClick={() => onReleasePrisoner(prop.id, d.citizenId)} className="text-green-600 hover:text-green-500 text-[10px] font-bold uppercase">Libérer</button>}
-                </div>
-              ))}
-              {isOwner && (
-                <div className="flex gap-2 mt-2">
-                  <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setPrisonCitizen} value={prisonCitizen} placeholder="Emprisonner..." /></div>
-                  <input className="w-32 p-1.5 border rounded text-xs" placeholder="Motif" value={prisonReason} onChange={(e) => setPrisonReason(e.target.value)} />
-                  <button onClick={() => { if (prisonCitizen) { onImprison(prop.id, prisonCitizen, prisonReason); setPrisonCitizen(""); setPrisonReason(""); } }} disabled={!prisonCitizen} className="bg-red-700 text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase disabled:opacity-50">Enfermer</button>
-                </div>
-              )}
-            </div>
-          </Card>
-
           {/* Audiences */}
           <Card title="Salle du Trône — Audiences" icon={Crown}>
             <div className="space-y-2">
@@ -168,6 +151,28 @@ const PropertyDetailView = ({
             </div>
           </Card>
         </>
+      )}
+
+      {/* === CHÂTEAU / BATEAU : Cachot (ou cale, pour un navire) === */}
+      {(isChateau || isBateau) && (
+        <Card title={isBateau ? "Cale — Prisonniers" : "Cachot"} icon={Lock}>
+          <div className="space-y-2">
+            {(prop.dungeon || []).length === 0 && <p className="text-stone-400 text-xs italic">{isBateau ? "La cale est vide." : "Le cachot est vide."}</p>}
+            {(prop.dungeon || []).map((d) => (
+              <div key={d.citizenId} className="flex items-center justify-between bg-red-50 border border-red-200 rounded px-3 py-2 text-xs">
+                <div><span className="font-bold text-red-700">{d.citizenName}</span> — <span className="text-red-500">{d.reason}</span></div>
+                {isOwner && <button onClick={() => onReleasePrisoner(prop.id, d.citizenId)} className="text-green-600 hover:text-green-500 text-[10px] font-bold uppercase">Libérer</button>}
+              </div>
+            ))}
+            {isOwner && (
+              <div className="flex gap-2 mt-2">
+                <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setPrisonCitizen} value={prisonCitizen} placeholder="Emprisonner..." /></div>
+                <input className="w-32 p-1.5 border rounded text-xs" placeholder="Motif" value={prisonReason} onChange={(e) => setPrisonReason(e.target.value)} />
+                <button onClick={() => { if (prisonCitizen) { onImprison(prop.id, prisonCitizen, prisonReason); setPrisonCitizen(""); setPrisonReason(""); } }} disabled={!prisonCitizen} className="bg-red-700 text-white px-3 py-1.5 rounded text-[10px] font-bold uppercase disabled:opacity-50">Enfermer</button>
+              </div>
+            )}
+          </div>
+        </Card>
       )}
 
       {/* === AUBERGE / TAVERNE === */}
@@ -413,14 +418,34 @@ const PropertyDetailView = ({
         <div className="space-y-2">
           {(prop.staff || []).length === 0 && <p className="text-stone-400 text-xs italic">{isBateau ? "Aucun membre d'équipage." : "Aucun personnel."}</p>}
           {(prop.staff || []).map((s) => (
-            <div key={s.id} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm">
-              <div>
-                <span className="font-bold text-stone-700">{s.name}</span>
-                <span className="text-xs text-stone-400 ml-2">{s.role}</span>
-                {s.salary > 0 && <span className="ml-2 font-mono text-yellow-700 text-xs">{formatMoney(s.salary)}/jour</span>}
+            editingStaffId === s.id ? (
+              <div key={s.id} className="flex items-center gap-2 bg-stone-100 rounded px-3 py-2">
+                <input className="w-24 p-1.5 border rounded text-xs" placeholder="Rôle" value={editStaffRole} onChange={(e) => setEditStaffRole(e.target.value)} />
+                <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Salaire" value={editStaffSalary} onChange={(e) => setEditStaffSalary(e.target.value)} />
+                <button
+                  onClick={() => { onUpdatePropertyStaff(prop.id, s.id, { role: editStaffRole, salary: editStaffSalary }); setEditingStaffId(null); }}
+                  className="text-green-600 hover:text-green-500"
+                ><Save size={14} /></button>
+                <button onClick={() => setEditingStaffId(null)} className="text-stone-400 hover:text-stone-600"><X size={14} /></button>
               </div>
-              {isOwner && <button onClick={() => onRemovePropertyStaff(prop.id, s.id)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>}
-            </div>
+            ) : (
+              <div key={s.id} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm">
+                <div>
+                  <span className="font-bold text-stone-700">{s.name}</span>
+                  <span className="text-xs text-stone-400 ml-2">{s.role}</span>
+                  {s.salary > 0 && <span className="ml-2 font-mono text-yellow-700 text-xs">{formatMoney(s.salary)}/jour</span>}
+                </div>
+                {isOwner && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => { setEditingStaffId(s.id); setEditStaffRole(s.role || ""); setEditStaffSalary(s.salary || ""); }}
+                      className="text-stone-400 hover:text-stone-700"
+                    ><Pencil size={12} /></button>
+                    <button onClick={() => onRemovePropertyStaff(prop.id, s.id)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
+                  </div>
+                )}
+              </div>
+            )
           ))}
           {isOwner && (
             <div className="flex gap-2 mt-2">

@@ -5008,6 +5008,19 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`${citizen.name} embauché(e) comme ${role || "employé"}.`, "success");
       },
 
+      onUpdatePropertyStaff: (propertyId, citizenId, { role, salary }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const staff = (properties[pIdx].staff || []).map((s) =>
+          s.id === citizenId ? { ...s, role: role !== undefined ? (role || "Employé") : s.role, salary: salary !== undefined ? (parseFloat(salary) || 0) : s.salary } : s
+        );
+        properties[pIdx] = { ...properties[pIdx], staff };
+        saveState({ ...state, properties });
+        notify("Fiche mise à jour.", "success");
+      },
+
       onRemovePropertyStaff: (propertyId, citizenId) => {
         if (!session) return;
         const properties = [...(state.properties || [])];

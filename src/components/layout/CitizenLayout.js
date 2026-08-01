@@ -754,7 +754,7 @@ const CitizenLayout = (props) => {
     onSetupRooms, onBookRoom, onCheckoutRoom,
     onPostTavernMessage, onPostRumor, onDeleteRumor,
     onBuyFromMenu, onBuyFromShop,
-    onAddPropertyStaff, onRemovePropertyStaff,
+    onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
     onAddPropertyGuest, onRemovePropertyGuest,
     onAddPropertyEvent, onRemovePropertyEvent,
     playerMarket = [],
@@ -3714,6 +3714,7 @@ const CitizenLayout = (props) => {
                   onBuyFromShop={onBuyFromShop}
                   onAddPropertyStaff={onAddPropertyStaff}
                   onRemovePropertyStaff={onRemovePropertyStaff}
+                  onUpdatePropertyStaff={onUpdatePropertyStaff}
                   onAddPropertyGuest={onAddPropertyGuest}
                   onRemovePropertyGuest={onRemovePropertyGuest}
                   onAddPropertyEvent={onAddPropertyEvent}

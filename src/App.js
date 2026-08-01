@@ -699,6 +699,7 @@ export default function App() {
             onBuyFromShop={actions.onBuyFromShop}
             onAddPropertyStaff={actions.onAddPropertyStaff}
             onRemovePropertyStaff={actions.onRemovePropertyStaff}
+            onUpdatePropertyStaff={actions.onUpdatePropertyStaff}
             onAddPropertyGuest={actions.onAddPropertyGuest}
             onRemovePropertyGuest={actions.onRemovePropertyGuest}
             onAddPropertyEvent={actions.onAddPropertyEvent}
