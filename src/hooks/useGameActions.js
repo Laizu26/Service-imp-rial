@@ -1125,6 +1125,18 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Erreur virement.", "error");
           return;
         }
+
+        // Plafond de virement imposé par une tutelle active, uniquement lorsque le virement
+        // part du propre compte de l'appelant (n'affecte pas les virements admin entre tiers).
+        if (srcRaw === `U-${session.id}`) {
+          const me = (state.citizens || []).find((c) => c.id === session.id);
+          const limit = me?.guardianship?.active ? me.guardianship.rights?.bankLimit : null;
+          if (limit && parseFloat(amount) > limit) {
+            notify(`Votre tuteur a plafonné vos virements à ${formatMoney(limit)}.`, "error");
+            return;
+          }
+        }
+
         let s = structuredClone(state);
         const process = (raw, isCredit) => {
           const v = isCredit ? parseFloat(amount) : -parseFloat(amount);
@@ -3416,6 +3428,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         const debt = registry[idx];
         if (debt.debtorId !== session.id) {
           notify("Seul le débiteur peut signer.", "error");
+          return;
+        }
+        const me = (state.citizens || []).find((c) => c.id === session.id);
+        if (me?.guardianship?.active && me.guardianship.rights?.creditLocked) {
+          notify("Votre tuteur a interdit la souscription d'emprunts.", "error");
           return;
         }
         if (debt.status !== "PENDING") {

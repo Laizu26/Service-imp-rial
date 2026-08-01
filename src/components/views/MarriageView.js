@@ -81,6 +81,7 @@ function SpouseRightsModal({ spouse, spouseUser, onClose, onSetSpouseRights }) {
 function ChildRightsModal({ child, onClose, onSetChildRights }) {
   const rights = child.guardianship?.rights || {};
   const name = child.name || "votre enfant";
+  const [limitInput, setLimitInput] = useState(rights.bankLimit ? String(rights.bankLimit) : "");
   return (
     <div
       style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
@@ -114,6 +115,31 @@ function ChildRightsModal({ child, onClose, onSetChildRights }) {
               </button>
             </div>
           ))}
+          <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 space-y-2">
+            <div>
+              <div className="text-xs font-bold text-stone-700">💰 Plafond de virement</div>
+              <div className="text-[10px] text-stone-400">Montant maximum que {name} peut virer en une seule fois (les dépôts et réceptions restent libres)</div>
+            </div>
+            <div className="flex gap-2">
+              <input type="number" min="0" value={limitInput} onChange={(e) => setLimitInput(e.target.value)}
+                placeholder="Aucun plafond"
+                className="flex-1 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-amber-300" />
+              <button
+                onClick={() => onSetChildRights({ childId: child.id, rights: { bankLimit: parseFloat(limitInput) || null } })}
+                className="px-3 py-1.5 bg-amber-600 text-white text-[10px] font-black uppercase rounded-lg hover:bg-amber-500 shrink-0"
+              >
+                Définir
+              </button>
+              {rights.bankLimit ? (
+                <button
+                  onClick={() => { setLimitInput(""); onSetChildRights({ childId: child.id, rights: { bankLimit: null } }); }}
+                  className="px-3 py-1.5 bg-white border border-stone-200 text-stone-400 text-[10px] font-black uppercase rounded-lg hover:text-red-500 shrink-0"
+                >
+                  Retirer
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -744,6 +770,32 @@ const MarriageView = ({
           </span>
         )}
       </div>
+
+      {/* ── SOUS TUTELLE ── */}
+      {user.guardianship?.active && (() => {
+        const activeRestrictions = CHILD_RIGHTS_LIST.filter((r) => user.guardianship.rights?.[r.key]);
+        return (
+          <div className="border-b border-amber-200 bg-amber-50/60 p-5 space-y-2">
+            <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 flex items-center gap-2">
+              🛡️ Sous la tutelle de {user.guardianship.guardianName || "votre parent"}
+            </div>
+            {(activeRestrictions.length > 0 || user.guardianship.rights?.bankLimit) && (
+              <div className="flex flex-wrap gap-1.5">
+                {activeRestrictions.map((r) => (
+                  <span key={r.key} className="text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
+                    {r.icon} {r.label}
+                  </span>
+                ))}
+                {user.guardianship.rights?.bankLimit ? (
+                  <span className="text-[9px] font-bold bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full">
+                    💰 Plafond de virement : {formatMoney(user.guardianship.rights.bankLimit)}
+                  </span>
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── PROPOSITIONS REÇUES ── */}
       {(user.marriageProposals || []).length > 0 && (
@@ -1462,13 +1514,18 @@ const MarriageView = ({
                               )
                             )}
                           </div>
-                          {iAmGuardian && activeChildRestrictions.length > 0 && (
+                          {iAmGuardian && (activeChildRestrictions.length > 0 || guardianship?.rights?.bankLimit) && (
                             <div className="flex flex-wrap gap-1">
                               {activeChildRestrictions.map((r) => (
                                 <span key={r.key} className="text-[8px] font-bold bg-red-100 text-red-700 border border-red-200 px-1.5 py-0.5 rounded-full">
                                   {r.icon} {r.label}
                                 </span>
                               ))}
+                              {guardianship?.rights?.bankLimit ? (
+                                <span className="text-[8px] font-bold bg-red-100 text-red-700 border border-red-200 px-1.5 py-0.5 rounded-full">
+                                  💰 Plafond : {formatMoney(guardianship.rights.bankLimit)}
+                                </span>
+                              ) : null}
                             </div>
                           )}
                           {iAmGuardian && (linkedCitizen.marriageProposals || []).length > 0 && (
