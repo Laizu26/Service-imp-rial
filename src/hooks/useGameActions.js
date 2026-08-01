@@ -3651,6 +3651,75 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`${child.name} a été déclaré(e) comme enfant.`, "success");
       },
 
+      // Convertit un enfant déclaré en NPC (children[] sans citizenId) en un véritable
+      // compte citoyen jouable — même schéma de création qu'un compte créé par le MJ
+      // (id EMP-xxx-XXX, mot de passe généré), avec fatherId/motherId déjà renseignés.
+      // Renvoie {id, name, password} pour affichage à l'appelant, ou null en cas d'échec.
+      onConvertChildToCitizen: (childId) => {
+        if (!session) return null;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return null;
+        const user = newCitizens[userIdx];
+        const child = (user.children || []).find((ch) => ch.id === childId);
+        if (!child) { notify("Enfant introuvable.", "error"); return null; }
+        if (child.citizenId) { notify(`${child.name} possède déjà un compte.`, "error"); return null; }
+
+        const num = String(newCitizens.length + 1).padStart(3, "0");
+        const rand = Math.random().toString(36).slice(2, 5).toUpperCase();
+        const newId = `EMP-${num}-${rand}`;
+        const passChars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        let password = "";
+        for (let i = 0; i < 8; i++) password += passChars[Math.floor(Math.random() * passChars.length)];
+
+        const nameParts = (child.name || "Enfant").trim().split(/\s+/);
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(" ") || nameParts[0];
+
+        const otherParent = child.otherParentId ? newCitizens.find((c) => c.id === child.otherParentId) : null;
+        const declarantSex = user.sex || user.gender;
+        const parentFields = {};
+        if (declarantSex === "F" || declarantSex === "female" || declarantSex === "Femme") {
+          parentFields.motherId = user.id; parentFields.motherName = user.name;
+          if (otherParent) { parentFields.fatherId = otherParent.id; parentFields.fatherName = otherParent.name; }
+        } else {
+          parentFields.fatherId = user.id; parentFields.fatherName = user.name;
+          if (otherParent) { parentFields.motherId = otherParent.id; parentFields.motherName = otherParent.name; }
+        }
+
+        const newCitizen = {
+          id: newId,
+          firstName, lastName, name: child.name || `${firstName} ${lastName}`.trim(),
+          birthDate: child.birthDate || null,
+          role: "CITOYEN",
+          countryId: user.countryId, locationCountryId: user.countryId,
+          password, balance: 100,
+          occupation: "Citoyen", status: "Actif",
+          bio: "", avatarUrl: "", inventory: [], messages: [],
+          currentPosition: "", motto: "", title: "", religion: "", origin: "",
+          ...parentFields,
+        };
+
+        newCitizens[userIdx] = {
+          ...user,
+          children: (user.children || []).map((ch) => ch.id === childId ? { ...ch, citizenId: newId } : ch),
+        };
+        if (child.otherParentId) {
+          const otherIdx = newCitizens.findIndex((c) => c.id === child.otherParentId);
+          if (otherIdx !== -1) {
+            newCitizens[otherIdx] = {
+              ...newCitizens[otherIdx],
+              children: (newCitizens[otherIdx].children || []).map((ch) => ch.id === childId ? { ...ch, citizenId: newId } : ch),
+            };
+          }
+        }
+
+        newCitizens.push(newCitizen);
+        saveState({ ...state, citizens: newCitizens });
+        notify(`${newCitizen.name} dispose désormais d'un compte jouable.`, "success");
+        return { id: newId, name: newCitizen.name, password };
+      },
+
       onRemoveChild: (childId) => {
         if (!session) return;
         if (!window.confirm("Supprimer ce lien de filiation ? Cette action est irréversible.")) return;

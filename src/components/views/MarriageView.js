@@ -622,6 +622,7 @@ const MarriageView = ({
   onDivorce,
   onDeclareChild,
   onRemoveChild,
+  onConvertChildToCitizen,
   onSetChildGuardianship,
   onSetChildRights,
   onGuardianProposeMarriage,
@@ -654,6 +655,9 @@ const MarriageView = ({
 
   // Modale de mariage arrangé au nom d'un enfant sous tutelle active
   const [arrangingMarriageChildId, setArrangingMarriageChildId] = useState(null);
+
+  // Identifiants du compte fraîchement créé pour un enfant NPC converti en citoyen
+  const [createdAccountInfo, setCreatedAccountInfo] = useState(null);
 
   // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
   const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
@@ -1464,6 +1468,19 @@ const MarriageView = ({
                     {child.notes && (
                       <div className="text-[9px] text-stone-400 italic mt-1 border-t border-stone-100 pt-1">{child.notes}</div>
                     )}
+                    {!linkedCitizen && onConvertChildToCitizen && (
+                      <div className="mt-2 pt-2 border-t border-amber-100">
+                        <button
+                          onClick={() => {
+                            const result = onConvertChildToCitizen(child.id);
+                            if (result) setCreatedAccountInfo(result);
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase rounded-lg hover:bg-emerald-100 transition-colors"
+                        >
+                          <UserPlus size={10} /> Créer un compte jouable
+                        </button>
+                      </div>
+                    )}
                     {linkedCitizen && (() => {
                       const isRecognizedParent = String(linkedCitizen.fatherId) === String(user.id) || String(linkedCitizen.motherId) === String(user.id);
                       const guardianship = linkedCitizen.guardianship;
@@ -1830,6 +1847,43 @@ const MarriageView = ({
           />
         );
       })()}
+
+      {createdAccountInfo && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setCreatedAccountInfo(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-emerald-50">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center flex-shrink-0">
+                <UserPlus size={16} className="text-emerald-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-base text-stone-900 truncate">Compte créé</div>
+                <div className="text-[10px] text-stone-500">Transmettez ces identifiants à la personne qui incarnera {createdAccountInfo.name}.</div>
+              </div>
+              <button onClick={() => setCreatedAccountInfo(null)} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">Identifiant</label>
+                <div className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-mono text-stone-800">{createdAccountInfo.id}</div>
+              </div>
+              <div>
+                <label className="text-[8px] font-black uppercase tracking-widest text-stone-400 block mb-1">Mot de passe</label>
+                <div className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-mono text-stone-800">{createdAccountInfo.password}</div>
+              </div>
+              <p className="text-[9px] text-stone-400 italic">Ces identifiants ne seront plus affichés — notez-les avant de fermer.</p>
+              <button onClick={() => setCreatedAccountInfo(null)}
+                className="w-full py-2.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-xl hover:bg-emerald-500 transition-colors">
+                C'est noté
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

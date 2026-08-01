@@ -718,6 +718,7 @@ export default function App() {
             onDivorce={actions.onDivorce}
             onDeclareChild={actions.onDeclareChild}
             onRemoveChild={actions.onRemoveChild}
+            onConvertChildToCitizen={actions.onConvertChildToCitizen}
             onSetChildGuardianship={actions.onSetChildGuardianship}
             onSetChildRights={actions.onSetChildRights}
             onGuardianProposeMarriage={actions.onGuardianProposeMarriage}
