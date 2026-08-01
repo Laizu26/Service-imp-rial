@@ -10,6 +10,7 @@ import {
   Mail,
   EyeOff,
   Stamp,
+  User,
   UserCircle,
   Menu,
   Gem,
@@ -955,67 +956,83 @@ export default function App() {
               </nav>
 
               <div className="p-4 md:p-6 border-t border-stone-900 space-y-3 bg-stone-950 shrink-0">
-                <div className="bg-stone-900 rounded-xl border border-stone-800 overflow-hidden">
+                <div className="bg-stone-900 rounded-xl border border-stone-700 shadow-lg overflow-hidden">
                   <button
                     onClick={() =>
                       setAdminAccountMenuOpen(!adminAccountMenuOpen)
                     }
-                    className="w-full p-3 flex items-center justify-between text-xs font-black uppercase text-stone-400 hover:text-white hover:bg-stone-800 transition-all tracking-widest"
+                    className={`w-full p-3 flex items-center justify-between text-[10px] font-black uppercase tracking-widest transition-all ${
+                      adminAccountMenuOpen
+                        ? "bg-stone-700 text-white"
+                        : "text-stone-300 hover:bg-stone-800 hover:text-white"
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Users size={16} />{" "}
-                      <span className="text-[10px]">
-                        Comptes ({connectedAccounts.length})
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <Users size={16} className="text-yellow-600" />
+                      Comptes ({connectedAccounts.length})
                     </div>
-                    {adminAccountMenuOpen ? (
-                      <ChevronUp size={14} />
-                    ) : (
-                      <ChevronDown size={14} />
-                    )}
+                    <ChevronDown
+                      size={12}
+                      className={`transition-transform duration-200 ${adminAccountMenuOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
 
                   {adminAccountMenuOpen && (
-                    <div className="bg-stone-950 border-t border-stone-800 max-h-40 overflow-y-auto">
-                      {connectedAccounts.map((acc) => (
-                        <div
-                          key={acc.id}
-                          className="flex items-center justify-between group hover:bg-stone-900 pr-2"
-                        >
-                          <button
-                            onClick={() => switchAccount(acc.id)}
-                            className={`flex-1 text-left p-3 flex items-center gap-3 transition-all ${
-                              acc.id === session.id
-                                ? "text-yellow-500 font-bold"
-                                : "text-stone-500 hover:text-stone-300"
-                            }`}
-                          >
+                    <div className="border-t border-stone-800 bg-stone-950 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="max-h-64 overflow-y-auto scrollbar-hide">
+                        {connectedAccounts.length > 0 ? (
+                          connectedAccounts.map((acc) => (
                             <div
-                              className={`w-2 h-2 rounded-full ${
-                                acc.id === session.id
-                                  ? "bg-yellow-500"
-                                  : "bg-stone-600"
-                              }`}
-                            ></div>
-                            <span className="text-[10px] uppercase truncate w-24">
-                              {acc.name}
-                            </span>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              logoutAccount(acc.id);
-                            }}
-                            className="text-stone-600 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Oublier ce compte"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))}
+                              key={acc.id}
+                              className="flex items-center group hover:bg-stone-800 transition-colors border-b border-stone-900 last:border-0 relative"
+                            >
+                              <button
+                                onClick={() => switchAccount(acc.id)}
+                                className="flex-1 text-left px-4 py-3 flex items-center gap-3 w-full"
+                              >
+                                <div
+                                  className={`w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border-2 shrink-0 ${
+                                    acc.id === session.id ? "border-yellow-500" : "border-stone-600"
+                                  }`}
+                                  style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}
+                                >
+                                  {acc.avatarUrl ? (
+                                    <img src={acc.avatarUrl} className="w-full h-full object-cover" alt="" />
+                                  ) : (
+                                    <User size={16} className="text-stone-400" />
+                                  )}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className={`text-xs font-bold truncate ${acc.id === session.id ? "text-yellow-500" : "text-stone-200"}`}>
+                                    {acc.name}
+                                  </span>
+                                  <span className="text-[9px] text-stone-500 font-mono truncate">{acc.role || "Citoyen"}</span>
+                                </div>
+                                {acc.id === session.id && (
+                                  <div className="w-2 h-2 bg-yellow-500 rounded-full ml-auto shrink-0 shadow-[0_0_10px_#eab308]"></div>
+                                )}
+                              </button>
+                              {acc.id !== session.id && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    logoutAccount(acc.id);
+                                  }}
+                                  className="p-3 text-stone-600 hover:text-red-500 hover:bg-stone-950/50 transition-colors absolute right-0 h-full border-l border-stone-900"
+                                  title="Oublier ce compte"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-6 text-center text-stone-500 text-xs italic">Aucun autre compte.</div>
+                        )}
+                      </div>
                       <button
                         onClick={addAccount}
-                        className="w-full p-3 text-[10px] font-bold uppercase text-green-600 hover:text-green-400 hover:bg-stone-900 flex items-center gap-2 border-t border-stone-900 sticky bottom-0 bg-stone-950"
+                        className="w-full text-left px-4 py-3 text-[10px] font-bold uppercase text-green-500 hover:bg-stone-800 hover:text-green-400 flex items-center justify-center gap-2 border-t border-stone-800 transition-colors bg-stone-900"
                       >
                         <PlusCircle size={14} /> Ajouter un compte
                       </button>
