@@ -781,6 +781,7 @@ const CitizenLayout = (props) => {
     onDeclareChild,
     onRemoveChild,
     onConvertChildToCitizen,
+    onUpdateChildInfo,
     onSetParents,
     sharedAccounts = {},
     onSharedAccountDeposit,
@@ -2830,6 +2831,7 @@ const CitizenLayout = (props) => {
                 onDeclareChild={onDeclareChild}
                 onRemoveChild={onRemoveChild}
                 onConvertChildToCitizen={onConvertChildToCitizen}
+                onUpdateChildInfo={onUpdateChildInfo}
                 onSetChildGuardianship={onSetChildGuardianship}
                 onSetChildRights={onSetChildRights}
                 onGuardianProposeMarriage={onGuardianProposeMarriage}

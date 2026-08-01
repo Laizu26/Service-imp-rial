@@ -11,6 +11,7 @@ import {
   UserPlus,
   Lock,
   X,
+  Edit3,
 } from "lucide-react";
 import {
   MARRIAGE_STRUCTURES,
@@ -140,6 +141,72 @@ function ChildRightsModal({ child, onClose, onSetChildRights }) {
               ) : null}
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modale d'édition d'un enfant NPC (nom + date de naissance) ─────────────
+function EditChildModal({ child, gameDate, onClose, onSave }) {
+  const [name, setName] = useState(child.name || "");
+  const [day, setDay] = useState(child.birthDate?.day || "");
+  const [month, setMonth] = useState(child.birthDate?.month || "");
+  const [year, setYear] = useState(child.birthDate?.year || "");
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
+
+  const save = () => {
+    const birthDate = (day && month && year)
+      ? { day: parseInt(day) || 1, month: parseInt(month) || 1, year: parseInt(year) }
+      : null;
+    onSave({ name: name.trim(), birthDate });
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-amber-50">
+          <div className="w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-200 flex items-center justify-center flex-shrink-0">
+            <Baby size={16} className="text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Modifier {child.name}</div>
+            <div className="text-[10px] text-stone-500">Modifiable tant que l'enfant reste un personnage (NPC).</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Nom de l'enfant</label>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full p-3 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold focus:border-amber-400 text-sm" />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Date de naissance</label>
+            <div className="flex gap-2">
+              <input type="number" min={1} max={30} placeholder="Jour"
+                className="w-1/4 p-2.5 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold text-sm text-center focus:border-amber-400"
+                value={day} onChange={(e) => setDay(e.target.value)} />
+              <input type="number" min={1} max={12} placeholder="Mois"
+                className="w-1/4 p-2.5 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold text-sm text-center focus:border-amber-400"
+                value={month} onChange={(e) => setMonth(e.target.value)} />
+              <input type="number" min={800} max={1500} placeholder="Année"
+                className="flex-1 p-2.5 border-2 border-amber-200 rounded-xl bg-white outline-none font-bold text-sm text-center focus:border-amber-400"
+                value={year} onChange={(e) => setYear(e.target.value)} />
+            </div>
+            {day && month && year && (
+              <p className="text-[9px] text-amber-700 italic mt-1">Âge actuel : {Math.max(0, gd.year - parseInt(year))} ans environ</p>
+            )}
+          </div>
+          <button onClick={save} disabled={!name.trim()}
+            className="w-full py-2.5 bg-amber-600 text-white text-xs font-black uppercase rounded-xl hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            Enregistrer
+          </button>
         </div>
       </div>
     </div>
@@ -623,6 +690,7 @@ const MarriageView = ({
   onDeclareChild,
   onRemoveChild,
   onConvertChildToCitizen,
+  onUpdateChildInfo,
   onSetChildGuardianship,
   onSetChildRights,
   onGuardianProposeMarriage,
@@ -658,6 +726,9 @@ const MarriageView = ({
 
   // Identifiants du compte fraîchement créé pour un enfant NPC converti en citoyen
   const [createdAccountInfo, setCreatedAccountInfo] = useState(null);
+
+  // Édition du nom / date de naissance d'un enfant NPC
+  const [editingChildId, setEditingChildId] = useState(null);
 
   // Renégociation de la domination sur une union déjà existante (dominantId non résolu)
   const [renegotiatingSpouseId, setRenegotiatingSpouseId] = useState(null);
@@ -1468,17 +1539,27 @@ const MarriageView = ({
                     {child.notes && (
                       <div className="text-[9px] text-stone-400 italic mt-1 border-t border-stone-100 pt-1">{child.notes}</div>
                     )}
-                    {!linkedCitizen && onConvertChildToCitizen && (
-                      <div className="mt-2 pt-2 border-t border-amber-100">
-                        <button
-                          onClick={() => {
-                            const result = onConvertChildToCitizen(child.id);
-                            if (result) setCreatedAccountInfo(result);
-                          }}
-                          className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase rounded-lg hover:bg-emerald-100 transition-colors"
-                        >
-                          <UserPlus size={10} /> Créer un compte jouable
-                        </button>
+                    {!linkedCitizen && (onConvertChildToCitizen || onUpdateChildInfo) && (
+                      <div className="mt-2 pt-2 border-t border-amber-100 flex flex-wrap gap-1.5">
+                        {onUpdateChildInfo && (
+                          <button
+                            onClick={() => setEditingChildId(child.id)}
+                            className="flex items-center gap-1 px-2 py-1 bg-stone-50 border border-stone-200 text-stone-600 text-[9px] font-black uppercase rounded-lg hover:bg-stone-100 transition-colors"
+                          >
+                            <Edit3 size={10} /> Modifier
+                          </button>
+                        )}
+                        {onConvertChildToCitizen && (
+                          <button
+                            onClick={() => {
+                              const result = onConvertChildToCitizen(child.id);
+                              if (result) setCreatedAccountInfo(result);
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase rounded-lg hover:bg-emerald-100 transition-colors"
+                          >
+                            <UserPlus size={10} /> Créer un compte jouable
+                          </button>
+                        )}
                       </div>
                     )}
                     {linkedCitizen && (() => {
@@ -1843,6 +1924,22 @@ const MarriageView = ({
             onPropose={(childId, targetId, contractData) => {
               onGuardianProposeMarriage && onGuardianProposeMarriage(childId, targetId, contractData);
               setArrangingMarriageChildId(null);
+            }}
+          />
+        );
+      })()}
+
+      {editingChildId && (() => {
+        const editedChild = (user.children || []).find((ch) => ch.id === editingChildId);
+        if (!editedChild) return null;
+        return (
+          <EditChildModal
+            child={editedChild}
+            gameDate={gd}
+            onClose={() => setEditingChildId(null)}
+            onSave={(payload) => {
+              onUpdateChildInfo && onUpdateChildInfo(editedChild.id, payload);
+              setEditingChildId(null);
             }}
           />
         );

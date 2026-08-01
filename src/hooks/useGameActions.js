@@ -3720,6 +3720,40 @@ export const useGameActions = (session, state, saveState, notify) => {
         return { id: newId, name: newCitizen.name, password };
       },
 
+      // Le nom et la date de naissance d'un enfant NPC (sans citizenId) restent
+      // modifiables tant qu'il n'a pas de compte joué — une fois converti en citoyen,
+      // ces informations se gèrent directement sur sa fiche.
+      onUpdateChildInfo: (childId, { name, birthDate }) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = newCitizens[userIdx];
+        const child = (user.children || []).find((ch) => ch.id === childId);
+        if (!child) { notify("Enfant introuvable.", "error"); return; }
+        if (child.citizenId) { notify("Cet enfant a déjà un compte — modifiez sa fiche de citoyen directement.", "error"); return; }
+
+        const updates = {};
+        if (name !== undefined) updates.name = String(name).trim() || child.name;
+        if (birthDate !== undefined) updates.birthDate = birthDate;
+
+        newCitizens[userIdx] = {
+          ...user,
+          children: (user.children || []).map((ch) => ch.id === childId ? { ...ch, ...updates } : ch),
+        };
+        if (child.otherParentId) {
+          const otherIdx = newCitizens.findIndex((c) => c.id === child.otherParentId);
+          if (otherIdx !== -1) {
+            newCitizens[otherIdx] = {
+              ...newCitizens[otherIdx],
+              children: (newCitizens[otherIdx].children || []).map((ch) => ch.id === childId ? { ...ch, ...updates } : ch),
+            };
+          }
+        }
+        saveState({ ...state, citizens: newCitizens });
+        notify("Fiche de l'enfant mise à jour.", "success");
+      },
+
       onRemoveChild: (childId) => {
         if (!session) return;
         if (!window.confirm("Supprimer ce lien de filiation ? Cette action est irréversible.")) return;
