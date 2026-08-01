@@ -33,6 +33,7 @@ const SPOUSE_RIGHTS_LIST = [
   { key: "bankLocked",       icon: "🏦", label: "Bloquer le compte bancaire",    desc: "Interdit les opérations bancaires" },
   { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",             desc: "Interdit les échanges commerciaux (Bourse)" },
   { key: "postLocked",       icon: "✉️", label: "Bloquer la Poste Impériale",    desc: "Interdit l'envoi et la réception de courrier" },
+  { key: "maisonLocked",     icon: "💋", label: "Bloquer la Maison de Asia",     desc: "Interdit l'accès à la maison de plaisir" },
 ];
 
 // ── Modale de gestion des droits du conjoint dominé ─────────────────────────

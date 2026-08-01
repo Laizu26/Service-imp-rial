@@ -222,4 +222,5 @@ export const CHILD_RIGHTS_LIST = [
   { key: "creditLocked",     icon: "📄", label: "Bloquer les emprunts",           desc: "Interdit de signer un contrat de dette en tant que débiteur" },
   { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",              desc: "Interdit les échanges commerciaux (Bourse, Bazar, Échanges)" },
   { key: "postLocked",       icon: "✉️", label: "Bloquer la Poste Impériale",     desc: "Interdit l'envoi et la réception de courrier" },
+  { key: "maisonLocked",     icon: "💋", label: "Bloquer la Maison de Asia",      desc: "Interdit l'accès à la maison de plaisir" },
 ];

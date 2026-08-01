@@ -1069,6 +1069,7 @@ const CitizenLayout = (props) => {
     bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked),
     marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked),
     postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked),
+    maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked),
   };
   const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : "conjoint");
 
@@ -2218,7 +2219,22 @@ const CitizenLayout = (props) => {
                 );
               })()}
 
-            {active === "asia" && (
+            {active === "asia" && combinedRestriction.maisonLocked && (
+              <div className="p-4 md:p-8">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
+                  <div className="text-3xl">🚫</div>
+                  <p className="font-black text-red-700 text-base">Maison de Asia — accès restreint</p>
+                  <p className="text-xs text-red-500">
+                    {restrictionSource("maisonLocked") === "employeur"
+                      ? "Votre employeur a restreint votre accès à la Maison de Asia dans le cadre de votre contrat."
+                      : restrictionSource("maisonLocked") === "tuteur"
+                      ? "Votre tuteur a restreint votre accès à la Maison de Asia."
+                      : "Votre conjoint dominant a restreint votre accès à la Maison de Asia."}
+                  </p>
+                </div>
+              </div>
+            )}
+            {active === "asia" && !combinedRestriction.maisonLocked && (
               <MaisonDeAsiaCitizen
                 citizens={safeUsers}
                 countries={safeCountries}

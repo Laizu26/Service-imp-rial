@@ -139,6 +139,18 @@ export function computeMaisonDiscount(citizenId, staffId, maisonHistory, maisonS
 
 export const useGameActions = (session, state, saveState, notify) => {
   return useMemo(() => {
+    // Un citoyen restreint (contrat de servage, conjoint dominant ou tutelle active) ne
+    // peut pas accéder à la Maison de Asia — même logique que combinedRestriction côté UI.
+    const isMaisonLocked = (citizenId) => {
+      const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+      if (!citizen) return false;
+      const employer = (state.companies || []).find((c) => (c.employees || []).map(String).includes(String(citizenId)));
+      const employerLocked = employer?.employmentContracts?.[citizenId]?.serfRights?.maisonLocked;
+      const spouseLocked = (citizen.spouses || []).some((s) => s.dominantId && String(s.dominantId) !== String(citizenId) && s.spouseRights?.maisonLocked);
+      const guardianLocked = citizen.guardianship?.active && citizen.guardianship.rights?.maisonLocked;
+      return !!(employerLocked || spouseLocked || guardianLocked);
+    };
+
     return wrapActions({
       onPassDay: () => {
         let ns = structuredClone(state);
@@ -2862,6 +2874,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // --- FILE D'ATTENTE ---
       onJoinMaisonQueue: (staffId) => {
         if (!session) return;
+        if (isMaisonLocked(session.id)) { notify("Votre accès à la Maison de Asia est restreint.", "error"); return; }
         const queue = state.maisonQueue || [];
         if (queue.some((q) => q.citizenId === session.id && q.staffId === staffId)) {
           notify("Vous êtes déjà dans la file.", "info");
@@ -3109,6 +3122,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
 
         // === RÉSERVER ===
+        if (isMaisonLocked(session.id)) { notify("Votre accès à la Maison de Asia est restreint.", "error"); return; }
         const worker = (state.maisonStaff || []).find((s) => s.id === staffId);
         if (!worker) { notify("Personnel introuvable.", "error"); return; }
         if (worker.isAvailable === false) {
@@ -3363,6 +3377,7 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onBuyMaisonSubscription: () => {
         if (!session) return;
+        if (isMaisonLocked(session.id)) { notify("Votre accès à la Maison de Asia est restreint.", "error"); return; }
         const price = state.maisonSubscriptionPrice || 50;
         const citizenIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (citizenIdx === -1) return;
