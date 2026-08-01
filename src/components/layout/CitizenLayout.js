@@ -46,6 +46,15 @@ import {
   Sword,
   GraduationCap,
   Hash,
+  Home,
+  Castle,
+  ShoppingBag,
+  Wheat,
+  Hammer,
+  Utensils,
+  Ship,
+  Tag,
+  Key,
 } from "lucide-react";
 
 
@@ -284,9 +293,9 @@ const SellPropertyButton = ({ propId, onSellProperty }) => {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-stone-500 text-[10px] font-bold uppercase border border-stone-200 px-3 py-1.5 rounded hover:bg-stone-50 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:bg-stone-50 transition-colors"
       >
-        Mettre en vente
+        <Tag size={12} /> Mettre en vente
       </button>
     );
   }
@@ -295,7 +304,7 @@ const SellPropertyButton = ({ propId, onSellProperty }) => {
     <div className="flex items-center gap-2">
       <input
         type="number"
-        className="w-24 p-1.5 border border-stone-300 rounded text-sm font-mono text-center"
+        className="w-24 px-2.5 py-2 border border-stone-200 rounded-lg text-sm font-mono text-center outline-none focus:border-amber-300"
         placeholder="Prix"
         value={price}
         onChange={(e) => setPrice(e.target.value)}
@@ -310,13 +319,13 @@ const SellPropertyButton = ({ propId, onSellProperty }) => {
           }
         }}
         disabled={!price || parseFloat(price) <= 0}
-        className="bg-yellow-500 text-stone-900 text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-yellow-400 disabled:opacity-40 transition-colors"
+        className="px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase rounded-lg hover:bg-amber-100 disabled:opacity-40 transition-colors"
       >
         Confirmer
       </button>
       <button
         onClick={() => { setOpen(false); setPrice(""); }}
-        className="text-stone-400 hover:text-stone-600 text-[10px] font-bold uppercase px-2 py-1.5"
+        className="px-2.5 py-2 text-stone-400 hover:text-stone-600 text-[10px] font-black uppercase"
       >
         Annuler
       </button>
@@ -333,9 +342,9 @@ const RentPropertyButton = ({ propId, onListPropertyForRent }) => {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-blue-600 text-[10px] font-bold uppercase border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-50 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-2 bg-white border border-sky-200 text-sky-600 text-[10px] font-black uppercase rounded-lg hover:bg-sky-50 transition-colors"
       >
-        Proposer en location
+        <Key size={12} /> Proposer en location
       </button>
     );
   }
@@ -344,7 +353,7 @@ const RentPropertyButton = ({ propId, onListPropertyForRent }) => {
     <div className="flex items-center gap-2">
       <input
         type="number"
-        className="w-24 p-1.5 border border-blue-300 rounded text-sm font-mono text-center"
+        className="w-24 px-2.5 py-2 border border-sky-200 rounded-lg text-sm font-mono text-center outline-none focus:border-sky-300"
         placeholder="Écus/jour"
         value={rate}
         onChange={(e) => setRate(e.target.value)}
@@ -359,13 +368,13 @@ const RentPropertyButton = ({ propId, onListPropertyForRent }) => {
           }
         }}
         disabled={!rate || parseFloat(rate) <= 0}
-        className="bg-blue-500 text-white text-[10px] font-bold uppercase px-3 py-1.5 rounded hover:bg-blue-400 disabled:opacity-40 transition-colors"
+        className="px-3 py-2 bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-black uppercase rounded-lg hover:bg-sky-100 disabled:opacity-40 transition-colors"
       >
         Confirmer
       </button>
       <button
         onClick={() => { setOpen(false); setRate(""); }}
-        className="text-stone-400 hover:text-stone-600 text-[10px] font-bold uppercase px-2 py-1.5"
+        className="px-2.5 py-2 text-stone-400 hover:text-stone-600 text-[10px] font-black uppercase"
       >
         Annuler
       </button>
@@ -3731,13 +3740,17 @@ const CitizenLayout = (props) => {
                   <h2 className="text-2xl font-black font-serif text-stone-800">Registre Foncier</h2>
                 </div>
 
-                {/* Helper pour le nom de localisation */}
                 {(() => {
-                  const PROP_TYPES = {
-                    MAISON: "Maison", DOMAINE: "Domaine", TERRAIN: "Terrain",
-                    COMMERCE: "Local Commercial", FERME: "Ferme",
-                    MANOIR: "Manoir / Château", ATELIER: "Atelier",
-                    BATEAU: "Bateau",
+                  const PROP_TYPE_META = {
+                    MAISON:   { label: "Maison",               icon: Home,        badge: "bg-stone-100 text-stone-600" },
+                    DOMAINE:  { label: "Domaine",               icon: Castle,      badge: "bg-purple-100 text-purple-600" },
+                    TERRAIN:  { label: "Terrain",                icon: MapPin,      badge: "bg-green-100 text-green-600" },
+                    COMMERCE: { label: "Local Commercial",       icon: ShoppingBag, badge: "bg-cyan-100 text-cyan-600" },
+                    FERME:    { label: "Ferme",                  icon: Wheat,       badge: "bg-amber-100 text-amber-600" },
+                    MANOIR:   { label: "Manoir / Château",       icon: Castle,      badge: "bg-yellow-100 text-yellow-700" },
+                    ATELIER:  { label: "Atelier",                icon: Hammer,      badge: "bg-orange-100 text-orange-600" },
+                    AUBERGE:  { label: "Auberge / Taverne",      icon: Utensils,    badge: "bg-rose-100 text-rose-600" },
+                    BATEAU:   { label: "Bateau",                 icon: Ship,        badge: "bg-blue-100 text-blue-600" },
                   };
 
                   const getLocation = (prop) => {
@@ -3756,36 +3769,52 @@ const CitizenLayout = (props) => {
                   const forRent = properties.filter((p) => p.rental && !p.rental.tenantId && p.ownerId && !isMine(p));
                   const totalValue = myProps.reduce((s, p) => s + (p.price || 0), 0);
                   const totalIncome = myProps.reduce((s, p) => s + (p.income || 0), 0);
+                  // Un bateau n'est visitable que par son équipage (staff) ou ses invités —
+                  // contrairement aux autres lieux publics, ouverts à tous.
+                  const canVisitBateau = (p) =>
+                    (p.staff || []).some((s) => String(s.id) === String(user.id)) ||
+                    (p.guestList || []).some((g) => String(g.id) === String(user.id));
+                  const visitable = properties.filter((p) => {
+                    if (!p.ownerId || isMine(p)) return false;
+                    if (p.type === "BATEAU") return canVisitBateau(p);
+                    return ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type);
+                  });
+
+                  // En-tête de section réutilisable — icône + libellé colorés
+                  const SectionLabel = ({ icon: Icon, color, children }) => (
+                    <div className={`text-[10px] font-black uppercase tracking-widest ${color} flex items-center gap-2 mb-3`}>
+                      <Icon size={13} /> {children}
+                    </div>
+                  );
 
                   // Carte propriété réutilisable
                   const PropertyCard = ({ prop, variant, children }) => {
                     const loc = getLocation(prop);
-                    const borderColor = variant === "owned" ? "border-stone-300" : variant === "admin" ? "border-green-200" : "border-yellow-200";
-                    const bgAccent = variant === "owned" ? "bg-stone-50" : variant === "admin" ? "bg-green-50/30" : "bg-yellow-50/30";
+                    const meta = PROP_TYPE_META[prop.type] || PROP_TYPE_META.MAISON;
+                    const TypeIcon = meta.icon;
                     return (
-                      <div className={`bg-white border-2 ${borderColor} rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow`}>
-                        {/* En-tête coloré */}
-                        <div className={`${bgAccent} px-4 py-2.5 border-b border-stone-100 flex items-center justify-between`}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-stone-800">{prop.name}</span>
-                            {prop.type && (
-                              <span className="bg-stone-200/60 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
-                                {PROP_TYPES[prop.type] || prop.type}
-                              </span>
-                            )}
+                      <div className="bg-white rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                        {/* En-tête identité */}
+                        <div className="flex items-center gap-3 p-4 border-b border-stone-100">
+                          <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${meta.badge}`}>
+                            <TypeIcon size={18} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-black text-stone-800 truncate">{prop.name}</div>
+                            <div className="text-[10px] text-stone-400 uppercase font-bold tracking-wide">{meta.label}</div>
                           </div>
                           {variant === "owned" && prop.forSale && (
-                            <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                            <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full shrink-0">
                               En vente
                             </span>
                           )}
                           {variant === "owned" && prop.rental && prop.rental.tenantId && (
-                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                            <span className="text-[9px] font-black uppercase bg-sky-100 text-sky-700 px-2.5 py-1 rounded-full shrink-0">
                               Loué
                             </span>
                           )}
                           {variant === "owned" && prop.rental && !prop.rental.tenantId && (
-                            <span className="bg-blue-50 text-blue-500 px-2 py-0.5 rounded text-[9px] font-bold uppercase">
+                            <span className="text-[9px] font-black uppercase bg-sky-50 text-sky-500 px-2.5 py-1 rounded-full shrink-0">
                               En location
                             </span>
                           )}
@@ -3828,14 +3857,14 @@ const CitizenLayout = (props) => {
                       {/* Résumé patrimoine */}
                       {myProps.length > 0 && (
                         <div className="bg-gradient-to-r from-stone-100 to-stone-50 border border-stone-200 rounded-xl p-4">
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mon patrimoine immobilier</div>
+                          <SectionLabel icon={Landmark} color="text-stone-500">Mon patrimoine immobilier</SectionLabel>
                           <div className="grid grid-cols-3 gap-4">
                             <div className="text-center">
                               <div className="text-2xl font-black text-stone-800">{myProps.length}</div>
                               <div className="text-[10px] text-stone-400 uppercase font-bold">Bien{myProps.length > 1 ? "s" : ""}</div>
                             </div>
                             <div className="text-center">
-                              <div className="text-2xl font-black text-yellow-700 font-mono">{formatMoney(totalValue)}</div>
+                              <div className="text-2xl font-black text-amber-700 font-mono">{formatMoney(totalValue)}</div>
                               <div className="text-[10px] text-stone-400 uppercase font-bold">Valeur</div>
                             </div>
                             <div className="text-center">
@@ -3849,28 +3878,28 @@ const CitizenLayout = (props) => {
                       {/* Mes propriétés */}
                       {myProps.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">Mes propriétés</div>
+                          <SectionLabel icon={Home} color="text-stone-500">Mes propriétés</SectionLabel>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {myProps.map((prop) => {
                               const ownerCompany = prop.ownerType === "COMPANY" ? (companies || []).find((c) => c.id === prop.ownerId) : null;
                               return (
                               <PropertyCard key={prop.id} prop={prop} variant="owned">
                                 {ownerCompany && (
-                                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5 text-xs text-indigo-700 font-bold flex items-center gap-1.5">
+                                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2 text-xs text-indigo-700 font-bold flex items-center gap-1.5">
                                     <Building2 size={12} /> Via entreprise : {ownerCompany.name}
                                   </div>
                                 )}
                                 {/* Locataire actuel */}
                                 {prop.rental && prop.rental.tenantId && (
-                                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                  <div className="flex items-center justify-between bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5">
                                     <div className="text-xs">
-                                      <span className="text-blue-700 font-bold">Loué à {prop.rental.tenantName}</span>
-                                      <span className="text-blue-500 ml-2 font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
-                                      {prop.rental.startDate && <span className="text-blue-400 ml-2">depuis le {prop.rental.startDate}</span>}
+                                      <span className="text-sky-700 font-bold">Loué à {prop.rental.tenantName}</span>
+                                      <span className="text-sky-500 ml-2 font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
+                                      {prop.rental.startDate && <span className="text-sky-400 ml-2">depuis le {prop.rental.startDate}</span>}
                                     </div>
                                     <button
                                       onClick={() => onEvictTenant && onEvictTenant(prop.id)}
-                                      className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                      className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors shrink-0"
                                     >
                                       Expulser
                                     </button>
@@ -3878,13 +3907,13 @@ const CitizenLayout = (props) => {
                                 )}
                                 {/* En attente de locataire */}
                                 {prop.rental && !prop.rental.tenantId && (
-                                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                    <div className="text-xs text-blue-600">
+                                  <div className="flex items-center justify-between bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5">
+                                    <div className="text-xs text-sky-600">
                                       En location : <span className="font-mono font-bold">{formatMoney(prop.rental.dailyRate)}/jour</span>
                                     </div>
                                     <button
                                       onClick={() => onCancelPropertyRental && onCancelPropertyRental(prop.id)}
-                                      className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                      className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors shrink-0"
                                     >
                                       Retirer
                                     </button>
@@ -3896,10 +3925,10 @@ const CitizenLayout = (props) => {
                                   <div className="flex flex-wrap gap-2">
                                     {prop.forSale ? (
                                       <div className="flex items-center gap-2">
-                                        <span className="font-mono text-sm font-bold text-yellow-700">{formatMoney(prop.salePrice)}</span>
+                                        <span className="font-mono text-sm font-bold text-amber-700">{formatMoney(prop.salePrice)}</span>
                                         <button
                                           onClick={() => onCancelPropertySale && onCancelPropertySale(prop.id)}
-                                          className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors"
+                                          className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
                                         >
                                           Retirer de la vente
                                         </button>
@@ -3915,7 +3944,7 @@ const CitizenLayout = (props) => {
                                 {(prop.type === "MANOIR" || prop.type === "AUBERGE" || prop.type === "FERME" || prop.type === "ATELIER" || prop.type === "COMMERCE" || prop.type === "BATEAU" || (prop.staff || []).length > 0 || (prop.propertyEvents || []).length > 0) && (
                                   <button
                                     onClick={() => setSelectedPropertyId(prop.id)}
-                                    className="w-full text-center bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-bold uppercase py-2 rounded-b-lg border-t border-stone-200 transition-colors"
+                                    className="w-full text-center bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black uppercase py-2.5 rounded-xl transition-colors"
                                   >
                                     Gérer cette propriété
                                   </button>
@@ -3929,18 +3958,16 @@ const CitizenLayout = (props) => {
                       {/* Propriétés disponibles (admin) */}
                       {available.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
-                            Biens disponibles — Registre Impérial
-                          </div>
+                          <SectionLabel icon={Landmark} color="text-emerald-600">Biens disponibles — Registre Impérial</SectionLabel>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {available.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="admin">
                                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-lg font-black text-yellow-700">{formatMoney(prop.price)}</div>
+                                  <div className="font-mono text-lg font-black text-amber-700">{formatMoney(prop.price)}</div>
                                   <button
                                     onClick={() => onBuyProperty && onBuyProperty(prop.id)}
                                     disabled={(user.balance || 0) < prop.price}
-                                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                    className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                                   >
                                     <Coins size={12} /> Acheter
                                   </button>
@@ -3959,18 +3986,16 @@ const CitizenLayout = (props) => {
                       {/* Propriétés en vente par des joueurs */}
                       {forSale.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
-                            En vente par des citoyens
-                          </div>
+                          <SectionLabel icon={Tag} color="text-amber-600">En vente par des citoyens</SectionLabel>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {forSale.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="player">
                                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-lg font-black text-yellow-700">{formatMoney(prop.salePrice)}</div>
+                                  <div className="font-mono text-lg font-black text-amber-700">{formatMoney(prop.salePrice)}</div>
                                   <button
                                     onClick={() => onBuyPropertyFromPlayer && onBuyPropertyFromPlayer(prop.id)}
                                     disabled={(user.balance || 0) < prop.salePrice}
-                                    className="bg-yellow-500 text-stone-900 px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-yellow-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                    className="bg-amber-500 text-stone-900 px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                                   >
                                     <Coins size={12} /> Acheter
                                   </button>
@@ -3989,22 +4014,20 @@ const CitizenLayout = (props) => {
                       {/* Mes locations (en tant que locataire) */}
                       {myRentals.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
-                            Mes locations
-                          </div>
+                          <SectionLabel icon={Key} color="text-sky-600">Mes locations</SectionLabel>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {myRentals.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="owned">
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                                <div className="bg-sky-50 border border-sky-200 rounded-xl px-3 py-2.5 flex items-center justify-between">
                                   <div className="text-xs">
-                                    <span className="text-blue-700 font-bold">Locataire</span>
-                                    <span className="text-blue-500 ml-2 font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
-                                    {prop.rental.startDate && <span className="text-blue-400 ml-2">depuis le {prop.rental.startDate}</span>}
+                                    <span className="text-sky-700 font-bold">Locataire</span>
+                                    <span className="text-sky-500 ml-2 font-mono">{formatMoney(prop.rental.dailyRate)}/jour</span>
+                                    {prop.rental.startDate && <span className="text-sky-400 ml-2">depuis le {prop.rental.startDate}</span>}
                                     <div className="text-stone-400 mt-0.5">Propriétaire : {prop.ownerName}</div>
                                   </div>
                                   <button
                                     onClick={() => onLeaveTenancy && onLeaveTenancy(prop.id)}
-                                    className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 transition-colors shrink-0"
+                                    className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors shrink-0"
                                   >
                                     Quitter
                                   </button>
@@ -4018,21 +4041,19 @@ const CitizenLayout = (props) => {
                       {/* Biens à louer */}
                       {forRent.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
-                            Biens à louer
-                          </div>
+                          <SectionLabel icon={Key} color="text-sky-600">Biens à louer</SectionLabel>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {forRent.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="admin">
                                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
                                   <div>
-                                    <div className="font-mono text-lg font-black text-blue-700">{formatMoney(prop.rental.dailyRate)}/jour</div>
+                                    <div className="font-mono text-lg font-black text-sky-700">{formatMoney(prop.rental.dailyRate)}/jour</div>
                                     <div className="text-[10px] text-stone-400">Propriétaire : {prop.ownerName}</div>
                                   </div>
                                   <button
                                     onClick={() => onRentProperty && onRentProperty(prop.id)}
                                     disabled={(user.balance || 0) < prop.rental.dailyRate}
-                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                    className="bg-sky-600 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                                   >
                                     <Coins size={12} /> Louer
                                   </button>
@@ -4048,40 +4069,24 @@ const CitizenLayout = (props) => {
                         </div>
                       )}
 
-                      {/* Lieux à visiter (auberges, châteaux, commerces publics) */}
-                      {(() => {
-                        const myCompanyIds2 = (companies || []).filter((c) => c.ownerId === user.id).map((c) => c.id);
-                        const isMine2 = (p) => p.ownerId === user.id || (p.ownerType === "COMPANY" && myCompanyIds2.includes(p.ownerId));
-                        // Un bateau n'est visitable que par son équipage (staff) ou ses invités —
-                        // contrairement aux autres lieux publics, ouverts à tous.
-                        const canVisitBateau = (p) =>
-                          (p.staff || []).some((s) => String(s.id) === String(user.id)) ||
-                          (p.guestList || []).some((g) => String(g.id) === String(user.id));
-                        const visitable = properties.filter((p) => {
-                          if (!p.ownerId || isMine2(p)) return false;
-                          if (p.type === "BATEAU") return canVisitBateau(p);
-                          return ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type);
-                        });
-                        return visitable.length > 0 ? (
-                          <div>
-                            <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">
-                              Lieux à visiter
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {visitable.map((prop) => (
-                                <PropertyCard key={prop.id} prop={prop} variant="admin">
-                                  <button
-                                    onClick={() => setSelectedPropertyId(prop.id)}
-                                    className="w-full bg-stone-800 text-yellow-500 py-2 rounded font-bold text-xs uppercase hover:bg-stone-700 transition-colors mt-2"
-                                  >
-                                    Visiter
-                                  </button>
-                                </PropertyCard>
-                              ))}
-                            </div>
+                      {/* Lieux à visiter (auberges, châteaux, commerces publics, bateaux autorisés) */}
+                      {visitable.length > 0 && (
+                        <div>
+                          <SectionLabel icon={Eye} color="text-violet-600">Lieux à visiter</SectionLabel>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {visitable.map((prop) => (
+                              <PropertyCard key={prop.id} prop={prop} variant="admin">
+                                <button
+                                  onClick={() => setSelectedPropertyId(prop.id)}
+                                  className="w-full bg-violet-600 text-white py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-violet-500 transition-colors"
+                                >
+                                  Visiter
+                                </button>
+                              </PropertyCard>
+                            ))}
                           </div>
-                        ) : null;
-                      })()}
+                        </div>
+                      )}
 
                       {/* État vide */}
                       {myProps.length === 0 && available.length === 0 && forSale.length === 0 && forRent.length === 0 && myRentals.length === 0 && (
@@ -4093,7 +4098,7 @@ const CitizenLayout = (props) => {
                       )}
 
                       {myProps.length === 0 && (available.length > 0 || forSale.length > 0) && (
-                        <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 text-center text-xs text-stone-400 italic">
+                        <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center text-xs text-stone-400 italic">
                           Vous ne possédez aucun bien immobilier. Consultez les offres ci-dessus pour acquérir votre première propriété.
                         </div>
                       )}
