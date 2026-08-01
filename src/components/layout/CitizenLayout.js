@@ -755,6 +755,7 @@ const CitizenLayout = (props) => {
     onPostTavernMessage, onPostRumor, onDeleteRumor,
     onBuyFromMenu, onBuyFromShop,
     onAddPropertyStaff, onRemovePropertyStaff,
+    onAddPropertyGuest, onRemovePropertyGuest,
     onAddPropertyEvent, onRemovePropertyEvent,
     playerMarket = [],
     tradeProposals = [],
@@ -3713,6 +3714,8 @@ const CitizenLayout = (props) => {
                   onBuyFromShop={onBuyFromShop}
                   onAddPropertyStaff={onAddPropertyStaff}
                   onRemovePropertyStaff={onRemovePropertyStaff}
+                  onAddPropertyGuest={onAddPropertyGuest}
+                  onRemovePropertyGuest={onRemovePropertyGuest}
                   onAddPropertyEvent={onAddPropertyEvent}
                   onRemovePropertyEvent={onRemovePropertyEvent}
                   onBack={() => setSelectedPropertyId(null)}
@@ -3908,7 +3911,7 @@ const CitizenLayout = (props) => {
                                     )}
                                   </div>
                                 </div>
-                                {(prop.type === "MANOIR" || prop.type === "AUBERGE" || prop.type === "FERME" || prop.type === "ATELIER" || prop.type === "COMMERCE" || (prop.staff || []).length > 0 || (prop.propertyEvents || []).length > 0) && (
+                                {(prop.type === "MANOIR" || prop.type === "AUBERGE" || prop.type === "FERME" || prop.type === "ATELIER" || prop.type === "COMMERCE" || prop.type === "BATEAU" || (prop.staff || []).length > 0 || (prop.propertyEvents || []).length > 0) && (
                                   <button
                                     onClick={() => setSelectedPropertyId(prop.id)}
                                     className="w-full text-center bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-bold uppercase py-2 rounded-b-lg border-t border-stone-200 transition-colors"
@@ -4048,7 +4051,16 @@ const CitizenLayout = (props) => {
                       {(() => {
                         const myCompanyIds2 = (companies || []).filter((c) => c.ownerId === user.id).map((c) => c.id);
                         const isMine2 = (p) => p.ownerId === user.id || (p.ownerType === "COMPANY" && myCompanyIds2.includes(p.ownerId));
-                        const visitable = properties.filter((p) => p.ownerId && !isMine2(p) && ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type));
+                        // Un bateau n'est visitable que par son équipage (staff) ou ses invités —
+                        // contrairement aux autres lieux publics, ouverts à tous.
+                        const canVisitBateau = (p) =>
+                          (p.staff || []).some((s) => String(s.id) === String(user.id)) ||
+                          (p.guestList || []).some((g) => String(g.id) === String(user.id));
+                        const visitable = properties.filter((p) => {
+                          if (!p.ownerId || isMine2(p)) return false;
+                          if (p.type === "BATEAU") return canVisitBateau(p);
+                          return ["MANOIR", "AUBERGE", "COMMERCE"].includes(p.type);
+                        });
                         return visitable.length > 0 ? (
                           <div>
                             <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-3">

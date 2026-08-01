@@ -30,6 +30,7 @@ const PropertyDetailView = ({
   onPostTavernMessage, onPostRumor, onDeleteRumor,
   onBuyFromMenu, onBuyFromShop,
   onAddPropertyStaff, onRemovePropertyStaff,
+  onAddPropertyGuest, onRemovePropertyGuest,
   onAddPropertyEvent, onRemovePropertyEvent,
   onBack,
 }) => {
@@ -39,6 +40,7 @@ const PropertyDetailView = ({
   const [staffCitizenId, setStaffCitizenId] = useState("");
   const [staffRole, setStaffRole] = useState("");
   const [staffSalary, setStaffSalary] = useState("");
+  const [guestCitizenId, setGuestCitizenId] = useState("");
   const [eventTitle, setEventTitle] = useState("");
   const [eventDesc, setEventDesc] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -79,6 +81,7 @@ const PropertyDetailView = ({
   const isFerme = type === "FERME";
   const isAtelier = type === "ATELIER";
   const isCommerce = type === "COMMERCE";
+  const isBateau = type === "BATEAU";
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -405,10 +408,10 @@ const PropertyDetailView = ({
         </Card>
       )}
 
-      {/* === COMMUN: Personnel === */}
-      <Card title="Personnel" icon={UserPlus}>
+      {/* === COMMUN: Personnel / Équipage === */}
+      <Card title={isBateau ? "Équipage" : "Personnel"} icon={UserPlus}>
         <div className="space-y-2">
-          {(prop.staff || []).length === 0 && <p className="text-stone-400 text-xs italic">Aucun personnel.</p>}
+          {(prop.staff || []).length === 0 && <p className="text-stone-400 text-xs italic">{isBateau ? "Aucun membre d'équipage." : "Aucun personnel."}</p>}
           {(prop.staff || []).map((s) => (
             <div key={s.id} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm">
               <div>
@@ -421,7 +424,7 @@ const PropertyDetailView = ({
           ))}
           {isOwner && (
             <div className="flex gap-2 mt-2">
-              <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setStaffCitizenId} value={staffCitizenId} placeholder="Embaucher..." /></div>
+              <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setStaffCitizenId} value={staffCitizenId} placeholder={isBateau ? "Enrôler..." : "Embaucher..."} /></div>
               <input className="w-24 p-1.5 border rounded text-xs" placeholder="Rôle" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} />
               <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Salaire" value={staffSalary} onChange={(e) => setStaffSalary(e.target.value)} />
               <button onClick={() => { if (staffCitizenId) { onAddPropertyStaff(prop.id, staffCitizenId, staffRole || "Employé", staffSalary); setStaffCitizenId(""); setStaffRole(""); setStaffSalary(""); } }} disabled={!staffCitizenId} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase disabled:opacity-50"><Plus size={12} /></button>
@@ -429,6 +432,28 @@ const PropertyDetailView = ({
           )}
         </div>
       </Card>
+
+      {/* === BATEAU: Invités === */}
+      {isBateau && (
+        <Card title="Invités" icon={Users}>
+          <p className="text-[10px] text-stone-400 -mt-1 mb-2">Seuls l'équipage et les invités peuvent visiter ce bateau.</p>
+          <div className="space-y-2">
+            {(prop.guestList || []).length === 0 && <p className="text-stone-400 text-xs italic">Aucun invité.</p>}
+            {(prop.guestList || []).map((g) => (
+              <div key={g.id} className="flex items-center justify-between bg-stone-50 rounded px-3 py-2 text-sm">
+                <span className="font-bold text-stone-700">{g.name}</span>
+                {isOwner && <button onClick={() => onRemovePropertyGuest(prop.id, g.id)} className="text-red-400 hover:text-red-600"><Trash2 size={12} /></button>}
+              </div>
+            ))}
+            {isOwner && (
+              <div className="flex gap-2 mt-2">
+                <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setGuestCitizenId} value={guestCitizenId} placeholder="Inviter..." /></div>
+                <button onClick={() => { if (guestCitizenId) { onAddPropertyGuest(prop.id, guestCitizenId); setGuestCitizenId(""); } }} disabled={!guestCitizenId} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase disabled:opacity-50"><Plus size={12} /></button>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* === COMMUN: Événements === */}
       <Card title="Événements" icon={Calendar}>

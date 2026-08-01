@@ -5018,6 +5018,43 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Employé retiré.", "info");
       },
 
+      // Liste des invités — pour un bateau, seuls l'équipage (staff) et les invités
+      // peuvent visiter le bien ; contrairement au personnel, réservé au propriétaire.
+      onAddPropertyGuest: (propertyId, citizenId) => {
+        if (!session) return;
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        const isOwner = String(prop.ownerId) === String(session.id)
+          || (prop.ownerType === "COMPANY" && (state.companies || []).some((c) => c.id === prop.ownerId && String(c.ownerId) === String(session.id)))
+          || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (!isOwner) { notify("Seul le propriétaire peut inviter un visiteur.", "error"); return; }
+        const guestList = [...(prop.guestList || [])];
+        if (guestList.find((g) => g.id === citizenId)) { notify("Déjà invité(e).", "error"); return; }
+        guestList.push({ id: citizenId, name: citizen.name });
+        properties[pIdx] = { ...prop, guestList };
+        saveState({ ...state, properties });
+        notify(`${citizen.name} est désormais invité(e) à visiter.`, "success");
+      },
+
+      onRemovePropertyGuest: (propertyId, citizenId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const prop = properties[pIdx];
+        const isOwner = String(prop.ownerId) === String(session.id)
+          || (prop.ownerType === "COMPANY" && (state.companies || []).some((c) => c.id === prop.ownerId && String(c.ownerId) === String(session.id)))
+          || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+        if (!isOwner) { notify("Seul le propriétaire peut retirer un invité.", "error"); return; }
+        properties[pIdx] = { ...prop, guestList: (prop.guestList || []).filter((g) => g.id !== citizenId) };
+        saveState({ ...state, properties });
+        notify("Invité retiré.", "info");
+      },
+
       // Événements propriété
       onAddPropertyEvent: (propertyId, { title, desc, date }) => {
         if (!session) return;

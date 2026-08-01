@@ -699,6 +699,8 @@ export default function App() {
             onBuyFromShop={actions.onBuyFromShop}
             onAddPropertyStaff={actions.onAddPropertyStaff}
             onRemovePropertyStaff={actions.onRemovePropertyStaff}
+            onAddPropertyGuest={actions.onAddPropertyGuest}
+            onRemovePropertyGuest={actions.onRemovePropertyGuest}
             onAddPropertyEvent={actions.onAddPropertyEvent}
             onRemovePropertyEvent={actions.onRemovePropertyEvent}
             playerMarket={state.playerMarket || []}
