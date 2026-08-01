@@ -6321,6 +6321,25 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, mushtagramDMs: (state.mushtagramDMs || []).filter(d => d.id !== dmId) });
       },
 
+      // Masque un message reçu de la conversation de l'appelant uniquement — l'autre
+      // partie continue de le voir de son côté. Contrairement à onDeleteMushtagramDM
+      // (suppression globale, réservée à l'expéditeur), tout participant peut l'utiliser.
+      onHideMushtagramDM: (dmId) => {
+        if (!session) return;
+        const dm = (state.mushtagramDMs || []).find(d => d.id === dmId);
+        if (!dm) return;
+        if (String(dm.fromId) !== String(session.id) && String(dm.toId) !== String(session.id)) {
+          notify("Vous ne participez pas à cette conversation.", "error");
+          return;
+        }
+        const dms = (state.mushtagramDMs || []).map(d =>
+          d.id === dmId
+            ? { ...d, hiddenFor: [...new Set([...(d.hiddenFor || []), session.id])] }
+            : d
+        );
+        saveState({ ...state, mushtagramDMs: dms });
+      },
+
       onMarkMushtagramNotifsRead: (ids) => {
         if (!session) return;
         const idsSet = new Set((ids || []).map(String));

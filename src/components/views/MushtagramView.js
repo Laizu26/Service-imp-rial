@@ -1084,7 +1084,7 @@ export default function MushtagramView({
   onMarkMushtagramNotifsRead,
   onBroadcastMushtagram,
   onUpdateMushtagramMonetization, onSubscribeMushtagramCreator, onUnsubscribeMushtagramCreator, onUnlockMushtagramPost,
-  onToggleMushtagramMute, onTipMushtagramCreator, onMarkMushtagramFeedSeen, onDeleteMushtagramDM,
+  onToggleMushtagramMute, onTipMushtagramCreator, onMarkMushtagramFeedSeen, onDeleteMushtagramDM, onHideMushtagramDM,
   notify,
 }) {
   const [tab, setTab] = useState("feed");
@@ -1375,7 +1375,10 @@ export default function MushtagramView({
 
   /* ── messages ────────────────────────────────────────────────────── */
   const myDMs = useMemo(() =>
-    mushtagramDMs.filter(d => String(d.fromId) === myId || String(d.toId) === myId),
+    mushtagramDMs.filter(d =>
+      (String(d.fromId) === myId || String(d.toId) === myId) &&
+      !(d.hiddenFor || []).map(String).includes(myId)
+    ),
   [mushtagramDMs, myId]);
 
   const conversations = useMemo(() => {
@@ -1940,6 +1943,13 @@ export default function MushtagramView({
                           {dm.content}
                         </div>
                       </div>
+                      {!isMine && onHideMushtagramDM && (
+                        <button onClick={() => onHideMushtagramDM(dm.id)}
+                          title="Supprimer de ma conversation"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500 shrink-0 mb-1 p-1">
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                       {isMine && (isLastOfGroup
                         ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
                         : <div className="w-7 shrink-0" />)}
