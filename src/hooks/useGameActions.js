@@ -6593,6 +6593,20 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Publication supprimée.", "info");
       },
 
+      onEditMushtagramPost: (id, newContent) => {
+        if (!session) return;
+        const post = (state.mushtagramPosts || []).find((p) => p.id === id);
+        if (!post) { notify("Publication introuvable.", "error"); return; }
+        const isOwner = String(post.authorId) === String(session.id) || (post.authorType && String(post.postedBy) === String(session.id));
+        if (!isOwner) { notify("Vous ne pouvez modifier que vos propres publications.", "error"); return; }
+        if (!newContent || !newContent.trim()) { notify("La publication ne peut pas être vide.", "error"); return; }
+        const posts = (state.mushtagramPosts || []).map((p) =>
+          p.id === id ? { ...p, content: newContent.trim(), editedAt: Date.now() } : p
+        );
+        saveState({ ...state, mushtagramPosts: posts });
+        notify("Publication modifiée.", "success");
+      },
+
       onToggleMushtagramLike: (postId) => {
         if (!session) return;
         const origPost = (state.mushtagramPosts || []).find(p => p.id === postId);

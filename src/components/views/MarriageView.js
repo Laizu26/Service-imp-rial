@@ -354,6 +354,15 @@ function RequisitionModal({ spouse, spouseUser, onClose, onRequisition }) {
 
   const submit = () => {
     if (!canSubmit) return;
+    // Grosse ponction : confirmation explicite, même logique que pour les autres
+    // actions irréversibles du site (divorce, suppression de filiation…).
+    const pct = spouseBalance > 0 ? amt / spouseBalance : 0;
+    if (pct >= 0.5) {
+      const ok = window.confirm(
+        `Vous êtes sur le point de réquisitionner ${formatMoney(amt)} — soit ${Math.round(pct * 100)}% du trésor de ${name}. Confirmer ?`
+      );
+      if (!ok) return;
+    }
     onRequisition({ spouseId: spouse.id, amount: amt, reason: reason.trim() });
     setAmount(""); setReason("");
   };

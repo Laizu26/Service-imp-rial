@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   User,
   Lock,
@@ -883,6 +883,7 @@ const CitizenLayout = (props) => {
     mushtagramSubscriptions = [],
     onPostMushtagram,
     onDeleteMushtagramPost,
+    onEditMushtagramPost,
     onToggleMushtagramLike,
     onAddMushtagramComment,
     onDeleteMushtagramComment,
@@ -930,6 +931,18 @@ const CitizenLayout = (props) => {
     }
     setActiveRaw(id);
   };
+  // Conteneur de défilement principal — reçoit tout le contenu des onglets.
+  const mainScrollRef = useRef(null);
+  // Cliquer sur un onglet déjà actif ne déclenche aucun re-render (useState
+  // court-circuite sur une valeur identique), donc rien ne remettait le
+  // défilement en haut — on le fait explicitement dans ce cas précis.
+  const handleTabClick = (id) => {
+    if (id === active) {
+      mainScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setActive(id);
+  };
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showRestorePanel, setShowRestorePanel] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
@@ -949,6 +962,11 @@ const CitizenLayout = (props) => {
 
   const restoreTab = (tabId) => {
     updateSetting("hiddenTabs", hiddenTabs.filter((id) => id !== tabId));
+  };
+
+  const restoreAllTabs = () => {
+    updateSetting("hiddenTabs", []);
+    setShowRestorePanel(false);
   };
 
 
@@ -1265,7 +1283,7 @@ const CitizenLayout = (props) => {
                   {visibleItems.map((item) => (
                     <div key={item.id} className="relative group/tab">
                       <button
-                        onClick={() => setActive(item.id)}
+                        onClick={() => handleTabClick(item.id)}
                         title={settings.sidebarCollapsed ? item.label : undefined}
                         className={`w-full flex items-center ${settings.sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-2.5"} rounded-xl transition-all duration-200 group ${
                           active === item.id
@@ -1346,6 +1364,14 @@ const CitizenLayout = (props) => {
                       <X size={12} />
                     </button>
                   </div>
+                  {hiddenTabs.length > 1 && (
+                    <button
+                      onClick={restoreAllTabs}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-amber-400 hover:bg-stone-700 hover:text-amber-300 transition-colors border-b border-stone-700"
+                    >
+                      <PlusCircle size={11} /> Tout restaurer
+                    </button>
+                  )}
                   <div className="p-1">
                     {menuGroups.flatMap((g) => g.items)
                       .filter((item) => hiddenTabs.includes(item.id))
@@ -1622,7 +1648,7 @@ const CitizenLayout = (props) => {
                       <div className="space-y-0.5">
                         {visibleItems.map(item => (
                           <button key={item.id}
-                            onClick={() => { setActive(item.id); setMobileDrawerOpen(false); }}
+                            onClick={() => { handleTabClick(item.id); setMobileDrawerOpen(false); }}
                             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
                               active === item.id
                                 ? "bg-[#e6dcc3] text-stone-900 shadow-md"
@@ -1660,7 +1686,7 @@ const CitizenLayout = (props) => {
           </>
         )}
 
-        <main className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
+        <main ref={mainScrollRef} className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
           <div className={(active === "msg" || active === "mushtagram") ? "h-full w-full" : "max-w-[1400px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
           <TabErrorBoundary tabKey={active}>
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
@@ -1803,6 +1829,7 @@ const CitizenLayout = (props) => {
                 mushtagramSubscriptions={mushtagramSubscriptions}
                 onPostMushtagram={onPostMushtagram}
                 onDeleteMushtagramPost={onDeleteMushtagramPost}
+                onEditMushtagramPost={onEditMushtagramPost}
                 onToggleMushtagramLike={onToggleMushtagramLike}
                 onAddMushtagramComment={onAddMushtagramComment}
                 onDeleteMushtagramComment={onDeleteMushtagramComment}

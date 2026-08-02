@@ -256,6 +256,46 @@ function EntityProfileModal({ entityType, entity, onClose, onSave }) {
   );
 }
 
+/* ── EditPostModal ──────────────────────────────────────────────────────── */
+
+function EditPostModal({ post, onClose, onSave }) {
+  const [content, setContent] = useState(post.content || "");
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.6)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-stone-50">
+          <div className="w-10 h-10 rounded-full bg-stone-100 border-2 border-stone-200 flex items-center justify-center flex-shrink-0">
+            <Edit3 size={16} className="text-stone-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Modifier la publication</div>
+            <div className="text-[10px] text-stone-500">Un repère "modifié" apparaîtra sur le post.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <textarea value={content} onChange={e => setContent(e.target.value)}
+            rows={5} placeholder="Partagez quelque chose avec l'Empire…"
+            className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all" />
+          <p className="text-[9px] text-stone-400 px-1">
+            **gras** · *italique* · __souligné__ · ~~barré~~ · `code`
+          </p>
+          <button onClick={() => onSave(content.trim())} disabled={!content.trim()}
+            className="w-full py-2.5 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black uppercase rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+            Enregistrer les modifications
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── ProfileModal ───────────────────────────────────────────────────────── */
 
 function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, onUnfollow, onClose, onOpenDM, mySubscriptions, onSubscribe, onUnsubscribe, onOpenFollowList, recognizedEruditIds, onTip, isAdmin }) {
@@ -781,7 +821,7 @@ function PostCard({
   post, myId, isAdmin, citizens, myCitizen,
   myFollowing, mutedSet,
   expandedComments, commentInput,
-  onDelete, onToggleLike, onAddComment, onDeleteComment, onLikeComment,
+  onDelete, onEdit, onToggleLike, onAddComment, onDeleteComment, onLikeComment,
   onPinComment,
   onReact, onRepost, onVotePoll, onPin, onReport, onMute,
   onFollow, onUnfollow,
@@ -918,9 +958,19 @@ function PostCard({
           {!showAnon && author?.mushtagramOfficialTitle && (
             <div className="text-[10px] text-stone-400 italic">{author.mushtagramOfficialTitle}</div>
           )}
-          <div className="text-[10px] text-stone-400">{post.rpDate || post.date || ""}</div>
+          <div className="text-[10px] text-stone-400">
+            {post.rpDate || post.date || ""}
+            {post.editedAt && <span className="italic"> · modifié</span>}
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {(isMe || isMyEntityPost) && onEdit && (
+            <button onClick={() => onEdit(post)}
+              title="Modifier"
+              className="p-1 rounded hover:bg-stone-100 text-stone-300 hover:text-stone-600 transition-all">
+              <Edit3 size={13} />
+            </button>
+          )}
           {isMe && (
             <button onClick={() => onPin(post.id)}
               title={isPinned ? "Désépingler" : "Épingler"}
@@ -1179,7 +1229,7 @@ export default function MushtagramView({
   session, citizens = [], companies = [], guilds = [], eruditRequests = [], gameDate,
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
   mushtagramSubscriptions = [],
-  onPostMushtagram, onDeleteMushtagramPost,
+  onPostMushtagram, onDeleteMushtagramPost, onEditMushtagramPost,
   onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment, onPinMushtagramComment,
   onUpdateMushtagramProfile, onUpdateEntityMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
   onFollowMushtagram, onUnfollowMushtagram,
@@ -1236,6 +1286,7 @@ export default function MushtagramView({
 
   // Profile modal
   const [viewingProfile, setViewingProfile] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
 
   // Profile sub-tab
   const [profileSubTab, setProfileSubTab] = useState("publications");
@@ -1469,6 +1520,7 @@ export default function MushtagramView({
       expandedComments={expandedComments}
       commentInput={commentInput}
       onDelete={onDeleteMushtagramPost}
+      onEdit={setEditingPost}
       onToggleLike={onToggleMushtagramLike}
       onAddComment={onAddMushtagramComment}
       onDeleteComment={onDeleteMushtagramComment}
@@ -2384,6 +2436,7 @@ export default function MushtagramView({
                     expandedComments={expandedComments}
                     commentInput={commentInput}
                     onDelete={onDeleteMushtagramPost}
+                    onEdit={setEditingPost}
                     onToggleLike={onToggleMushtagramLike}
                     onAddComment={onAddMushtagramComment}
                     onDeleteComment={onDeleteMushtagramComment}
@@ -2870,6 +2923,17 @@ export default function MushtagramView({
           />
         );
       })()}
+
+      {editingPost && (
+        <EditPostModal
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+          onSave={(newContent) => {
+            onEditMushtagramPost && onEditMushtagramPost(editingPost.id, newContent);
+            setEditingPost(null);
+          }}
+        />
+      )}
     </div>
   );
 }

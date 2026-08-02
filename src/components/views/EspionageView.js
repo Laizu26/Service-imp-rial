@@ -259,6 +259,16 @@ const EspionageView = ({ citizens, session, roleInfo, onUpdateCitizen }) => {
                     {mail.targetName}
                   </span>
                 </div>
+                {!mail.manualStatus && mail.detectedKeywords?.length > 0 && (
+                  <div className="text-[10px] text-stone-400 mt-1 truncate">
+                    Motif : <span className="italic">{mail.detectedKeywords.join(", ")}</span>
+                  </div>
+                )}
+                {mail.manualStatus && (
+                  <div className="text-[10px] text-stone-400 mt-1 italic">
+                    Classement manuel
+                  </div>
+                )}
               </div>
             ))}
           </div>

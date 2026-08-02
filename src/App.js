@@ -793,6 +793,7 @@ export default function App() {
             companies={state.companies || []}
             onPostMushtagram={actions.onPostMushtagram}
             onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
+            onEditMushtagramPost={actions.onEditMushtagramPost}
             onToggleMushtagramLike={actions.onToggleMushtagramLike}
             onAddMushtagramComment={actions.onAddMushtagramComment}
             onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
@@ -1315,6 +1316,7 @@ export default function App() {
                         mushtagramSubscriptions={state.mushtagramSubscriptions || []}
                         onPostMushtagram={actions.onPostMushtagram}
                         onDeleteMushtagramPost={actions.onDeleteMushtagramPost}
+                        onEditMushtagramPost={actions.onEditMushtagramPost}
                         onToggleMushtagramLike={actions.onToggleMushtagramLike}
                         onAddMushtagramComment={actions.onAddMushtagramComment}
                         onDeleteMushtagramComment={actions.onDeleteMushtagramComment}
