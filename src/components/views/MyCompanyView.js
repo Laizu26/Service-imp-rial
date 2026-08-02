@@ -160,11 +160,12 @@ function ESPPConfigCard({ myCompany, myListing, onUpdateCompanyESPP }) {
 }
 
 // ── Contrats d'emploi médiévaux ──
-const DEFAULT_CONTRACT = { type: "MERCENARIAT", contractDurationDays: "", dimePercent: "", corveeFreeDaysPerMonth: "", buyoutAmount: "", migrationLocked: false, customClauses: "" };
+const DEFAULT_CONTRACT = { type: "MERCENARIAT", contractDurationDays: "", dimePercent: "", corveeFreeDaysPerMonth: "", buyoutAmount: "", migrationLocked: false, customClauses: "", signingBonus: "", profitSharePercent: "", severanceAmount: "" };
 
 const CONTRACT_TYPE_META = {
   MERCENARIAT: { label: "Mercenariat", badge: "bg-green-100 text-green-700 border-green-200", shortLabel: "MERCENAIRE", desc: "Contrat léger, résiliable librement" },
   APPRENTISSAGE: { label: "Apprentissage", badge: "bg-blue-100 text-blue-700 border-blue-200", shortLabel: "APPRENTI", desc: "Durée fixe — apprend un métier" },
+  COMPAGNONNAGE: { label: "Compagnonnage", badge: "bg-emerald-100 text-emerald-700 border-emerald-200", shortLabel: "COMPAGNON", desc: "Contrat équitable — profite autant au travailleur qu'à l'entreprise" },
   SERVAGE: { label: "Servage", badge: "bg-red-100 text-red-700 border-red-200", shortLabel: "SERF", desc: "Lien fort au seigneur, clause de rachat possible" },
 };
 
@@ -176,6 +177,9 @@ const normalizeContractTerms = (t) => ({
   buyoutAmount: parseFloat(t.buyoutAmount) || 0,
   migrationLocked: t.migrationLocked || false,
   customClauses: t.customClauses ? t.customClauses.split("\n").filter((s) => s.trim()) : [],
+  signingBonus: parseFloat(t.signingBonus) || 0,
+  profitSharePercent: parseFloat(t.profitSharePercent) || 0,
+  severanceAmount: parseFloat(t.severanceAmount) || 0,
 });
 
 function ContractTermsForm({ terms, onChange }) {
@@ -221,6 +225,26 @@ function ContractTermsForm({ terms, onChange }) {
           <input type="checkbox" checked={terms.migrationLocked} onChange={(e) => set("migrationLocked", e.target.checked)} className="w-4 h-4 accent-red-600" />
           <span className="text-[10px] font-black uppercase text-stone-600 leading-tight">Interdit de migration</span>
         </label>
+      </div>
+      <div className="space-y-3 bg-emerald-50/60 border border-emerald-200 rounded-xl p-3">
+        <div className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Clauses favorables au travailleur</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Prime d'embauche (Écus)</label>
+            <input type="number" min={0} step={0.1} value={terms.signingBonus} onChange={(e) => set("signingBonus", e.target.value)}
+              className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="0 = aucune" />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Indemnité de licenciement (Écus)</label>
+            <input type="number" min={0} step={0.1} value={terms.severanceAmount} onChange={(e) => set("severanceAmount", e.target.value)}
+              className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="0 = aucune" />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Participation aux bénéfices (% du solde de l'entreprise, par jour)</label>
+          <input type="number" min={0} max={100} step={0.5} value={terms.profitSharePercent} onChange={(e) => set("profitSharePercent", e.target.value)}
+            className="w-full p-2 border rounded font-mono text-sm bg-white" placeholder="0 = aucune" />
+        </div>
       </div>
       <div>
         <label className="text-[10px] font-black uppercase text-stone-400 mb-1 block">Clauses libres (une par ligne)</label>
@@ -282,6 +306,8 @@ function EmployeeManagementModal({
   // Onglet Contrat
   const [buyoutInput, setBuyoutInput] = useState(String(empContract.buyoutAmount || ""));
   const [corveeInput, setCorveeInput] = useState(String(empContract.corveeFreeDaysPerMonth || ""));
+  const [profitShareInput, setProfitShareInput] = useState(String(empContract.profitSharePercent || ""));
+  const [severanceInput, setSeveranceInput] = useState(String(empContract.severanceAmount || ""));
 
   // Onglet Grade
   const [rankTitle, setRankTitle] = useState(empRank?.title || "");
@@ -436,6 +462,50 @@ function EmployeeManagementModal({
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${empContract.migrationLocked ? "translate-x-6" : "translate-x-1"}`} />
                 </button>
+              </div>
+
+              {/* Clauses favorables au travailleur */}
+              <div className="space-y-3 bg-emerald-50/60 border border-emerald-200 rounded-xl p-3">
+                <div className="text-[10px] font-black uppercase text-emerald-700 tracking-widest">Clauses favorables au travailleur</div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block">Participation aux bénéfices (%/jour)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" min={0} max={100} step={0.5}
+                      className="flex-1 p-2 border rounded font-mono text-sm bg-white"
+                      value={profitShareInput}
+                      onChange={(e) => setProfitShareInput(e.target.value)}
+                      placeholder="0 = aucune"
+                    />
+                    <button
+                      onClick={() => onUpdateEmployeeContract({ companyId: myCompany.id, citizenId: empId, updates: { profitSharePercent: parseFloat(profitShareInput) || 0 } })}
+                      className="bg-emerald-700 text-white px-3 py-2 rounded text-xs font-bold uppercase hover:bg-emerald-600"
+                    >
+                      Sauvegarder
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block">Indemnité de licenciement (Écus)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" min={0} step={0.1}
+                      className="flex-1 p-2 border rounded font-mono text-sm bg-white"
+                      value={severanceInput}
+                      onChange={(e) => setSeveranceInput(e.target.value)}
+                      placeholder="0 = aucune"
+                    />
+                    <button
+                      onClick={() => onUpdateEmployeeContract({ companyId: myCompany.id, citizenId: empId, updates: { severanceAmount: parseFloat(severanceInput) || 0 } })}
+                      className="bg-emerald-700 text-white px-3 py-2 rounded text-xs font-bold uppercase hover:bg-emerald-600"
+                    >
+                      Sauvegarder
+                    </button>
+                  </div>
+                </div>
+                {empContract.signingBonus > 0 && (
+                  <div className="text-[10px] text-emerald-700">Prime d'embauche versée à la signature : <strong>{fmtMoney(empContract.signingBonus)}</strong></div>
+                )}
               </div>
 
               {/* Durée du contrat (readonly) */}

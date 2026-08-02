@@ -259,6 +259,16 @@ export const useGameActions = (session, state, saveState, notify) => {
                 }
               }
             }
+            // — Participation aux bénéfices (clause favorable au travailleur, inverse de la dîme) —
+            if (contract.profitSharePercent > 0 && compBalance > 0) {
+              const share = Math.round(compBalance * contract.profitSharePercent / 100 * 10) / 10;
+              if (share > 0) {
+                compBalance = Math.round((compBalance - share) * 10) / 10;
+                workerBalances[citizenId] = Math.round(((workerBalances[citizenId] || 0) + share) * 10) / 10;
+                const cit = ns.citizens.find((c) => c.id === citizenId);
+                ledgerEntries.push({ id: ts + i + 2000, fromName: company.name, toName: cit?.name || citizenId, amount: share, timestamp: ts, reason: `Participation aux bénéfices ${contract.profitSharePercent}% — contrat ${contract.type}`, type: "PROFIT_SHARE" });
+              }
+            }
             // — Expiration (CDD/Apprentissage/Mercenariat) —
             if (contract.contractDurationDays && (seniority[citizenId] || 0) >= contract.contractDurationDays) {
               newEmployees = newEmployees.filter((id) => id !== citizenId);
@@ -969,7 +979,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
 
-        const terms = contractTerms || { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
+        const terms = contractTerms || { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [], signingBonus: 0, profitSharePercent: 0, severanceAmount: 0 };
         newCitizens[targetIdx] = {
           ...target,
           jobOffers: [
@@ -1015,17 +1025,28 @@ export const useGameActions = (session, state, saveState, notify) => {
             // Ajout à l'entreprise
             const seniorityData = { ...(company.employeeSeniority || {}) };
             seniorityData[user.id] = 0;
-            const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
+            const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [], signingBonus: 0, profitSharePercent: 0, severanceAmount: 0 };
+            const finalTerms = offer.contractTerms || defaultTerms;
+            const signingBonus = finalTerms.signingBonus || 0;
+            let ledgerEntries = [];
+            if (signingBonus > 0) {
+              newCitizens[userIdx] = { ...newCitizens[userIdx], balance: Math.round(((newCitizens[userIdx].balance || 0) + signingBonus) * 10) / 10 };
+              const ts = Date.now();
+              ledgerEntries.push({ id: ts, fromName: company.name, toName: user.name, amount: signingBonus, timestamp: ts, reason: `Prime d'embauche — contrat ${finalTerms.type}`, type: "SIGNING_BONUS" });
+            }
             newCompanies[compIdx] = {
               ...company,
+              balance: Math.round(((company.balance || 0) - signingBonus) * 10) / 10,
               employees: [...(company.employees || []), user.id],
               employeeSeniority: seniorityData,
               employmentContracts: {
                 ...(company.employmentContracts || {}),
-                [user.id]: { ...(offer.contractTerms || defaultTerms), signedAt: Date.now() },
+                [user.id]: { ...finalTerms, signedAt: Date.now() },
               },
             };
-            notify(`Vous avez rejoint ${company.name}.`, "success");
+            saveState({ ...state, citizens: newCitizens, companies: newCompanies, ...(ledgerEntries.length > 0 ? { globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) } : {}) });
+            notify(`Vous avez rejoint ${company.name}.${signingBonus > 0 ? ` Prime d'embauche : ${formatMoney(signingBonus)}.` : ""}`, "success");
+            return;
           } else {
             notify("L'entreprise n'existe plus.", "error");
           }
@@ -1044,12 +1065,27 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         if (action === "FIRE") {
           const firedContracts = { ...(company.employmentContracts || {}) };
+          const contract = firedContracts[targetId];
           delete firedContracts[targetId];
           newCompanies[compIdx] = {
             ...company,
             employees: (company.employees || []).filter((id) => id !== targetId),
             employmentContracts: firedContracts,
           };
+          const severance = contract?.severanceAmount || 0;
+          if (severance > 0) {
+            const citIdx = state.citizens.findIndex((c) => c.id === targetId);
+            if (citIdx !== -1) {
+              const newCitizens = [...state.citizens];
+              newCitizens[citIdx] = { ...newCitizens[citIdx], balance: Math.round(((newCitizens[citIdx].balance || 0) + severance) * 10) / 10 };
+              newCompanies[compIdx] = { ...newCompanies[compIdx], balance: Math.round(((newCompanies[compIdx].balance || 0) - severance) * 10) / 10 };
+              const ts = Date.now();
+              const ledgerEntry = { id: ts, fromName: company.name, toName: newCitizens[citIdx].name, amount: severance, timestamp: ts, reason: `Indemnité de licenciement — contrat ${contract.type}`, type: "SEVERANCE" };
+              saveState({ ...state, companies: newCompanies, citizens: newCitizens, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+              notify(`Employé licencié. Indemnité versée : ${formatMoney(severance)}.`, "info");
+              return;
+            }
+          }
           notify("Employé licencié.", "info");
         } else if (action === "ASSIGN_SLAVE") {
           if ((company.slaves || []).includes(targetId)) return;
@@ -4276,17 +4312,33 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
           const seniorityData = { ...(company.employeeSeniority || {}) };
           seniorityData[app.citizenId] = 0;
-          const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [] };
+          const defaultTerms = { type: "MERCENARIAT", contractDurationDays: null, dimePercent: 0, corveeFreeDaysPerMonth: 0, buyoutAmount: 0, migrationLocked: false, customClauses: [], signingBonus: 0, profitSharePercent: 0, severanceAmount: 0 };
+          const finalTerms = contractTerms || defaultTerms;
+          const signingBonus = finalTerms.signingBonus || 0;
+          let newCitizens = state.citizens;
+          let ledgerEntries = [];
+          if (signingBonus > 0) {
+            const citIdx = state.citizens.findIndex((c) => c.id === app.citizenId);
+            if (citIdx !== -1) {
+              newCitizens = [...state.citizens];
+              newCitizens[citIdx] = { ...newCitizens[citIdx], balance: Math.round(((newCitizens[citIdx].balance || 0) + signingBonus) * 10) / 10 };
+              const ts = Date.now();
+              ledgerEntries.push({ id: ts, fromName: company.name, toName: app.citizenName, amount: signingBonus, timestamp: ts, reason: `Prime d'embauche — contrat ${finalTerms.type}`, type: "SIGNING_BONUS" });
+            }
+          }
           newCompanies[compIdx] = {
             ...newCompanies[compIdx],
+            balance: Math.round(((newCompanies[compIdx].balance || 0) - signingBonus) * 10) / 10,
             employees: [...(newCompanies[compIdx].employees || []), app.citizenId],
             employeeSeniority: seniorityData,
             employmentContracts: {
               ...(newCompanies[compIdx].employmentContracts || {}),
-              [app.citizenId]: { ...(contractTerms || defaultTerms), signedAt: Date.now() },
+              [app.citizenId]: { ...finalTerms, signedAt: Date.now() },
             },
           };
-          notify(`${app.citizenName} a été embauché.`, "success");
+          notify(`${app.citizenName} a été embauché.${signingBonus > 0 ? ` Prime d'embauche : ${formatMoney(signingBonus)}.` : ""}`, "success");
+          saveState({ ...state, companies: newCompanies, citizens: newCitizens, ...(ledgerEntries.length > 0 ? { globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) } : {}) });
+          return;
         } else {
           notify("Candidature refusée.", "info");
         }
