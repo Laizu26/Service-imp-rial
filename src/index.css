@@ -21,6 +21,7 @@
   --border-main: #d6d3d1;
   --border-light: #e7e5e4;
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --bg-surface: #f5f0dc;
 }
 
 .dark {
@@ -40,6 +41,7 @@
   --border-main: #44403c;
   --border-light: #44403c;
   --shadow-color: rgba(0, 0, 0, 0.4);
+  --bg-surface: #1c1917;
 }
 
 /* ===== DARK MODE GLOBAL OVERRIDES ===== */
@@ -470,3 +472,208 @@ html:not(.dark) .bg-\[\#e6dcc3\] {
 html:not(.dark) .shadow-\[0_4px_12px_rgba\(0\,0\,0\,0\.3\)\] {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18) !important;
 }
+
+/* Surfaces parchemin : suivent désormais la palette choisie (identiques aux hex
+   d'origine sous la palette Parchemin par défaut → aucun changement visuel). */
+html:not(.dark) .bg-\[\#fdf6e3\] {
+  background-color: var(--bg-header) !important;
+}
+html:not(.dark) .bg-\[\#f5f0dc\] {
+  background-color: var(--bg-surface) !important;
+}
+html:not(.dark) .from-\[\#fdf6e3\] {
+  --tw-gradient-from: var(--bg-header) !important;
+}
+html:not(.dark) .to-\[\#f5f0dc\] {
+  --tw-gradient-to: var(--bg-surface) !important;
+}
+
+/* ===== DARK MODE — COUVERTURE COMPLÈTE DES FAMILLES DE COULEURS =====
+   La feuille d'overrides historique (plus haut) ne couvrait que la moitié des
+   familles réellement utilisées : rose/violet (Mushtagram), fuchsia (Maison de
+   Asia), cyan, indigo, teal, lime, sky, emerald restaient en teintes claires
+   éclatantes sur fond sombre. Complément exhaustif ci-dessous. */
+
+/* ── Fonds teintés clairs (50/100/200) ── */
+.dark .bg-rose-50     { background-color: rgba(136, 19, 55, 0.2)  !important; }
+.dark .bg-rose-100    { background-color: rgba(136, 19, 55, 0.35) !important; }
+.dark .bg-rose-200    { background-color: rgba(136, 19, 55, 0.5)  !important; }
+.dark .bg-violet-50   { background-color: rgba(76, 29, 149, 0.2)  !important; }
+.dark .bg-violet-100  { background-color: rgba(76, 29, 149, 0.35) !important; }
+.dark .bg-fuchsia-50  { background-color: rgba(112, 26, 117, 0.2)  !important; }
+.dark .bg-fuchsia-100 { background-color: rgba(112, 26, 117, 0.35) !important; }
+.dark .bg-fuchsia-200 { background-color: rgba(112, 26, 117, 0.5)  !important; }
+.dark .bg-cyan-50     { background-color: rgba(22, 78, 99, 0.2)   !important; }
+.dark .bg-cyan-100    { background-color: rgba(22, 78, 99, 0.35)  !important; }
+.dark .bg-indigo-50   { background-color: rgba(49, 46, 129, 0.2)  !important; }
+.dark .bg-indigo-100  { background-color: rgba(49, 46, 129, 0.35) !important; }
+.dark .bg-teal-50     { background-color: rgba(19, 78, 74, 0.2)   !important; }
+.dark .bg-teal-100    { background-color: rgba(19, 78, 74, 0.35)  !important; }
+.dark .bg-lime-50     { background-color: rgba(54, 83, 20, 0.2)   !important; }
+.dark .bg-lime-100    { background-color: rgba(54, 83, 20, 0.35)  !important; }
+.dark .bg-green-200   { background-color: rgba(20, 83, 45, 0.5)   !important; }
+.dark .bg-red-200     { background-color: rgba(127, 29, 29, 0.5)  !important; }
+.dark .bg-blue-200    { background-color: rgba(30, 58, 138, 0.5)  !important; }
+.dark .bg-orange-200  { background-color: rgba(154, 52, 18, 0.5)  !important; }
+
+/* ── Fonds teintés avec opacité (sections MarriageView & co) ── */
+.dark .bg-rose-50\/40   { background-color: rgba(136, 19, 55, 0.12) !important; }
+.dark .bg-rose-50\/60   { background-color: rgba(136, 19, 55, 0.18) !important; }
+.dark .bg-amber-50\/40  { background-color: rgba(113, 53, 6, 0.12)  !important; }
+.dark .bg-amber-50\/50  { background-color: rgba(113, 53, 6, 0.15)  !important; }
+.dark .bg-amber-50\/60  { background-color: rgba(113, 53, 6, 0.18)  !important; }
+.dark .bg-yellow-50\/60 { background-color: rgba(113, 53, 6, 0.18)  !important; }
+.dark .bg-stone-50\/40  { background-color: rgba(28, 25, 23, 0.4)   !important; }
+.dark .bg-stone-50\/50  { background-color: rgba(28, 25, 23, 0.5)   !important; }
+.dark .bg-stone-100\/50 { background-color: rgba(41, 37, 36, 0.5)   !important; }
+.dark .bg-stone-200\/50 { background-color: rgba(68, 64, 60, 0.5)   !important; }
+.dark .bg-red-50\/50    { background-color: rgba(127, 29, 29, 0.15) !important; }
+.dark .bg-purple-50\/50 { background-color: rgba(88, 28, 135, 0.15) !important; }
+.dark .bg-green-50\/50  { background-color: rgba(20, 83, 45, 0.15)  !important; }
+.dark .bg-blue-50\/30   { background-color: rgba(30, 58, 138, 0.1)  !important; }
+
+/* ── Textes accent — familles manquantes ── */
+.dark .text-rose-600    { color: #fb7185 !important; }
+.dark .text-rose-700    { color: #f43f5e !important; }
+.dark .text-rose-800    { color: #fb7185 !important; }
+.dark .text-violet-600  { color: #a78bfa !important; }
+.dark .text-violet-700  { color: #8b5cf6 !important; }
+.dark .text-violet-800  { color: #a78bfa !important; }
+.dark .text-fuchsia-600 { color: #e879f9 !important; }
+.dark .text-fuchsia-700 { color: #d946ef !important; }
+.dark .text-fuchsia-800 { color: #e879f9 !important; }
+.dark .text-fuchsia-900 { color: #d946ef !important; }
+.dark .text-cyan-600    { color: #22d3ee !important; }
+.dark .text-cyan-700    { color: #06b6d4 !important; }
+.dark .text-cyan-800    { color: #22d3ee !important; }
+.dark .text-indigo-600  { color: #818cf8 !important; }
+.dark .text-indigo-700  { color: #6366f1 !important; }
+.dark .text-indigo-800  { color: #818cf8 !important; }
+.dark .text-teal-600    { color: #2dd4bf !important; }
+.dark .text-teal-700    { color: #14b8a6 !important; }
+.dark .text-teal-800    { color: #2dd4bf !important; }
+.dark .text-lime-700    { color: #84cc16 !important; }
+.dark .text-sky-600     { color: #38bdf8 !important; }
+.dark .text-sky-700     { color: #0ea5e9 !important; }
+.dark .text-sky-800     { color: #38bdf8 !important; }
+.dark .text-emerald-600 { color: #34d399 !important; }
+.dark .text-emerald-700 { color: #10b981 !important; }
+.dark .text-emerald-800 { color: #34d399 !important; }
+.dark .text-pink-800    { color: #f472b6 !important; }
+
+/* ── Bordures — familles manquantes ── */
+.dark .border-rose-100    { border-color: rgba(136, 19, 55, 0.35) !important; }
+.dark .border-rose-200    { border-color: rgba(136, 19, 55, 0.5)  !important; }
+.dark .border-rose-300    { border-color: rgba(159, 18, 57, 0.6)  !important; }
+.dark .border-rose-400    { border-color: rgba(190, 18, 60, 0.65) !important; }
+.dark .border-violet-100  { border-color: rgba(76, 29, 149, 0.35) !important; }
+.dark .border-violet-200  { border-color: rgba(76, 29, 149, 0.5)  !important; }
+.dark .border-violet-300  { border-color: rgba(91, 33, 182, 0.6)  !important; }
+.dark .border-fuchsia-100 { border-color: rgba(112, 26, 117, 0.35) !important; }
+.dark .border-fuchsia-200 { border-color: rgba(112, 26, 117, 0.5)  !important; }
+.dark .border-fuchsia-300 { border-color: rgba(134, 25, 143, 0.6)  !important; }
+.dark .border-cyan-100    { border-color: rgba(22, 78, 99, 0.35)  !important; }
+.dark .border-cyan-200    { border-color: rgba(22, 78, 99, 0.5)   !important; }
+.dark .border-cyan-300    { border-color: rgba(21, 94, 117, 0.6)  !important; }
+.dark .border-indigo-100  { border-color: rgba(49, 46, 129, 0.35) !important; }
+.dark .border-indigo-200  { border-color: rgba(49, 46, 129, 0.5)  !important; }
+.dark .border-indigo-300  { border-color: rgba(55, 48, 163, 0.6)  !important; }
+.dark .border-teal-100    { border-color: rgba(19, 78, 74, 0.35)  !important; }
+.dark .border-teal-200    { border-color: rgba(19, 78, 74, 0.5)   !important; }
+.dark .border-teal-300    { border-color: rgba(17, 94, 89, 0.6)   !important; }
+.dark .border-teal-400    { border-color: rgba(15, 118, 110, 0.65) !important; }
+.dark .border-lime-100    { border-color: rgba(54, 83, 20, 0.35)  !important; }
+.dark .border-lime-200    { border-color: rgba(54, 83, 20, 0.5)   !important; }
+.dark .border-lime-300    { border-color: rgba(77, 124, 15, 0.6)  !important; }
+.dark .border-sky-100     { border-color: rgba(12, 74, 110, 0.35) !important; }
+.dark .border-sky-200     { border-color: rgba(12, 74, 110, 0.5)  !important; }
+.dark .border-sky-300     { border-color: rgba(7, 89, 133, 0.6)   !important; }
+.dark .border-emerald-100 { border-color: rgba(6, 78, 59, 0.35)   !important; }
+.dark .border-emerald-200 { border-color: rgba(6, 78, 59, 0.5)    !important; }
+.dark .border-emerald-400 { border-color: rgba(4, 120, 87, 0.65)  !important; }
+.dark .border-blue-100    { border-color: rgba(30, 58, 138, 0.35) !important; }
+.dark .border-green-100   { border-color: rgba(20, 83, 45, 0.35)  !important; }
+.dark .border-red-100     { border-color: rgba(127, 29, 29, 0.35) !important; }
+.dark .border-purple-100  { border-color: rgba(88, 28, 135, 0.35) !important; }
+.dark .border-purple-300  { border-color: rgba(107, 33, 168, 0.6) !important; }
+.dark .border-pink-100    { border-color: rgba(131, 24, 67, 0.35) !important; }
+.dark .border-amber-200\/60 { border-color: rgba(113, 53, 6, 0.35) !important; }
+
+/* ── Hover — états manquants ── */
+.dark .hover\:bg-stone-50:hover      { background-color: #292524 !important; }
+.dark .hover\:bg-stone-50\/50:hover  { background-color: rgba(41, 37, 36, 0.5) !important; }
+.dark .hover\:bg-red-100:hover       { background-color: rgba(127, 29, 29, 0.4)  !important; }
+.dark .hover\:bg-red-200:hover       { background-color: rgba(127, 29, 29, 0.55) !important; }
+.dark .hover\:bg-green-100:hover     { background-color: rgba(20, 83, 45, 0.4)   !important; }
+.dark .hover\:bg-green-200:hover     { background-color: rgba(20, 83, 45, 0.55)  !important; }
+.dark .hover\:bg-amber-200:hover     { background-color: rgba(113, 53, 6, 0.55)  !important; }
+.dark .hover\:bg-yellow-100:hover    { background-color: rgba(113, 53, 6, 0.4)   !important; }
+.dark .hover\:bg-yellow-50\/50:hover { background-color: rgba(113, 53, 6, 0.15)  !important; }
+.dark .hover\:bg-blue-200:hover      { background-color: rgba(30, 58, 138, 0.55) !important; }
+.dark .hover\:bg-orange-50:hover     { background-color: rgba(154, 52, 18, 0.25) !important; }
+.dark .hover\:bg-orange-100:hover    { background-color: rgba(154, 52, 18, 0.4)  !important; }
+.dark .hover\:bg-orange-200:hover    { background-color: rgba(154, 52, 18, 0.55) !important; }
+.dark .hover\:bg-purple-100:hover    { background-color: rgba(88, 28, 135, 0.4)  !important; }
+.dark .hover\:bg-rose-50:hover       { background-color: rgba(136, 19, 55, 0.25) !important; }
+.dark .hover\:bg-rose-100:hover      { background-color: rgba(136, 19, 55, 0.4)  !important; }
+.dark .hover\:bg-fuchsia-50:hover    { background-color: rgba(112, 26, 117, 0.25) !important; }
+.dark .hover\:bg-fuchsia-100:hover   { background-color: rgba(112, 26, 117, 0.4)  !important; }
+.dark .hover\:bg-sky-50:hover        { background-color: rgba(12, 74, 110, 0.25) !important; }
+.dark .hover\:bg-sky-100:hover       { background-color: rgba(12, 74, 110, 0.4)  !important; }
+.dark .hover\:bg-emerald-50:hover    { background-color: rgba(6, 78, 59, 0.25)   !important; }
+.dark .hover\:bg-emerald-100:hover   { background-color: rgba(6, 78, 59, 0.4)    !important; }
+
+/* ── Dégradés — stops clairs manquants ── */
+.dark .from-stone-50   { --tw-gradient-from: var(--bg-card-alt) !important; }
+.dark .from-stone-100  { --tw-gradient-from: #292524 !important; }
+.dark .to-stone-100    { --tw-gradient-to: #292524 !important; }
+.dark .from-amber-50   { --tw-gradient-from: rgba(113, 53, 6, 0.15) !important; }
+.dark .from-amber-100  { --tw-gradient-from: rgba(113, 53, 6, 0.3)  !important; }
+.dark .from-yellow-100 { --tw-gradient-from: rgba(113, 53, 6, 0.3)  !important; }
+.dark .to-yellow-50    { --tw-gradient-to: rgba(113, 53, 6, 0.15)   !important; }
+.dark .to-green-50     { --tw-gradient-to: rgba(20, 83, 45, 0.15)   !important; }
+.dark .from-emerald-50 { --tw-gradient-from: rgba(6, 78, 59, 0.15)  !important; }
+
+/* ── Blancs semi-transparents manquants (surfaces glacées) ── */
+.dark .bg-white\/40 { background-color: rgba(41, 37, 36, 0.55) !important; }
+.dark .bg-white\/60 { background-color: rgba(41, 37, 36, 0.75) !important; }
+.dark .bg-white\/70 { background-color: rgba(41, 37, 36, 0.8)  !important; }
+.dark .bg-white\/90 { background-color: rgba(41, 37, 36, 0.92) !important; }
+.dark .hover\:bg-white\/40:hover { background-color: rgba(41, 37, 36, 0.55) !important; }
+.dark .hover\:bg-white\/60:hover { background-color: rgba(41, 37, 36, 0.75) !important; }
+.dark .hover\:bg-white\/90:hover { background-color: rgba(41, 37, 36, 0.92) !important; }
+.dark .from-white\/80 { --tw-gradient-from: rgba(41, 37, 36, 0.85) !important; }
+
+/* ── Divide manquant ── */
+.dark .divide-stone-50 > :not([hidden]) ~ :not([hidden]) { border-color: #44403c !important; }
+
+/* ── <option> dans les <select> (le fond blanc natif ignorait le thème) ── */
+.dark option {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+}
+
+/* ── Éditeur / lecture Érudit — les couleurs codées en dur rendaient le
+      texte quasi invisible (encre sombre sur carte sombre) en mode nuit ── */
+.dark .erudit-editor h2,
+.dark .erudit-editor h3   { color: #e7e5e4; }
+.dark .erudit-editor blockquote {
+  background: #1c1917;
+  color: #a8a29e;
+  border-left-color: #57534e;
+}
+.dark .erudit-editor hr   { border-top-color: #44403c; }
+.dark .erudit-reading     { color: #d6d3d1; }
+.dark .erudit-reading h2  { color: #e7e5e4; border-bottom-color: #44403c; }
+.dark .erudit-reading h3  { color: #e7e5e4; }
+.dark .erudit-reading blockquote {
+  background: #1c1917;
+  color: #a8a29e;
+  border-left-color: #57534e;
+}
+.dark .erudit-reading hr  { border-top-color: #44403c; }
+.dark .erudit-reading a   { color: #a78bfa; }
+
+/* ── Scrollbar claire (règle générique plus haut) : version sombre ── */
+.dark .overflow-y-auto::-webkit-scrollbar-thumb        { background: #57534e; }
+.dark .overflow-y-auto::-webkit-scrollbar-thumb:hover  { background: #78716c; }

@@ -19,30 +19,35 @@ const COLOR_THEMES = {
     "--bg-header": "#fdf6e3",
     "--bg-header-trans": "rgba(253,246,227,0.95)",
     "--sidebar-active": "#e6dcc3",
+    "--bg-surface": "#f5f0dc",
   },
   marble: {
     "--bg-app": "#ebebeb",
     "--bg-header": "#f7f7f5",
     "--bg-header-trans": "rgba(247,247,245,0.95)",
     "--sidebar-active": "#d8d8d8",
+    "--bg-surface": "#f0f0ee",
   },
   slate: {
     "--bg-app": "#dce3ed",
     "--bg-header": "#eef3fa",
     "--bg-header-trans": "rgba(238,243,250,0.95)",
     "--sidebar-active": "#c4d4e8",
+    "--bg-surface": "#e6ecf5",
   },
   forest: {
     "--bg-app": "#d6e4d6",
     "--bg-header": "#edf5ed",
     "--bg-header-trans": "rgba(237,245,237,0.95)",
     "--sidebar-active": "#bfd4bf",
+    "--bg-surface": "#e2eee2",
   },
   crimson: {
     "--bg-app": "#eddada",
     "--bg-header": "#faf0ef",
     "--bg-header-trans": "rgba(250,240,239,0.95)",
     "--sidebar-active": "#dfc4c4",
+    "--bg-surface": "#f5e6e5",
   },
 };
 
@@ -67,15 +72,15 @@ export const useSettings = () => {
     }
   }, [settings]);
 
-  // Resolve effective theme (auto = system preference)
-  const resolvedTheme = (() => {
-    if (settings.theme === "auto") {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    }
-    return settings.theme;
-  })();
+  // Préférence système (pour le mode "auto") — suivie comme un vrai état pour que
+  // le changement de thème de l'OS re-rende proprement, sans écriture parasite
+  // dans localStorage ni re-render forcé.
+  const [systemDark, setSystemDark] = useState(() =>
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false
+  );
+
+  const resolvedTheme =
+    settings.theme === "auto" ? (systemDark ? "dark" : "light") : settings.theme;
 
   // Apply dark/light, color palette, font size, compact, animations to document
   useEffect(() => {
@@ -88,17 +93,21 @@ export const useSettings = () => {
       root.classList.remove("dark");
     }
 
-    // Color palette — set CSS variables inline on <html>
+    // Color palette — CSS variables inline sur <html>, UNIQUEMENT en mode clair.
+    // Un style inline gagne toujours sur la feuille `.dark { --bg-app: … }` :
+    // les appliquer en mode sombre forçait les fonds beiges de la palette claire
+    // par-dessus le thème nuit (bug historique du mode sombre).
     const themeKey = settings.colorTheme || "sand";
     const themeVars = COLOR_THEMES[themeKey] || COLOR_THEMES.sand;
     // Remove all theme vars first to avoid stale values
     Object.keys(COLOR_THEMES.sand).forEach((k) =>
       root.style.removeProperty(k)
     );
-    // Apply selected theme vars
-    Object.entries(themeVars).forEach(([k, v]) =>
-      root.style.setProperty(k, v)
-    );
+    if (resolvedTheme !== "dark") {
+      Object.entries(themeVars).forEach(([k, v]) =>
+        root.style.setProperty(k, v)
+      );
+    }
     // data-theme attribute for potential CSS selectors
     root.setAttribute("data-theme", themeKey);
 
@@ -129,14 +138,15 @@ export const useSettings = () => {
     settings.animations,
   ]);
 
-  // Listen for system theme changes when auto
+  // Suivre les changements de préférence système (toujours actif : peu coûteux,
+  // et évite un état obsolète si l'utilisateur passe en "auto" plus tard)
   useEffect(() => {
-    if (settings.theme !== "auto") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => setSettings((s) => ({ ...s })); // force re-render
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mq) return;
+    const handler = (e) => setSystemDark(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
-  }, [settings.theme]);
+  }, []);
 
   const updateSetting = useCallback((key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
