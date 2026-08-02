@@ -1663,13 +1663,17 @@ export default function MushtagramView({
     return mushtagramPosts.find(p => p.id === myCitizen.mushtagramPinned) || null;
   }, [myCitizen, mushtagramPosts]);
 
-  if (mushtagramSerfRights.mushtagramLocked || mushtagramSpouseRights.mushtagramLocked || mushtagramGuardianRights.mushtagramLocked) {
+  const mushtagramOwnerLocked = myCitizen?.status === "Esclave" && !myCitizen?.permissions?.mushtagram;
+
+  if (mushtagramOwnerLocked || mushtagramSerfRights.mushtagramLocked || mushtagramSpouseRights.mushtagramLocked || mushtagramGuardianRights.mushtagramLocked) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
         <span className="text-3xl">📵</span>
         <p className="font-black text-red-700 mt-2 text-lg">Mushtagram restreint</p>
         <p className="text-sm text-red-500 mt-1">
-          {mushtagramSerfRights.mushtagramLocked
+          {mushtagramOwnerLocked
+            ? "Votre propriétaire ne vous a pas accordé l'accès à Mushtagram."
+            : mushtagramSerfRights.mushtagramLocked
             ? "Votre employeur a bloqué votre accès à Mushtagram."
             : mushtagramGuardianRights.mushtagramLocked
             ? "Votre tuteur a bloqué votre accès à Mushtagram."

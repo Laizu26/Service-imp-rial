@@ -12,6 +12,9 @@ import {
   Banknote,
   Landmark,
   CreditCard,
+  Hash,
+  TrendingUp,
+  Gem,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -386,8 +389,23 @@ const SlavePersonalView = ({
               key: "travel",
               icon: ArrowUpRight,
             },
+            {
+              label: "Mushtagram",
+              key: "mushtagram",
+              icon: Hash,
+            },
+            {
+              label: "Marché",
+              key: "market",
+              icon: TrendingUp,
+            },
+            {
+              label: "Maison Asia",
+              key: "maison",
+              icon: Gem,
+            },
           ].map((perm) => {
-            const granted = user.permissions?.[perm.key] !== false;
+            const granted = user.permissions?.[perm.key] === true;
             return (
               <div
                 key={perm.key}

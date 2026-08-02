@@ -148,7 +148,8 @@ export const useGameActions = (session, state, saveState, notify) => {
       const employerLocked = employer?.employmentContracts?.[citizenId]?.serfRights?.maisonLocked;
       const spouseLocked = (citizen.spouses || []).some((s) => s.dominantId && String(s.dominantId) !== String(citizenId) && s.spouseRights?.maisonLocked);
       const guardianLocked = citizen.guardianship?.active && citizen.guardianship.rights?.maisonLocked;
-      return !!(employerLocked || spouseLocked || guardianLocked);
+      const ownerLocked = citizen.status === "Esclave" && !citizen.permissions?.maison;
+      return !!(employerLocked || spouseLocked || guardianLocked || ownerLocked);
     };
 
     return wrapActions({

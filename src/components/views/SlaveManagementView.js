@@ -16,6 +16,9 @@ import {
   HeartCrack,
   Search,
   Trash2,
+  Hash,
+  TrendingUp,
+  Gem,
 } from "lucide-react";
 import Card from "../ui/Card";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
@@ -460,6 +463,39 @@ const SlaveManagementView = ({
                       <PermissionToggle
                         checked={selectedSlave.permissions?.travel || false}
                         onClick={() => requestPermissionChange("travel")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Hash size={15} className="text-stone-500" />
+                        <div className="text-xs font-bold text-stone-700">Accès Mushtagram</div>
+                      </div>
+                      <PermissionToggle
+                        checked={selectedSlave.permissions?.mushtagram || false}
+                        onClick={() => requestPermissionChange("mushtagram")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <TrendingUp size={15} className="text-stone-500" />
+                        <div className="text-xs font-bold text-stone-700">Accès au Marché</div>
+                      </div>
+                      <PermissionToggle
+                        checked={selectedSlave.permissions?.market || false}
+                        onClick={() => requestPermissionChange("market")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Gem size={15} className="text-stone-500" />
+                        <div className="text-xs font-bold text-stone-700">Maison de Asia</div>
+                      </div>
+                      <PermissionToggle
+                        checked={selectedSlave.permissions?.maison || false}
+                        onClick={() => requestPermissionChange("maison")}
                       />
                     </div>
 

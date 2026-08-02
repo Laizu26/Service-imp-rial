@@ -1098,6 +1098,11 @@ const CitizenLayout = (props) => {
   const canUseBank = !isSlave || !!permissions.bank;
   const bankAccessAllowed = canUseBank && !combinedRestriction.bankLocked;
   const canUseTravel = !isSlave || !!permissions.travel;
+  const canUseMushtagram = !isSlave || !!permissions.mushtagram;
+  const canUseMarket = !isSlave || !!permissions.market;
+  const marketAccessAllowed = canUseMarket && (isSlave || !combinedRestriction.marketLocked);
+  const canUseMaison = !isSlave || !!permissions.maison;
+  const maisonAccessAllowed = canUseMaison && !combinedRestriction.maisonLocked;
 
   // Sécurité sur users
   const safeUsers = Array.isArray(users) ? users : [];
@@ -1741,8 +1746,8 @@ const CitizenLayout = (props) => {
                 onRespondTrade={onRespondTrade}
                 onCancelTrade={onCancelTrade}
                 tradeProposals={tradeProposals}
-                marketLocked={!isSlave && combinedRestriction.marketLocked}
-                marketLockSource={restrictionSource("marketLocked")}
+                marketLocked={!marketAccessAllowed}
+                marketLockSource={isSlave ? "propriétaire" : restrictionSource("marketLocked")}
               />
             )}
 
@@ -2246,13 +2251,15 @@ const CitizenLayout = (props) => {
                 );
               })()}
 
-            {active === "asia" && combinedRestriction.maisonLocked && (
+            {active === "asia" && !maisonAccessAllowed && (
               <div className="p-4 md:p-8">
                 <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
                   <div className="text-3xl">🚫</div>
                   <p className="font-black text-red-700 text-base">Maison de Asia — accès restreint</p>
                   <p className="text-xs text-red-500">
-                    {restrictionSource("maisonLocked") === "employeur"
+                    {!canUseMaison
+                      ? "Votre propriétaire ne vous a pas accordé l'accès à la Maison de Asia."
+                      : restrictionSource("maisonLocked") === "employeur"
                       ? "Votre employeur a restreint votre accès à la Maison de Asia dans le cadre de votre contrat."
                       : restrictionSource("maisonLocked") === "tuteur"
                       ? "Votre tuteur a restreint votre accès à la Maison de Asia."
@@ -2261,7 +2268,7 @@ const CitizenLayout = (props) => {
                 </div>
               </div>
             )}
-            {active === "asia" && !combinedRestriction.maisonLocked && (
+            {active === "asia" && maisonAccessAllowed && (
               <MaisonDeAsiaCitizen
                 citizens={safeUsers}
                 countries={safeCountries}
@@ -3277,12 +3284,14 @@ const CitizenLayout = (props) => {
             })()}
 
             {/* === BOURSE === */}
-            {active === "bourse" && !isSlave && combinedRestriction.marketLocked && (
+            {active === "bourse" && !marketAccessAllowed && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
                 <div className="text-3xl">🚫</div>
                 <p className="font-black text-red-700 text-base">Marché restreint</p>
                 <p className="text-xs text-red-500">
-                  {restrictionSource("marketLocked") === "employeur"
+                  {isSlave
+                    ? "Votre propriétaire ne vous a pas accordé l'accès au marché."
+                    : restrictionSource("marketLocked") === "employeur"
                     ? "Votre employeur a restreint vos droits de commerce dans le cadre de votre contrat."
                     : restrictionSource("marketLocked") === "tuteur"
                     ? "Votre tuteur a restreint vos droits de commerce."
@@ -3290,7 +3299,7 @@ const CitizenLayout = (props) => {
                 </p>
               </div>
             )}
-            {active === "bourse" && !isSlave && !combinedRestriction.marketLocked && (
+            {active === "bourse" && marketAccessAllowed && (
               <CitizenBourse
                 user={user}
                 bourseListings={bourseListings}
