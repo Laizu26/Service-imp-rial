@@ -1649,7 +1649,10 @@ const MarriageView = ({
               const otherParent = child.otherParentId ? safeUsers.find((u) => u.id === child.otherParentId) : null;
               const fil = FILIATION_TYPES.find((f) => f.id === child.filiation);
               const displayName = linkedCitizen?.name || child.name || "Enfant sans nom";
-              const age = child.birthDate ? getCitizenAge({ birthDate: child.birthDate }, gd) : null;
+              // Une fois l'enfant lié à un citoyen réel, sa date de naissance officielle vit sur
+              // la fiche citoyen (modifiable en mode admin) — elle prime sur l'ancienne copie locale.
+              const effectiveBirthDate = linkedCitizen?.birthDate || child.birthDate;
+              const age = effectiveBirthDate ? getCitizenAge({ birthDate: effectiveBirthDate }, gd) : null;
               return (
                 <div key={child.id} className="bg-white rounded-xl border border-amber-200 shadow-sm p-4 flex items-start gap-3">
                   {linkedCitizen?.avatarUrl ? (
@@ -1665,8 +1668,8 @@ const MarriageView = ({
                       {age !== null && (
                         <span className="text-[10px] text-stone-500 font-bold">{age} ans</span>
                       )}
-                      {child.birthDate && (
-                        <span className="text-[10px] text-stone-400 italic">né(e) le {formatRPDate(child.birthDate)}</span>
+                      {effectiveBirthDate && (
+                        <span className="text-[10px] text-stone-400 italic">né(e) le {formatRPDate(effectiveBirthDate)}</span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 mt-1.5">
