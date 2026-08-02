@@ -120,7 +120,7 @@ function ChildRightsModal({ child, onClose, onSetChildRights }) {
           <div className="bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 space-y-2">
             <div>
               <div className="text-xs font-bold text-stone-700">💰 Plafond de virement</div>
-              <div className="text-[10px] text-stone-400">Montant maximum que {name} peut virer en une seule fois (les dépôts et réceptions restent libres)</div>
+              <div className="text-[10px] text-stone-400">Montant maximum que {name} peut virer par jour à un même bénéficiaire, même en plusieurs virements (les dépôts et réceptions restent libres)</div>
             </div>
             <div className="flex gap-2">
               <input type="number" min="0" value={limitInput} onChange={(e) => setLimitInput(e.target.value)}

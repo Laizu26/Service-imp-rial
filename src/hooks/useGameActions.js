@@ -1169,9 +1169,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (srcRaw === `U-${session.id}`) {
           const me = (state.citizens || []).find((c) => c.id === session.id);
           const limit = me?.guardianship?.active ? me.guardianship.rights?.bankLimit : null;
-          if (limit && parseFloat(amount) > limit) {
-            notify(`Votre tuteur a plafonné vos virements à ${formatMoney(limit)}.`, "error");
-            return;
+          if (limit) {
+            if (parseFloat(amount) > limit) {
+              notify(`Votre tuteur a plafonné vos virements à ${formatMoney(limit)}.`, "error");
+              return;
+            }
+            // Cumul glissant sur 24h vers le même bénéficiaire, pour empêcher de contourner
+            // le plafond en fractionnant un gros virement en plusieurs petits dans la journée.
+            const now = Date.now();
+            const alreadySent = (state.globalLedger || [])
+              .filter((e) => e.type === "TRANSFER" && e.fromKey === srcRaw && e.toKey === tgtRaw && now - e.timestamp < 86400000)
+              .reduce((sum, e) => sum + (e.amount || 0), 0);
+            if (alreadySent + parseFloat(amount) > limit) {
+              notify(`Votre tuteur a plafonné vos virements à ${formatMoney(limit)} par jour et par bénéficiaire. Vous avez déjà envoyé ${formatMoney(alreadySent)} à ce destinataire aujourd'hui.`, "error");
+              return;
+            }
           }
         }
 
@@ -1215,6 +1227,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           id: Date.now(),
           fromName,
           toName,
+          fromKey: srcRaw,
+          toKey: tgtRaw,
           amount: parseFloat(amount),
           timestamp: Date.now(),
           type: "TRANSFER",
