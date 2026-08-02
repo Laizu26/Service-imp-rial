@@ -864,7 +864,9 @@ function PostCard({
   // sans avoir à déverrouiller en plus — seuls les non-abonnés voient le paywall PPV.
   const coveredBySubscription = post.subscribersOnly && isSubscribed;
   const paidLocked = post.locked && !isMe && !isAdmin && !hasUnlocked && !coveredBySubscription;
-  const subLocked = post.subscribersOnly && !isMe && !isAdmin && !isSubscribed;
+  // Sur un post à la fois PPV et abonnés payants, une fois le PPV payé (hasUnlocked), l'accès est
+  // acquis — subLocked ne doit pas re-bloquer derrière un mur d'abonnement après un paiement déjà fait.
+  const subLocked = post.subscribersOnly && !isMe && !isAdmin && !isSubscribed && !(post.locked && hasUnlocked);
 
   const showAnon = post.isAnonymous && !isMe && !isAdmin;
   const displayAuthor = showAnon ? { name: "Citoyen Anonyme" } : (author || { name: post.authorName });
