@@ -1071,6 +1071,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             ...company,
             employees: (company.employees || []).filter((id) => id !== targetId),
             employmentContracts: firedContracts,
+            mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(targetId)),
           };
           const severance = contract?.severanceAmount || 0;
           if (severance > 0) {
@@ -1130,6 +1131,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           ...company,
           employees: (company.employees || []).filter((id) => id !== session.id),
           employmentContracts: newContracts,
+          mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(session.id)),
         };
         saveState({ ...state, companies: newCompanies });
         notify(`Vous avez quitté ${company.name}.`, "info");
@@ -4236,6 +4238,23 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Contrat mis à jour.", "success");
       },
 
+      // --- ACCÈS AU COMPTE MUSHTAGRAM DE L'ENTREPRISE (délégué par le propriétaire) ---
+      onSetCompanyMushtagramAccess: ({ companyId, citizenId, authorized }) => {
+        if (!session) return;
+        const company = (state.companies || []).find(c => c.id === companyId);
+        if (!company || String(company.ownerId) !== String(session.id)) return;
+        if (!(company.employees || []).map(String).includes(String(citizenId))) return;
+        const current = (company.mushtagramAuthorizedIds || []).map(String);
+        const next = authorized
+          ? (current.includes(String(citizenId)) ? current : [...current, String(citizenId)])
+          : current.filter((id) => id !== String(citizenId));
+        const updatedCompanies = (state.companies || []).map(c =>
+          c.id === companyId ? { ...c, mushtagramAuthorizedIds: next } : c
+        );
+        saveState({ ...state, companies: updatedCompanies });
+        notify(authorized ? "Accès Mushtagram accordé." : "Accès Mushtagram retiré.", "success");
+      },
+
       // --- CANDIDATURE SPONTANÉE ---
       onApplyToCompany: (companyId) => {
         if (!session) return;
@@ -6556,7 +6575,11 @@ export const useGameActions = (session, state, saveState, notify) => {
           entityAuthor = { authorId: `guild_${guild.id}`, authorName: guild.name, authorType: "guild" };
         } else if (postAsEntity?.type === "company") {
           const company = (state.companies || []).find(c => String(c.id) === String(postAsEntity.id));
-          if (!company || String(company.ownerId) !== String(session.id)) { notify("Seul le propriétaire peut publier au nom de l'entreprise.", "error"); return; }
+          const isAuthorized = company && (
+            String(company.ownerId) === String(session.id) ||
+            (company.mushtagramAuthorizedIds || []).map(String).includes(String(session.id))
+          );
+          if (!isAuthorized) { notify("Vous n'êtes pas autorisé à publier au nom de l'entreprise.", "error"); return; }
           entityAuthor = { authorId: `company_${company.id}`, authorName: company.name, authorType: "company" };
         }
 

@@ -290,6 +290,7 @@ function EmployeeManagementModal({
   onSetEmployeeRank,
   onUpdateEmployeeContract,
   onCompanyFire,
+  onSetCompanyMushtagramAccess,
   onClaimCorvee,
   formatMoney: fmtMoney,
 }) {
@@ -302,6 +303,7 @@ function EmployeeManagementModal({
   const empDays = (myCompany.employeeSeniority || {})[empId] || 0;
   const empBalance = (myCompany.workerBalances || {})[empId] || 0;
   const ctMeta = empContract.type ? CONTRACT_TYPE_META[empContract.type] : null;
+  const hasMushtagramAccess = (myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(empId));
 
   // Onglet Contrat
   const [buyoutInput, setBuyoutInput] = useState(String(empContract.buyoutAmount || ""));
@@ -394,6 +396,21 @@ function EmployeeManagementModal({
                   </button>
                 </div>
               ))}
+
+              {onSetCompanyMushtagramAccess && (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mt-3">
+                  <div>
+                    <div className="text-xs font-bold text-emerald-800">🏢 Accès au compte Mushtagram de l'entreprise</div>
+                    <div className="text-[10px] text-emerald-600">Autorise cet employé à publier au nom de l'entreprise</div>
+                  </div>
+                  <button
+                    onClick={() => onSetCompanyMushtagramAccess({ companyId: myCompany.id, citizenId: empId, authorized: !hasMushtagramAccess })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${hasMushtagramAccess ? "bg-emerald-600" : "bg-stone-300"}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${hasMushtagramAccess ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -666,6 +683,7 @@ const MyCompanyView = ({
   onEmployeeBuyShares,
   onPayBuyout,
   onClaimCorvee,
+  onSetCompanyMushtagramAccess,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
   const employedAt = !myCompany
@@ -3446,6 +3464,7 @@ const MyCompanyView = ({
             onUpdateEmployeeContract={onUpdateEmployeeContract}
             onCompanyFire={onCompanyFire}
             onClaimCorvee={onClaimCorvee}
+            onSetCompanyMushtagramAccess={onSetCompanyMushtagramAccess}
             formatMoney={formatMoney}
           />
         );

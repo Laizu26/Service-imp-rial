@@ -767,6 +767,7 @@ export default function App() {
             onEmployeeBuyShares={actions.onEmployeeBuyShares}
             onPayBuyout={actions.onPayBuyout}
             onClaimCorvee={actions.onClaimCorvee}
+            onSetCompanyMushtagramAccess={actions.onSetCompanyMushtagramAccess}
             onFamilyDeposit={actions.onFamilyDeposit}
             onFamilyWithdraw={actions.onFamilyWithdraw}
             onFamilyTreasuryTransfer={actions.onFamilyTreasuryTransfer}

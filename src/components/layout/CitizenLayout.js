@@ -828,6 +828,7 @@ const CitizenLayout = (props) => {
     onEmployeeBuyShares,
     onPayBuyout,
     onClaimCorvee,
+    onSetCompanyMushtagramAccess,
     onSetFamilyHead,
     onFamilyDeposit,
     onFamilyWithdraw,
@@ -1791,6 +1792,7 @@ const CitizenLayout = (props) => {
                 onEmployeeBuyShares={onEmployeeBuyShares}
                 onPayBuyout={onPayBuyout}
                 onClaimCorvee={onClaimCorvee}
+                onSetCompanyMushtagramAccess={onSetCompanyMushtagramAccess}
               />
             )}
 

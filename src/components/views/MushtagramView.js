@@ -841,12 +841,15 @@ function PostCard({
   setExpandedComments, setCommentInput,
   mySubscriptions, onUnlock,
   recognizedEruditIds,
+  myEntityAuthorIds,
 }) {
   const [replyingTo, setReplyingTo] = React.useState(null); // { commentId, authorName }
   const author = citizens.find(c => String(c.id) === String(post.authorId));
   const authorId = String(post.authorId);
   const isMe = authorId === myId;
-  const isMyEntityPost = !!post.authorType && String(post.postedBy) === myId;
+  // Le posteur réel (employé délégué inclus) peut gérer son propre post ; le propriétaire/chef de
+  // l'entité conserve aussi la main sur tout post publié en son nom, y compris par un délégué.
+  const isMyEntityPost = !!post.authorType && (String(post.postedBy) === myId || myEntityAuthorIds?.has(authorId));
   const canDelete = isMe || isAdmin || isMyEntityPost;
   const isFollowing = (myFollowing || []).includes(authorId);
   const showCmt = expandedComments[post.id];
@@ -1365,7 +1368,16 @@ export default function MushtagramView({
   ], [guilds, companies]);
   const authorResolutionCitizens = useMemo(() => [...citizens, ...entityProfiles], [citizens, entityProfiles]);
   const myLeaderGuilds = useMemo(() => guilds.filter(g => String(g.leaderId) === myId), [guilds, myId]);
-  const myOwnerCompanies = useMemo(() => companies.filter(c => String(c.ownerId) === myId), [companies, myId]);
+  // Compagnies au nom desquelles je peux publier : propriétaire, ou employé auquel l'accès a été délégué.
+  const myOwnerCompanies = useMemo(() => companies.filter(c =>
+    String(c.ownerId) === myId || (c.mushtagramAuthorizedIds || []).map(String).includes(myId)
+  ), [companies, myId]);
+  // Comptes d'entité sur lesquels j'ai un contrôle total (édition du profil, modération de tout post
+  // publié par un employé délégué) — contrairement à myOwnerCompanies, ne couvre pas les employés délégués.
+  const myEntityAuthorIds = useMemo(() => new Set([
+    ...guilds.filter(g => String(g.leaderId) === myId).map(g => `guild_${g.id}`),
+    ...companies.filter(c => String(c.ownerId) === myId).map(c => `company_${c.id}`),
+  ]), [guilds, companies, myId]);
 
   const mushtagramEmployer = useMemo(() =>
     (companies || []).find(c => (c.employees || []).map(String).includes(myId)),
@@ -1566,6 +1578,7 @@ export default function MushtagramView({
       mySubscriptions={mySubscriptions}
       onUnlock={onUnlockMushtagramPost}
       recognizedEruditIds={recognizedEruditIds}
+      myEntityAuthorIds={myEntityAuthorIds}
     />
   );
 
@@ -1784,7 +1797,7 @@ export default function MushtagramView({
                       {myLeaderGuilds.map(g => <option key={g.id} value={`guild:${g.id}`}>🏛️ {g.name}</option>)}
                       {myOwnerCompanies.map(c => <option key={c.id} value={`company:${c.id}`}>🏢 {c.name}</option>)}
                     </select>
-                    {postAsEntity && (
+                    {postAsEntity && myEntityAuthorIds.has(postAsEntity.replace(":", "_")) && (
                       <button onClick={() => setEditingEntityKey(postAsEntity)}
                         title="Personnaliser le compte Mushtagram"
                         className="shrink-0 p-1.5 text-stone-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
@@ -2506,6 +2519,7 @@ export default function MushtagramView({
                     mySubscriptions={mySubscriptions}
                     onUnlock={onUnlockMushtagramPost}
                     recognizedEruditIds={recognizedEruditIds}
+                    myEntityAuthorIds={myEntityAuthorIds}
                   />
                 </div>
               )}
