@@ -40,6 +40,7 @@ const SlaveManagementView = ({
 }) => {
   const [selectedSlave, setSelectedSlave] = useState(null);
   const [price, setPrice] = useState("");
+  const [search, setSearch] = useState("");
 
   // État civil
   const [propSearch, setPropSearch] = useState("");
@@ -180,15 +181,59 @@ const SlaveManagementView = ({
 
   const slaveAlerts = session?.slaveAlerts || [];
 
+  const filteredSlaves = search.trim()
+    ? slaves.filter((s) => (s.name || "").toLowerCase().includes(search.trim().toLowerCase()))
+    : slaves;
+
+  // Toggle pilule cohérent avec le reste du site (contrats employeur, droits de tutelle/conjoint)
+  const PermissionToggle = ({ checked, onColor = "bg-green-500", onClick }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${checked ? onColor : "bg-stone-300"}`}
+    >
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} />
+    </button>
+  );
+
+  const requestPermissionChange = (permission) => {
+    if (!canManage(selectedSlave)) {
+      notify("Action interdite: hors juridiction.", "error");
+      return;
+    }
+    const laws = getCountryLaws(selectedSlave);
+    if (
+      !isGlobalAdmin &&
+      session.id !== selectedSlave.ownerId &&
+      !laws.allowPermissionEditsByLocalAdmins
+    ) {
+      notify("Modification des permissions interdite par la loi du pays.", "error");
+      return;
+    }
+    togglePermission(selectedSlave, permission);
+  };
+
   return (
-    <div className="h-full flex flex-col gap-4 font-sans">
-      {/* ALERTES DE DISSIMULATION */}
+    <div className="space-y-4 animate-fadeIn font-sans">
+      {/* ── EN-TÊTE ── */}
+      <div className="relative overflow-hidden rounded-2xl border border-stone-700 bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 p-5">
+        <Hand size={110} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-5 text-stone-400 select-none pointer-events-none" />
+        <div className="relative">
+          <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-stone-500 mb-1">Servitude & Juridiction</div>
+          <h2 className="text-2xl font-black font-serif text-stone-100">Main d'Œuvre</h2>
+          <p className="text-xs text-stone-400 mt-1">
+            {slaves.length} sujet{slaves.length > 1 ? "s" : ""} sous votre autorité
+          </p>
+        </div>
+      </div>
+
+      {/* ── ALERTES DE DISSIMULATION ── */}
       {slaveAlerts.length > 0 && (
-        <div className="space-y-2 shrink-0">
+        <div className="space-y-2">
           {slaveAlerts.map((alert) => (
             <div
               key={alert.id}
-              className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3 animate-fadeIn"
+              className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-3 animate-fadeIn"
             >
               <AlertTriangle size={16} className="text-red-500 flex-shrink-0" />
               <div className="flex-1 text-xs text-red-800">
@@ -211,7 +256,7 @@ const SlaveManagementView = ({
                       onRestoreHiddenTransfer(alert.id, alert.slaveId, alert.amount);
                     }
                   }}
-                  className="px-2 py-1 text-[9px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100 flex items-center gap-1 whitespace-nowrap"
+                  className="px-2 py-1 text-[9px] font-black uppercase text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 flex items-center gap-1 whitespace-nowrap"
                   title="Restituer le montant découvert"
                 >
                   <RotateCcw size={11} /> Restituer
@@ -220,7 +265,7 @@ const SlaveManagementView = ({
               {onDismissSlaveAlert && (
                 <button
                   onClick={() => onDismissSlaveAlert(alert.id)}
-                  className="p-1 text-red-400 hover:text-red-700 rounded hover:bg-red-100"
+                  className="p-1 text-red-400 hover:text-red-700 rounded-lg hover:bg-red-100"
                   title="Ignorer"
                 >
                   <X size={14} />
@@ -231,754 +276,637 @@ const SlaveManagementView = ({
         </div>
       )}
 
-      <div className="flex-1 flex gap-6 min-h-0">
-      {/* LISTE DES ESCLAVES (COLONNE GAUCHE) */}
-      <div className="w-1/3 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md">
-        <div className="p-4 bg-stone-100 border-b font-bold uppercase text-[11px] tracking-[0.2em] text-stone-500 flex items-center gap-2">
-          <Hand size={14} /> Vos Sujets
-        </div>
-        <div className="overflow-y-auto flex-1 p-2 space-y-2">
-          {slaves.length === 0 && (
-            <div className="text-center p-4 text-xs text-stone-400 italic">
-              Aucun esclave.
+      <div className="flex flex-col lg:flex-row gap-4 min-h-0">
+        {/* LISTE DES SUJETS (COLONNE GAUCHE) */}
+        <div className="lg:w-80 shrink-0 bg-white rounded-2xl border border-stone-200 shadow-sm flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-stone-100 space-y-3">
+            <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
+              <Hand size={13} /> Vos Sujets ({slaves.length})
             </div>
-          )}
-          {slaves.map((s) => (
-            <div
-              key={s.id}
-              onClick={() => {
-                setSelectedSlave(s);
-                setPrice(s.salePrice || "");
-              }}
-              className={`p-3 border rounded-lg cursor-pointer transition-all flex items-center gap-3 ${
-                selectedSlave?.id === s.id
-                  ? "bg-stone-800 text-white border-stone-900 shadow-md"
-                  : "bg-white hover:bg-stone-50 border-stone-200"
-              }`}
-            >
-              <div className="w-8 h-8 rounded-full bg-stone-300 flex items-center justify-center overflow-hidden flex-shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
-                {s.avatarUrl ? (
-                  <img
-                    src={s.avatarUrl}
-                    className="w-full h-full object-cover"
-                    alt=""
-                    style={{ objectFit: "cover" }}
-                  />
-                ) : (
-                  <User size={16} className="text-stone-500" />
-                )}
+            {slaves.length > 5 && (
+              <div className="flex items-center gap-2 border border-stone-200 rounded-xl bg-stone-50 px-3 focus-within:border-stone-400 transition-colors">
+                <Search size={13} className="text-stone-400 shrink-0" />
+                <input
+                  className="flex-1 py-2 outline-none text-sm bg-transparent"
+                  placeholder="Rechercher un sujet…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
-              <div className="overflow-hidden">
-                <div className="font-bold text-xs truncate uppercase flex items-center gap-2">
-                  {s.name}
-                  {s.isForSale && (
-                    <span className="ml-2 inline-block bg-yellow-100 text-yellow-800 text-[9px] px-2 py-0.5 rounded font-bold uppercase">
-                      EN VENTE
-                    </span>
-                  )}
-                </div>
-                <div className="text-[9px] opacity-70">Mat: {s.id}</div>
+            )}
+          </div>
+          <div className="overflow-y-auto flex-1 p-2 space-y-1.5">
+            {filteredSlaves.length === 0 && (
+              <div className="text-center p-4 text-xs text-stone-400 italic">
+                {slaves.length === 0 ? "Aucun esclave." : "Aucun résultat."}
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* DÉTAIL DE L'ESCLAVE (COLONNE DROITE) */}
-      <div className="flex-1 bg-[#fdf6e3] rounded-xl border border-stone-300 p-6 overflow-auto shadow-xl relative">
-        {selectedSlave ? (
-          <>
-            {/* EN-TÊTE FICHE */}
-            <div className="flex justify-between items-start border-b-4 border-stone-800 pb-4">
-              <div className="flex gap-4 items-center">
-                <div className="w-20 h-20 bg-stone-200 rounded-xl border-4 border-stone-800 overflow-hidden shadow-lg">
-                  {selectedSlave.avatarUrl ? (
+            )}
+            {filteredSlaves.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setSelectedSlave(s);
+                  setPrice(s.salePrice || "");
+                }}
+                className={`w-full p-3 rounded-xl cursor-pointer transition-all flex items-center gap-3 text-left ${
+                  selectedSlave?.id === s.id
+                    ? "bg-stone-800 text-white shadow-md"
+                    : "bg-stone-50 hover:bg-stone-100 border border-stone-200"
+                }`}
+              >
+                <div className="w-9 h-9 rounded-full bg-stone-300 flex items-center justify-center overflow-hidden flex-shrink-0" style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}>
+                  {s.avatarUrl ? (
                     <img
-                      src={selectedSlave.avatarUrl}
+                      src={s.avatarUrl}
                       className="w-full h-full object-cover"
                       alt=""
+                      style={{ objectFit: "cover" }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <User size={32} className="text-stone-400" />
-                    </div>
+                    <User size={16} className="text-stone-500" />
                   )}
                 </div>
-                <div>
-                  <h2 className="text-2xl font-black uppercase font-serif text-stone-900">
-                    {selectedSlave.name}
-                  </h2>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="bg-red-900 text-white text-[9px] px-2 py-0.5 rounded uppercase tracking-widest font-bold">
-                      Esclave
-                    </span>
-                    {selectedSlave.role && selectedSlave.role !== "CITOYEN" && ROLES[selectedSlave.role] && (
-                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-300 text-[9px] px-2 py-0.5 rounded uppercase tracking-widest font-bold">
-                        <Shield size={10} /> Grade : {ROLES[selectedSlave.role].label}
+                <div className="overflow-hidden flex-1 min-w-0">
+                  <div className="font-bold text-xs truncate flex items-center gap-1.5">
+                    {s.name}
+                    {s.isForSale && (
+                      <span className="inline-block bg-yellow-100 text-yellow-800 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0">
+                        En vente
                       </span>
                     )}
-                    {selectedSlave.isForSale && (
-                      <span className="inline-block bg-yellow-100 text-yellow-800 text-[10px] px-2 py-0.5 rounded font-bold">
-                        En vente: {selectedSlave.salePrice}¢
-                      </span>
-                    )}
-                    <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
-                      Occupation: {selectedSlave.occupation || "Aucune"}
-                    </span>
+                  </div>
+                  <div className={`text-[10px] truncate ${selectedSlave?.id === s.id ? "text-stone-300" : "text-stone-400"}`}>
+                    {s.occupation || "Sans occupation"}
                   </div>
                 </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleFree(selectedSlave)}
-                  disabled={!canManage(selectedSlave)}
-                  className={`px-4 py-2 rounded text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm ${
-                    !canManage(selectedSlave)
-                      ? "bg-stone-200 text-stone-400 border border-stone-200"
-                      : "bg-white border border-red-200 text-red-700 hover:bg-red-50"
-                  }`}
-                >
-                  <Unlock size={14} /> Affranchir
-                </button>
+              </button>
+            ))}
+          </div>
+        </div>
 
-                {/* Self-manumission: allow slave to buy freedom if law permits and funds available */}
-                {session.id === selectedSlave.id &&
-                  selectedSlave.status === "Esclave" &&
-                  selectedSlave.salePrice > 0 &&
-                  selectedSlave.balance >= (selectedSlave.salePrice || 0) &&
-                  getCountryLaws(selectedSlave).allowSelfManumission && (
-                    <button
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Acheter votre liberté pour ${formatMoney(selectedSlave.salePrice)} ?`
+        {/* DÉTAIL DU SUJET (COLONNE DROITE) */}
+        <div className="flex-1 bg-white rounded-2xl border border-stone-200 shadow-sm p-5 md:p-6 overflow-auto">
+          {selectedSlave ? (
+            <>
+              {/* EN-TÊTE FICHE */}
+              <div className="flex flex-wrap justify-between items-start gap-4 border-b border-stone-100 pb-5">
+                <div className="flex gap-4 items-center">
+                  <div className="w-16 h-16 bg-stone-100 rounded-2xl border-2 border-stone-200 overflow-hidden shadow-sm shrink-0">
+                    {selectedSlave.avatarUrl ? (
+                      <img
+                        src={selectedSlave.avatarUrl}
+                        className="w-full h-full object-cover"
+                        alt=""
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <User size={28} className="text-stone-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black font-serif text-stone-900">
+                      {selectedSlave.name}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <span className="bg-red-100 text-red-700 border border-red-200 text-[9px] px-2 py-0.5 rounded-full uppercase tracking-widest font-black">
+                        Esclave
+                      </span>
+                      {selectedSlave.role && selectedSlave.role !== "CITOYEN" && ROLES[selectedSlave.role] && (
+                        <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 border border-blue-200 text-[9px] px-2 py-0.5 rounded-full uppercase tracking-widest font-black">
+                          <Shield size={10} /> {ROLES[selectedSlave.role].label}
+                        </span>
+                      )}
+                      {selectedSlave.isForSale && (
+                        <span className="inline-block bg-yellow-100 text-yellow-800 border border-yellow-200 text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
+                          En vente : {formatMoney(selectedSlave.salePrice)}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                        {selectedSlave.occupation || "Sans occupation"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleFree(selectedSlave)}
+                    disabled={!canManage(selectedSlave)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all shadow-sm ${
+                      !canManage(selectedSlave)
+                        ? "bg-stone-100 text-stone-400 border border-stone-200"
+                        : "bg-white border border-red-200 text-red-700 hover:bg-red-50"
+                    }`}
+                  >
+                    <Unlock size={14} /> Affranchir
+                  </button>
+
+                  {/* Self-manumission: allow slave to buy freedom if law permits and funds available */}
+                  {session.id === selectedSlave.id &&
+                    selectedSlave.status === "Esclave" &&
+                    selectedSlave.salePrice > 0 &&
+                    selectedSlave.balance >= (selectedSlave.salePrice || 0) &&
+                    getCountryLaws(selectedSlave).allowSelfManumission && (
+                      <button
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Acheter votre liberté pour ${formatMoney(selectedSlave.salePrice)} ?`
+                            )
                           )
-                        )
-                          return;
-                        if (onSelfManumit) onSelfManumit(selectedSlave.id);
-                      }}
-                      className="px-4 py-2 rounded text-[10px] font-black uppercase bg-green-700 text-white hover:bg-green-600 transition-all"
-                    >
-                      <Coins size={14} /> Racheter liberté
-                    </button>
-                  )}
+                            return;
+                          if (onSelfManumit) onSelfManumit(selectedSlave.id);
+                        }}
+                        className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-green-700 text-white hover:bg-green-600 transition-all flex items-center gap-2"
+                      >
+                        <Coins size={14} /> Racheter liberté
+                      </button>
+                    )}
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              {/* GESTION DROITS (PERMISSIONS) */}
-              <Card title="Permissions & Droits" icon={Shield}>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2 bg-white rounded border border-stone-100">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-stone-100 rounded text-stone-600">
-                        <Mail size={16} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                {/* GESTION DROITS (PERMISSIONS) */}
+                <Card title="Permissions & Droits" icon={Shield}>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Mail size={15} className="text-stone-500" />
+                        <div className="text-xs font-bold text-stone-700">Accès Poste</div>
                       </div>
-                      <div className="text-xs font-bold uppercase text-stone-700">
-                        Accès Poste
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
+                      <PermissionToggle
                         checked={selectedSlave.permissions?.post || false}
-                        onChange={() => {
-                          if (!canManage(selectedSlave)) {
-                            notify(
-                              "Action interdite: hors juridiction.",
-                              "error"
-                            );
-                            return;
-                          }
-                          const laws = getCountryLaws(selectedSlave);
-                          if (
-                            !isGlobalAdmin &&
-                            session.id !== selectedSlave.ownerId &&
-                            !laws.allowPermissionEditsByLocalAdmins
-                          ) {
-                            notify(
-                              "Modification des permissions interdite par la loi du pays.",
-                              "error"
-                            );
-                            return;
-                          }
-                          togglePermission(selectedSlave, "post");
-                        }}
+                        onClick={() => requestPermissionChange("post")}
                       />
-                      <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-white rounded border border-stone-100">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-stone-100 rounded text-stone-600">
-                        <Coins size={16} />
-                      </div>
-                      <div className="text-xs font-bold uppercase text-stone-700">
-                        Accès Banque
-                      </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
+
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Coins size={15} className="text-stone-500" />
+                        <div className="text-xs font-bold text-stone-700">Accès Banque</div>
+                      </div>
+                      <PermissionToggle
                         checked={selectedSlave.permissions?.bank || false}
-                        onChange={() => {
-                          if (!canManage(selectedSlave)) {
-                            notify(
-                              "Action interdite: hors juridiction.",
-                              "error"
-                            );
-                            return;
-                          }
-                          const laws = getCountryLaws(selectedSlave);
-                          if (
-                            !isGlobalAdmin &&
-                            session.id !== selectedSlave.ownerId &&
-                            !laws.allowPermissionEditsByLocalAdmins
-                          ) {
-                            notify(
-                              "Modification des permissions interdite par la loi du pays.",
-                              "error"
-                            );
-                            return;
-                          }
-                          togglePermission(selectedSlave, "bank");
-                        }}
+                        onClick={() => requestPermissionChange("bank")}
                       />
-                      <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 bg-white rounded border border-stone-100">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-stone-100 rounded text-stone-600">
-                        <Globe size={16} />
-                      </div>
-                      <div className="text-xs font-bold uppercase text-stone-700">
-                        Droit de Voyage
-                      </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={selectedSlave.permissions?.travel || false}
-                        onChange={() => {
-                          if (!canManage(selectedSlave)) {
-                            notify(
-                              "Action interdite: hors juridiction.",
-                              "error"
-                            );
-                            return;
-                          }
-                          const laws = getCountryLaws(selectedSlave);
-                          if (
-                            !isGlobalAdmin &&
-                            session.id !== selectedSlave.ownerId &&
-                            !laws.allowPermissionEditsByLocalAdmins
-                          ) {
-                            notify(
-                              "Modification des permissions interdite par la loi du pays.",
-                              "error"
-                            );
-                            return;
-                          }
-                          togglePermission(selectedSlave, "travel");
-                        }}
-                      />
-                      <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
-                    </label>
-                  </div>
 
-                  {/* Toggle grade admin — visible uniquement si l'esclave a un grade administratif */}
-                  {selectedSlave.role &&
-                    selectedSlave.role !== "CITOYEN" &&
-                    ROLES[selectedSlave.role]?.level >= 20 && (
-                      <div className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 rounded text-blue-700">
-                            <Shield size={16} />
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold uppercase text-blue-800">
-                              Utilisation du Grade Admin
+                    <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Globe size={15} className="text-stone-500" />
+                        <div className="text-xs font-bold text-stone-700">Droit de Voyage</div>
+                      </div>
+                      <PermissionToggle
+                        checked={selectedSlave.permissions?.travel || false}
+                        onClick={() => requestPermissionChange("travel")}
+                      />
+                    </div>
+
+                    {/* Toggle grade admin — visible uniquement si l'esclave a un grade administratif */}
+                    {selectedSlave.role &&
+                      selectedSlave.role !== "CITOYEN" &&
+                      ROLES[selectedSlave.role]?.level >= 20 && (
+                        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <Shield size={15} className="text-blue-600" />
+                            <div>
+                              <div className="text-xs font-bold text-blue-800">Utilisation du Grade Admin</div>
+                              <div className="text-[9px] text-blue-500 italic">{ROLES[selectedSlave.role]?.label}</div>
                             </div>
-                            <div className="text-[9px] text-blue-500 italic">
-                              {ROLES[selectedSlave.role]?.label}
-                            </div>
                           </div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
+                          <PermissionToggle
                             checked={selectedSlave.permissions?.grade !== false}
-                            onChange={() => {
+                            onColor="bg-blue-600"
+                            onClick={() => {
                               if (!canManage(selectedSlave)) {
-                                notify(
-                                  "Action interdite: hors juridiction.",
-                                  "error"
-                                );
+                                notify("Action interdite: hors juridiction.", "error");
                                 return;
                               }
                               toggleGradePermission(selectedSlave);
                             }}
                           />
-                          <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-                    )}
-                </div>
-              </Card>
-
-              {/* FINANCES */}
-              <Card title="Finances" icon={Coins}>
-                <div className="flex flex-col items-center justify-center p-4">
-                  <div className="text-4xl font-black text-stone-800 font-serif mb-2">
-                    {selectedSlave.balance || 0}
-                  </div>
-                  <div className="text-[10px] uppercase tracking-widest text-stone-400 mb-4">
-                    Écus Possédés
-                  </div>
-                  <button
-                    onClick={() => handleTakeMoney(selectedSlave)}
-                    disabled={
-                      !selectedSlave.balance ||
-                      !canManage(selectedSlave) ||
-                      (!isGlobalAdmin &&
-                        !getCountryLaws(selectedSlave).allowLocalConfiscation)
-                    }
-                    className={`w-full py-2 rounded text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
-                      !selectedSlave.balance ||
-                      !canManage(selectedSlave) ||
-                      (!isGlobalAdmin &&
-                        !getCountryLaws(selectedSlave).allowLocalConfiscation)
-                        ? "bg-stone-400 text-stone-200"
-                        : "bg-stone-900 text-yellow-500"
-                    }`}
-                  >
-                    Confisquer les fonds
-                  </button>
-                  {!isGlobalAdmin &&
-                    !getCountryLaws(selectedSlave).allowLocalConfiscation && (
-                      <div className="mt-2 text-xs text-red-600">
-                        Confiscation interdite par la loi du pays.
-                      </div>
-                    )}
-                </div>
-              </Card>
-
-              {/* MARCHÉ - VENTE */}
-              <div className="col-span-1 md:col-span-2">
-                <Card title="Marché" icon={Hand}>
-                  <div className="p-4 space-y-2 min-h-[6.5rem]">
-                    {selectedSlave.isForSale ? (
-                      <div className="flex flex-col sm:flex-row gap-2 items-center">
-                        <div className="flex-1 bg-yellow-100 text-yellow-800 p-3 rounded text-center font-bold text-sm border border-yellow-200">
-                          En vente :{" "}
-                          <span className="font-mono">
-                            {selectedSlave.salePrice}¢
-                          </span>
                         </div>
-                        <button
-                          onClick={() => {
-                            if (!canManage(selectedSlave)) {
-                              notify(
-                                "Action interdite: hors juridiction.",
-                                "error"
-                              );
-                              return;
-                            }
-                            const laws = getCountryLaws(selectedSlave);
-                            if (
-                              !isGlobalAdmin &&
-                              !laws.allowLocalSales &&
-                              session.id !== selectedSlave.ownerId
-                            ) {
-                              notify(
-                                "Annulation de vente interdite par la loi du pays.",
-                                "error"
-                              );
-                              return;
-                            }
-                            if (
-                              !window.confirm(
-                                `Annuler la vente de ${selectedSlave.name} ?`
-                              )
-                            )
-                              return;
-                            onUpdateCitizen({
-                              ...selectedSlave,
-                              isForSale: false,
-                              salePrice: 0,
-                            });
-                            setSelectedSlave({
-                              ...selectedSlave,
-                              isForSale: false,
-                              salePrice: 0,
-                            });
-                            setPrice("");
-                            notify("Vente annulée.", "info");
-                          }}
-                          className={`w-full sm:w-auto px-3 rounded text-sm font-bold transition ${
-                            !canManage(selectedSlave)
-                              ? "bg-stone-200 text-stone-400 cursor-not-allowed"
-                              : "bg-white border border-stone-300 text-stone-700 hover:bg-stone-50"
-                          }`}
-                        >
-                          Annuler
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col sm:flex-row gap-3 items-center">
-                        <input
-                          type="number" step="0.1"
-                          aria-label="Prix en écus"
-                          placeholder="Prix en Écus"
-                          value={price}
-                          onChange={(e) => setPrice(e.target.value)}
-                          className="w-full sm:flex-1 p-3 text-sm border rounded bg-white text-stone-800 placeholder:text-stone-400"
-                        />
-                        <button
-                          onClick={() => {
-                            if (!canManage(selectedSlave)) {
-                              notify(
-                                "Action interdite: hors juridiction.",
-                                "error"
-                              );
-                              return;
-                            }
-                            const laws = getCountryLaws(selectedSlave);
-                            if (
-                              !isGlobalAdmin &&
-                              !laws.allowLocalSales &&
-                              session.id !== selectedSlave.ownerId
-                            ) {
-                              notify(
-                                "Mise en vente interdite par la loi du pays.",
-                                "error"
-                              );
-                              return;
-                            }
-                            if (!isGlobalAdmin && laws.banPublicSlaveMarket) {
-                              notify(
-                                "Mise en vente publique interdite par la loi du pays.",
-                                "error"
-                              );
-                              return;
-                            }
-                            if (
-                              laws.requireRulerApprovalForSales &&
-                              !isGlobalAdmin &&
-                              session.role !== "ROI" &&
-                              session.id !== selectedSlave.ownerId
-                            ) {
-                              notify(
-                                "Mise en vente : approbation du souverain requise.",
-                                "error"
-                              );
-                              return;
-                            }
-                            const p = parseFloat(price);
-                            if (!p || p <= 0) {
-                              notify("Prix invalide.", "error");
-                              return;
-                            }
-                            if (
-                              !window.confirm(
-                                `Mettre ${selectedSlave.name} en vente pour ${formatMoney(p)} ?`
-                              )
-                            )
-                              return;
-                            onUpdateCitizen({
-                              ...selectedSlave,
-                              isForSale: true,
-                              salePrice: p,
-                            });
-                            setSelectedSlave({
-                              ...selectedSlave,
-                              isForSale: true,
-                              salePrice: p,
-                            });
-                            setPrice("");
-                            notify(
-                              `${selectedSlave.name} mis en vente pour ${formatMoney(p)}.`,
-                              "success"
-                            );
-                          }}
-                          className={`w-full sm:w-auto px-4 py-2 rounded text-sm font-bold transition ${
-                            !canManage(selectedSlave) || parseFloat(price) <= 0
-                              ? "bg-stone-200 text-stone-400 cursor-not-allowed"
-                              : "bg-stone-900 text-white hover:bg-stone-800"
-                          }`}
-                          disabled={
-                            !price ||
-                            parseFloat(price) <= 0 ||
-                            !canManage(selectedSlave) ||
-                            (!isGlobalAdmin &&
-                              !getCountryLaws(selectedSlave).allowLocalSales)
-                          }
-                        >
-                          Vendre
-                        </button>
-                        {!isGlobalAdmin &&
-                          !getCountryLaws(selectedSlave).allowLocalSales && (
-                            <div className="mt-2 text-xs text-red-600">
-                              Mise en vente interdite par la loi du pays.
-                            </div>
-                          )}
-                      </div>
-                    )}
-
-                    <div className="text-[11px] text-stone-400 italic">
-                      La mise en vente rendra ce sujet visible dans le marché
-                      global.
-                    </div>
+                      )}
                   </div>
                 </Card>
-              </div>
 
-              {/* ÉTAT CIVIL */}
-              <div className="col-span-1 md:col-span-2">
-                <Card title="État Civil & Mariage" icon={Heart}>
-                  <div className="space-y-5">
-                    {/* --- Mariages en cours --- */}
-                    {(() => {
-                      const spouses = selectedSlave.spouses || (selectedSlave.spouseId ? [{ id: selectedSlave.spouseId }] : []);
-                      if (spouses.length === 0) return (
-                        <p className="text-xs text-stone-400 italic text-center py-2">Aucune union enregistrée.</p>
-                      );
-                      return (
+                {/* FINANCES */}
+                <Card title="Finances" icon={Coins}>
+                  <div className="flex flex-col items-center justify-center p-4">
+                    <div className="text-4xl font-black text-stone-800 font-mono mb-1">
+                      {formatMoney(selectedSlave.balance || 0)}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-widest text-stone-400 mb-4">
+                      Écus Possédés
+                    </div>
+                    <button
+                      onClick={() => handleTakeMoney(selectedSlave)}
+                      disabled={
+                        !selectedSlave.balance ||
+                        !canManage(selectedSlave) ||
+                        (!isGlobalAdmin &&
+                          !getCountryLaws(selectedSlave).allowLocalConfiscation)
+                      }
+                      className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                        !selectedSlave.balance ||
+                        !canManage(selectedSlave) ||
+                        (!isGlobalAdmin &&
+                          !getCountryLaws(selectedSlave).allowLocalConfiscation)
+                          ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                          : "bg-stone-900 text-yellow-500 hover:bg-stone-800"
+                      }`}
+                    >
+                      Confisquer les fonds
+                    </button>
+                    {!isGlobalAdmin &&
+                      !getCountryLaws(selectedSlave).allowLocalConfiscation && (
+                        <div className="mt-2 text-[10px] text-red-600 text-center">
+                          Confiscation interdite par la loi du pays.
+                        </div>
+                      )}
+                  </div>
+                </Card>
+
+                {/* MARCHÉ - VENTE */}
+                <div className="col-span-1 md:col-span-2">
+                  <Card title="Marché" icon={Hand}>
+                    <div className="space-y-2 min-h-[6.5rem]">
+                      {selectedSlave.isForSale ? (
+                        <div className="flex flex-col sm:flex-row gap-2 items-center">
+                          <div className="flex-1 w-full bg-yellow-50 text-yellow-800 border border-yellow-200 p-3 rounded-xl text-center font-bold text-sm">
+                            En vente :{" "}
+                            <span className="font-mono">{formatMoney(selectedSlave.salePrice)}</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              if (!canManage(selectedSlave)) {
+                                notify("Action interdite: hors juridiction.", "error");
+                                return;
+                              }
+                              const laws = getCountryLaws(selectedSlave);
+                              if (
+                                !isGlobalAdmin &&
+                                !laws.allowLocalSales &&
+                                session.id !== selectedSlave.ownerId
+                              ) {
+                                notify("Annulation de vente interdite par la loi du pays.", "error");
+                                return;
+                              }
+                              if (
+                                !window.confirm(`Annuler la vente de ${selectedSlave.name} ?`)
+                              )
+                                return;
+                              onUpdateCitizen({
+                                ...selectedSlave,
+                                isForSale: false,
+                                salePrice: 0,
+                              });
+                              setSelectedSlave({
+                                ...selectedSlave,
+                                isForSale: false,
+                                salePrice: 0,
+                              });
+                              setPrice("");
+                              notify("Vente annulée.", "info");
+                            }}
+                            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-bold transition ${
+                              !canManage(selectedSlave)
+                                ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                                : "bg-white border border-stone-300 text-stone-700 hover:bg-stone-50"
+                            }`}
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row gap-3 items-center">
+                          <input
+                            type="number" step="0.1"
+                            aria-label="Prix en écus"
+                            placeholder="Prix en Écus"
+                            value={price}
+                            onChange={(e) => setPrice(e.target.value)}
+                            className="w-full sm:flex-1 p-3 text-sm border-2 border-stone-200 rounded-xl bg-white text-stone-800 placeholder:text-stone-400 outline-none focus:border-stone-400 transition-colors"
+                          />
+                          <button
+                            onClick={() => {
+                              if (!canManage(selectedSlave)) {
+                                notify("Action interdite: hors juridiction.", "error");
+                                return;
+                              }
+                              const laws = getCountryLaws(selectedSlave);
+                              if (
+                                !isGlobalAdmin &&
+                                !laws.allowLocalSales &&
+                                session.id !== selectedSlave.ownerId
+                              ) {
+                                notify("Mise en vente interdite par la loi du pays.", "error");
+                                return;
+                              }
+                              if (!isGlobalAdmin && laws.banPublicSlaveMarket) {
+                                notify("Mise en vente publique interdite par la loi du pays.", "error");
+                                return;
+                              }
+                              if (
+                                laws.requireRulerApprovalForSales &&
+                                !isGlobalAdmin &&
+                                session.role !== "ROI" &&
+                                session.id !== selectedSlave.ownerId
+                              ) {
+                                notify("Mise en vente : approbation du souverain requise.", "error");
+                                return;
+                              }
+                              const p = parseFloat(price);
+                              if (!p || p <= 0) {
+                                notify("Prix invalide.", "error");
+                                return;
+                              }
+                              if (
+                                !window.confirm(
+                                  `Mettre ${selectedSlave.name} en vente pour ${formatMoney(p)} ?`
+                                )
+                              )
+                                return;
+                              onUpdateCitizen({
+                                ...selectedSlave,
+                                isForSale: true,
+                                salePrice: p,
+                              });
+                              setSelectedSlave({
+                                ...selectedSlave,
+                                isForSale: true,
+                                salePrice: p,
+                              });
+                              setPrice("");
+                              notify(
+                                `${selectedSlave.name} mis en vente pour ${formatMoney(p)}.`,
+                                "success"
+                              );
+                            }}
+                            className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-sm font-bold transition ${
+                              !canManage(selectedSlave) || parseFloat(price) <= 0
+                                ? "bg-stone-100 text-stone-400 cursor-not-allowed"
+                                : "bg-stone-900 text-white hover:bg-stone-800"
+                            }`}
+                            disabled={
+                              !price ||
+                              parseFloat(price) <= 0 ||
+                              !canManage(selectedSlave) ||
+                              (!isGlobalAdmin &&
+                                !getCountryLaws(selectedSlave).allowLocalSales)
+                            }
+                          >
+                            Vendre
+                          </button>
+                          {!isGlobalAdmin &&
+                            !getCountryLaws(selectedSlave).allowLocalSales && (
+                              <div className="mt-2 text-xs text-red-600">
+                                Mise en vente interdite par la loi du pays.
+                              </div>
+                            )}
+                        </div>
+                      )}
+
+                      <div className="text-[11px] text-stone-400 italic">
+                        La mise en vente rendra ce sujet visible dans le marché global.
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* ÉTAT CIVIL */}
+                <div className="col-span-1 md:col-span-2">
+                  <Card title="État Civil & Mariage" icon={Heart}>
+                    <div className="space-y-5">
+                      {/* --- Mariages en cours --- */}
+                      {(() => {
+                        const spouses = selectedSlave.spouses || (selectedSlave.spouseId ? [{ id: selectedSlave.spouseId }] : []);
+                        if (spouses.length === 0) return (
+                          <p className="text-xs text-stone-400 italic text-center py-2">Aucune union enregistrée.</p>
+                        );
+                        return (
+                          <div className="space-y-2">
+                            <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Unions actuelles</div>
+                            {spouses.map((sp) => {
+                              const spouseData = citizens.find((c) => c.id === sp.id);
+                              const ctLabel = (MARRIAGE_CONTRACT_TYPES || []).find((t) => t.id === sp.contractType)?.label || sp.contractType || "Union";
+                              return (
+                                <div key={sp.id} className="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                  {spouseData?.avatarUrl ? (
+                                    <img src={spouseData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-rose-300 shrink-0" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
+                                      <Heart size={14} className="text-rose-400" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-sm text-stone-800 truncate">{spouseData?.name || sp.name || sp.id}</div>
+                                    <div className="text-[9px] text-stone-500 uppercase tracking-widest">{ctLabel}{sp.regime && sp.regime !== "separation" ? ` · ${sp.regime}` : ""}</div>
+                                  </div>
+                                  {canManage(selectedSlave) && onOwnerBreakMarriage && (
+                                    <button
+                                      onClick={() => {
+                                        if (!window.confirm(`Rompre l'union de ${selectedSlave.name} avec ${spouseData?.name || sp.id} ? Cette action est irréversible.`)) return;
+                                        onOwnerBreakMarriage(selectedSlave.id, sp.id);
+                                        setSelectedSlave({ ...selectedSlave, spouses: (selectedSlave.spouses || []).filter((s) => s.id !== sp.id), spouseId: null });
+                                      }}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-300 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-50 transition-colors shrink-0"
+                                      title="Rompre l'union"
+                                    >
+                                      <HeartCrack size={12} /> Rompre
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
+                      {/* --- Propositions reçues --- */}
+                      {(selectedSlave.marriageProposals || []).length > 0 && (
                         <div className="space-y-2">
-                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Unions actuelles</div>
-                          {spouses.map((sp) => {
-                            const spouseData = citizens.find((c) => c.id === sp.id);
-                            const ctLabel = (MARRIAGE_CONTRACT_TYPES || []).find((t) => t.id === sp.contractType)?.label || sp.contractType || "Union";
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Propositions reçues</div>
+                          {(selectedSlave.marriageProposals || []).map((p) => {
+                            const proposerData = citizens.find((c) => c.id === p.fromId);
+                            const ctLabel = (MARRIAGE_CONTRACT_TYPES || []).find((t) => t.id === p.contractType)?.label || p.contractType || "Union";
                             return (
-                              <div key={sp.id} className="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                                {spouseData?.avatarUrl ? (
-                                  <img src={spouseData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-rose-300 shrink-0" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
+                              <div key={p.fromId} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                                {proposerData?.avatarUrl ? (
+                                  <img src={proposerData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-amber-300 shrink-0" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
-                                    <Heart size={14} className="text-rose-400" />
+                                  <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
+                                    <User size={14} className="text-amber-500" />
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <div className="font-bold text-sm text-stone-800 truncate">{spouseData?.name || sp.name || sp.id}</div>
-                                  <div className="text-[9px] text-stone-500 uppercase tracking-widest">{ctLabel}{sp.regime && sp.regime !== "separation" ? ` · ${sp.regime}` : ""}</div>
+                                  <div className="font-bold text-sm text-stone-800 truncate">{proposerData?.name || p.fromName || p.fromId}</div>
+                                  <div className="text-[9px] text-stone-500 uppercase tracking-widest">{ctLabel}</div>
                                 </div>
-                                {canManage(selectedSlave) && onOwnerBreakMarriage && (
-                                  <button
-                                    onClick={() => {
-                                      if (!window.confirm(`Rompre l'union de ${selectedSlave.name} avec ${spouseData?.name || sp.id} ? Cette action est irréversible.`)) return;
-                                      onOwnerBreakMarriage(selectedSlave.id, sp.id);
-                                      setSelectedSlave({ ...selectedSlave, spouses: (selectedSlave.spouses || []).filter((s) => s.id !== sp.id), spouseId: null });
-                                    }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-red-300 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-50 transition-colors shrink-0"
-                                    title="Rompre l'union"
-                                  >
-                                    <HeartCrack size={12} /> Rompre
-                                  </button>
+                                {canManage(selectedSlave) && (
+                                  <div className="flex gap-1.5 shrink-0">
+                                    {onOwnerAcceptMarriage && (
+                                      <button
+                                        onClick={() => {
+                                          onOwnerAcceptMarriage(selectedSlave.id, p.fromId);
+                                          setSelectedSlave({
+                                            ...selectedSlave,
+                                            marriageProposals: (selectedSlave.marriageProposals || []).filter((x) => x.fromId !== p.fromId),
+                                          });
+                                        }}
+                                        className="px-2 py-1.5 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-700 transition-colors"
+                                      >
+                                        Accepter
+                                      </button>
+                                    )}
+                                    {onOwnerRejectMarriage && (
+                                      <button
+                                        onClick={() => {
+                                          onOwnerRejectMarriage(selectedSlave.id, p.fromId);
+                                          setSelectedSlave({
+                                            ...selectedSlave,
+                                            marriageProposals: (selectedSlave.marriageProposals || []).filter((x) => x.fromId !== p.fromId),
+                                          });
+                                        }}
+                                        className="px-2 py-1.5 bg-white border border-stone-300 text-stone-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-50 transition-colors"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             );
                           })}
                         </div>
-                      );
-                    })()}
+                      )}
 
-                    {/* --- Propositions reçues --- */}
-                    {(selectedSlave.marriageProposals || []).length > 0 && (
-                      <div className="space-y-2">
-                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Propositions reçues</div>
-                        {(selectedSlave.marriageProposals || []).map((p) => {
-                          const proposerData = citizens.find((c) => c.id === p.fromId);
-                          const ctLabel = (MARRIAGE_CONTRACT_TYPES || []).find((t) => t.id === p.contractType)?.label || p.contractType || "Union";
-                          return (
-                            <div key={p.fromId} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                              {proposerData?.avatarUrl ? (
-                                <img src={proposerData.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-amber-300 shrink-0" alt="" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />
-                              ) : (
-                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
-                                  <User size={14} className="text-amber-500" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="font-bold text-sm text-stone-800 truncate">{proposerData?.name || p.fromName || p.fromId}</div>
-                                <div className="text-[9px] text-stone-500 uppercase tracking-widest">{ctLabel}</div>
+                      {/* --- Proposer un mariage --- */}
+                      {canManage(selectedSlave) && onOwnerProposeMarriage && (
+                        <div className="border-t border-stone-200 pt-4 space-y-3">
+                          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Proposer une union</div>
+
+                          {/* Recherche de la cible */}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Destinataire</label>
+                            {propTargetId ? (
+                              <div className="flex items-center gap-3 p-2.5 bg-white border-2 border-green-300 rounded-xl">
+                                <User size={14} className="text-stone-400 shrink-0" />
+                                <span className="font-bold text-sm text-stone-800 flex-1">{propTargetName}</span>
+                                <button
+                                  onClick={() => { setPropTargetId(null); setPropTargetName(""); }}
+                                  className="text-red-400 hover:text-red-600"
+                                >
+                                  <X size={14} />
+                                </button>
                               </div>
-                              {canManage(selectedSlave) && (
-                                <div className="flex gap-1.5 shrink-0">
-                                  {onOwnerAcceptMarriage && (
-                                    <button
-                                      onClick={() => {
-                                        onOwnerAcceptMarriage(selectedSlave.id, p.fromId);
-                                        setSelectedSlave({
-                                          ...selectedSlave,
-                                          marriageProposals: (selectedSlave.marriageProposals || []).filter((x) => x.fromId !== p.fromId),
-                                        });
-                                      }}
-                                      className="px-2 py-1.5 bg-green-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-700 transition-colors"
-                                    >
-                                      Accepter
-                                    </button>
-                                  )}
-                                  {onOwnerRejectMarriage && (
-                                    <button
-                                      onClick={() => {
-                                        onOwnerRejectMarriage(selectedSlave.id, p.fromId);
-                                        setSelectedSlave({
-                                          ...selectedSlave,
-                                          marriageProposals: (selectedSlave.marriageProposals || []).filter((x) => x.fromId !== p.fromId),
-                                        });
-                                      }}
-                                      className="px-2 py-1.5 bg-white border border-stone-300 text-stone-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-50 transition-colors"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-                                  )}
+                            ) : (
+                              <div className="relative">
+                                <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-500">
+                                  <Search size={13} className="text-stone-400 shrink-0" />
+                                  <input
+                                    className="flex-1 p-2 outline-none text-sm font-bold bg-transparent"
+                                    placeholder="Chercher un citoyen…"
+                                    value={propSearch}
+                                    onChange={(e) => { setPropSearch(e.target.value); setShowPropDropdown(true); }}
+                                    onFocus={() => setShowPropDropdown(true)}
+                                  />
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* --- Proposer un mariage --- */}
-                    {canManage(selectedSlave) && onOwnerProposeMarriage && (
-                      <div className="border-t border-stone-200 pt-4 space-y-3">
-                        <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Proposer une union</div>
-
-                        {/* Recherche de la cible */}
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Destinataire</label>
-                          {propTargetId ? (
-                            <div className="flex items-center gap-3 p-2.5 bg-white border-2 border-green-300 rounded-xl">
-                              <User size={14} className="text-stone-400 shrink-0" />
-                              <span className="font-bold text-sm text-stone-800 flex-1">{propTargetName}</span>
-                              <button
-                                onClick={() => { setPropTargetId(null); setPropTargetName(""); }}
-                                className="text-red-400 hover:text-red-600"
-                              >
-                                <X size={14} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="relative">
-                              <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-500">
-                                <Search size={13} className="text-stone-400 shrink-0" />
-                                <input
-                                  className="flex-1 p-2 outline-none text-sm font-bold bg-transparent"
-                                  placeholder="Chercher un citoyen…"
-                                  value={propSearch}
-                                  onChange={(e) => { setPropSearch(e.target.value); setShowPropDropdown(true); }}
-                                  onFocus={() => setShowPropDropdown(true)}
-                                />
+                                {showPropDropdown && propSearch && (
+                                  <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-1.5 space-y-1">
+                                    {citizens
+                                      .filter((c) =>
+                                        c.id !== selectedSlave.id &&
+                                        (c.name?.toLowerCase().includes(propSearch.toLowerCase()) || c.id?.includes(propSearch))
+                                      )
+                                      .slice(0, 8)
+                                      .map((c) => (
+                                        <button
+                                          key={c.id}
+                                          onClick={() => { setPropTargetId(c.id); setPropTargetName(c.name); setPropSearch(""); setShowPropDropdown(false); }}
+                                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
+                                        >
+                                          {c.avatarUrl ? (
+                                            <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} />
+                                          ) : (
+                                            <User size={12} className="text-stone-400 shrink-0" />
+                                          )}
+                                          <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
+                                          <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
+                                        </button>
+                                      ))}
+                                  </div>
+                                )}
                               </div>
-                              {showPropDropdown && propSearch && (
-                                <div className="absolute z-50 left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-1.5 space-y-1">
-                                  {citizens
-                                    .filter((c) =>
-                                      c.id !== selectedSlave.id &&
-                                      (c.name?.toLowerCase().includes(propSearch.toLowerCase()) || c.id?.includes(propSearch))
-                                    )
-                                    .slice(0, 8)
-                                    .map((c) => (
-                                      <button
-                                        key={c.id}
-                                        onClick={() => { setPropTargetId(c.id); setPropTargetName(c.name); setPropSearch(""); setShowPropDropdown(false); }}
-                                        className="w-full text-left p-2 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors"
-                                      >
-                                        {c.avatarUrl ? (
-                                          <img src={c.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-stone-200" alt="" style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, objectFit: "cover" }} />
-                                        ) : (
-                                          <User size={12} className="text-stone-400 shrink-0" />
-                                        )}
-                                        <span className="font-bold text-sm text-stone-800 truncate">{c.name}</span>
-                                        <span className="text-[9px] text-stone-400 ml-auto shrink-0 font-mono">{c.id}</span>
-                                      </button>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                            )}
+                          </div>
 
-                        {/* Type de contrat */}
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Type d'union</label>
-                          <select
-                            className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none text-sm font-bold"
-                            value={propContractType}
-                            onChange={(e) => setPropContractType(e.target.value)}
+                          {/* Type de contrat */}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest">Type d'union</label>
+                            <select
+                              className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none text-sm font-bold"
+                              value={propContractType}
+                              onChange={(e) => setPropContractType(e.target.value)}
+                            >
+                              {(MARRIAGE_CONTRACT_TYPES || []).map((ct) => (
+                                <option key={ct.id} value={ct.id}>{ct.label}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <button
+                            disabled={!propTargetId}
+                            onClick={() => {
+                              if (!propTargetId) return;
+                              onOwnerProposeMarriage(selectedSlave.id, propTargetId, { contractType: propContractType });
+                              setPropTargetId(null);
+                              setPropTargetName("");
+                              setPropContractType("sacre");
+                            }}
+                            className="w-full py-2.5 bg-stone-900 text-yellow-400 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow"
                           >
-                            {(MARRIAGE_CONTRACT_TYPES || []).map((ct) => (
-                              <option key={ct.id} value={ct.id}>{ct.label}</option>
-                            ))}
-                          </select>
+                            Envoyer la proposition
+                          </button>
                         </div>
+                      )}
+                    </div>
+                  </Card>
+                </div>
 
-                        <button
-                          disabled={!propTargetId}
-                          onClick={() => {
-                            if (!propTargetId) return;
-                            onOwnerProposeMarriage(selectedSlave.id, propTargetId, { contractType: propContractType });
-                            setPropTargetId(null);
-                            setPropTargetName("");
-                            setPropContractType("sacre");
-                          }}
-                          className="w-full py-2.5 bg-stone-900 text-yellow-400 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-stone-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow"
-                        >
-                          Envoyer la proposition
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </div>
-
-              {/* INVENTAIRE */}
-              <div className="col-span-1 md:col-span-2">
-                <Card title="Inventaire" icon={Box}>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {getInventoryItems(selectedSlave.inventory).length ===
-                      0 && (
-                      <div className="col-span-full text-center text-xs text-stone-400 italic py-4">
-                        Inventaire vide.
-                      </div>
-                    )}
-                    {getInventoryItems(selectedSlave.inventory).map(
-                      (item, idx) => (
+                {/* INVENTAIRE */}
+                <div className="col-span-1 md:col-span-2">
+                  <Card title="Inventaire" icon={Box}>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {getInventoryItems(selectedSlave.inventory).length === 0 && (
+                        <div className="col-span-full text-center text-xs text-stone-400 italic py-4">
+                          Inventaire vide.
+                        </div>
+                      )}
+                      {getInventoryItems(selectedSlave.inventory).map((item, idx) => (
                         <div
                           key={idx}
-                          className="bg-white p-2 rounded border border-stone-200 flex flex-col items-center text-center"
+                          className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex flex-col items-center text-center"
                         >
-                          <div className="font-bold text-xs text-stone-800">
-                            {item.name}
-                          </div>
-                          <div className="text-[10px] text-stone-500">
-                            x{item.qty}
-                          </div>
+                          <div className="font-bold text-xs text-stone-800">{item.name}</div>
+                          <div className="text-[10px] text-stone-500">x{item.qty}</div>
                         </div>
-                      )
-                    )}
-                  </div>
-                </Card>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-stone-300 opacity-50 min-h-[300px]">
+              <Eye size={64} className="mb-4" />
+              <div className="uppercase font-black tracking-widest text-sm">
+                Sélectionnez un sujet
               </div>
             </div>
-          </>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-stone-300 opacity-50">
-            <Eye size={64} className="mb-4" />
-            <div className="uppercase font-black tracking-widest text-sm">
-              Sélectionnez un sujet
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </div>
     </div>
   );
