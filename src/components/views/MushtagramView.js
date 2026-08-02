@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Heart, MessageCircle, Send, Search, Trash2, ArrowLeft,
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
-  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell, Coins, Sparkles,
+  UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell, Coins, Sparkles, Type,
 } from "lucide-react";
 import { ROLES } from "../../lib/constants";
 import { formatMoney, formatRPDate } from "../../lib/gameUtils";
@@ -260,6 +260,7 @@ function EntityProfileModal({ entityType, entity, onClose, onSave }) {
 
 function EditPostModal({ post, onClose, onSave }) {
   const [content, setContent] = useState(post.content || "");
+  const [lockedTitle, setLockedTitle] = useState(post.lockedTitle || "");
 
   return (
     <div
@@ -286,7 +287,17 @@ function EditPostModal({ post, onClose, onSave }) {
           <p className="text-[9px] text-stone-400 px-1">
             **gras** · *italique* · __souligné__ · ~~barré~~ · `code`
           </p>
-          <button onClick={() => onSave(content.trim())} disabled={!content.trim()}
+          {post.locked && (
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold uppercase text-amber-600 tracking-widest px-1 flex items-center gap-1">
+                <Type size={11} /> Titre visible avant achat
+              </label>
+              <input type="text" maxLength={80} value={lockedTitle} onChange={e => setLockedTitle(e.target.value)}
+                placeholder="Ex : Un secret d'alcôve..."
+                className="w-full px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:border-amber-400 transition-all" />
+            </div>
+          )}
+          <button onClick={() => onSave({ content: content.trim(), lockedTitle: lockedTitle.trim() })} disabled={!content.trim()}
             className="w-full py-2.5 bg-gradient-to-r from-rose-500 to-violet-600 text-white text-xs font-black uppercase rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
             Enregistrer les modifications
           </button>
@@ -1008,9 +1019,13 @@ function PostCard({
       {(paidLocked || subLocked) ? (
         <div className="mx-4 mb-3 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 px-4 py-8 flex flex-col items-center gap-2 text-center">
           {paidLocked ? <Coins size={22} className="text-amber-500" /> : <Sparkles size={22} className="text-emerald-500" />}
-          <p className="text-xs font-bold text-stone-600">
-            {paidLocked ? "Publication verrouillée" : "Réservé au cercle privé de cet auteur"}
-          </p>
+          {paidLocked && post.lockedTitle ? (
+            <p className="text-sm font-black text-stone-800">{post.lockedTitle}</p>
+          ) : (
+            <p className="text-xs font-bold text-stone-600">
+              {paidLocked ? "Publication verrouillée" : "Réservé au cercle privé de cet auteur"}
+            </p>
+          )}
           {paidLocked ? (
             <button onClick={() => onUnlock(post.id)}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-black rounded-lg hover:opacity-90 transition-all">
@@ -1273,6 +1288,7 @@ export default function MushtagramView({
   // Contenu payant : verrouillage PPV et post abonnés-payants
   const [lockedPost, setLockedPost]           = useState(false);
   const [lockedPrice, setLockedPrice]         = useState("");
+  const [lockedTitle, setLockedTitle]         = useState("");
   const [subscribersOnlyPost, setSubscribersOnlyPost] = useState(false);
 
   // Publier au nom d'une guilde/entreprise ("" = en tant que moi-même)
@@ -1502,13 +1518,14 @@ export default function MushtagramView({
       content: postContent.trim(), imageUrl: postImage.trim(), hashtags, poll: pollData,
       isOfficial: isAdmin && isOfficial, followersOnly: isPP && followersOnly,
       locked: monetizationEnabled && lockedPost, price: lockedPrice,
+      lockedTitle: monetizationEnabled && lockedPost ? lockedTitle.trim() : "",
       subscribersOnly: monetizationEnabled && subscribersOnlyPost,
       ...(entityType ? { postAsEntity: { type: entityType, id: entityId } } : {}),
     });
     setPostContent(""); setPostImage(""); setShowImgInput(false);
     setShowPoll(false); setPollOptions(["", ""]); setPollQuestion(""); setIsOfficial(false);
     setFollowersOnly(false);
-    setLockedPost(false); setLockedPrice(""); setSubscribersOnlyPost(false);
+    setLockedPost(false); setLockedPrice(""); setLockedTitle(""); setSubscribersOnlyPost(false);
     if (postTextareaRef.current) postTextareaRef.current.style.height = "auto";
     notify("Publication envoyée !", "success");
   };
@@ -1889,6 +1906,18 @@ export default function MushtagramView({
                           placeholder="écus"
                           className="w-20 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
                         {!isPP && <span className="text-[9px] text-amber-500">max 5 écus/jour</span>}
+                      </div>
+                    )}
+                    {lockedPost && (
+                      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <Type size={13} className="text-amber-500 shrink-0" />
+                        <span className="text-[10px] font-bold text-amber-700 shrink-0">Titre visible avant achat :</span>
+                        <input
+                          type="text" maxLength={80}
+                          value={lockedTitle}
+                          onChange={e => setLockedTitle(e.target.value)}
+                          placeholder="Ex : Un secret d'alcôve..."
+                          className="flex-1 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
                       </div>
                     )}
                     {lockedPost && subscribersOnlyPost && (
@@ -2978,8 +3007,8 @@ export default function MushtagramView({
         <EditPostModal
           post={editingPost}
           onClose={() => setEditingPost(null)}
-          onSave={(newContent) => {
-            onEditMushtagramPost && onEditMushtagramPost(editingPost.id, newContent);
+          onSave={(updates) => {
+            onEditMushtagramPost && onEditMushtagramPost(editingPost.id, updates);
             setEditingPost(null);
           }}
         />

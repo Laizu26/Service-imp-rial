@@ -6608,15 +6608,19 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Publication supprimée.", "info");
       },
 
-      onEditMushtagramPost: (id, newContent) => {
+      onEditMushtagramPost: (id, updates) => {
         if (!session) return;
         const post = (state.mushtagramPosts || []).find((p) => p.id === id);
         if (!post) { notify("Publication introuvable.", "error"); return; }
         const isOwner = String(post.authorId) === String(session.id) || (post.authorType && String(post.postedBy) === String(session.id));
         if (!isOwner) { notify("Vous ne pouvez modifier que vos propres publications.", "error"); return; }
+        // Rétrocompatibilité : accepte soit une chaîne (ancien appel), soit { content, lockedTitle }.
+        const { content: newContent, lockedTitle } = typeof updates === "string" ? { content: updates, lockedTitle: undefined } : (updates || {});
         if (!newContent || !newContent.trim()) { notify("La publication ne peut pas être vide.", "error"); return; }
         const posts = (state.mushtagramPosts || []).map((p) =>
-          p.id === id ? { ...p, content: newContent.trim(), editedAt: Date.now() } : p
+          p.id === id
+            ? { ...p, content: newContent.trim(), ...(p.locked && lockedTitle !== undefined ? { lockedTitle: lockedTitle.trim() } : {}), editedAt: Date.now() }
+            : p
         );
         saveState({ ...state, mushtagramPosts: posts });
         notify("Publication modifiée.", "success");
@@ -6669,7 +6673,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           addedNotifs.push({ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: recipientId, type: "comment", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, ...(origPost.authorType ? { entityName: origPost.authorName } : {}), content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
         }
         if (replyTo && origPost) {
-          const parentComment = (origPost.comments || []).find(c => c.id === replyTo);
+          // La vue envoie replyTo comme { commentId, authorName } (utilisé aussi pour l'affichage
+          // "Réponse à X" sur le commentaire) — accepte aussi un id brut par rétrocompatibilité.
+          const replyToId = replyTo && typeof replyTo === "object" ? replyTo.commentId : replyTo;
+          const parentComment = (origPost.comments || []).find(c => c.id === replyToId);
           if (parentComment && String(parentComment.authorId) !== String(session.id) && String(parentComment.authorId) !== String(origPost.authorId)) {
             addedNotifs.push({ id: `mnotif_${Date.now()+1}_${Math.random().toString(36).slice(2,6)}`, toId: String(parentComment.authorId), type: "reply", fromId: String(session.id), fromName: isAnonymous ? "Citoyen Anonyme" : session.name, isAnonymous, postId, content: content.trim().slice(0, 80), timestamp: Date.now(), read: false, priority: "low" });
           }
