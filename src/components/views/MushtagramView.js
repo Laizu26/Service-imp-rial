@@ -849,7 +849,10 @@ function PostCard({
 
   const hasUnlocked = (post.unlockedBy || []).map(String).includes(myId);
   const isSubscribed = (mySubscriptions || []).some(s => String(s.creatorId) === authorId);
-  const paidLocked = post.locked && !isMe && !isAdmin && !hasUnlocked;
+  // Un post à la fois PPV et réservé aux abonnés payants : l'abonné accède gratuitement,
+  // sans avoir à déverrouiller en plus — seuls les non-abonnés voient le paywall PPV.
+  const coveredBySubscription = post.subscribersOnly && isSubscribed;
+  const paidLocked = post.locked && !isMe && !isAdmin && !hasUnlocked && !coveredBySubscription;
   const subLocked = post.subscribersOnly && !isMe && !isAdmin && !isSubscribed;
 
   const showAnon = post.isAnonymous && !isMe && !isAdmin;
@@ -1279,6 +1282,9 @@ export default function MushtagramView({
   // Contenu payant : formulaire d'ajout de palier (paramètres)
   const [newTierName, setNewTierName]   = useState("");
   const [newTierPrice, setNewTierPrice] = useState("");
+  const [editingTierId, setEditingTierId] = useState(null);
+  const [editTierName, setEditTierName]   = useState("");
+  const [editTierPrice, setEditTierPrice] = useState("");
 
   // Broadcast (PP feature)
   const [broadcastInput, setBroadcastInput] = useState("");
@@ -1849,7 +1855,7 @@ export default function MushtagramView({
                         )}
                         {monetizationEnabled && !postAsEntity && (
                           <button
-                            onClick={() => { if (!ppvUsedToday) { setLockedPost(v => !v); setSubscribersOnlyPost(false); } }}
+                            onClick={() => { if (!ppvUsedToday) setLockedPost(v => !v); }}
                             disabled={ppvUsedToday && !lockedPost}
                             title={ppvUsedToday && !lockedPost ? "1 seul post verrouillé par jour (non-PP)" : ""}
                             className={`flex items-center gap-1 text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${lockedPost ? "text-amber-600" : "text-stone-400 hover:text-amber-500"}`}>
@@ -1857,7 +1863,7 @@ export default function MushtagramView({
                           </button>
                         )}
                         {monetizationEnabled && myTiers.length > 0 && !postAsEntity && (
-                          <button onClick={() => { setSubscribersOnlyPost(v => !v); setLockedPost(false); }}
+                          <button onClick={() => setSubscribersOnlyPost(v => !v)}
                             className={`flex items-center gap-1 text-xs font-bold transition-all ${subscribersOnlyPost ? "text-emerald-600" : "text-stone-400 hover:text-emerald-500"}`}>
                             <Sparkles size={13} /> Abonnés payants
                           </button>
@@ -1879,6 +1885,14 @@ export default function MushtagramView({
                           placeholder="écus"
                           className="w-20 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
                         {!isPP && <span className="text-[9px] text-amber-500">max 5 écus/jour</span>}
+                      </div>
+                    )}
+                    {lockedPost && subscribersOnlyPost && (
+                      <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                        <Sparkles size={13} className="text-emerald-500 shrink-0" />
+                        <span className="text-[10px] font-bold text-emerald-700">
+                          Vos abonnés payants y accèdent gratuitement — les autres devront le déverrouiller.
+                        </span>
                       </div>
                     )}
                   </div>
@@ -2763,17 +2777,49 @@ export default function MushtagramView({
                 {monetizationEnabled && (
                   <div className="space-y-2">
                     {myTiers.map(tier => (
-                      <div key={tier.id} className="flex items-center justify-between gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
-                        <div>
-                          <div className="text-xs font-bold text-stone-800">{tier.name}</div>
-                          <div className="text-[10px] text-stone-400">{formatMoney(tier.price)} / jour</div>
+                      editingTierId === tier.id ? (
+                        <div key={tier.id} className="flex items-center gap-2 bg-white border-2 border-amber-300 rounded-lg p-2">
+                          <input value={editTierName} onChange={e => setEditTierName(e.target.value)}
+                            className="flex-1 px-2 py-1.5 text-xs text-stone-800 outline-none placeholder:text-stone-300" />
+                          <input type="number" min={0.1} step={0.1} max={isPP ? undefined : 5}
+                            value={editTierPrice} onChange={e => setEditTierPrice(e.target.value)}
+                            className="w-20 px-2 py-1.5 text-xs text-stone-800 outline-none placeholder:text-stone-300 border-l border-stone-100" />
+                          <button
+                            onClick={() => {
+                              if (!editTierName.trim() || !(Number(editTierPrice) > 0)) return;
+                              onUpdateMushtagramMonetization({
+                                enabled: true,
+                                tiers: myTiers.map(t => t.id === tier.id ? { ...t, name: editTierName.trim(), price: Number(editTierPrice) } : t),
+                              });
+                              setEditingTierId(null);
+                            }}
+                            className="p-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors shrink-0">
+                            <Send size={12} />
+                          </button>
+                          <button onClick={() => setEditingTierId(null)} className="text-stone-300 hover:text-stone-500 transition-colors shrink-0">
+                            <X size={13} />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => onUpdateMushtagramMonetization({ enabled: true, tiers: myTiers.filter(t => t.id !== tier.id) })}
-                          className="text-stone-300 hover:text-red-500 transition-colors">
-                          <X size={13} />
-                        </button>
-                      </div>
+                      ) : (
+                        <div key={tier.id} className="flex items-center justify-between gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                          <div>
+                            <div className="text-xs font-bold text-stone-800">{tier.name}</div>
+                            <div className="text-[10px] text-stone-400">{formatMoney(tier.price)} / jour</div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => { setEditingTierId(tier.id); setEditTierName(tier.name); setEditTierPrice(String(tier.price)); }}
+                              className="text-stone-300 hover:text-amber-500 transition-colors">
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              onClick={() => onUpdateMushtagramMonetization({ enabled: true, tiers: myTiers.filter(t => t.id !== tier.id) })}
+                              className="text-stone-300 hover:text-red-500 transition-colors">
+                              <X size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      )
                     ))}
 
                     {(isPP || myTiers.length === 0) && (
