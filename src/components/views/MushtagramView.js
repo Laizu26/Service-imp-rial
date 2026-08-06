@@ -1420,11 +1420,14 @@ export default function MushtagramView({
   };
 
   /* ── feed ────────────────────────────────────────────────────────── */
+  // Un message officiel n'est épinglé en tête de fil que le jour RP de son envoi — passé ce jour,
+  // il redevient un post normal dans l'ordre chronologique (mais garde son badge "officiel").
   const sortedPosts = useMemo(() => {
-    const official = mushtagramPosts.filter(p => p.isOfficial).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    const normal   = mushtagramPosts.filter(p => !p.isOfficial).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const isPushedOfficial = (p) => p.isOfficial && p.date === todayRPDate;
+    const official = mushtagramPosts.filter(isPushedOfficial).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const normal   = mushtagramPosts.filter(p => !isPushedOfficial(p)).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return [...official, ...normal];
-  }, [mushtagramPosts]);
+  }, [mushtagramPosts, todayRPDate]);
 
   const explorePosts = useMemo(() => {
     const base = mushtagramPosts.filter(p => {
