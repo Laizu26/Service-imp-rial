@@ -261,6 +261,12 @@ function EntityProfileModal({ entityType, entity, onClose, onSave }) {
 function EditPostModal({ post, onClose, onSave }) {
   const [content, setContent] = useState(post.content || "");
   const [lockedTitle, setLockedTitle] = useState(post.lockedTitle || "");
+  const editTextareaRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const el = editTextareaRef.current;
+    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
+  }, []);
 
   return (
     <div
@@ -281,9 +287,14 @@ function EditPostModal({ post, onClose, onSave }) {
           </button>
         </div>
         <div className="p-5 space-y-3">
-          <textarea value={content} onChange={e => setContent(e.target.value)}
+          <textarea ref={editTextareaRef} value={content}
+            onChange={e => {
+              setContent(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
             rows={5} placeholder="Partagez quelque chose avec l'Empire…"
-            className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all" />
+            className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 resize-none outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white transition-all overflow-hidden" />
           <p className="text-[9px] text-stone-400 px-1">
             **gras** · *italique* · __souligné__ · ~~barré~~ · `code`
           </p>
