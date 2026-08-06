@@ -85,6 +85,7 @@ import GuildsView from "../views/GuildsView";
 import ContractsView from "../views/ContractsView";
 import PropertyDetailView from "../views/PropertyDetailView";
 import SettingsView from "../views/SettingsView";
+import CitizenBourseView from "../views/CitizenBourseView";
 
 // Mini-composant trésorerie famille
 const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw, onTransfer, allFamilies }) => {
@@ -407,265 +408,6 @@ const BoostCountdown = ({ expiresAt }) => {
   );
 };
 
-/* ── Bourse citoyenne ── */
-const Sparkline = ({ history }) => {
-  if (!history || history.length < 2) return null;
-  const prices = history.slice(0, 12).map(h => h.price).reverse();
-  const min = Math.min(...prices), max = Math.max(...prices);
-  const range = max - min || 1;
-  const w = 48, h = 16;
-  const points = prices.map((p, i) => `${(i / (prices.length - 1)) * w},${h - ((p - min) / range) * h}`).join(" ");
-  const color = prices[prices.length - 1] >= prices[0] ? "#10b981" : "#ef4444";
-  return <svg width={w} height={h} className="opacity-70 shrink-0"><polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" /></svg>;
-};
-
-const CitizenBourse = ({ user, bourseListings, onBourseBuyShares, onBourseSellShares, globalLedger = [] }) => {
-  const [bourseTab, setBourseTab] = useState("market");
-  const [buyQty, setBuyQty] = useState({});
-  const [sellQty, setSellQty] = useState({});
-  const [bourseSearch, setBourseSearch] = useState("");
-
-  const activeListing = bourseListings.filter((l) => l.isActive);
-  const myHoldings = Object.entries(user.stockholdings || {}).filter(([lid, qty]) =>
-    qty > 0 && bourseListings.some(l => l.id === lid)
-  );
-  const portfolioValue = myHoldings.reduce((sum, [lid, qty]) => {
-    const l = bourseListings.find((x) => x.id === lid);
-    return sum + (l ? l.pricePerShare * qty : 0);
-  }, 0);
-
-  const filteredListings = activeListing.filter(l => {
-    const q = bourseSearch.toLowerCase();
-    return !q || l.symbol.toLowerCase().includes(q) || l.companyName.toLowerCase().includes(q);
-  });
-
-  return (
-    <div className="space-y-4 animate-fadeIn">
-      {/* En-tête */}
-      <div className="bg-gradient-to-br from-stone-900 to-emerald-950/30 border border-emerald-900/40 rounded-2xl p-5 relative overflow-hidden">
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-8xl opacity-5 select-none">📈</div>
-        <div className="relative">
-          <h2 className="text-2xl font-black font-serif text-stone-100 flex items-center gap-2">
-            <TrendingUp size={22} className="text-emerald-400" /> Bourse Impériale
-          </h2>
-          <p className="text-xs text-stone-400 mt-1">Achetez et vendez des actions des sociétés de l'Empire.</p>
-          <div className="flex gap-3 mt-3 flex-wrap">
-            <div className="bg-emerald-900/30 border border-emerald-800/40 rounded-lg px-3 py-1.5">
-              <div className="text-[8px] text-emerald-500 uppercase font-black">Sociétés cotées</div>
-              <div className="text-lg font-black text-emerald-300">{activeListing.length}</div>
-            </div>
-            <div className="bg-amber-900/30 border border-amber-800/40 rounded-lg px-3 py-1.5">
-              <div className="text-[8px] text-amber-500 uppercase font-black">Mon portefeuille</div>
-              <div className="text-lg font-black font-mono text-amber-300">{formatMoney(portfolioValue)}</div>
-            </div>
-            <div className="bg-stone-800/40 border border-stone-700 rounded-lg px-3 py-1.5">
-              <div className="text-[8px] text-stone-500 uppercase font-black">Mes lignes</div>
-              <div className="text-lg font-black text-stone-200">{myHoldings.length}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-stone-200">
-        {[
-          { id: "market", label: "Marché", icon: <TrendingUp size={12} /> },
-          { id: "portfolio", label: "Mon Portefeuille", icon: <BarChart2 size={12} /> },
-          { id: "history", label: "Mes Transactions", icon: <History size={12} /> },
-        ].map((t) => (
-          <button key={t.id} onClick={() => setBourseTab(t.id)}
-            className={`flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 -mb-px transition-all ${
-              bourseTab === t.id ? "border-emerald-500 text-emerald-700" : "border-transparent text-stone-400 hover:text-stone-600"
-            }`}>
-            {t.icon}{t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* === MARCHÉ === */}
-      {bourseTab === "market" && (
-        <div className="space-y-2">
-          {activeListing.length === 0 ? (
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-8 text-center">
-              <TrendingUp size={36} className="mx-auto text-stone-300 mb-3" />
-              <p className="text-sm text-stone-500">Aucune société n'est cotée pour le moment.</p>
-            </div>
-          ) : (
-            <>
-              <div className="relative mb-1">
-                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                <input value={bourseSearch} onChange={e => setBourseSearch(e.target.value)}
-                  placeholder="Rechercher un symbole ou une société..."
-                  className="w-full pl-8 pr-3 py-2 border border-stone-200 rounded-lg text-xs bg-white outline-none focus:border-emerald-400" />
-              </div>
-              {filteredListings.length === 0 && activeListing.length > 0 && (
-                <div className="text-center text-stone-400 italic text-xs py-6">Aucun résultat pour "{bourseSearch}"</div>
-              )}
-              {filteredListings.map((listing) => {
-                const pct = listing.initialPrice ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice * 100) : 0;
-                const myShares = (user.stockholdings || {})[listing.id] || 0;
-                const qty = parseInt(buyQty[listing.id] || 1);
-                const canAfford = (user.balance || 0) >= qty * listing.pricePerShare;
-                return (
-                  <div key={listing.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100">
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 min-w-[60px] text-center shrink-0">
-                        <div className="font-black font-mono text-emerald-700 text-sm">{listing.symbol}</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-stone-800 text-sm truncate">{listing.companyName}</div>
-                        {listing.description && <div className="text-[10px] text-stone-400 truncate">{listing.description}</div>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-black font-mono text-stone-800 text-base">{formatMoney(listing.pricePerShare)}</div>
-                        <div className={`text-[10px] font-black flex items-center justify-end gap-0.5 ${pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-stone-400"}`}>
-                          {pct > 0 ? <TrendingUp size={10} /> : pct < 0 ? <TrendingDown size={10} /> : null}
-                          {pct !== 0 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
-                        </div>
-                        <Sparkline history={listing.priceHistory} />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 px-4 py-2.5 bg-stone-50/50">
-                      <div className="text-[9px] text-stone-500 flex gap-3 flex-wrap">
-                        <span>{listing.sharesOnMarket.toLocaleString()} dispo</span>
-                        <span className="text-stone-300">|</span>
-                        <span>{listing.totalShares.toLocaleString()} total</span>
-                        {myShares > 0 && <><span className="text-stone-300">|</span><span className="text-amber-600 font-bold">Vous: {myShares}</span></>}
-                      </div>
-                      <div className="flex items-center gap-2 ml-auto">
-                        <input type="number" min={1} max={listing.sharesOnMarket}
-                          className="w-16 p-1.5 border border-stone-200 rounded text-sm font-mono text-center bg-white focus:border-emerald-400 outline-none"
-                          value={buyQty[listing.id] || 1}
-                          onChange={(e) => setBuyQty((q) => ({ ...q, [listing.id]: e.target.value }))}
-                        />
-                        <button
-                          disabled={!listing.isActive || listing.sharesOnMarket < 1 || !canAfford || qty <= 0 || qty > listing.sharesOnMarket}
-                          onClick={() => { onBourseBuyShares(listing.id, qty); setBuyQty((q) => ({ ...q, [listing.id]: 1 })); }}
-                          className="bg-emerald-600 text-white px-4 py-1.5 rounded text-[10px] font-black uppercase hover:bg-emerald-500 disabled:opacity-40 transition-colors">
-                          Acheter
-                        </button>
-                      </div>
-                    </div>
-                    {!canAfford && qty > 0 && (
-                      <div className="px-4 py-1 bg-red-50 text-red-500 text-[9px] font-bold border-t border-red-100">
-                        Fonds insuffisants — coût : {formatMoney((qty * listing.pricePerShare))} / solde : {formatMoney((user.balance || 0))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* === PORTEFEUILLE === */}
-      {bourseTab === "portfolio" && (
-        <div className="space-y-3">
-          {myHoldings.length === 0 ? (
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-8 text-center">
-              <BarChart2 size={36} className="mx-auto text-stone-300 mb-3" />
-              <p className="text-sm text-stone-500">Vous ne possédez aucune action.</p>
-              <button onClick={() => setBourseTab("market")} className="text-emerald-600 text-xs underline mt-2">Aller au marché</button>
-            </div>
-          ) : (
-            <>
-              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-xl p-4">
-                <div className="text-[10px] text-amber-600 uppercase font-black tracking-widest">Valeur totale du portefeuille</div>
-                <div className="text-3xl font-black font-mono text-amber-700 mt-1">{formatMoney(portfolioValue)}</div>
-                <div className="text-xs text-amber-500 mt-0.5">{myHoldings.length} ligne(s) — solde personnel : {formatMoney((user.balance || 0))}</div>
-              </div>
-              {myHoldings.map(([lid, qty]) => {
-                const listing = bourseListings.find((l) => l.id === lid);
-                if (!listing) return null;
-                const value = listing.pricePerShare * qty;
-                const pct = listing.initialPrice ? ((listing.pricePerShare - listing.initialPrice) / listing.initialPrice * 100) : 0;
-                const sQty = parseInt(sellQty[lid] || 1);
-                const now = Date.now();
-                const lockedQty = (user.esppLocks || [])
-                  .filter(l => l.listingId === lid && l.unlocksAt > now)
-                  .reduce((sum, l) => sum + l.qty, 0);
-                return (
-                  <div key={lid} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 min-w-[60px] text-center shrink-0">
-                        <div className="font-black font-mono text-emerald-700 text-sm">{listing.symbol}</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-stone-800 text-sm truncate">{listing.companyName}</div>
-                        <div className="text-[10px] text-stone-500">{qty.toLocaleString()} action(s) × {formatMoney(listing.pricePerShare)}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-black font-mono text-stone-800 text-base">{formatMoney(value)}</div>
-                        <div className={`text-[10px] font-black ${pct > 0 ? "text-green-600" : pct < 0 ? "text-red-500" : "text-stone-400"}`}>
-                          {pct !== 0 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "—"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-stone-50 border-t border-stone-100">
-                      <span className="text-[9px] text-stone-400 flex-1">Cours : {formatMoney(listing.pricePerShare)}/action</span>
-                      {lockedQty > 0 && (
-                        <span className="text-[9px] text-amber-600 font-bold shrink-0">
-                          🔒 {lockedQty} bloquée(s)
-                        </span>
-                      )}
-                      <input type="number" min={1} max={qty - lockedQty}
-                        className="w-16 p-1.5 border border-stone-200 rounded text-sm font-mono text-center bg-white focus:border-red-400 outline-none"
-                        value={sellQty[lid] || 1}
-                        onChange={(e) => setSellQty((q) => ({ ...q, [lid]: e.target.value }))}
-                      />
-                      <button
-                        disabled={sQty <= 0 || sQty > (qty - lockedQty)}
-                        onClick={() => { onBourseSellShares(lid, sQty); setSellQty((q) => ({ ...q, [lid]: 1 })); }}
-                        className="bg-red-500 text-white px-4 py-1.5 rounded text-[10px] font-black uppercase hover:bg-red-400 disabled:opacity-40 transition-colors">
-                        Vendre
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
-      )}
-      {/* === HISTORIQUE DES TRANSACTIONS === */}
-      {bourseTab === "history" && (() => {
-        const myBourseHistory = (globalLedger || [])
-          .filter(e => ["BOURSE_BUY", "BOURSE_SELL", "BOURSE_DIVIDEND", "ESPP_BUY"].includes(e.type) &&
-            (e.fromName === user.name || e.toName === user.name))
-          .slice(0, 40);
-        const typeLabel = { BOURSE_BUY: "Achat", BOURSE_SELL: "Vente", BOURSE_DIVIDEND: "Dividende", ESPP_BUY: "ESPP" };
-        const typeColor = { BOURSE_BUY: "text-green-600 bg-green-50 border-green-200", BOURSE_SELL: "text-red-600 bg-red-50 border-red-200", BOURSE_DIVIDEND: "text-blue-600 bg-blue-50 border-blue-200", ESPP_BUY: "text-emerald-600 bg-emerald-50 border-emerald-200" };
-        return myBourseHistory.length === 0 ? (
-          <div className="bg-stone-50 border border-stone-200 rounded-xl p-8 text-center text-stone-400 italic text-xs">
-            Aucune transaction boursière enregistrée.
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {myBourseHistory.map(e => {
-              const isIn = e.toName === user.name;
-              return (
-                <div key={e.id} className="bg-white border border-stone-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${typeColor[e.type] || "text-stone-600 bg-stone-50 border-stone-200"}`}>
-                    {typeLabel[e.type] || e.type}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-stone-700 truncate">{e.reason || "Transaction"}</div>
-                    <div className="text-[9px] text-stone-400">{new Date(e.timestamp).toLocaleDateString("fr-FR")}</div>
-                  </div>
-                  <span className={`font-mono font-black text-sm shrink-0 ${isIn ? "text-green-600" : "text-red-500"}`}>
-                    {isIn ? "+" : "-"}{formatMoney(e.amount || 0)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-    </div>
-  );
-};
-
 const CitizenLayout = (props) => {
   const {
     user,
@@ -819,8 +561,9 @@ const CitizenLayout = (props) => {
     onGuildWithdraw,
     onDissolveGuild,
     bourseListings = [],
-    onBourseBuyShares,
-    onBourseSellShares,
+    onBoursePlaceOrder,
+    onBourseCancelOrder,
+    onBourseCompanyOffer,
     onBourseCreateListing,
     onBourseEditListing,
     onBoursePayDividends,
@@ -1788,6 +1531,8 @@ const CitizenLayout = (props) => {
                 onBourseCreateListing={onBourseCreateListing}
                 onBourseEditListing={onBourseEditListing}
                 onBoursePayDividends={onBoursePayDividends}
+                onBourseCompanyOffer={onBourseCompanyOffer}
+                onBourseCancelOrder={onBourseCancelOrder}
                 onUpdateCompanyESPP={onUpdateCompanyESPP}
                 onEmployeeBuyShares={onEmployeeBuyShares}
                 onPayBuyout={onPayBuyout}
@@ -3302,11 +3047,11 @@ const CitizenLayout = (props) => {
               </div>
             )}
             {active === "bourse" && marketAccessAllowed && (
-              <CitizenBourse
+              <CitizenBourseView
                 user={user}
                 bourseListings={bourseListings}
-                onBourseBuyShares={onBourseBuyShares}
-                onBourseSellShares={onBourseSellShares}
+                onBoursePlaceOrder={onBoursePlaceOrder}
+                onBourseCancelOrder={onBourseCancelOrder}
                 globalLedger={globalLedger}
               />
             )}
@@ -3500,8 +3245,8 @@ const CitizenLayout = (props) => {
                               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs space-y-1">
                                 <div className="font-black text-amber-700 uppercase tracking-widest text-[9px] flex items-center gap-1"><TrendingUp size={11} /> Cotation boursière</div>
                                 <div className="flex justify-between"><span className="text-stone-500">Symbole</span><span className="font-black font-mono">{listing.symbol}</span></div>
-                                <div className="flex justify-between"><span className="text-stone-500">Cours actuel</span><span className="font-black font-mono text-amber-700">{formatMoney(listing.pricePerShare)}</span></div>
-                                <div className="flex justify-between"><span className="text-stone-500">Actions en vente</span><span className="font-mono">{listing.sharesOnMarket} / {listing.totalShares}</span></div>
+                                <div className="flex justify-between"><span className="text-stone-500">Cours actuel</span><span className="font-black font-mono text-amber-700">{formatMoney(listing.lastPrice || listing.initialPrice)}</span></div>
+                                <div className="flex justify-between"><span className="text-stone-500">Offre société</span><span className="font-mono">{(listing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0)} / {listing.totalShares}</span></div>
                               </div>
                             )}
                             {employees.length > 0 && (

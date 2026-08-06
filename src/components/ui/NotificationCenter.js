@@ -11,6 +11,7 @@ import {
   Crown,
   Lock,
   Building2,
+  TrendingUp,
   X,
   CheckCheck,
   ChevronRight,
@@ -27,6 +28,7 @@ const ICON_MAP = {
   Crown,
   Lock,
   Building2,
+  TrendingUp,
 };
 
 const CATEGORY_COLORS = {

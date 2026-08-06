@@ -315,6 +315,31 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes Bourse (dividende reçu, ordre exécuté par une contrepartie) ---
+    if (prefs.finances !== false) {
+      const BOURSE_ALERT_META = {
+        trade_filled: { title: "Ordre exécuté", icon: "TrendingUp", desc: (a) => `${a.qty} action(s) ${a.symbol} ${a.side === "buy" ? "achetée(s)" : "vendue(s)"} à ${formatMoney(a.price)}` },
+        dividend:     { title: "Dividende reçu", icon: "Coins", desc: (a) => `${formatMoney(a.amount)} — ${a.symbol}` },
+      };
+      (state?.bourseAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = BOURSE_ALERT_META[a.type];
+          if (!meta) return;
+          notifs.push({
+            id: `balert_${a.id}`,
+            type: `bourse_${a.type}`,
+            category: "Finances",
+            title: meta.title,
+            description: meta.desc(a),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "bourse",
+            icon: meta.icon,
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -387,7 +412,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

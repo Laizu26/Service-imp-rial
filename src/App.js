@@ -758,8 +758,9 @@ export default function App() {
             onDissolveGuild={actions.onDissolveGuild}
             onSetFamilyHead={actions.onSetFamilyHead}
             bourseListings={state.bourseListings || []}
-            onBourseBuyShares={actions.onBourseBuyShares}
-            onBourseSellShares={actions.onBourseSellShares}
+            onBoursePlaceOrder={actions.onBoursePlaceOrder}
+            onBourseCancelOrder={actions.onBourseCancelOrder}
+            onBourseCompanyOffer={actions.onBourseCompanyOffer}
             onBourseCreateListing={actions.onBourseCreateListing}
             onBourseEditListing={actions.onBourseEditListing}
             onBoursePayDividends={actions.onBoursePayDividends}
@@ -1510,6 +1511,8 @@ export default function App() {
                       onBourseEditListing={actions.onBourseEditListing}
                       onBourseDeleteListing={actions.onBourseDeleteListing}
                       onBoursePayDividends={actions.onBoursePayDividends}
+                      onBourseCompanyOffer={actions.onBourseCompanyOffer}
+                      onBourseCancelOrder={actions.onBourseCancelOrder}
                     />
                   )}
 

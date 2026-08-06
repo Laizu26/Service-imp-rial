@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { formatMoney, toRoman, formatRPDate } from "../lib/gameUtils";
-import { MARRIAGE_INDISSOLUBLE_TYPES } from "../lib/constants";
+import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -133,6 +133,102 @@ export function computeMaisonDiscount(citizenId, staffId, maisonHistory, maisonS
   const loyalty = getMaisonLoyaltyDiscount(citizenId, staffId, maisonHistory);
   const sub = hasMaisonSubscription(citizenId, maisonSubscriptions);
   return Math.min(loyalty.pct + (sub ? 10 : 0), 40);
+}
+
+// ── Bourse : carnet d'ordres ──────────────────────────────────────────────────
+// Plafond de variation journalière anti-manipulation : un ordre ne peut être placé plus de
+// ±30% au-dessus/en-dessous du cours d'ouverture du jour RP en cours pour cette cotation.
+export const BOURSE_DAILY_CAP = 0.3;
+
+// Apparie les ordres d'achat et de vente en attente d'une cotation (priorité prix, puis
+// antériorité) et renvoie les transactions exécutées ainsi que les carnets mis à jour.
+// Le prix d'exécution est celui de l'ordre "résident" (déjà présent dans le carnet), conformément
+// à la convention prix-temps utilisée par les marchés réels.
+export function matchBourseOrders(listing) {
+  let buys = (listing.buyOrders || []).map((o) => ({ ...o }));
+  let sells = (listing.sellOrders || []).map((o) => ({ ...o }));
+  buys.sort((a, b) => b.price - a.price || a.timestamp - b.timestamp);
+  sells.sort((a, b) => a.price - b.price || a.timestamp - b.timestamp);
+  const trades = [];
+  let bi = 0, si = 0;
+  while (bi < buys.length && si < sells.length && buys[bi].price >= sells[si].price) {
+    const buy = buys[bi], sell = sells[si];
+    // Prévention d'auto-transaction : un citoyen ne peut pas s'échanger des titres avec lui-même
+    // pour déplacer artificiellement le cours sans contrepartie réelle. On met de côté l'ordre le
+    // plus ancien des deux pour cette passe et on retente l'appariement avec le suivant.
+    if (buy.citizenId === sell.citizenId) {
+      if (buy.timestamp <= sell.timestamp) si++; else bi++;
+      continue;
+    }
+    const tradePrice = buy.timestamp <= sell.timestamp ? buy.price : sell.price;
+    const tradeQty = Math.min(buy.qty, sell.qty);
+    trades.push({
+      buyerId: buy.citizenId, buyerName: buy.citizenName, buyOrderPrice: buy.price,
+      sellerId: sell.citizenId, sellerName: sell.citizenName,
+      qty: tradeQty, price: tradePrice,
+    });
+    buy.qty -= tradeQty;
+    sell.qty -= tradeQty;
+    if (buy.qty <= 0) bi++;
+    if (sell.qty <= 0) si++;
+  }
+  return {
+    trades,
+    buyOrders: buys.filter((o) => o.qty > 0),
+    sellOrders: sells.filter((o) => o.qty > 0),
+  };
+}
+
+// Applique une liste de transactions déjà appariées : transfère les écus/actions entre acheteur
+// et vendeur (ou la trésorerie de l'entreprise si le vendeur est l'offre primaire "COMPANY"),
+// et rembourse à l'acheteur la différence entre son prix limite et le prix d'exécution réel.
+export function applyBourseTrades(trades, citizens, companies, listing) {
+  let newCitizens = [...citizens];
+  let newCompanies = [...companies];
+  const ledgerEntries = [];
+  const ts = Date.now();
+  const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
+
+  trades.forEach((t, i) => {
+    const tradeValue = Math.round(t.qty * t.price * 10) / 10;
+
+    if (t.buyerId !== "COMPANY") {
+      const bIdx = newCitizens.findIndex((c) => c.id === t.buyerId);
+      if (bIdx !== -1) {
+        const refund = Math.round((t.buyOrderPrice - t.price) * t.qty * 10) / 10;
+        const holdings = { ...(newCitizens[bIdx].stockholdings || {}) };
+        holdings[listing.id] = (holdings[listing.id] || 0) + t.qty;
+        newCitizens[bIdx] = {
+          ...newCitizens[bIdx],
+          balance: Math.round(((newCitizens[bIdx].balance || 0) + refund) * 10) / 10,
+          stockholdings: holdings,
+        };
+      }
+    }
+
+    if (t.sellerId === "COMPANY") {
+      if (compIdx !== -1) {
+        newCompanies[compIdx] = { ...newCompanies[compIdx], balance: Math.round(((newCompanies[compIdx].balance || 0) + tradeValue) * 10) / 10 };
+      }
+    } else {
+      const sIdx = newCitizens.findIndex((c) => c.id === t.sellerId);
+      if (sIdx !== -1) {
+        newCitizens[sIdx] = { ...newCitizens[sIdx], balance: Math.round(((newCitizens[sIdx].balance || 0) + tradeValue) * 10) / 10 };
+      }
+    }
+
+    ledgerEntries.push({
+      id: ts + i,
+      fromName: t.buyerId === "COMPANY" ? "Bourse Impériale" : (t.buyerName || t.buyerId),
+      toName: t.sellerId === "COMPANY" ? listing.companyName : (t.sellerName || t.sellerId),
+      amount: tradeValue,
+      timestamp: ts,
+      reason: `${t.qty} action(s) ${listing.symbol} à ${formatMoney(t.price)}`,
+      type: "BOURSE_TRADE",
+    });
+  });
+
+  return { newCitizens, newCompanies, ledgerEntries };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -281,6 +377,18 @@ export const useGameActions = (session, state, saveState, notify) => {
           if (ledgerEntries.length > 0) {
             ns.globalLedger = [...ledgerEntries, ...(ns.globalLedger || [])].slice(0, 1000);
           }
+        });
+
+        // --- Bourse : réinitialisation du plafond de variation journalier ---
+        // Chaque cotation active repart d'une nouvelle bande de ±BOURSE_DAILY_CAP autour du dernier
+        // cours connu — évite qu'un plafond figé sur un vieux cours bloque le marché indéfiniment.
+        (ns.bourseListings || []).forEach((listing, i) => {
+          if (!listing.isActive) return;
+          ns.bourseListings[i] = {
+            ...listing,
+            dayOpenPrice: listing.lastPrice || listing.initialPrice,
+            dayOpenGameDate: formatRPDate(ns.gameDate),
+          };
         });
 
         // --- Progression de niveau (mensuelle, 1er du mois) ---
@@ -5952,6 +6060,12 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // ========== BOURSE ==========
+      // Refonte : les échanges se font désormais entre citoyens via un vrai carnet d'ordres
+      // (prix limite, appariement automatique) au lieu d'un rachat/vente instantané contre la seule
+      // trésorerie de l'entreprise. La trésorerie de l'entreprise n'intervient plus que comme vendeur
+      // initial (IPO / offre secondaire), matérialisé par un ordre de vente spécial citizenId="COMPANY".
+      // Un plafond de variation journalière (±BOURSE_DAILY_CAP autour du cours d'ouverture du jour RP)
+      // empêche qu'un seul ordre fasse s'envoler ou s'effondrer un cours.
 
       onBourseCreateListing: ({ companyId, symbol, totalShares, sharesOnMarket, pricePerShare, description }) => {
         const listings = [...(state.bourseListings || [])];
@@ -5960,6 +6074,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const symUp = (symbol || "").toUpperCase().trim();
         if (!symUp) { notify("Le symbole boursier est requis.", "error"); return; }
         if (listings.some((l) => l.symbol === symUp)) { notify("Ce symbole est déjà utilisé.", "error"); return; }
+        if (listings.some((l) => l.companyId === companyId)) { notify("Cette entreprise est déjà cotée.", "error"); return; }
         const shares = parseInt(totalShares) || 0;
         const onMarket = Math.min(parseInt(sharesOnMarket) || shares, shares);
         const price = parseFloat(pricePerShare) || 0;
@@ -5968,158 +6083,330 @@ export const useGameActions = (session, state, saveState, notify) => {
         const listing = {
           id: `BOURSE-${ts}`,
           companyId, companyName: company.name, symbol: symUp,
-          totalShares: shares, sharesOnMarket: onMarket, pricePerShare: price, initialPrice: price,
+          totalShares: shares,
           ownerId: company.ownerId,
           isActive: true,
           description: description || company.description || "",
           launchedAt: ts,
+          lastPrice: price, initialPrice: price,
+          dayOpenPrice: price, dayOpenGameDate: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }),
           priceHistory: [{ price, timestamp: ts }],
           dividendHistory: [],
+          buyOrders: [],
+          sellOrders: onMarket > 0
+            ? [{ id: `ORD-${ts}-co`, citizenId: "COMPANY", citizenName: company.name, qty: onMarket, price, timestamp: ts }]
+            : [],
         };
         const ledgerEntry = { id: ts, fromName: company.name, toName: "Bourse Impériale", amount: 0, timestamp: ts, reason: `Introduction en bourse : ${symUp} (${shares} actions à ${formatMoney(price)})`, type: "BOURSE_IPO" };
         saveState({ ...state, bourseListings: [listing, ...listings], globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${company.name} est désormais cotée en bourse sous le symbole ${symUp}.`, "success");
       },
 
+      // Seuls la description et le statut actif (suspension) sont modifiables directement — le cours et
+      // l'offre de titres passent désormais par le carnet d'ordres (onBoursePlaceOrder / onBourseCompanyOffer).
       onBourseEditListing: (listingId, updates) => {
+        if (!session) return;
         const listings = [...(state.bourseListings || [])];
         const idx = listings.findIndex((l) => l.id === listingId);
         if (idx === -1) return;
         const listing = listings[idx];
-        // Si le prix change, l'enregistrer dans l'historique
-        const newPrice = updates.pricePerShare !== undefined ? parseFloat(updates.pricePerShare) : null;
-        let priceHistory = listing.priceHistory || [];
-        if (newPrice && newPrice !== listing.pricePerShare) {
-          priceHistory = [{ price: newPrice, timestamp: Date.now() }, ...priceHistory].slice(0, 30);
-        }
-        listings[idx] = { ...listing, ...updates, priceHistory };
+        const company = (state.companies || []).find((c) => c.id === listing.companyId);
+        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
+        const allowed = {};
+        if (updates.description !== undefined) allowed.description = updates.description;
+        if (updates.isActive !== undefined) allowed.isActive = updates.isActive;
+        listings[idx] = { ...listing, ...allowed };
         saveState({ ...state, bourseListings: listings });
         notify("Cotation mise à jour.", "success");
       },
 
       onBourseDeleteListing: (listingId) => {
-        // Rembourser les actionnaires au prix actuel
+        if (!session) return;
         const listing = (state.bourseListings || []).find((l) => l.id === listingId);
         if (!listing) return;
-        const newCitizens = [...(state.citizens || [])].map((c) => {
+        const company = (state.companies || []).find((c) => c.id === listing.companyId);
+        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
+        const price = listing.lastPrice || listing.initialPrice || 0;
+        let newCitizens = [...(state.citizens || [])];
+        // Rembourser les actionnaires au dernier cours connu
+        newCitizens = newCitizens.map((c) => {
           const held = (c.stockholdings || {})[listingId] || 0;
           if (held <= 0) return c;
-          const refund = held * listing.pricePerShare;
+          const refund = Math.round(held * price * 10) / 10;
           const newHoldings = { ...(c.stockholdings || {}) };
           delete newHoldings[listingId];
-          return { ...c, balance: (c.balance || 0) + refund, stockholdings: newHoldings };
+          return { ...c, balance: Math.round(((c.balance || 0) + refund) * 10) / 10, stockholdings: newHoldings };
+        });
+        // Rembourser les ordres d'achat en cours (écus mis en séquestre)
+        (listing.buyOrders || []).forEach((o) => {
+          const idx = newCitizens.findIndex((c) => c.id === o.citizenId);
+          if (idx !== -1) {
+            const refund = Math.round(o.qty * o.price * 10) / 10;
+            newCitizens[idx] = { ...newCitizens[idx], balance: Math.round(((newCitizens[idx].balance || 0) + refund) * 10) / 10 };
+          }
+        });
+        // Rembourser (en écus, au dernier cours) les ordres de vente citoyens en cours — leurs actions
+        // avaient déjà été mises en séquestre au moment du placement de l'ordre.
+        (listing.sellOrders || []).forEach((o) => {
+          if (o.citizenId === "COMPANY") return;
+          const idx = newCitizens.findIndex((c) => c.id === o.citizenId);
+          if (idx !== -1) {
+            const refund = Math.round(o.qty * price * 10) / 10;
+            newCitizens[idx] = { ...newCitizens[idx], balance: Math.round(((newCitizens[idx].balance || 0) + refund) * 10) / 10 };
+          }
         });
         saveState({ ...state, bourseListings: (state.bourseListings || []).filter((l) => l.id !== listingId), citizens: newCitizens });
-        notify(`Cotation ${listing.symbol} supprimée. Les actionnaires ont été remboursés.`, "info");
+        notify(`Cotation ${listing.symbol} supprimée. Actionnaires et ordres en cours ont été remboursés.`, "info");
       },
 
-      onBourseBuyShares: (listingId, quantity) => {
+      // ── Carnet d'ordres ──
+      onBoursePlaceOrder: ({ listingId, side, qty, price }) => {
         if (!session) return;
-        const qty = parseInt(quantity);
-        if (!qty || qty <= 0) { notify("Quantité invalide.", "error"); return; }
+        const quantity = parseInt(qty);
+        const limitPrice = Math.round((parseFloat(price) || 0) * 10) / 10;
+        if (!quantity || quantity <= 0) { notify("Quantité invalide.", "error"); return; }
+        if (!limitPrice || limitPrice <= 0) { notify("Prix invalide.", "error"); return; }
+        if (side !== "buy" && side !== "sell") { notify("Type d'ordre invalide.", "error"); return; }
         const listings = [...(state.bourseListings || [])];
         const idx = listings.findIndex((l) => l.id === listingId);
         if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
-        const listing = listings[idx];
+        let listing = listings[idx];
         if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
-        if (listing.sharesOnMarket < qty) { notify(`Seulement ${listing.sharesOnMarket} action(s) disponible(s).`, "error"); return; }
-        const total = qty * listing.pricePerShare;
-        const newCitizens = [...(state.citizens || [])];
-        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
-        if (userIdx === -1) return;
-        if ((newCitizens[userIdx].balance || 0) < total) { notify("Fonds insuffisants.", "error"); return; }
-        // Créditer la trésorerie de l'entreprise
-        const newCompanies = [...(state.companies || [])];
-        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
-        if (compIdx !== -1) {
-          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) + total };
-        }
-        const currentHoldings = newCitizens[userIdx].stockholdings || {};
-        newCitizens[userIdx] = {
-          ...newCitizens[userIdx],
-          balance: (newCitizens[userIdx].balance || 0) - total,
-          stockholdings: { ...currentHoldings, [listingId]: (currentHoldings[listingId] || 0) + qty },
-        };
-        listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - qty };
-        const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: newCitizens[userIdx].name, toName: `${listing.companyName} (Bourse: ${listing.symbol})`, amount: total, timestamp: ts, reason: `Achat ${qty} action(s) ${listing.symbol} à ${formatMoney(listing.pricePerShare)}`, type: "BOURSE_BUY" };
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${qty} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(total)}.`, "success");
-      },
 
-      onBourseSellShares: (listingId, quantity) => {
-        if (!session) return;
-        const qty = parseInt(quantity);
-        if (!qty || qty <= 0) { notify("Quantité invalide.", "error"); return; }
-        const listings = [...(state.bourseListings || [])];
-        const idx = listings.findIndex((l) => l.id === listingId);
-        if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
-        const listing = listings[idx];
-        const newCitizens = [...(state.citizens || [])];
-        const userIdx = newCitizens.findIndex((c) => c.id === session.id);
-        if (userIdx === -1) return;
-        const held = (newCitizens[userIdx].stockholdings || {})[listingId] || 0;
-        if (held < qty) { notify(`Vous ne possédez que ${held} action(s) de cette valeur.`, "error"); return; }
-        // Vérifier les actions bloquées par période ESPP
-        const now = Date.now();
-        const activeLocks = (newCitizens[userIdx].esppLocks || []).filter((l) => l.listingId === listingId && l.unlocksAt > now);
-        const lockedQty = activeLocks.reduce((sum, l) => sum + l.qty, 0);
-        if (held - lockedQty < qty) {
-          const mostRecentUnlock = Math.max(...activeLocks.map((l) => l.unlocksAt));
-          notify(`${lockedQty} action(s) bloquée(s) par période ESPP jusqu'au ${new Date(mostRecentUnlock).toLocaleDateString("fr-FR")}. Vous ne pouvez vendre que ${Math.max(0, held - lockedQty)} action(s).`, "error");
+        const capBase = listing.dayOpenPrice || listing.lastPrice || listing.initialPrice;
+        const minAllowed = Math.round(capBase * (1 - BOURSE_DAILY_CAP) * 10) / 10;
+        const maxAllowed = Math.round(capBase * (1 + BOURSE_DAILY_CAP) * 10) / 10;
+        if (limitPrice < minAllowed || limitPrice > maxAllowed) {
+          notify(`Prix hors du plafond journalier (entre ${formatMoney(minAllowed)} et ${formatMoney(maxAllowed)} aujourd'hui).`, "error");
           return;
         }
-        const total = qty * listing.pricePerShare;
-        // Débiter la trésorerie de l'entreprise (rachat)
-        const newCompanies = [...(state.companies || [])];
-        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
-        if (compIdx !== -1) {
-          if ((newCompanies[compIdx].balance || 0) < total) { notify("La trésorerie de l'entreprise est insuffisante pour racheter ces actions.", "error"); return; }
-          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) - total };
-        }
-        const newHoldings = { ...(newCitizens[userIdx].stockholdings || {}) };
-        const remaining = held - qty;
-        if (remaining === 0) delete newHoldings[listingId]; else newHoldings[listingId] = remaining;
-        // Nettoyer les verrous ESPP expirés au moment de la vente
-        const cleanedLocks = (newCitizens[userIdx].esppLocks || []).filter((l) => l.unlocksAt > now);
-        newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + total, stockholdings: newHoldings, esppLocks: cleanedLocks };
-        listings[idx] = { ...listing, sharesOnMarket: listing.sharesOnMarket + qty };
+
+        const citizens = [...(state.citizens || [])];
+        const userIdx = citizens.findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const me = citizens[userIdx];
         const ts = Date.now();
-        const ledgerEntry = { id: ts, fromName: `${listing.companyName} (Bourse: ${listing.symbol})`, toName: newCitizens[userIdx].name, amount: total, timestamp: ts, reason: `Rachat ${qty} action(s) ${listing.symbol} à ${formatMoney(listing.pricePerShare)}`, type: "BOURSE_SELL" };
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`${qty} action(s) ${listing.symbol} vendues pour ${formatMoney(total)}.`, "success");
+        const order = { id: `ORD-${ts}-${Math.random().toString(36).slice(2, 6)}`, citizenId: session.id, citizenName: me.name, qty: quantity, price: limitPrice, timestamp: ts };
+
+        if (side === "buy") {
+          const cost = Math.round(quantity * limitPrice * 10) / 10;
+          if ((me.balance || 0) < cost) { notify("Fonds insuffisants pour cet ordre.", "error"); return; }
+          citizens[userIdx] = { ...me, balance: Math.round(((me.balance || 0) - cost) * 10) / 10 };
+          listing = { ...listing, buyOrders: [...(listing.buyOrders || []), order] };
+        } else {
+          const now = Date.now();
+          const lockedQty = (me.esppLocks || []).filter((l) => l.listingId === listingId && l.unlocksAt > now).reduce((s, l) => s + l.qty, 0);
+          const openSellQty = (listing.sellOrders || []).filter((o) => o.citizenId === session.id).reduce((s, o) => s + o.qty, 0);
+          const held = (me.stockholdings || {})[listingId] || 0;
+          const available = held - lockedQty - openSellQty;
+          if (available < quantity) {
+            notify(`Vous ne pouvez vendre que ${Math.max(0, available)} action(s) (détenues, moins verrous ESPP et ordres déjà en cours).`, "error");
+            return;
+          }
+          const holdings = { ...(me.stockholdings || {}) };
+          holdings[listingId] = held - quantity;
+          if (holdings[listingId] <= 0) delete holdings[listingId];
+          citizens[userIdx] = { ...me, stockholdings: holdings };
+          listing = { ...listing, sellOrders: [...(listing.sellOrders || []), order] };
+        }
+
+        const { trades, buyOrders, sellOrders } = matchBourseOrders(listing);
+        listing = { ...listing, buyOrders, sellOrders };
+        let newCitizens = citizens;
+        let newCompanies = state.companies || [];
+        let ledgerEntries = [];
+        const bourseAlerts = [];
+        if (trades.length > 0) {
+          const applied = applyBourseTrades(trades, newCitizens, newCompanies, listing);
+          newCitizens = applied.newCitizens;
+          newCompanies = applied.newCompanies;
+          ledgerEntries = applied.ledgerEntries;
+          const lastTrade = trades[trades.length - 1];
+          const newHistory = [...trades.map((t) => ({ price: t.price, timestamp: ts })), ...(listing.priceHistory || [])].slice(0, 50);
+          listing = { ...listing, lastPrice: lastTrade.price, priceHistory: newHistory };
+          // Notifier la contrepartie dont l'ordre résident vient d'être exécuté par ce nouvel ordre
+          trades.forEach((t, i) => {
+            if (t.buyerId !== "COMPANY" && String(t.buyerId) !== String(session.id)) {
+              bourseAlerts.push({ id: `ba_${ts}_${i}_buy`, toId: t.buyerId, type: "trade_filled", symbol: listing.symbol, qty: t.qty, price: t.price, side: "buy", timestamp: ts });
+            }
+            if (t.sellerId !== "COMPANY" && String(t.sellerId) !== String(session.id)) {
+              bourseAlerts.push({ id: `ba_${ts}_${i}_sell`, toId: t.sellerId, type: "trade_filled", symbol: listing.symbol, qty: t.qty, price: t.price, side: "sell", timestamp: ts });
+            }
+          });
+        }
+
+        listings[idx] = listing;
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000), bourseAlerts: [...bourseAlerts, ...(state.bourseAlerts || [])].slice(0, 300) });
+
+        const book = side === "buy" ? listing.buyOrders : listing.sellOrders;
+        const remaining = book.find((o) => o.id === order.id)?.qty ?? 0;
+        const filled = quantity - remaining;
+        if (filled >= quantity) {
+          notify(`Ordre ${side === "buy" ? "d'achat" : "de vente"} exécuté intégralement (${quantity} action(s)).`, "success");
+        } else if (filled > 0) {
+          notify(`Ordre partiellement exécuté (${filled}/${quantity}) — le reste patiente dans le carnet.`, "info");
+        } else {
+          notify("Ordre placé, en attente d'une contrepartie.", "info");
+        }
+      },
+
+      onBourseCancelOrder: ({ listingId, orderId, side }) => {
+        if (!session) return;
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) return;
+        const listing = listings[idx];
+        const list = side === "buy" ? (listing.buyOrders || []) : (listing.sellOrders || []);
+        const order = list.find((o) => o.id === orderId);
+        if (!order) { notify("Ordre introuvable.", "error"); return; }
+        if (order.citizenId === "COMPANY") {
+          const company = (state.companies || []).find((c) => c.id === listing.companyId);
+          const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+          if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
+        } else if (String(order.citizenId) !== String(session.id)) {
+          notify("Vous ne pouvez annuler que vos propres ordres.", "error");
+          return;
+        }
+        listings[idx] = { ...listing, [side === "buy" ? "buyOrders" : "sellOrders"]: list.filter((o) => o.id !== orderId) };
+        let newCitizens = state.citizens || [];
+        if (order.citizenId !== "COMPANY") {
+          const citizens = [...(state.citizens || [])];
+          const cIdx = citizens.findIndex((c) => c.id === order.citizenId);
+          if (cIdx !== -1) {
+            if (side === "buy") {
+              const refund = Math.round(order.qty * order.price * 10) / 10;
+              citizens[cIdx] = { ...citizens[cIdx], balance: Math.round(((citizens[cIdx].balance || 0) + refund) * 10) / 10 };
+            } else {
+              const holdings = { ...(citizens[cIdx].stockholdings || {}) };
+              holdings[listingId] = (holdings[listingId] || 0) + order.qty;
+              citizens[cIdx] = { ...citizens[cIdx], stockholdings: holdings };
+            }
+            newCitizens = citizens;
+          }
+        }
+        saveState({ ...state, citizens: newCitizens, bourseListings: listings });
+        notify("Ordre annulé.", "info");
+      },
+
+      // Offre de titres au nom de la société (IPO complémentaire) — matérialisée par un ordre de vente
+      // citizenId="COMPANY" qui participe au carnet d'ordres comme n'importe quel autre vendeur.
+      onBourseCompanyOffer: ({ listingId, qty, price }) => {
+        if (!session) return;
+        const quantity = parseInt(qty);
+        const askPrice = Math.round((parseFloat(price) || 0) * 10) / 10;
+        if (!quantity || quantity <= 0) { notify("Quantité invalide.", "error"); return; }
+        if (!askPrice || askPrice <= 0) { notify("Prix invalide.", "error"); return; }
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
+        let listing = listings[idx];
+        const company = (state.companies || []).find((c) => c.id === listing.companyId);
+        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
+        if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
+
+        const totalHeld = (state.citizens || []).reduce((s, c) => s + ((c.stockholdings || {})[listingId] || 0), 0);
+        const totalOpenSell = (listing.sellOrders || []).reduce((s, o) => s + o.qty, 0);
+        if (totalHeld + totalOpenSell + quantity > listing.totalShares) {
+          notify(`Dépasse le capital autorisé (${listing.totalShares} actions au total, ${totalHeld + totalOpenSell} déjà en circulation ou en vente).`, "error");
+          return;
+        }
+
+        const capBase = listing.dayOpenPrice || listing.lastPrice || listing.initialPrice;
+        const minAllowed = Math.round(capBase * (1 - BOURSE_DAILY_CAP) * 10) / 10;
+        const maxAllowed = Math.round(capBase * (1 + BOURSE_DAILY_CAP) * 10) / 10;
+        if (askPrice < minAllowed || askPrice > maxAllowed) {
+          notify(`Prix hors du plafond journalier (entre ${formatMoney(minAllowed)} et ${formatMoney(maxAllowed)} aujourd'hui).`, "error");
+          return;
+        }
+
+        const ts = Date.now();
+        let sellOrders = [...(listing.sellOrders || [])];
+        const existingIdx = sellOrders.findIndex((o) => o.citizenId === "COMPANY");
+        if (existingIdx !== -1) {
+          sellOrders[existingIdx] = { ...sellOrders[existingIdx], qty: sellOrders[existingIdx].qty + quantity, price: askPrice };
+        } else {
+          sellOrders = [...sellOrders, { id: `ORD-${ts}-co`, citizenId: "COMPANY", citizenName: company.name, qty: quantity, price: askPrice, timestamp: ts }];
+        }
+        listing = { ...listing, sellOrders };
+
+        const { trades, buyOrders, sellOrders: matchedSellOrders } = matchBourseOrders(listing);
+        listing = { ...listing, buyOrders, sellOrders: matchedSellOrders };
+        let newCitizens = state.citizens || [];
+        let newCompanies = state.companies || [];
+        let ledgerEntries = [];
+        const bourseAlerts = [];
+        if (trades.length > 0) {
+          const applied = applyBourseTrades(trades, newCitizens, newCompanies, listing);
+          newCitizens = applied.newCitizens;
+          newCompanies = applied.newCompanies;
+          ledgerEntries = applied.ledgerEntries;
+          const lastTrade = trades[trades.length - 1];
+          listing = { ...listing, lastPrice: lastTrade.price, priceHistory: [...trades.map((t) => ({ price: t.price, timestamp: ts })), ...(listing.priceHistory || [])].slice(0, 50) };
+          trades.forEach((t, i) => {
+            if (t.buyerId !== "COMPANY") {
+              bourseAlerts.push({ id: `ba_${ts}_${i}_buy`, toId: t.buyerId, type: "trade_filled", symbol: listing.symbol, qty: t.qty, price: t.price, side: "buy", timestamp: ts });
+            }
+          });
+        }
+        listings[idx] = listing;
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000), bourseAlerts: [...bourseAlerts, ...(state.bourseAlerts || [])].slice(0, 300) });
+        notify(`Offre de ${quantity} action(s) ${listing.symbol} à ${formatMoney(askPrice)} placée sur le marché.`, "success");
       },
 
       onBoursePayDividends: (listingId, dividendPerShare) => {
+        if (!session) return;
         const dpS = parseFloat(dividendPerShare);
         if (!dpS || dpS <= 0) { notify("Dividende invalide.", "error"); return; }
         const listings = [...(state.bourseListings || [])];
         const idx = listings.findIndex((l) => l.id === listingId);
         if (idx === -1) return;
         const listing = listings[idx];
+        const newCompanies = [...(state.companies || [])];
+        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
+        const company = compIdx !== -1 ? newCompanies[compIdx] : null;
+        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
+
         const newCitizens = [...(state.citizens || [])];
+        const holders = [];
+        newCitizens.forEach((c, i) => {
+          const held = (c.stockholdings || {})[listingId] || 0;
+          if (held > 0) holders.push({ i, held });
+        });
+        const fullTotal = holders.reduce((s, h) => s + h.held * dpS, 0);
+        const treasury = company?.balance || 0;
+        // Versement proportionnel si la trésorerie ne couvre pas le montant total, au lieu d'un échec
+        // total qui empêchait tout dividende dès qu'il manquait ne serait-ce qu'un Écu.
+        const payoutRatio = fullTotal > 0 ? Math.min(1, treasury / fullTotal) : 1;
+        const effectiveDpS = Math.round(dpS * payoutRatio * 1000) / 1000;
         let totalPaid = 0;
         const ledgerEntries = [];
         const ts = Date.now();
-        newCitizens.forEach((c, i) => {
-          const held = (c.stockholdings || {})[listingId] || 0;
-          if (held <= 0) return;
-          const payout = held * dpS;
+        const bourseAlerts = [];
+        holders.forEach(({ i, held }, hi) => {
+          const payout = Math.round(held * effectiveDpS * 10) / 10;
+          if (payout <= 0) return;
           totalPaid += payout;
-          newCitizens[i] = { ...c, balance: (c.balance || 0) + payout };
-          ledgerEntries.push({ id: ts + i, fromName: `${listing.companyName} (dividende ${listing.symbol})`, toName: c.name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${formatMoney(dpS)}/action × ${held})`, type: "BOURSE_DIVIDEND" });
+          newCitizens[i] = { ...newCitizens[i], balance: Math.round(((newCitizens[i].balance || 0) + payout) * 10) / 10 };
+          ledgerEntries.push({ id: ts + hi, fromName: `${listing.companyName} (dividende ${listing.symbol})`, toName: newCitizens[i].name, amount: payout, timestamp: ts, reason: `Dividende ${listing.symbol} (${formatMoney(effectiveDpS)}/action × ${held})`, type: "BOURSE_DIVIDEND" });
+          if (String(newCitizens[i].id) !== String(session.id)) {
+            bourseAlerts.push({ id: `ba_${ts}_${hi}_div`, toId: newCitizens[i].id, type: "dividend", symbol: listing.symbol, amount: payout, timestamp: ts });
+          }
         });
-        // Prélever les dividendes de la trésorerie de l'entreprise
-        const newCompanies = [...(state.companies || [])];
-        const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
         if (compIdx !== -1) {
-          if ((newCompanies[compIdx].balance || 0) < totalPaid) { notify(`Trésorerie insuffisante pour verser ${formatMoney(totalPaid)} de dividendes.`, "error"); return; }
-          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: (newCompanies[compIdx].balance || 0) - totalPaid };
+          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: Math.round(((newCompanies[compIdx].balance || 0) - totalPaid) * 10) / 10 };
         }
-        const divHistory = [{ amount: dpS, timestamp: ts, totalPaid }, ...(listing.dividendHistory || [])].slice(0, 20);
+        const divHistory = [{ amount: effectiveDpS, requestedAmount: dpS, timestamp: ts, totalPaid, partial: payoutRatio < 1 }, ...(listing.dividendHistory || [])].slice(0, 20);
         listings[idx] = { ...listing, dividendHistory: divHistory };
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) });
-        notify(`Dividendes versés : ${formatMoney(dpS)}/action. Total distribué : ${formatMoney(totalPaid)}.`, "success");
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000), bourseAlerts: [...bourseAlerts, ...(state.bourseAlerts || [])].slice(0, 300) });
+        if (payoutRatio < 1) {
+          notify(`Trésorerie insuffisante : dividende réduit à ${formatMoney(effectiveDpS)}/action (au lieu de ${formatMoney(dpS)}). Total distribué : ${formatMoney(totalPaid)}.`, "info");
+        } else {
+          notify(`Dividendes versés : ${formatMoney(dpS)}/action. Total distribué : ${formatMoney(totalPaid)}.`, "success");
+        }
       },
 
       // ── Plan d'Actionnariat Salarié (ESPP) ──
@@ -6145,14 +6432,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!isEmployee) { notify("Vous n'êtes pas employé dans cette entreprise.", "error"); return; }
         const espp = company.espp || {};
         if (!espp.enabled) { notify("Le plan d'actionnariat n'est pas actif.", "error"); return; }
+        const maxPer = parseInt(espp.maxSharesPerPurchase) || 0;
+        if (maxPer > 0 && quantity > maxPer) { notify(`Maximum ${maxPer} action(s) par achat.`, "error"); return; }
         const discount = Math.min(Math.max(parseFloat(espp.discountPercent) || 0, 0), 90) / 100;
         const listings = [...(state.bourseListings || [])];
         const lIdx = listings.findIndex((l) => l.id === listingId);
         if (lIdx === -1) { notify("Cotation introuvable.", "error"); return; }
         const listing = listings[lIdx];
         if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
-        if (listing.sharesOnMarket < quantity) { notify(`Seulement ${listing.sharesOnMarket} action(s) disponible(s).`, "error"); return; }
-        const discountedPrice = Math.round(listing.pricePerShare * (1 - discount) * 10) / 10;
+        const companyFloat = (listing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0);
+        if (companyFloat < quantity) { notify(`Seulement ${companyFloat} action(s) disponible(s) auprès de l'entreprise.`, "error"); return; }
+        const refPrice = listing.lastPrice || listing.initialPrice;
+        const discountedPrice = Math.round(refPrice * (1 - discount) * 10) / 10;
         const totalCost = Math.round(quantity * discountedPrice * 10) / 10;
         const workerBal = (company.workerBalances || {})[session.id] || 0;
         if (workerBal < totalCost) { notify(`Compte entreprise insuffisant. Disponible : ${formatMoney(workerBal)}, requis : ${formatMoney(totalCost)}.`, "error"); return; }
@@ -6161,10 +6452,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (userIdx === -1) return;
         // Débit du compte entreprise de l'employé
         const wb = { ...(company.workerBalances || {}) };
-        wb[session.id] = workerBal - totalCost;
+        wb[session.id] = Math.round((workerBal - totalCost) * 10) / 10;
         companies[compIdx] = { ...company, workerBalances: wb };
         // Crédit de la trésorerie de l'entreprise (au prix réduit)
-        companies[compIdx] = { ...companies[compIdx], balance: (companies[compIdx].balance || 0) + totalCost };
+        companies[compIdx] = { ...companies[compIdx], balance: Math.round(((companies[compIdx].balance || 0) + totalCost) * 10) / 10 };
         // Mise à jour des actions du citoyen
         const currentHoldings = newCitizens[userIdx].stockholdings || {};
         const ts = Date.now();
@@ -6175,7 +6466,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           updatedLocks = [...updatedLocks, { id: `ESPP-${ts}`, listingId, qty: quantity, unlocksAt: ts + lockupDays * 86400000, symbol: listing.symbol, companyName: listing.companyName }];
         }
         newCitizens[userIdx] = { ...newCitizens[userIdx], stockholdings: { ...currentHoldings, [listingId]: (currentHoldings[listingId] || 0) + quantity }, esppLocks: updatedLocks };
-        listings[lIdx] = { ...listing, sharesOnMarket: listing.sharesOnMarket - quantity };
+        // Décrémenter le float de la société (ordre(s) de vente COMPANY)
+        let remaining = quantity;
+        const newSellOrders = (listing.sellOrders || []).map((o) => {
+          if (o.citizenId !== "COMPANY" || remaining <= 0) return o;
+          const take = Math.min(o.qty, remaining);
+          remaining -= take;
+          return { ...o, qty: o.qty - take };
+        }).filter((o) => o.qty > 0);
+        listings[lIdx] = { ...listing, sellOrders: newSellOrders };
         const ledgerEntry = { id: ts, fromName: `Compte salarié — ${company.name}`, toName: `${listing.companyName} (ESPP: ${listing.symbol})`, amount: totalCost, timestamp: ts, reason: `ESPP : ${quantity} action(s) ${listing.symbol} à ${formatMoney(discountedPrice)} (−${espp.discountPercent}%${lockupDays > 0 ? `, bloqué ${lockupDays}j` : ""})`, type: "ESPP_BUY" };
         saveState({ ...state, companies, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${quantity} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(totalCost)} (−${espp.discountPercent}%${lockupDays > 0 ? ` · bloquées ${lockupDays} jour(s)` : ""}).`, "success");

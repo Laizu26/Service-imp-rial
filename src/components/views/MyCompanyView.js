@@ -39,6 +39,7 @@ import {
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import { OrderBookDepth } from "../ui/BourseWidgets";
 import { formatMoney } from "../../lib/gameUtils";
 
 // ── Sous-composant ESPP — config patron (state propre pour éviter la synchro inter-entreprises) ──
@@ -58,7 +59,8 @@ function ESPPConfigCard({ myCompany, myListing, onUpdateCompanyESPP }) {
   }, [myCompany.id]);
 
   const discountNum = Math.min(90, Math.max(1, parseFloat(discount) || 10));
-  const salaryPrice = Math.round(myListing.pricePerShare * (1 - discountNum / 100) * 10) / 10;
+  const marketPrice = myListing.lastPrice || myListing.initialPrice;
+  const salaryPrice = Math.round(marketPrice * (1 - discountNum / 100) * 10) / 10;
 
   const save = (enabledOverride) => {
     onUpdateCompanyESPP(myCompany.id, {
@@ -135,7 +137,7 @@ function ESPPConfigCard({ myCompany, myListing, onUpdateCompanyESPP }) {
         <div className="bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-[10px] flex items-center justify-between">
           <span className="text-stone-400">Prix marché → Prix salarié</span>
           <span className="font-black">
-            <span className="line-through text-stone-400 mr-2">{formatMoney(myListing.pricePerShare)}</span>
+            <span className="line-through text-stone-400 mr-2">{formatMoney(marketPrice)}</span>
             <span className="text-emerald-600">{formatMoney(salaryPrice)}</span>
             <span className="text-stone-400 ml-1">(−{discountNum}%)</span>
           </span>
@@ -679,6 +681,8 @@ const MyCompanyView = ({
   onBourseCreateListing,
   onBourseEditListing,
   onBoursePayDividends,
+  onBourseCompanyOffer,
+  onBourseCancelOrder,
   onUpdateCompanyESPP,
   onEmployeeBuyShares,
   onPayBuyout,
@@ -757,7 +761,7 @@ const MyCompanyView = ({
   const [subDesc, setSubDesc] = useState("");
 
   // Bourse
-  const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", newPrice: "", newOnMarket: "", dividend: "", showDividendForm: false });
+  const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", offerQty: "", offerPrice: "", dividend: "", showDividendForm: false });
   const setBF = (patch) => setBourseForm((p) => ({ ...p, ...patch }));
 
   const mySlaves = (citizens || []).filter(
@@ -1090,12 +1094,15 @@ const MyCompanyView = ({
                 const listing = bourseListings.find((l) => l.companyId === workerCompany.id && l.isActive);
                 if (!listing) return null;
                 const discount = Math.min(Math.max(parseFloat(espp.discountPercent) || 0, 0), 90);
-                const discountedPrice = Math.round(listing.pricePerShare * (1 - discount / 100) * 10) / 10;
+                const marketPrice = listing.lastPrice || listing.initialPrice;
+                const discountedPrice = Math.round(marketPrice * (1 - discount / 100) * 10) / 10;
+                const companyFloat = (listing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0);
+                const maxPerPurchase = parseInt(espp.maxSharesPerPurchase) || 0;
                 const myCompanyBal = (workerCompany.workerBalances || {})[user.id] || 0;
                 const maxAffordable = discountedPrice > 0 ? Math.floor(myCompanyBal / discountedPrice) : 0;
                 const qty = Math.max(1, parseInt(esppBuyQty) || 1);
                 const totalCost = Math.round(qty * discountedPrice * 10) / 10;
-                const canBuy = myCompanyBal >= totalCost && listing.sharesOnMarket >= qty;
+                const canBuy = myCompanyBal >= totalCost && companyFloat >= qty && (maxPerPurchase <= 0 || qty <= maxPerPurchase);
                 const now = Date.now();
                 const activeLocks = (user.esppLocks || []).filter((l) => l.listingId === listing.id && l.unlocksAt > now);
                 const totalLocked = activeLocks.reduce((sum, l) => sum + l.qty, 0);
@@ -1114,7 +1121,7 @@ const MyCompanyView = ({
                         <div className="grid grid-cols-3 gap-3 mt-3">
                           <div className="text-center">
                             <div className="text-[9px] text-stone-400 uppercase font-black">Prix marché</div>
-                            <div className="font-mono font-black text-stone-500 line-through text-sm">{formatMoney(listing.pricePerShare)}</div>
+                            <div className="font-mono font-black text-stone-500 line-through text-sm">{formatMoney(marketPrice)}</div>
                           </div>
                           <div className="text-center">
                             <div className="text-[9px] text-emerald-600 uppercase font-black">Prix salarié</div>
@@ -1122,7 +1129,7 @@ const MyCompanyView = ({
                           </div>
                           <div className="text-center">
                             <div className="text-[9px] text-stone-400 uppercase font-black">Disponibles</div>
-                            <div className="font-mono font-black text-stone-700 text-sm">{listing.sharesOnMarket.toLocaleString()}</div>
+                            <div className="font-mono font-black text-stone-700 text-sm">{companyFloat.toLocaleString()}</div>
                           </div>
                         </div>
                       </div>
@@ -1134,6 +1141,7 @@ const MyCompanyView = ({
                       {maxAffordable > 0 && (
                         <div className="text-[10px] text-stone-400 text-center">
                           Vous pouvez acheter jusqu'à <span className="font-black text-stone-600">{maxAffordable}</span> action(s)
+                          {maxPerPurchase > 0 && <> (max {maxPerPurchase}/achat)</>}
                         </div>
                       )}
                       {/* Formulaire d'achat */}
@@ -1142,7 +1150,7 @@ const MyCompanyView = ({
                           type="number"
                           min={1}
                           step={1}
-                          max={Math.min(maxAffordable, listing.sharesOnMarket)}
+                          max={Math.min(maxAffordable, companyFloat, maxPerPurchase > 0 ? maxPerPurchase : Infinity)}
                           value={esppBuyQty}
                           onChange={(e) => setEsppBuyQty(e.target.value)}
                           className="w-24 p-2 border rounded font-mono text-sm text-center font-bold"
@@ -2978,19 +2986,20 @@ const MyCompanyView = ({
         </div>
       )}
 
+
       {/* ONGLET BOURSE */}
       {activeTab === "bourse" && (() => {
         const myListing = bourseListings.find((l) => l.companyId === myCompany.id);
+        const price = myListing ? (myListing.lastPrice || myListing.initialPrice) : 0;
         const shareholders = myListing
           ? (citizens || []).filter((c) => (c.stockholdings || {})[myListing.id] > 0).map((c) => ({
               ...c, shares: (c.stockholdings || {})[myListing.id],
-              value: (c.stockholdings || {})[myListing.id] * myListing.pricePerShare,
+              value: (c.stockholdings || {})[myListing.id] * price,
             }))
           : [];
         const totalHeld = shareholders.reduce((s, c) => s + c.shares, 0);
-        const pctChange = myListing && myListing.initialPrice
-          ? ((myListing.pricePerShare - myListing.initialPrice) / myListing.initialPrice) * 100
-          : 0;
+        const companyFloat = myListing ? (myListing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0) : 0;
+        const pctChange = myListing && myListing.initialPrice ? ((price - myListing.initialPrice) / myListing.initialPrice) * 100 : 0;
 
         if (!myListing) {
           // === PAS ENCORE COTÉE : formulaire IPO ===
@@ -3001,7 +3010,7 @@ const MyCompanyView = ({
                 <div className="space-y-4">
                   <p className="text-xs text-stone-500">
                     Coter votre société en bourse vous permet d'émettre des actions et d'attirer des investisseurs.
-                    Les actionnaires reçoivent des dividendes que vous versez manuellement.
+                    Le cours se forme ensuite librement selon les échanges entre citoyens ; vous versez les dividendes manuellement.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -3084,22 +3093,28 @@ const MyCompanyView = ({
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-2xl font-black font-mono text-stone-800">{formatMoney(myListing.pricePerShare)}</div>
+                  <div className="text-2xl font-black font-mono text-stone-800">{formatMoney(price)}</div>
                   <div className={`text-xs font-black flex items-center justify-end gap-1 ${pctChange > 0 ? "text-green-600" : pctChange < 0 ? "text-red-500" : "text-stone-400"}`}>
                     {pctChange > 0 ? <TrendingUp size={11} /> : pctChange < 0 ? <TrendingDown size={11} /> : null}
                     {pctChange !== 0 ? `${pctChange >= 0 ? "+" : ""}${pctChange.toFixed(1)}% vs IPO` : "Cours stable"}
                   </div>
                 </div>
+                <button
+                  onClick={() => onBourseEditListing(myListing.id, { isActive: !myListing.isActive })}
+                  className="text-[9px] font-black uppercase px-3 py-1.5 rounded-lg border border-stone-200 text-stone-500 hover:bg-white shrink-0"
+                >
+                  {myListing.isActive ? "Suspendre" : "Réactiver"}
+                </button>
               </div>
             </div>
 
             {/* Stats rapides */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: "Capital total", value:formatMoney( (myListing.totalShares * myListing.pricePerShare)), sub: myListing.totalShares.toLocaleString() + " actions" },
-                { label: "En vente", value: myListing.sharesOnMarket.toLocaleString(), sub: `${myListing.totalShares > 0 ? ((myListing.sharesOnMarket / myListing.totalShares) * 100).toFixed(1) : 0}% du capital` },
+                { label: "Capital total", value: formatMoney(myListing.totalShares * price), sub: myListing.totalShares.toLocaleString() + " actions" },
+                { label: "Offre société", value: companyFloat.toLocaleString(), sub: `${myListing.totalShares > 0 ? ((companyFloat / myListing.totalShares) * 100).toFixed(1) : 0}% du capital` },
                 { label: "Actionnaires", value: shareholders.length, sub: totalHeld.toLocaleString() + " actions détenues" },
-                { label: "Prix IPO", value:formatMoney( myListing.initialPrice), sub: "prix d'introduction" },
+                { label: "Prix IPO", value: formatMoney(myListing.initialPrice), sub: "prix d'introduction" },
               ].map((s, i) => (
                 <div key={i} className="bg-stone-50 border border-stone-200 rounded-lg px-3 py-2.5">
                   <div className="text-[8px] font-black uppercase text-stone-400 tracking-widest">{s.label}</div>
@@ -3110,47 +3125,36 @@ const MyCompanyView = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Modifier le cours / volume */}
-              <Card title="Modifier la cotation" icon={BarChart2}>
+              {/* Offrir des titres */}
+              <Card title="Offrir des titres au marché" icon={BarChart2}>
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Nouveau cours (Écus)</label>
-                    <div className="flex gap-2">
-                      <input type="number" step="0.1" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
-                        placeholder={myListing.pricePerShare} value={bourseForm.newPrice} onChange={(e) => setBF({ newPrice: e.target.value })} />
-                      <button
-                        disabled={!bourseForm.newPrice || parseFloat(bourseForm.newPrice) <= 0}
-                        onClick={() => { onBourseEditListing(myListing.id, { pricePerShare: parseFloat(bourseForm.newPrice) }); setBF({ newPrice: "" }); }}
-                        className="px-4 py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
-                        Appliquer
-                      </button>
+                  <p className="text-[10px] text-stone-400">
+                    Le cours n'est plus modifiable à la main — il se forme par les échanges. Vous pouvez proposer de nouveaux titres à la vente,
+                    au prix de votre choix (dans le plafond de variation journalier).
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Quantité</label>
+                      <input type="number" min={1} className="w-full border border-stone-200 rounded-lg p-2 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                        value={bourseForm.offerQty} onChange={(e) => setBF({ offerQty: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prix / action</label>
+                      <input type="number" step="0.1" className="w-full border border-stone-200 rounded-lg p-2 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                        placeholder={price} value={bourseForm.offerPrice} onChange={(e) => setBF({ offerPrice: e.target.value })} />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Actions en vente</label>
-                    <div className="flex gap-2">
-                      <input type="number" className="flex-1 border border-stone-200 rounded-lg p-2.5 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
-                        placeholder={myListing.sharesOnMarket} min={0} max={myListing.totalShares}
-                        value={bourseForm.newOnMarket} onChange={(e) => setBF({ newOnMarket: e.target.value })} />
-                      <button
-                        disabled={bourseForm.newOnMarket === "" || parseInt(bourseForm.newOnMarket) < 0 || parseInt(bourseForm.newOnMarket) > myListing.totalShares}
-                        onClick={() => { onBourseEditListing(myListing.id, { sharesOnMarket: parseInt(bourseForm.newOnMarket) }); setBF({ newOnMarket: "" }); }}
-                        className="px-4 py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
-                        Appliquer
-                      </button>
-                    </div>
-                    <div className="text-[9px] text-stone-400 mt-1">Max : {myListing.totalShares.toLocaleString()} actions</div>
-                  </div>
-                  <div className="pt-1 border-t border-stone-100">
-                    <button
-                      onClick={() => onBourseEditListing(myListing.id, { isActive: !myListing.isActive })}
-                      className={`w-full py-2 text-xs font-black uppercase rounded-lg border transition-colors ${
-                        myListing.isActive
-                          ? "border-red-200 text-red-600 hover:bg-red-50"
-                          : "border-green-200 text-green-600 hover:bg-green-50"
-                      }`}>
-                      {myListing.isActive ? "Suspendre la cotation" : "Réactiver la cotation"}
-                    </button>
+                  <button
+                    disabled={!bourseForm.offerQty || parseInt(bourseForm.offerQty) <= 0 || !bourseForm.offerPrice || parseFloat(bourseForm.offerPrice) <= 0}
+                    onClick={() => {
+                      onBourseCompanyOffer({ listingId: myListing.id, qty: parseInt(bourseForm.offerQty), price: parseFloat(bourseForm.offerPrice) });
+                      setBF({ offerQty: "", offerPrice: "" });
+                    }}
+                    className="w-full py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
+                    Mettre en vente
+                  </button>
+                  <div className="pt-2 border-t border-stone-100">
+                    <OrderBookDepth buyOrders={myListing.buyOrders} sellOrders={myListing.sellOrders} onCancel={onBourseCancelOrder ? (orderId, side) => onBourseCancelOrder({ listingId: myListing.id, orderId, side }) : undefined} />
                   </div>
                 </div>
               </Card>
@@ -3174,7 +3178,7 @@ const MyCompanyView = ({
                         {bourseForm.dividend && parseFloat(bourseForm.dividend) > 0 && (
                           <div className="flex justify-between border-t border-stone-200 pt-1 mt-1">
                             <span className="text-amber-600 font-bold">Total à distribuer</span>
-                            <span className="font-black font-mono text-amber-700">{formatMoney((parseFloat(bourseForm.dividend) * totalHeld))}</span>
+                            <span className="font-black font-mono text-amber-700">{formatMoney(parseFloat(bourseForm.dividend) * totalHeld)}</span>
                           </div>
                         )}
                       </div>
@@ -3204,14 +3208,13 @@ const MyCompanyView = ({
                       )}
                     </>
                   )}
-                  {/* Historique dividendes */}
                   {(myListing.dividendHistory || []).length > 0 && (
                     <div className="border-t border-stone-100 pt-3 space-y-1">
                       <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Historique</div>
                       {myListing.dividendHistory.slice(0, 4).map((d, i) => (
                         <div key={i} className="flex justify-between text-[10px]">
                           <span className="text-stone-400">{new Date(d.timestamp).toLocaleDateString("fr-FR")}</span>
-                          <span className="font-mono text-amber-600 font-bold">{d.amount} Écu/action — {formatMoney(d.totalPaid || 0)}</span>
+                          <span className="font-mono text-amber-600 font-bold">{d.amount} Écu/action — {formatMoney(d.totalPaid || 0)}{d.partial ? " (partiel)" : ""}</span>
                         </div>
                       ))}
                     </div>
@@ -3265,7 +3268,7 @@ const MyCompanyView = ({
 
             {/* Historique des prix */}
             {(myListing.priceHistory || []).length > 1 && (
-              <Card title="Historique des cours" icon={History}>
+              <Card title="Historique des cours (transactions réelles)" icon={History}>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {myListing.priceHistory.slice(0, 15).map((h, i) => (
                     <div key={i} className="flex items-center justify-between px-2 py-1 rounded hover:bg-stone-50 text-xs">
