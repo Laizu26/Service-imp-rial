@@ -2791,11 +2791,18 @@ export default function MushtagramView({
                     ⏳ Demande en attente de validation
                   </div>
                 ) : (
-                  <button
-                    onClick={() => onRequestPublicPersonality && onRequestPublicPersonality()}
-                    className="px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-xs font-black rounded-xl hover:opacity-90 transition-all shadow">
-                    Demander le statut Personnalité Publique
-                  </button>
+                  <div className="space-y-2">
+                    {myCitizen?.mushtagramPublicPersonality === "rejected" && (
+                      <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">
+                        Votre précédente demande a été refusée. Vous pouvez en soumettre une nouvelle.
+                      </div>
+                    )}
+                    <button
+                      onClick={() => onRequestPublicPersonality && onRequestPublicPersonality()}
+                      className="px-4 py-2 bg-gradient-to-r from-amber-400 to-amber-600 text-white text-xs font-black rounded-xl hover:opacity-90 transition-all shadow">
+                      Demander le statut Personnalité Publique
+                    </button>
+                  </div>
                 )}
               </div>
 

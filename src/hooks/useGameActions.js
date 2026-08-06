@@ -7258,7 +7258,11 @@ export const useGameActions = (session, state, saveState, notify) => {
       onRequestPublicPersonality: () => {
         if (!session) return;
         const existing = (state.citizens||[]).find(c => String(c.id) === String(session.id));
-        if (existing?.mushtagramPublicPersonality) { notify("Demande déjà soumise ou statut déjà accordé.", "info"); return; }
+        // Un refus n'est pas définitif : seul un statut en attente ou déjà accordé bloque une nouvelle demande.
+        if (existing?.mushtagramPublicPersonality === "pending" || existing?.mushtagramPublicPersonality === "approved" || existing?.mushtagramPublicPersonality === true) {
+          notify("Demande déjà soumise ou statut déjà accordé.", "info");
+          return;
+        }
         const updated = (state.citizens||[]).map(c =>
           String(c.id) === String(session.id)
             ? { ...c, mushtagramPublicPersonality: "pending" }
@@ -7277,6 +7281,28 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
         saveState({ ...state, citizens: updated });
         notify("Statut Personnalité Publique accordé.", "success");
+      },
+
+      onRejectPublicPersonality: (citizenId) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          String(c.id) === String(citizenId)
+            ? { ...c, mushtagramPublicPersonality: "rejected" }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Demande refusée.", "info");
+      },
+
+      onRevokePublicPersonality: (citizenId) => {
+        if (!session) return;
+        const updated = (state.citizens||[]).map(c =>
+          String(c.id) === String(citizenId)
+            ? { ...c, mushtagramPublicPersonality: "rejected" }
+            : c
+        );
+        saveState({ ...state, citizens: updated });
+        notify("Statut Personnalité Publique révoqué.", "success");
       },
 
       onBroadcastMushtagram: ({ content }) => {

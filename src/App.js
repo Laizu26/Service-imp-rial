@@ -1236,27 +1236,57 @@ export default function App() {
                   )}
                   {activeTab === "mushtagram" && (
                     <div className="space-y-4">
-                      {/* Admin panel: approve public personality */}
+                      {/* Admin panel: gestion Personnalité Publique (demandes + liste des accordées) */}
                       {(() => {
                         const pending = (state.citizens || []).filter(c => c.mushtagramPublicPersonality === "pending");
-                        if (pending.length === 0) return null;
+                        const approved = (state.citizens || []).filter(c => c.mushtagramPublicPersonality === "approved" || c.mushtagramPublicPersonality === true);
                         return (
-                          <div className="bg-[#fdf6e3] rounded-2xl border border-amber-300 shadow p-5">
-                            <div className="flex items-center gap-2 mb-4">
+                          <div className="bg-[#fdf6e3] rounded-2xl border border-amber-300 shadow p-5 space-y-5">
+                            <div className="flex items-center gap-2">
                               <Crown size={18} className="text-amber-500" />
-                              <h3 className="text-sm font-black uppercase tracking-widest text-stone-800">Demandes Personnalité Publique</h3>
+                              <h3 className="text-sm font-black uppercase tracking-widest text-stone-800">Personnalité Publique</h3>
                             </div>
+
                             <div className="space-y-2">
-                              {pending.map(c => (
+                              <div className="text-[10px] font-black uppercase tracking-widest text-stone-500">Demandes en attente ({pending.length})</div>
+                              {pending.length === 0 ? (
+                                <p className="text-xs text-stone-400 italic">Aucune demande en attente.</p>
+                              ) : pending.map(c => (
+                                <div key={c.id} className="flex items-center justify-between bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
+                                  <div>
+                                    <div className="font-bold text-stone-800 text-sm">{c.name}</div>
+                                    {c.mushtagramHandle && <div className="text-[10px] text-stone-400">@{c.mushtagramHandle}</div>}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => actions.onRejectPublicPersonality(c.id)}
+                                      className="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-50 text-stone-600 text-xs font-black rounded-lg transition-colors">
+                                      Refuser
+                                    </button>
+                                    <button
+                                      onClick={() => actions.onApprovePublicPersonality(c.id)}
+                                      className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-lg transition-colors">
+                                      Valider
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="space-y-2 pt-3 border-t border-amber-200/60">
+                              <div className="text-[10px] font-black uppercase tracking-widest text-stone-500">Personnalités publiques actuelles ({approved.length})</div>
+                              {approved.length === 0 ? (
+                                <p className="text-xs text-stone-400 italic">Aucune personnalité publique reconnue pour l'instant.</p>
+                              ) : approved.map(c => (
                                 <div key={c.id} className="flex items-center justify-between bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
                                   <div>
                                     <div className="font-bold text-stone-800 text-sm">{c.name}</div>
                                     {c.mushtagramHandle && <div className="text-[10px] text-stone-400">@{c.mushtagramHandle}</div>}
                                   </div>
                                   <button
-                                    onClick={() => actions.onApprovePublicPersonality(c.id)}
-                                    className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-lg transition-colors">
-                                    Valider
+                                    onClick={() => actions.onRevokePublicPersonality(c.id)}
+                                    className="px-3 py-1.5 bg-white border border-red-200 hover:bg-red-50 text-red-600 text-xs font-black rounded-lg transition-colors">
+                                    Révoquer
                                   </button>
                                 </div>
                               ))}
