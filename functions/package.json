@@ -2,7 +2,7 @@
   "name": "functions",
   "description": "Notifications Discord (Gazette, Mushtagram, Bourse)",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {
