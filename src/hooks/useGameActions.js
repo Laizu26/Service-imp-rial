@@ -885,6 +885,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         const user = state.citizens[userIdx];
         const val = parseFloat(amount);
 
+        if (company.ownerId !== session.id) {
+          notify("Action non autorisée.", "error");
+          return;
+        }
+
         if (!val || val <= 0) {
           notify("Montant invalide.", "error");
           return;
@@ -905,6 +910,14 @@ export const useGameActions = (session, state, saveState, notify) => {
           };
           notify(`Capital injecté : ${val} écus.`, "success");
         } else if (type === "WITHDRAW") {
+          // Une fois cotée en bourse, la trésorerie appartient aussi aux actionnaires — le
+          // propriétaire ne peut plus la ponctionner directement, seul onBoursePayDividends
+          // (versement par action, partagé avec tous les détenteurs) reste disponible.
+          const isListed = (state.bourseListings || []).some((l) => l.companyId === companyId);
+          if (isListed) {
+            notify("Entreprise cotée en bourse : utilisez le versement de dividendes par action (onglet Bourse).", "error");
+            return;
+          }
           if (company.balance < val) {
             notify("Trésorerie insuffisante.", "error");
             return;

@@ -690,6 +690,10 @@ const MyCompanyView = ({
   onSetCompanyMushtagramAccess,
 }) => {
   const myCompany = (companies || []).find((c) => c.ownerId === user.id);
+  // Une fois l'entreprise cotée en bourse, elle a des actionnaires — le propriétaire ne doit plus
+  // pouvoir ponctionner la trésorerie sous couvert de "dividendes" personnels sans les partager ;
+  // seul le vrai versement de dividendes par action (onglet Bourse) reste disponible.
+  const myBourseListing = myCompany ? (bourseListings || []).find((l) => l.companyId === myCompany.id) : null;
   const employedAt = !myCompany
     ? (companies || []).find((c) =>
         (c.employees || []).includes(user.id)
@@ -1976,32 +1980,49 @@ const MyCompanyView = ({
               </div>
             </Card>
             <Card title="Retrait Dividendes" icon={ArrowUpRight}>
-              <div className="flex gap-2">
-                <input
-                  type="number" step="0.1"
-                  className="flex-1 p-2 border rounded font-mono text-sm"
-                  placeholder="Montant..."
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                />
-                <button
-                  onClick={() => {
-                    onCompanyTreasury(
-                      myCompany.id,
-                      withdrawAmount,
-                      "WITHDRAW"
-                    );
-                    setWithdrawAmount("");
-                  }}
-                  className="bg-stone-800 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700"
-                >
-                  Retirer
-                </button>
-              </div>
-              {withdrawAmount && parseFloat(withdrawAmount) > (myCompany.balance || 0) && (
-                <div className="mt-2 text-xs font-bold text-red-500">
-                  Fonds insuffisants — la trésorerie ne contient que {formatMoney(myCompany.balance || 0)}.
+              {myBourseListing ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 space-y-1">
+                  <p className="font-bold">Entreprise cotée en bourse — retrait personnel désactivé.</p>
+                  <p>
+                    Depuis l'introduction en bourse, la trésorerie appartient aussi à vos actionnaires.
+                    Utilisez le versement de dividendes par action, dans l'onglet Bourse, pour distribuer
+                    les bénéfices à tous les détenteurs — vous y compris si vous détenez des actions.
+                  </p>
+                  <button onClick={() => setActiveTab("bourse")}
+                    className="mt-1 text-[10px] font-black uppercase text-amber-800 underline hover:text-amber-900">
+                    Aller à l'onglet Bourse
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" step="0.1"
+                      className="flex-1 p-2 border rounded font-mono text-sm"
+                      placeholder="Montant..."
+                      value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                    />
+                    <button
+                      onClick={() => {
+                        onCompanyTreasury(
+                          myCompany.id,
+                          withdrawAmount,
+                          "WITHDRAW"
+                        );
+                        setWithdrawAmount("");
+                      }}
+                      className="bg-stone-800 text-white px-4 py-2 rounded font-bold uppercase text-xs hover:bg-stone-700"
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                  {withdrawAmount && parseFloat(withdrawAmount) > (myCompany.balance || 0) && (
+                    <div className="mt-2 text-xs font-bold text-red-500">
+                      Fonds insuffisants — la trésorerie ne contient que {formatMoney(myCompany.balance || 0)}.
+                    </div>
+                  )}
+                </>
               )}
             </Card>
           </div>
