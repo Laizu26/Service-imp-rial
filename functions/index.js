@@ -16,6 +16,31 @@ const COLORS = {
   bourse: 0x10b981,
 };
 
+// Doit rester en phase avec src/lib/gazetteConstants.js (GAZETTE_CATEGORY_LABELS) et les
+// couleurs de src/components/views/GazetteAdminView.js (GAZETTE_CATEGORIES).
+const GAZETTE_CATEGORY_LABELS = {
+  DÉCRET: "Décret Impérial",
+  ANNONCE: "Annonce Officielle",
+  CHRONIQUE: "Chronique",
+  NÉCROLOGIE: "Nécrologie",
+  AVIS: "Avis de Recherche",
+  COMMUNIQUÉ: "Communiqué",
+};
+const GAZETTE_CATEGORY_COLORS = {
+  DÉCRET: 0xdc2626,
+  ANNONCE: 0xd4af37,
+  CHRONIQUE: 0x3b82f6,
+  NÉCROLOGIE: 0x78716c,
+  AVIS: 0xf97316,
+  COMMUNIQUÉ: 0x22c55e,
+};
+
+function excerpt(text, max) {
+  if (!text) return "";
+  const clean = String(text).trim();
+  return clean.length > max ? `${clean.slice(0, max).trim()}…` : clean;
+}
+
 async function postToDiscord(webhookUrl, embeds) {
   const res = await fetch(webhookUrl, {
     method: "POST",
@@ -35,6 +60,7 @@ exports.notifyDiscord = onDocumentUpdated(
     const webhookUrl = DISCORD_WEBHOOK_URL.value();
     if (!webhookUrl) return;
 
+    const timestamp = new Date().toISOString();
     const embeds = [];
 
     // --- Nouveaux articles de Gazette ---
@@ -42,22 +68,39 @@ exports.notifyDiscord = onDocumentUpdated(
     (after.gazette || []).forEach((g) => {
       if (beforeGazetteIds.has(g.id)) return;
       embeds.push({
-        title: "📜 Nouvelle publication — Gazette Impériale",
-        description: g.title || "Nouvelle publication",
-        color: COLORS.gazette,
-        footer: { text: g.author || "Chancellerie" },
+        author: { name: "Gazette Impériale" },
+        title: `📜 ${g.title || "Nouvelle publication"}`,
+        description: [
+          g.subtitle ? `*${g.subtitle}*` : null,
+          excerpt(g.content, 300),
+        ].filter(Boolean).join("\n\n") || undefined,
+        color: GAZETTE_CATEGORY_COLORS[g.category] ?? COLORS.gazette,
+        fields: [
+          { name: "Catégorie", value: GAZETTE_CATEGORY_LABELS[g.category] || "Annonce Officielle", inline: true },
+        ],
+        footer: { text: [g.author, g.authorRole].filter(Boolean).join(" · ") || "Chancellerie Impériale" },
+        timestamp,
       });
     });
 
-    // --- Nouveaux posts Mushtagram (comptes publics uniquement) ---
+    // --- Nouveaux posts Mushtagram réellement publics ---
+    // Exclus : anonymes, verrouillés (PPV), réservés aux abonnés payants ou aux followers —
+    // ces contenus ne doivent pas être diffusés gratuitement en dehors du site.
     const beforeMushIds = new Set((before.mushtagramPosts || []).map((p) => p.id));
     (after.mushtagramPosts || []).forEach((p) => {
-      if (beforeMushIds.has(p.id) || p.isAnonymous) return;
+      if (beforeMushIds.has(p.id)) return;
+      if (p.isAnonymous || p.locked || p.subscribersOnly || p.followersOnly) return;
       embeds.push({
-        title: "📸 Nouveau post Mushtagram",
-        description: (p.content || "(publication sans texte)").slice(0, 200),
+        author: { name: "Mushtagram" },
+        title: `📸 Nouveau post de ${p.authorName || "un citoyen"}`,
+        description: excerpt(p.content, 300) || "(publication sans texte)",
         color: COLORS.mushtagram,
-        footer: { text: p.authorName || "Citoyen" },
+        image: p.imageUrl ? { url: p.imageUrl } : undefined,
+        fields: (p.hashtags || []).length
+          ? [{ name: "Hashtags", value: p.hashtags.map((h) => `#${h}`).join(" ") }]
+          : undefined,
+        footer: { text: "Mushtagram" },
+        timestamp,
       });
     });
 
@@ -66,9 +109,17 @@ exports.notifyDiscord = onDocumentUpdated(
     (after.bourseListings || []).forEach((l) => {
       if (beforeListingIds.has(l.id)) return;
       embeds.push({
-        title: "📈 Nouvelle cotation en Bourse",
-        description: `${l.companyName} entre en bourse sous le symbole **${l.symbol}** à ${l.initialPrice} écus/action.`,
+        author: { name: "Bourse Impériale" },
+        title: `📈 ${l.companyName} entre en bourse`,
+        description: l.description ? excerpt(l.description, 250) : `Introduction en bourse sous le symbole **${l.symbol}**.`,
         color: COLORS.bourse,
+        fields: [
+          { name: "Symbole", value: l.symbol || "—", inline: true },
+          { name: "Prix initial", value: `${l.initialPrice ?? "—"} écus`, inline: true },
+          { name: "Actions émises", value: `${l.totalShares ?? "—"}`, inline: true },
+        ],
+        footer: { text: "Bourse Impériale" },
+        timestamp,
       });
     });
 
