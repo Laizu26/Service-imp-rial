@@ -1,0 +1,9 @@
+{
+  "appId": "com.serviceimperial.app",
+  "appName": "Service Impérial",
+  "webDir": "build",
+  "server": {
+    "url": "https://service-imp-rial.vercel.app",
+    "cleartext": false
+  }
+}
