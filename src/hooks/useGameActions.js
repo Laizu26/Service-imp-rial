@@ -1674,8 +1674,12 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onRequestTravel: (toCountryId, toRegion) => {
         const currentCitizen = (state.citizens || []).find((c) => c.id === session.id);
-        // Vérification compteur voyages Bague Impériale
-        if (currentCitizen?.bagueImperiale) {
+        // L'allocation "2 voyages/jour inclus" de la Bague Impériale ne doit être consommée
+        // que pour une destination qui aurait un coût (frais de visa) sans elle — un trajet
+        // déjà gratuit (entryVisaFee = 0) ne doit pas grignoter l'allocation pour rien.
+        const destCountry = (state.countries || []).find((c) => c.id === toCountryId);
+        const hasFee = (destCountry?.laws?.entryVisaFee || 0) > 0;
+        if (currentCitizen?.bagueImperiale && hasFee) {
           const used = currentCitizen.bagueVoyagesUsed || 0;
           if (used >= 2) { notify("Limite journalière atteinte — 2 voyages/jour inclus avec la Bague Impériale.", "error"); return; }
         }
@@ -1692,7 +1696,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           timestamp: Date.now(),
         };
         let newCitizens = state.citizens;
-        if (currentCitizen?.bagueImperiale) {
+        if (currentCitizen?.bagueImperiale && hasFee) {
           const cidx = (state.citizens || []).findIndex((c) => c.id === session.id);
           if (cidx !== -1) {
             newCitizens = [...state.citizens];
@@ -1705,18 +1709,15 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       onInternalTravel: (toRegion) => {
         if (!session) return;
-        const currentCitizen = (state.citizens || []).find((c) => c.id === session.id);
-        if (currentCitizen?.bagueImperiale) {
-          const used = currentCitizen.bagueVoyagesUsed || 0;
-          if (used >= 2) { notify("Limite journalière atteinte — 2 voyages/jour inclus avec la Bague Impériale.", "error"); return; }
-        }
+        // Le déplacement interne (même pays) n'a jamais de frais de visa — ne doit donc jamais
+        // consommer l'allocation de voyages inclus de la Bague Impériale, réservée aux trajets
+        // inter-pays qui auraient réellement un coût.
         const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
         const newCitizens = [...state.citizens];
         newCitizens[userIdx] = {
           ...newCitizens[userIdx],
           currentPosition: toRegion || "Capitale",
-          ...(currentCitizen?.bagueImperiale ? { bagueVoyagesUsed: (currentCitizen.bagueVoyagesUsed || 0) + 1 } : {}),
         };
         saveState({ ...state, citizens: newCitizens });
         notify(`Déplacement vers ${toRegion || "la Capitale"}.`, "success");
