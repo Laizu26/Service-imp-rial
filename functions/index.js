@@ -175,6 +175,24 @@ async function sendPush(tokens, notification, opts = {}) {
   }
 }
 
+// Message FCM "data-only" (sans clé `notification`) — contrairement à sendPush, ceci force
+// Android à invoquer onMessageReceived() côté app même en arrière-plan, ce qui permet à
+// BubbleMessagingService de construire lui-même la notification (bulle façon Google Messages
+// pour les messages privés Mushtagram) plutôt que de laisser l'OS l'afficher par défaut.
+async function sendDataMessage(tokens, data) {
+  if (!tokens || tokens.length === 0) return;
+  const stringData = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v ?? "")]));
+  try {
+    const res = await getMessaging().sendEachForMulticast({ tokens, data: stringData });
+    console.log(`Data message "${data.type}" : ${res.successCount} succès / ${res.failureCount} échec(s) sur ${tokens.length} token(s)`);
+    res.responses.forEach((r, i) => {
+      if (!r.success) console.log(`  token ${i} échoué : ${r.error?.code} — ${r.error?.message}`);
+    });
+  } catch (e) {
+    console.error("Échec envoi data message :", e);
+  }
+}
+
 exports.notifyPush = onDocumentUpdated(
   { document: GAME_STATE_DOC },
   async (event) => {
@@ -304,7 +322,6 @@ exports.notifyPush = onDocumentUpdated(
     // filtre "priority: high" que la cloche de notification in-app (voir useNotifications.js),
     // aussi ciblé par toId.
     const MUSH_NOTIF_LABELS = {
-      dm: (n) => ({ title: "💬 Nouveau message Mushtagram", body: `De ${n.fromName || "un citoyen"}${n.content ? ` — ${n.content}` : ""}` }),
       follow: (n) => ({ title: "👤 Nouvel abonné Mushtagram", body: `${n.fromName || "Un citoyen"} s'est abonné à vous` }),
       subscribe: (n) => ({ title: "⭐ Nouvel abonnement payant", body: `${n.fromName || "Un citoyen"} s'est abonné — ${n.content || ""}`.trim() }),
       unlock: (n) => ({ title: "🔓 Publication déverrouillée", body: `${n.fromName || "Un citoyen"} a déverrouillé votre publication` }),
@@ -317,6 +334,19 @@ exports.notifyPush = onDocumentUpdated(
       if (n.priority !== "high") continue;
       const tokens = citizensById.get(String(n.toId))?.pushTokens || [];
       if (tokens.length === 0) continue;
+      if (n.type === "dm") {
+        // Envoyé en data message pur (pas de clé `notification`) : côté Android, c'est
+        // BubbleMessagingService qui construit la notification "bulle" façon Google Messages
+        // (voir android/app/src/main/java/com/serviceimperial/app/BubbleMessagingService.java).
+        await sendDataMessage(tokens, {
+          type: "mushtagram_dm",
+          toId: n.toId,
+          fromId: n.fromId,
+          fromName: n.fromName || "Un citoyen",
+          content: n.content || "",
+        });
+        continue;
+      }
       const build = MUSH_NOTIF_LABELS[n.type];
       if (!build) continue;
       await sendPush(tokens, build(n), { color: PUSH_COLORS.mushtagram });
