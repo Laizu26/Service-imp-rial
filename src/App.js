@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } from "react";
 import {
   Shield,
   LogOut,
@@ -53,32 +53,48 @@ import SettingsPanel from "./components/ui/SettingsPanel";
 import NotificationCenter from "./components/ui/NotificationCenter";
 import { useNotifications } from "./hooks/useNotifications";
 
-// Views
+// Views — chargées à la demande (code splitting) : chaque vue admin/citoyenne devient son
+// propre chunk JS, téléchargé seulement quand l'onglet correspondant s'affiche. Seuls
+// LoginScreen/DeathScreen restent en import statique (nécessaires dès le premier rendu).
 import LoginScreen from "./components/views/LoginScreen";
 import DeathScreen from "./components/views/DeathScreen";
-import DashboardView from "./components/views/DashboardView";
-import GeopoliticsView from "./components/views/GeopoliticsView";
-import RegistryView from "./components/views/RegistryView";
-import BankView from "./components/views/BankView";
-import InventoryView from "./components/views/InventoryView";
-import PostView from "./components/views/PostView";
-import MushtagramView from "./components/views/MushtagramView";
-import EspionageView from "./components/views/EspionageView";
-import PostOfficeView from "./components/views/PostOfficeView";
-import CompaniesAdminView from "./components/views/CompaniesAdminView";
-import MaisonDeAsiaAdmin from "./components/views/MaisonDeAsiaAdmin";
-import LibraryAdminView from "./components/views/LibraryAdminView"; // <--- 2. IMPORT VIEW ADMIN
-import CombatAdminView from "./components/views/CombatAdminView";
-import GuardAdminView from "./components/views/GuardAdminView";
-import JobsAdminView from "./components/views/JobsAdminView";
-import FamiliesAdminView from "./components/views/FamiliesAdminView";
-import GazetteAdminView from "./components/views/GazetteAdminView";
-import BourseView from "./components/views/BourseView";
-import PropertiesAdminView from "./components/views/PropertiesAdminView";
-import TribunalAdminView from "./components/views/TribunalAdminView";
-import GameMasterView from "./components/views/GameMasterView";
-import CitizenLayout from "./components/layout/CitizenLayout";
-import PostalCheckModal from "./components/views/PostalCheckModal";
+const DashboardView = lazy(() => import("./components/views/DashboardView"));
+const GeopoliticsView = lazy(() => import("./components/views/GeopoliticsView"));
+const RegistryView = lazy(() => import("./components/views/RegistryView"));
+const BankView = lazy(() => import("./components/views/BankView"));
+const InventoryView = lazy(() => import("./components/views/InventoryView"));
+const PostView = lazy(() => import("./components/views/PostView"));
+const MushtagramView = lazy(() => import("./components/views/MushtagramView"));
+const EspionageView = lazy(() => import("./components/views/EspionageView"));
+const PostOfficeView = lazy(() => import("./components/views/PostOfficeView"));
+const CompaniesAdminView = lazy(() => import("./components/views/CompaniesAdminView"));
+const MaisonDeAsiaAdmin = lazy(() => import("./components/views/MaisonDeAsiaAdmin"));
+const LibraryAdminView = lazy(() => import("./components/views/LibraryAdminView"));
+const CombatAdminView = lazy(() => import("./components/views/CombatAdminView"));
+const GuardAdminView = lazy(() => import("./components/views/GuardAdminView"));
+const JobsAdminView = lazy(() => import("./components/views/JobsAdminView"));
+const FamiliesAdminView = lazy(() => import("./components/views/FamiliesAdminView"));
+const GazetteAdminView = lazy(() => import("./components/views/GazetteAdminView"));
+const BourseView = lazy(() => import("./components/views/BourseView"));
+const PropertiesAdminView = lazy(() => import("./components/views/PropertiesAdminView"));
+const TribunalAdminView = lazy(() => import("./components/views/TribunalAdminView"));
+const GameMasterView = lazy(() => import("./components/views/GameMasterView"));
+const CitizenLayout = lazy(() => import("./components/layout/CitizenLayout"));
+const PostalCheckModal = lazy(() => import("./components/views/PostalCheckModal"));
+
+// Affiché pendant le téléchargement du chunk JS d'une vue chargée à la demande (voir les
+// imports lazy() ci-dessus) — le temps que ça dure est négligeable une fois la vue en cache.
+const AppLoadingScreen = () => (
+  <div className="fixed inset-0 z-[250] flex items-center justify-center bg-stone-950">
+    <div className="flex flex-col items-center gap-3">
+      <Crown size={28} className="text-yellow-600 animate-pulse" />
+      <div className="w-24 h-0.5 bg-stone-800 overflow-hidden rounded-full">
+        <div className="h-full w-1/3 bg-yellow-600 rounded-full animate-[loading-bar_1.1s_ease-in-out_infinite]" />
+      </div>
+    </div>
+    <style>{`@keyframes loading-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }`}</style>
+  </div>
+);
 
 const sha256 = async (str) => {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
@@ -533,6 +549,7 @@ export default function App() {
         )}
 
         {/* --- Game Master View (plein écran) --- */}
+        <Suspense fallback={<AppLoadingScreen />}>
         {gmMode ? (
           <GameMasterView
             state={state}
@@ -1738,6 +1755,7 @@ export default function App() {
             </div>
           </div>
         )}
+        </Suspense>
       </div>
     </ErrorBoundary>
   );

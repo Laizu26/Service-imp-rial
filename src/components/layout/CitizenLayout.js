@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from "react";
 import {
   User,
   Lock,
@@ -66,26 +66,39 @@ import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, 
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
-import EruditView from "../views/EruditView";
-import PostView from "../views/PostView";
-import MushtagramView from "../views/MushtagramView";
-import SlaveManagementView from "../views/SlaveManagementView";
-import GazetteView from "../views/GazetteView";
-import CitizenBankView from "../views/CitizenBankView";
-import CitizenInventoryView from "../views/CitizenInventoryView";
-import MaisonDeAsiaCitizen from "../views/MaisonDeAsiaCitizen";
-import MyCompanyView from "../views/MyCompanyView";
-import SlavePersonalView from "../views/SlavePersonalView";
-import NotificationCenterView from "../views/NotificationCenterView";
-import LibraryView from "../views/LibraryView";
-import CitizenProfileCard from "../views/CitizenProfileCard";
-import MarriageView from "../views/MarriageView";
-import CitizenPhysicsMagicView from "../views/CitizenPhysicsMagicView";
-import GuildsView from "../views/GuildsView";
-import ContractsView from "../views/ContractsView";
-import PropertyDetailView from "../views/PropertyDetailView";
-import SettingsView from "../views/SettingsView";
-import CitizenBourseView from "../views/CitizenBourseView";
+// Vues chargées à la demande (voir le <Suspense> autour du contenu de <main> plus bas) —
+// chaque onglet ne télécharge son code que la première fois qu'on l'ouvre.
+const EruditView = lazy(() => import("../views/EruditView"));
+const PostView = lazy(() => import("../views/PostView"));
+const MushtagramView = lazy(() => import("../views/MushtagramView"));
+const SlaveManagementView = lazy(() => import("../views/SlaveManagementView"));
+const GazetteView = lazy(() => import("../views/GazetteView"));
+const CitizenBankView = lazy(() => import("../views/CitizenBankView"));
+const CitizenInventoryView = lazy(() => import("../views/CitizenInventoryView"));
+const MaisonDeAsiaCitizen = lazy(() => import("../views/MaisonDeAsiaCitizen"));
+const MyCompanyView = lazy(() => import("../views/MyCompanyView"));
+const SlavePersonalView = lazy(() => import("../views/SlavePersonalView"));
+const NotificationCenterView = lazy(() => import("../views/NotificationCenterView"));
+const LibraryView = lazy(() => import("../views/LibraryView"));
+const CitizenProfileCard = lazy(() => import("../views/CitizenProfileCard"));
+const MarriageView = lazy(() => import("../views/MarriageView"));
+const CitizenPhysicsMagicView = lazy(() => import("../views/CitizenPhysicsMagicView"));
+const GuildsView = lazy(() => import("../views/GuildsView"));
+const ContractsView = lazy(() => import("../views/ContractsView"));
+const PropertyDetailView = lazy(() => import("../views/PropertyDetailView"));
+const SettingsView = lazy(() => import("../views/SettingsView"));
+const CitizenBourseView = lazy(() => import("../views/CitizenBourseView"));
+
+// Affiché le temps du téléchargement du chunk JS d'un onglet (voir le <Suspense> autour du
+// contenu de <main>) — n'apparaît que lors du tout premier passage sur un onglet donné.
+const TabLoadingFallback = () => (
+  <div className="flex items-center justify-center py-24">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 border-2 border-stone-700 border-t-yellow-600 rounded-full animate-spin" />
+      <span className="text-[9px] font-black uppercase tracking-widest text-stone-500">Chargement…</span>
+    </div>
+  </div>
+);
 
 // Mini-composant trésorerie famille
 const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw, onTransfer, allFamilies }) => {
@@ -1438,6 +1451,7 @@ const CitizenLayout = (props) => {
         <main ref={mainScrollRef} className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
           <div className={(active === "msg" || active === "mushtagram") ? "h-full w-full" : "max-w-[1400px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
           <TabErrorBoundary tabKey={active}>
+          <Suspense fallback={<TabLoadingFallback />}>
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
@@ -4567,6 +4581,7 @@ const CitizenLayout = (props) => {
               </div>
             )}
             {/* ----------------------------- */}
+          </Suspense>
           </TabErrorBoundary>
           </div>
         </main>
