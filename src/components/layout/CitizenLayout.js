@@ -62,7 +62,7 @@ import NotificationCenter from "../ui/NotificationCenter";
 import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
-import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive, getActiveStaffLoan } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
@@ -491,6 +491,13 @@ const CitizenLayout = (props) => {
     onCreateCompanyEvent,
     onDeleteCompanyEvent,
     onCreateSubcontract,
+    staffLoans = [],
+    onCreateStaffLoan,
+    onEndStaffLoan,
+    onSetStaffLoanPermissions,
+    propertyAlerts = [],
+    bourseAlerts = [],
+    staffLoanAlerts = [],
     onAddJournalEntry,
     onEditJournalEntry,
     onDeleteJournalEntry,
@@ -811,7 +818,7 @@ const CitizenLayout = (props) => {
   } = useNotifications(
     user,
     users,
-    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [] },
+    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [], propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [] },
     settings.notifPrefs,
     gd,
     onDismissedChange
@@ -838,15 +845,19 @@ const CitizenLayout = (props) => {
   // Tutelle parentale (condition activable unilatéralement par un parent sur son enfant
   // devenu citoyen) — même principe, troisième source de restriction possible.
   const guardianRights = user?.guardianship?.active ? (user.guardianship.rights || {}) : {};
+  // Détachement de personnel actif (voir onCreateStaffLoan) — l'entreprise emprunteuse peut
+  // restreindre les droits du salarié détaché, même principe que l'employeur d'origine.
+  const myActiveStaffLoan = getActiveStaffLoan(user?.id, staffLoans);
+  const loanRestriction = myActiveStaffLoan?.permissions || {};
   const combinedRestriction = {
-    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked || guardianRights.travelLocked),
-    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked || guardianRights.mushtagramLocked),
-    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked),
-    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked),
-    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked),
+    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked || guardianRights.travelLocked || loanRestriction.travelLocked),
+    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked || guardianRights.mushtagramLocked || loanRestriction.mushtagramLocked),
+    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked || loanRestriction.bankLocked),
+    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked || loanRestriction.marketLocked),
+    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked || loanRestriction.postLocked),
     maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked),
   };
-  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : "conjoint");
+  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : (loanRestriction[key] ? "entreprise emprunteuse" : "conjoint"));
 
   // canUsePost / canUseBank : visibilité de l'onglet dans la sidebar (statut d'esclave uniquement).
   // L'onglet reste visible même verrouillé par contrat de servage/conjoint — le blocage s'affiche
@@ -1541,6 +1552,10 @@ const CitizenLayout = (props) => {
                 onCreateCompanyEvent={onCreateCompanyEvent}
                 onDeleteCompanyEvent={onDeleteCompanyEvent}
                 onCreateSubcontract={onCreateSubcontract}
+                staffLoans={staffLoans}
+                onCreateStaffLoan={onCreateStaffLoan}
+                onEndStaffLoan={onEndStaffLoan}
+                onSetStaffLoanPermissions={onSetStaffLoanPermissions}
                 bourseListings={bourseListings}
                 onBourseCreateListing={onBourseCreateListing}
                 onBourseEditListing={onBourseEditListing}

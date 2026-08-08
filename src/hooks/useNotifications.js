@@ -340,6 +340,33 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes détachement de personnel (prêté, rappelé, terminé, loyer impayé) ---
+    if (prefs.employment !== false) {
+      const STAFF_LOAN_ALERT_META = {
+        loaned:   { title: "Détachement", icon: "Briefcase", desc: (a) => `Vous êtes détaché chez ${a.toCompanyName}` },
+        recalled: { title: "Fin de détachement", icon: "Briefcase", desc: (a) => `Rappelé par ${a.fromCompanyName}` },
+        ended:    { title: "Fin de détachement", icon: "Briefcase", desc: (a) => `Détachement chez ${a.toCompanyName} terminé` },
+        unpaid:   { title: "Loyer de détachement impayé", icon: "Coins", desc: (a) => `${a.toCompanyName} n'a pas pu payer ${a.fromCompanyName}` },
+      };
+      (state?.staffLoanAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = STAFF_LOAN_ALERT_META[a.type];
+          if (!meta) return;
+          notifs.push({
+            id: `slalert_${a.id}`,
+            type: `staff_loan_${a.type}`,
+            category: "Emploi",
+            title: meta.title,
+            description: meta.desc(a),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "my_company",
+            icon: meta.icon,
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -412,7 +439,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

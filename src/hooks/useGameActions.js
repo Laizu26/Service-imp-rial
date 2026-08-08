@@ -277,10 +277,26 @@ export const useGameActions = (session, state, saveState, notify) => {
           EXTRACTION: { emp: 8, slave: 7 },
         };
         const companies = ns.companies || [];
+
+        // Détachements de personnel actifs — un salarié en détachement exclusif ne compte
+        // plus dans la production de son entreprise d'origine, mais dans celle de l'emprunteuse.
+        const loanedOutExclusiveByCompany = {};
+        const loanedInCountByCompany = {};
+        (ns.staffLoans || []).forEach((l) => {
+          if (l.status !== "ACTIVE") return;
+          if (l.exclusive) {
+            if (!loanedOutExclusiveByCompany[l.fromCompanyId]) loanedOutExclusiveByCompany[l.fromCompanyId] = new Set();
+            loanedOutExclusiveByCompany[l.fromCompanyId].add(String(l.employeeId));
+          }
+          loanedInCountByCompany[l.toCompanyId] = (loanedInCountByCompany[l.toCompanyId] || 0) + 1;
+        });
+
         companies.forEach((company, compIdx) => {
           if (company.frozen) return;
 
-          const empCount = (company.employees || []).length;
+          const excludedFromCompany = loanedOutExclusiveByCompany[company.id] || new Set();
+          const empCount = (company.employees || []).filter((id) => !excludedFromCompany.has(String(id))).length
+            + (loanedInCountByCompany[company.id] || 0);
           const slaveCount = (company.slaves || []).length;
           const level = company.level || 1;
           const rates = TYPE_RATES[company.type] || { emp: 10, slave: 8 };
@@ -378,6 +394,44 @@ export const useGameActions = (session, state, saveState, notify) => {
             ns.globalLedger = [...ledgerEntries, ...(ns.globalLedger || [])].slice(0, 1000);
           }
         });
+
+        // --- Détachements de personnel : facturation journalière + durée ---
+        // L'entreprise emprunteuse paie le tarif de location à l'entreprise prêteuse chaque
+        // jour RP ; si elle n'a pas les fonds, le prélèvement est simplement sauté (alerte
+        // envoyée au salarié) plutôt que d'annuler le détachement automatiquement.
+        if ((ns.staffLoans || []).some((l) => l.status === "ACTIVE")) {
+          const loanTs = Date.now();
+          const loanLedger = [];
+          const loanAlerts = [...(ns.staffLoanAlerts || [])];
+          ns.staffLoans = ns.staffLoans.map((loan, i) => {
+            if (loan.status !== "ACTIVE") return loan;
+            let updated = { ...loan };
+            if (loan.dailyRate > 0) {
+              const toIdx = ns.companies.findIndex((c) => c.id === loan.toCompanyId);
+              const fromIdx = ns.companies.findIndex((c) => c.id === loan.fromCompanyId);
+              if (toIdx !== -1 && fromIdx !== -1) {
+                if ((ns.companies[toIdx].balance || 0) >= loan.dailyRate) {
+                  ns.companies[toIdx] = { ...ns.companies[toIdx], balance: ns.companies[toIdx].balance - loan.dailyRate };
+                  ns.companies[fromIdx] = { ...ns.companies[fromIdx], balance: (ns.companies[fromIdx].balance || 0) + loan.dailyRate };
+                  loanLedger.push({ id: loanTs + i, fromName: loan.toCompanyName, toName: loan.fromCompanyName, amount: loan.dailyRate, timestamp: loanTs, reason: `Détachement — ${loan.employeeName}`, type: "STAFF_LOAN_FEE" });
+                } else {
+                  loanAlerts.push({ id: `sla_${loanTs}_${i}`, toId: loan.employeeId, type: "unpaid", fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: loanTs });
+                }
+              }
+            }
+            updated.daysElapsed = (loan.daysElapsed || 0) + 1;
+            if (loan.durationType === "FIXED" && updated.daysElapsed >= loan.durationDays) {
+              updated.status = "ENDED";
+              updated.endedAt = loanTs;
+              loanAlerts.push({ id: `sla_${loanTs}_${i}_end`, toId: loan.employeeId, type: "ended", fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: loanTs });
+            }
+            return updated;
+          });
+          if (loanLedger.length > 0) {
+            ns.globalLedger = [...loanLedger, ...(ns.globalLedger || [])].slice(0, 1000);
+          }
+          ns.staffLoanAlerts = loanAlerts;
+        }
 
         // --- Bourse : réinitialisation du plafond de variation journalier ---
         // Chaque cotation active repart d'une nouvelle bande de ±BOURSE_DAILY_CAP autour du dernier
@@ -4615,6 +4669,117 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         saveState({ ...state, companies: newCompanies });
         notify("Événement supprimé.", "info");
+      },
+
+      // --- DÉTACHEMENT DE PERSONNEL (prêt de salariés entre entreprises) ---
+      // Le salarié reste employé par fromCompany (contrat, ancienneté, salaire via
+      // workerBalances inchangés) mais travaille temporairement pour toCompany, qui verse
+      // un tarif de location + une éventuelle prime à fromCompany. Décision unilatérale du
+      // dirigeant de fromCompany, aucun accord du salarié requis.
+      onCreateStaffLoan: ({ employeeId, fromCompanyId, toCompanyId, durationType, durationDays, dailyRate, signingBonus, exclusive }) => {
+        if (!session) return;
+        const fromIdx = state.companies.findIndex((c) => c.id === fromCompanyId);
+        const toIdx = state.companies.findIndex((c) => c.id === toCompanyId);
+        if (fromIdx === -1 || toIdx === -1) { notify("Entreprise introuvable.", "error"); return; }
+        const fromCompany = state.companies[fromIdx];
+        const toCompany = state.companies[toIdx];
+        if (String(fromCompany.ownerId) !== String(session.id)) {
+          notify("Seul le dirigeant peut détacher un salarié.", "error");
+          return;
+        }
+        if (String(fromCompanyId) === String(toCompanyId)) { notify("Choisissez une autre entreprise.", "error"); return; }
+        const isWorker = (fromCompany.employees || []).map(String).includes(String(employeeId)) || (fromCompany.slaves || []).map(String).includes(String(employeeId));
+        if (!isWorker) { notify("Ce citoyen ne fait pas partie de votre entreprise.", "error"); return; }
+        const alreadyLoaned = (state.staffLoans || []).some((l) => l.status === "ACTIVE" && String(l.employeeId) === String(employeeId));
+        if (alreadyLoaned) { notify("Ce salarié est déjà détaché ailleurs.", "error"); return; }
+
+        const rate = Math.max(0, parseFloat(dailyRate) || 0);
+        const bonus = Math.max(0, parseFloat(signingBonus) || 0);
+        const isFixed = durationType === "FIXED";
+        const days = isFixed ? Math.max(1, parseInt(durationDays) || 0) : null;
+        if (isFixed && !days) { notify("Durée invalide.", "error"); return; }
+        if (bonus > 0 && (toCompany.balance || 0) < bonus) {
+          notify("Trésorerie de l'entreprise emprunteuse insuffisante pour la prime.", "error");
+          return;
+        }
+
+        const citizen = (state.citizens || []).find((c) => c.id === employeeId);
+        const newCompanies = [...state.companies];
+        let ledgerEntries = [];
+        if (bonus > 0) {
+          newCompanies[toIdx] = { ...toCompany, balance: toCompany.balance - bonus };
+          newCompanies[fromIdx] = { ...fromCompany, balance: (fromCompany.balance || 0) + bonus };
+          ledgerEntries.push({
+            id: Date.now(), fromName: toCompany.name, toName: fromCompany.name, amount: bonus,
+            timestamp: Date.now(), reason: `Prime de détachement — ${citizen?.name || employeeId}`, type: "STAFF_LOAN_BONUS",
+          });
+        }
+
+        const loan = {
+          id: `loan_${Date.now()}`,
+          employeeId, employeeName: citizen?.name || employeeId,
+          fromCompanyId, fromCompanyName: fromCompany.name,
+          toCompanyId, toCompanyName: toCompany.name,
+          status: "ACTIVE",
+          durationType: isFixed ? "FIXED" : "INDEFINITE",
+          durationDays: days,
+          daysElapsed: 0,
+          dailyRate: rate,
+          signingBonus: bonus,
+          exclusive: !!exclusive,
+          permissions: {},
+          createdAt: Date.now(),
+          endedAt: null,
+        };
+        const alerts = [...(state.staffLoanAlerts || []), {
+          id: `sla_${Date.now()}`, toId: employeeId, type: "loaned",
+          fromCompanyName: fromCompany.name, toCompanyName: toCompany.name, timestamp: Date.now(),
+        }];
+
+        saveState({
+          ...state,
+          companies: newCompanies,
+          staffLoans: [...(state.staffLoans || []), loan],
+          staffLoanAlerts: alerts,
+          globalLedger: ledgerEntries.length ? [...ledgerEntries, ...(state.globalLedger || [])] : state.globalLedger,
+        });
+        notify(`${citizen?.name || "Salarié"} détaché chez ${toCompany.name}.`, "success");
+      },
+
+      onEndStaffLoan: (loanId, reason) => {
+        if (!session) return;
+        const loan = (state.staffLoans || []).find((l) => l.id === loanId);
+        if (!loan || loan.status !== "ACTIVE") return;
+        const fromCompany = (state.companies || []).find((c) => c.id === loan.fromCompanyId);
+        const toCompany = (state.companies || []).find((c) => c.id === loan.toCompanyId);
+        const isAdmin = ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role);
+        const canEnd = String(fromCompany?.ownerId) === String(session.id) || String(toCompany?.ownerId) === String(session.id) || isAdmin;
+        if (!canEnd) { notify("Vous n'êtes pas partie à ce détachement.", "error"); return; }
+        const newLoans = (state.staffLoans || []).map((l) =>
+          l.id === loanId ? { ...l, status: reason === "RECALLED" ? "RECALLED" : "ENDED", endedAt: Date.now() } : l
+        );
+        const alerts = [...(state.staffLoanAlerts || []), {
+          id: `sla_${Date.now()}`, toId: loan.employeeId, type: reason === "RECALLED" ? "recalled" : "ended",
+          fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: Date.now(),
+        }];
+        saveState({ ...state, staffLoans: newLoans, staffLoanAlerts: alerts });
+        notify("Détachement terminé.", "info");
+      },
+
+      onSetStaffLoanPermissions: ({ loanId, permissions }) => {
+        if (!session) return;
+        const loan = (state.staffLoans || []).find((l) => l.id === loanId);
+        if (!loan || loan.status !== "ACTIVE") return;
+        const toCompany = (state.companies || []).find((c) => c.id === loan.toCompanyId);
+        if (!toCompany || String(toCompany.ownerId) !== String(session.id)) {
+          notify("Seule l'entreprise emprunteuse peut gérer ces droits.", "error");
+          return;
+        }
+        const newLoans = (state.staffLoans || []).map((l) =>
+          l.id === loanId ? { ...l, permissions: { ...(l.permissions || {}), ...permissions } } : l
+        );
+        saveState({ ...state, staffLoans: newLoans });
+        notify("Droits mis à jour.", "success");
       },
 
       // --- SOUS-TRAITANCE (contrat entre entreprises) ---

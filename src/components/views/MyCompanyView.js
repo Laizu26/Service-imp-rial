@@ -35,12 +35,13 @@ import {
   Coins,
   BarChart2,
   Lock,
+  ArrowLeftRight,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { OrderBookDepth } from "../ui/BourseWidgets";
-import { formatMoney } from "../../lib/gameUtils";
+import { formatMoney, getActiveStaffLoan } from "../../lib/gameUtils";
 
 // ── Sous-composant ESPP — config patron (state propre pour éviter la synchro inter-entreprises) ──
 function ESPPConfigCard({ myCompany, myListing, onUpdateCompanyESPP }) {
@@ -677,6 +678,10 @@ const MyCompanyView = ({
   onCreateCompanyEvent,
   onDeleteCompanyEvent,
   onCreateSubcontract,
+  staffLoans = [],
+  onCreateStaffLoan,
+  onEndStaffLoan,
+  onSetStaffLoanPermissions,
   bourseListings = [],
   onBourseCreateListing,
   onBourseEditListing,
@@ -763,6 +768,14 @@ const MyCompanyView = ({
   const [subTargetCompany, setSubTargetCompany] = useState("");
   const [subAmount, setSubAmount] = useState("");
   const [subDesc, setSubDesc] = useState("");
+
+  // Détachement de personnel
+  const [loanForm, setLoanForm] = useState({
+    employeeId: "", toCompanyId: "", dailyRate: "", signingBonus: "",
+    exclusive: false, durationType: "FIXED", durationDays: "",
+  });
+  const [managingLoanId, setManagingLoanId] = useState(null);
+  const [loanPermsDraft, setLoanPermsDraft] = useState({});
 
   // Bourse
   const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", offerQty: "", offerPrice: "", dividend: "", showDividendForm: false });
@@ -886,6 +899,22 @@ const MyCompanyView = ({
                   </div>
                 </div>
               </div>
+
+              {/* Détachement en cours (si applicable) */}
+              {(() => {
+                const myLoan = getActiveStaffLoan(user.id, staffLoans);
+                if (!myLoan) return null;
+                return (
+                  <div className="bg-purple-50 border-l-8 border-purple-400 p-4 rounded-r-xl flex items-center gap-3">
+                    <ArrowLeftRight size={20} className="text-purple-600 shrink-0" />
+                    <div className="text-sm text-purple-800">
+                      <span className="font-black">Actuellement détaché</span> chez{" "}
+                      <span className="font-bold">{myLoan.toCompanyName}</span>
+                      {myLoan.exclusive ? " (exclusif)" : ""} — vous restez salarié de {workerCompany.name}.
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Infos entreprise */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1698,6 +1727,7 @@ const MyCompanyView = ({
           { id: "hr", label: "Personnel", badge: (myCompany.applications || []).length || null },
           { id: "finance", label: "Banque & Salaires" },
           { id: "contracts", label: "Contrats" },
+          { id: "loans", label: "Détachement", badge: (staffLoans || []).filter((l) => l.status === "ACTIVE" && (l.fromCompanyId === myCompany.id || l.toCompanyId === myCompany.id)).length || null },
           { id: "management", label: "Gestion" },
           { id: "bourse", label: "Bourse" },
           { id: "customize", label: "Personnalisation" },
@@ -2637,6 +2667,271 @@ const MyCompanyView = ({
                 </div>
               )}
             </div>
+          </div>
+        );
+      })()}
+
+      {/* ONGLET DÉTACHEMENT DE PERSONNEL */}
+      {activeTab === "loans" && (() => {
+        const allWorkers = [...(myCompany.employees || []), ...(myCompany.slaves || [])];
+        const loanedOutIds = new Set(staffLoans.filter((l) => l.status === "ACTIVE").map((l) => String(l.employeeId)));
+        const availableWorkers = allWorkers.filter((id) => !loanedOutIds.has(String(id)));
+        const lentOut = staffLoans.filter((l) => l.status === "ACTIVE" && l.fromCompanyId === myCompany.id);
+        const borrowedIn = staffLoans.filter((l) => l.status === "ACTIVE" && l.toCompanyId === myCompany.id);
+        const history = staffLoans
+          .filter((l) => l.status !== "ACTIVE" && (l.fromCompanyId === myCompany.id || l.toCompanyId === myCompany.id))
+          .sort((a, b) => (b.endedAt || 0) - (a.endedAt || 0))
+          .slice(0, 8);
+        const otherCompanies = (companies || []).filter((c) => c.id !== myCompany.id);
+
+        return (
+          <div className="space-y-6">
+            <Card title="Détacher un salarié" icon={ArrowLeftRight}>
+              <div className="space-y-4">
+                <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
+                  Prêtez temporairement un salarié à une autre entreprise. Il reste employé chez vous (salaire, ancienneté,
+                  contrat inchangés) mais travaille pour l'emprunteuse, qui vous verse un tarif journalier et, si vous le
+                  souhaitez, une prime immédiate. En détachement exclusif, il ne compte plus dans votre production le temps
+                  du prêt.
+                </div>
+                {availableWorkers.length === 0 ? (
+                  <div className="text-center text-stone-400 italic py-3 text-xs">
+                    Aucun salarié disponible (déjà détaché ou aucun effectif).
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Salarié</label>
+                      <select
+                        className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold text-sm"
+                        value={loanForm.employeeId}
+                        onChange={(e) => setLoanForm((f) => ({ ...f, employeeId: e.target.value }))}
+                      >
+                        <option value="">— Choisir —</option>
+                        {availableWorkers.map((id) => {
+                          const c = citizens.find((ci) => ci.id === id);
+                          return <option key={id} value={id}>{c?.name || id}</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Entreprise emprunteuse</label>
+                      <select
+                        className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold text-sm"
+                        value={loanForm.toCompanyId}
+                        onChange={(e) => setLoanForm((f) => ({ ...f, toCompanyId: e.target.value }))}
+                      >
+                        <option value="">— Choisir —</option>
+                        {otherCompanies.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Tarif journalier (Écus)</label>
+                      <input
+                        type="number" step="0.1" min={0}
+                        className="w-full p-2 border rounded font-mono text-sm"
+                        value={loanForm.dailyRate}
+                        onChange={(e) => setLoanForm((f) => ({ ...f, dailyRate: e.target.value }))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prime immédiate (optionnel)</label>
+                      <input
+                        type="number" step="0.1" min={0}
+                        className="w-full p-2 border rounded font-mono text-sm"
+                        value={loanForm.signingBonus}
+                        onChange={(e) => setLoanForm((f) => ({ ...f, signingBonus: e.target.value }))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Durée</label>
+                      <div className="flex gap-2">
+                        <select
+                          className="flex-1 p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold text-sm"
+                          value={loanForm.durationType}
+                          onChange={(e) => setLoanForm((f) => ({ ...f, durationType: e.target.value }))}
+                        >
+                          <option value="FIXED">Durée fixe</option>
+                          <option value="INDEFINITE">Indéterminée (rappelable)</option>
+                        </select>
+                        {loanForm.durationType === "FIXED" && (
+                          <input
+                            type="number" min={1}
+                            className="w-24 p-2 border rounded font-mono text-sm"
+                            value={loanForm.durationDays}
+                            onChange={(e) => setLoanForm((f) => ({ ...f, durationDays: e.target.value }))}
+                            placeholder="jours"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={() => setLoanForm((f) => ({ ...f, exclusive: !f.exclusive }))}
+                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-colors flex items-center justify-center gap-2 ${
+                          loanForm.exclusive
+                            ? "bg-purple-100 text-purple-700 border-purple-300"
+                            : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
+                        }`}
+                      >
+                        <Lock size={12} /> {loanForm.exclusive ? "Exclusif" : "Non exclusif"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    if (!loanForm.employeeId || !loanForm.toCompanyId || !onCreateStaffLoan) return;
+                    onCreateStaffLoan({
+                      employeeId: loanForm.employeeId,
+                      fromCompanyId: myCompany.id,
+                      toCompanyId: loanForm.toCompanyId,
+                      durationType: loanForm.durationType,
+                      durationDays: loanForm.durationDays,
+                      dailyRate: loanForm.dailyRate,
+                      signingBonus: loanForm.signingBonus,
+                      exclusive: loanForm.exclusive,
+                    });
+                    setLoanForm({ employeeId: "", toCompanyId: "", dailyRate: "", signingBonus: "", exclusive: false, durationType: "FIXED", durationDays: "" });
+                  }}
+                  disabled={!loanForm.employeeId || !loanForm.toCompanyId || (loanForm.durationType === "FIXED" && !loanForm.durationDays)}
+                  className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <ArrowLeftRight size={14} /> Détacher
+                </button>
+              </div>
+            </Card>
+
+            <Card title={`Personnel prêté (${lentOut.length})`} icon={Users}>
+              {lentOut.length === 0 ? (
+                <div className="text-center text-stone-400 italic py-3 text-xs">Aucun salarié actuellement prêté.</div>
+              ) : (
+                <div className="divide-y divide-stone-100">
+                  {lentOut.map((loan) => (
+                    <div key={loan.id} className="py-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-sm text-stone-700 flex items-center gap-2">
+                          {loan.employeeName}
+                          {loan.exclusive && (
+                            <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-purple-200">Exclusif</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-stone-400 mt-0.5">
+                          Chez <span className="font-bold text-stone-500">{loan.toCompanyName}</span> — {formatMoney(loan.dailyRate)}/jour
+                          {loan.durationType === "FIXED" ? ` — J${loan.daysElapsed}/${loan.durationDays}` : " — indéterminé"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onEndStaffLoan && onEndStaffLoan(loan.id, "RECALLED")}
+                        className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50"
+                      >
+                        Rappeler
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title={`Personnel emprunté (${borrowedIn.length})`} icon={UserPlus}>
+              {borrowedIn.length === 0 ? (
+                <div className="text-center text-stone-400 italic py-3 text-xs">Aucun salarié actuellement emprunté.</div>
+              ) : (
+                <div className="divide-y divide-stone-100">
+                  {borrowedIn.map((loan) => {
+                    const isManaging = managingLoanId === loan.id;
+                    return (
+                      <div key={loan.id} className="py-3 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="font-bold text-sm text-stone-700">{loan.employeeName}</div>
+                            <div className="text-[10px] text-stone-400 mt-0.5">
+                              Prêté par <span className="font-bold text-stone-500">{loan.fromCompanyName}</span> — {formatMoney(loan.dailyRate)}/jour
+                              {loan.durationType === "FIXED" ? ` — J${loan.daysElapsed}/${loan.durationDays}` : " — indéterminé"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                if (isManaging) { setManagingLoanId(null); }
+                                else { setManagingLoanId(loan.id); setLoanPermsDraft(loan.permissions || {}); }
+                              }}
+                              className="text-stone-500 border border-stone-300 hover:border-stone-500 hover:text-stone-700 text-[9px] font-black uppercase px-2 py-1 rounded"
+                            >
+                              {isManaging ? "Fermer" : "Gérer les droits"}
+                            </button>
+                            <button
+                              onClick={() => onEndStaffLoan && onEndStaffLoan(loan.id, "ENDED")}
+                              className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50"
+                            >
+                              Mettre fin
+                            </button>
+                          </div>
+                        </div>
+                        {isManaging && (
+                          <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-2">
+                            <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
+                              Restrictions — gérées comme un employé classique
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { key: "travelLocked", label: "Voyage" },
+                                { key: "mushtagramLocked", label: "Mushtagram" },
+                                { key: "bankLocked", label: "Banque" },
+                                { key: "marketLocked", label: "Marché" },
+                                { key: "postLocked", label: "Poste" },
+                              ].map((p) => (
+                                <button
+                                  key={p.key}
+                                  onClick={() => setLoanPermsDraft((prev) => ({ ...prev, [p.key]: !prev[p.key] }))}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase border transition-colors ${
+                                    loanPermsDraft[p.key]
+                                      ? "bg-red-100 text-red-700 border-red-300"
+                                      : "bg-white text-stone-400 border-stone-200 hover:border-stone-300"
+                                  }`}
+                                >
+                                  {p.label}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => {
+                                onSetStaffLoanPermissions && onSetStaffLoanPermissions({ loanId: loan.id, permissions: loanPermsDraft });
+                                setManagingLoanId(null);
+                              }}
+                              className="bg-stone-800 text-white px-3 py-1.5 rounded-lg font-black uppercase text-[10px] hover:bg-stone-700"
+                            >
+                              Enregistrer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
+
+            {history.length > 0 && (
+              <Card title="Historique récent" icon={Clock}>
+                <div className="divide-y divide-stone-100">
+                  {history.map((loan) => (
+                    <div key={loan.id} className="py-2 flex items-center justify-between text-xs">
+                      <span className="text-stone-500">
+                        {loan.employeeName} — {loan.fromCompanyName} → {loan.toCompanyName}
+                      </span>
+                      <span className="text-[9px] font-black uppercase text-stone-400">
+                        {loan.status === "RECALLED" ? "Rappelé" : "Terminé"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
           </div>
         );
       })()}

@@ -183,3 +183,18 @@ export function toRoman(num) {
 export function isNewEntry(dateStr, days = 7) {
   return !!dateStr && Date.now() - new Date(dateStr).getTime() < days * 24 * 3600 * 1000;
 }
+
+// Détachement de personnel actif d'un citoyen (voir onCreateStaffLoan dans useGameActions.js) —
+// l'entreprise emprunteuse peut y attacher des droits restreints (permissions), au même titre
+// que serfRights côté employeur ou spouseRights côté conjoint dominant.
+export function getActiveStaffLoan(citizenId, staffLoans) {
+  return (
+    (staffLoans || []).find(
+      (l) => l.status === "ACTIVE" && String(l.employeeId) === String(citizenId)
+    ) || null
+  );
+}
+
+export function getStaffLoanRestriction(citizenId, staffLoans) {
+  return getActiveStaffLoan(citizenId, staffLoans)?.permissions || {};
+}

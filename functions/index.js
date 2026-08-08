@@ -273,6 +273,22 @@ exports.notifyPush = onDocumentUpdated(
       await sendPush(tokens, { title: "🏠 Propriétés", body: a.propertyName ? `Concernant ${a.propertyName}` : "Un événement concerne une de vos propriétés" }, { color: PUSH_COLORS.finances });
     }
 
+    const STAFF_LOAN_LABELS = {
+      loaned: (a) => ({ title: "💼 Détachement", body: `Vous êtes détaché chez ${a.toCompanyName}` }),
+      recalled: (a) => ({ title: "💼 Fin de détachement", body: `Rappelé par ${a.fromCompanyName}` }),
+      ended: (a) => ({ title: "💼 Fin de détachement", body: `Détachement chez ${a.toCompanyName} terminé` }),
+      unpaid: (a) => ({ title: "💼 Loyer de détachement impayé", body: `${a.toCompanyName} n'a pas pu payer ${a.fromCompanyName}` }),
+    };
+    const beforeStaffLoanAlertIds = new Set((before.staffLoanAlerts || []).map((a) => a.id));
+    for (const a of after.staffLoanAlerts || []) {
+      if (beforeStaffLoanAlertIds.has(a.id)) continue;
+      const tokens = citizensById.get(a.toId)?.pushTokens || [];
+      if (tokens.length === 0) continue;
+      const build = STAFF_LOAN_LABELS[a.type];
+      if (!build) continue;
+      await sendPush(tokens, build(a), { color: PUSH_COLORS.emploi });
+    }
+
     // Mushtagram (DM, abonnés, pourboires, déverrouillages...) — même source et même
     // filtre "priority: high" que la cloche de notification in-app (voir useNotifications.js),
     // aussi ciblé par toId.
