@@ -873,6 +873,22 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Entreprise personnalisée.", "success");
       },
 
+      // --- NOTIFICATIONS PUSH (app Android/iOS) ---
+      // Enregistre le token FCM de l'appareil sur le citoyen, pour qu'une Cloud Function
+      // puisse plus tard lui envoyer une notification push ciblée. Un citoyen peut avoir
+      // plusieurs appareils enregistrés (plusieurs tokens).
+      onRegisterPushToken: (token) => {
+        if (!session || !token) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const citizen = state.citizens[idx];
+        const tokens = citizen.pushTokens || [];
+        if (tokens.includes(token)) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = { ...citizen, pushTokens: [...tokens, token] };
+        saveState({ ...state, citizens: newCitizens });
+      },
+
       // --- GESTION TRÉSORERIE ---
       onCompanyTreasury: (companyId, amount, type) => {
         if (!session) return;
