@@ -1,48 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
-import {
-  Bell,
-  Mail,
-  Briefcase,
-  Heart,
-  ShieldAlert,
-  Coins,
-  Scroll,
-  MapPin,
-  Crown,
-  Lock,
-  Building2,
-  TrendingUp,
-  X,
-  CheckCheck,
-  ChevronRight,
-} from "lucide-react";
+import { Bell, X, CheckCheck, ChevronRight } from "lucide-react";
+import { NOTIF_ICON_MAP, notifCategoryColors } from "../../lib/notificationTheme";
 
-const ICON_MAP = {
-  Mail,
-  Briefcase,
-  Heart,
-  ShieldAlert,
-  Coins,
-  Scroll,
-  MapPin,
-  Crown,
-  Lock,
-  Building2,
-  TrendingUp,
+const formatRelative = (ts) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  const diff = Date.now() - d.getTime();
+  if (diff < 60000) return "À l'instant";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} min`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} h`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} j`;
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 };
-
-const CATEGORY_COLORS = {
-  Messages: { bg: "#3b82f620", text: "#60a5fa", dot: "#3b82f6" },
-  Emploi: { bg: "#a855f720", text: "#c084fc", dot: "#a855f7" },
-  "Vie Civile": { bg: "#f43f5e20", text: "#fb7185", dot: "#f43f5e" },
-  "Main d'Oeuvre": { bg: "#ef444420", text: "#f87171", dot: "#ef4444" },
-  Finances: { bg: "#eab30820", text: "#fbbf24", dot: "#eab308" },
-  Gazette: { bg: "#10b98120", text: "#34d399", dot: "#10b981" },
-  "Bureau de Poste": { bg: "#f59e0b20", text: "#fbbf24", dot: "#f59e0b" },
-  "Liens & Unions": { bg: "#ec489920", text: "#f472b6", dot: "#ec4899" },
-};
-
-const DEFAULT_COLORS = { bg: "#78716c20", text: "#a8a29e", dot: "#78716c" };
 
 const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDismissAll, onOpenFull }) => {
   const [open, setOpen] = useState(false);
@@ -85,8 +55,11 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[9px] font-black rounded-full px-1 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse">
-            {unreadCount > 99 ? "99+" : unreadCount}
+          <span className="absolute -top-1.5 -right-1.5 flex">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-60 animate-ping" />
+            <span className="relative min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[9px] font-black rounded-full px-1 shadow-[0_0_8px_rgba(239,68,68,0.5)]">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           </span>
         )}
       </button>
@@ -94,6 +67,9 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
       {/* Panneau de notifications — toujours en dark puisque dans le header */}
       {open && (
         <div className="fixed md:absolute left-2 right-2 md:left-auto md:right-0 top-[4.5rem] md:top-full md:mt-3 md:w-96 bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          {/* Bandeau d'accent */}
+          <div className="h-0.5 bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600" />
+
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-stone-800 bg-stone-950">
             <div className="flex items-center gap-2">
@@ -142,14 +118,14 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
               categories.map((category) => {
                 const notifs = grouped[category];
                 if (!notifs || notifs.length === 0) return null;
-                const colors = CATEGORY_COLORS[category] || DEFAULT_COLORS;
+                const colors = notifCategoryColors(category);
 
                 return (
                   <div key={category}>
                     {/* Header catégorie */}
-                    <div className="px-4 py-2 bg-stone-800/50 border-b border-stone-800 flex items-center gap-2">
+                    <div className="sticky top-0 px-4 py-2 bg-stone-800/90 backdrop-blur border-b border-stone-800 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.dot }} />
-                      <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.text }}>
+                      <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textDark }}>
                         {category}
                       </span>
                       <span className="text-[9px] text-stone-500 font-mono">
@@ -159,22 +135,25 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
 
                     {/* Notifications de cette catégorie */}
                     {notifs.map((notif) => {
-                      const IconComp = ICON_MAP[notif.icon] || Bell;
+                      const IconComp = NOTIF_ICON_MAP[notif.icon] || Bell;
                       return (
                         <button
                           key={notif.id}
                           onClick={() => handleClick(notif)}
-                          className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-all border-b border-stone-800/50 group ${
+                          className={`relative w-full text-left pl-4 pr-3 py-3 flex items-start gap-3 transition-all border-b border-stone-800/50 group ${
                             notif.isRead
                               ? "opacity-60 hover:opacity-85"
                               : "hover:bg-stone-800/50"
                           }`}
                         >
+                          {!notif.isRead && (
+                            <span className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor: colors.dot }} />
+                          )}
                           <div
                             className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
                             style={{ backgroundColor: colors.bg }}
                           >
-                            <IconComp size={14} style={{ color: colors.text }} />
+                            <IconComp size={14} style={{ color: colors.textDark }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -192,11 +171,16 @@ const NotificationCenter = ({ grouped, unreadCount, onNavigate, onDismiss, onDis
                               {notif.description}
                             </div>
                           </div>
-                          <ChevronRight
-                            size={14}
-                            className="mt-1 shrink-0 transition-colors"
-                            style={{ color: "#78716c" }}
-                          />
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-[9px] font-mono whitespace-nowrap" style={{ color: "#78716c" }}>
+                              {formatRelative(notif.timestamp)}
+                            </span>
+                            <ChevronRight
+                              size={12}
+                              className="transition-colors opacity-0 group-hover:opacity-100"
+                              style={{ color: "#a8a29e" }}
+                            />
+                          </div>
                         </button>
                       );
                     })}

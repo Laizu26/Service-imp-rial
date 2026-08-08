@@ -17,6 +17,19 @@ const COLORS = {
   bourse: 0x10b981,
 };
 
+// Couleur d'accent de l'icône de notification côté Android (voir sendPush) — reprend la
+// palette utilisée par la cloche de notification in-app (src/lib/notificationTheme.js) pour
+// que le style reste cohérent entre le site et les notifications push.
+const PUSH_COLORS = {
+  gazette: "#d4af37",
+  mushtagram: "#e1306c",
+  bourse: "#10b981",
+  messages: "#3b82f6",
+  emploi: "#a855f7",
+  union: "#f43f5e",
+  finances: "#eab308",
+};
+
 // Doit rester en phase avec src/lib/gazetteConstants.js (GAZETTE_CATEGORY_LABELS) et les
 // couleurs de src/components/views/GazetteAdminView.js (GAZETTE_CATEGORIES).
 const GAZETTE_CATEGORY_LABELS = {
@@ -137,13 +150,16 @@ exports.notifyDiscord = onDocumentUpdated(
 // app désinstallée) ne font pas planter le lot — un token mort n'est pas nettoyé ici pour
 // éviter d'écrire sur le document déclencheur (donc de retrigger la fonction) ; les tokens
 // morts échouent simplement à chaque envoi, sans coût fonctionnel notable.
-async function sendPush(tokens, notification) {
+async function sendPush(tokens, notification, opts = {}) {
   if (!tokens || tokens.length === 0) {
     console.log(`Push ignoré (aucun token) : ${notification.title}`);
     return;
   }
+  const message = { tokens, notification: { ...notification } };
+  if (opts.imageUrl) message.notification.imageUrl = opts.imageUrl;
+  if (opts.color) message.android = { notification: { color: opts.color } };
   try {
-    const res = await getMessaging().sendEachForMulticast({ tokens, notification });
+    const res = await getMessaging().sendEachForMulticast(message);
     console.log(`Push "${notification.title}" : ${res.successCount} succès / ${res.failureCount} échec(s) sur ${tokens.length} token(s)`);
     res.responses.forEach((r, i) => {
       if (!r.success) console.log(`  token ${i} échoué : ${r.error?.code} — ${r.error?.message}`);
@@ -168,7 +184,7 @@ exports.notifyPush = onDocumentUpdated(
     const beforeGazetteIds = new Set((before.gazette || []).map((g) => g.id));
     (after.gazette || []).forEach((g) => {
       if (beforeGazetteIds.has(g.id)) return;
-      broadcastNotifs.push({ title: "📜 Gazette Impériale", body: g.title || "Nouvelle publication" });
+      broadcastNotifs.push({ notif: { title: "📜 Gazette Impériale", body: g.title || "Nouvelle publication" }, color: PUSH_COLORS.gazette });
     });
 
     const beforeMushIds = new Set((before.mushtagramPosts || []).map((p) => p.id));
@@ -176,21 +192,25 @@ exports.notifyPush = onDocumentUpdated(
       if (beforeMushIds.has(p.id)) return;
       if (p.isAnonymous || p.locked || p.subscribersOnly || p.followersOnly) return;
       broadcastNotifs.push({
-        title: `📸 ${p.authorName || "Un citoyen"} a publié sur Mushtagram`,
-        body: excerpt(p.content, 120) || "Nouvelle publication",
+        notif: {
+          title: `📸 ${p.authorName || "Un citoyen"} a publié sur Mushtagram`,
+          body: excerpt(p.content, 120) || "Nouvelle publication",
+        },
+        color: PUSH_COLORS.mushtagram,
+        imageUrl: p.imageUrl || undefined,
       });
     });
 
     const beforeListingIds = new Set((before.bourseListings || []).map((l) => l.id));
     (after.bourseListings || []).forEach((l) => {
       if (beforeListingIds.has(l.id)) return;
-      broadcastNotifs.push({ title: "📈 Nouvelle cotation en Bourse", body: `${l.companyName} — symbole ${l.symbol}` });
+      broadcastNotifs.push({ notif: { title: "📈 Nouvelle cotation en Bourse", body: `${l.companyName} — symbole ${l.symbol}` }, color: PUSH_COLORS.bourse });
     });
 
     if (broadcastNotifs.length > 0) {
       const allTokens = [...new Set((after.citizens || []).flatMap((c) => c.pushTokens || []))];
-      for (const notif of broadcastNotifs) {
-        await sendPush(allTokens, notif);
+      for (const { notif, color, imageUrl } of broadcastNotifs) {
+        await sendPush(allTokens, notif, { color, imageUrl });
       }
     }
 
@@ -207,25 +227,25 @@ exports.notifyPush = onDocumentUpdated(
       const prevMsgIds = new Set((prev.messages || []).map((m) => m.id || m.date));
       (citizen.messages || []).forEach((m) => {
         if (m.read || prevMsgIds.has(m.id || m.date)) return;
-        personalNotifs.push({ title: "✉️ Nouveau message", body: `De ${m.from || m.fromName || "Inconnu"}${m.subject ? ` — ${m.subject}` : ""}` });
+        personalNotifs.push({ notif: { title: "✉️ Nouveau message", body: `De ${m.from || m.fromName || "Inconnu"}${m.subject ? ` — ${m.subject}` : ""}` }, color: PUSH_COLORS.messages });
       });
 
       // Nouvelle proposition d'union
       const prevProposalIds = new Set((prev.marriageProposals || []).map((p) => p.fromId));
       (citizen.marriageProposals || []).forEach((p) => {
         if (prevProposalIds.has(p.fromId)) return;
-        personalNotifs.push({ title: "💍 Proposition d'union", body: `De ${p.fromName || "un citoyen"}` });
+        personalNotifs.push({ notif: { title: "💍 Proposition d'union", body: `De ${p.fromName || "un citoyen"}` }, color: PUSH_COLORS.union });
       });
 
       // Nouvelle offre d'embauche
       const prevOfferIds = new Set((prev.jobOffers || []).map((o) => o.id));
       (citizen.jobOffers || []).forEach((o) => {
         if (prevOfferIds.has(o.id)) return;
-        personalNotifs.push({ title: "💼 Offre d'embauche", body: o.companyName || "Une entreprise vous propose un poste" });
+        personalNotifs.push({ notif: { title: "💼 Offre d'embauche", body: o.companyName || "Une entreprise vous propose un poste" }, color: PUSH_COLORS.emploi });
       });
 
-      for (const notif of personalNotifs) {
-        await sendPush(tokens, notif);
+      for (const { notif, color, imageUrl } of personalNotifs) {
+        await sendPush(tokens, notif, { color, imageUrl });
       }
     }
 
@@ -239,9 +259,9 @@ exports.notifyPush = onDocumentUpdated(
       const tokens = citizensById.get(a.toId)?.pushTokens || [];
       if (tokens.length === 0) continue;
       if (a.type === "dividend") {
-        await sendPush(tokens, { title: "💰 Dividende reçu", body: `${a.amount} écus — ${a.symbol}` });
+        await sendPush(tokens, { title: "💰 Dividende reçu", body: `${a.amount} écus — ${a.symbol}` }, { color: PUSH_COLORS.bourse });
       } else if (a.type === "trade_filled") {
-        await sendPush(tokens, { title: "📈 Ordre exécuté", body: `${a.qty} action(s) ${a.symbol} ${a.side === "buy" ? "achetée(s)" : "vendue(s)"} à ${a.price} écus` });
+        await sendPush(tokens, { title: "📈 Ordre exécuté", body: `${a.qty} action(s) ${a.symbol} ${a.side === "buy" ? "achetée(s)" : "vendue(s)"} à ${a.price} écus` }, { color: PUSH_COLORS.bourse });
       }
     }
 
@@ -250,7 +270,7 @@ exports.notifyPush = onDocumentUpdated(
       if (beforePropertyAlertIds.has(a.id)) continue;
       const tokens = citizensById.get(a.toId)?.pushTokens || [];
       if (tokens.length === 0) continue;
-      await sendPush(tokens, { title: "🏠 Propriétés", body: a.propertyName ? `Concernant ${a.propertyName}` : "Un événement concerne une de vos propriétés" });
+      await sendPush(tokens, { title: "🏠 Propriétés", body: a.propertyName ? `Concernant ${a.propertyName}` : "Un événement concerne une de vos propriétés" }, { color: PUSH_COLORS.finances });
     }
 
     // Mushtagram (DM, abonnés, pourboires, déverrouillages...) — même source et même
@@ -272,7 +292,7 @@ exports.notifyPush = onDocumentUpdated(
       if (tokens.length === 0) continue;
       const build = MUSH_NOTIF_LABELS[n.type];
       if (!build) continue;
-      await sendPush(tokens, build(n));
+      await sendPush(tokens, build(n), { color: PUSH_COLORS.mushtagram });
     }
   }
 );

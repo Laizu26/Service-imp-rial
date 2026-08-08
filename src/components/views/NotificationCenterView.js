@@ -1,16 +1,6 @@
 import React, { useState, useMemo } from "react";
 import {
   Bell,
-  Mail,
-  Briefcase,
-  Heart,
-  ShieldAlert,
-  Coins,
-  Scroll,
-  Crown,
-  Lock,
-  Building2,
-  TrendingUp,
   CheckCheck,
   Filter,
   ChevronRight,
@@ -20,20 +10,21 @@ import {
   SortDesc,
   SortAsc,
 } from "lucide-react";
+import { NOTIF_ICON_MAP, notifCategoryColors } from "../../lib/notificationTheme";
 
-const ICON_MAP = { Mail, Briefcase, Heart, ShieldAlert, Coins, Scroll, Crown, Lock, Building2, TrendingUp };
-
-const CATEGORY_COLORS = {
-  Messages:        { bg: "#3b82f620", text: "#3b82f6", textDark: "#60a5fa", dot: "#3b82f6", border: "#3b82f630" },
-  Emploi:          { bg: "#a855f720", text: "#9333ea", textDark: "#c084fc", dot: "#a855f7", border: "#a855f730" },
-  "Liens & Unions":{ bg: "#f43f5e20", text: "#e11d48", textDark: "#fb7185", dot: "#f43f5e", border: "#f43f5e30" },
-  "Vie Civile":    { bg: "#f43f5e20", text: "#e11d48", textDark: "#fb7185", dot: "#f43f5e", border: "#f43f5e30" },
-  "Main d'Oeuvre": { bg: "#ef444420", text: "#dc2626", textDark: "#f87171", dot: "#ef4444", border: "#ef444430" },
-  Finances:        { bg: "#eab30820", text: "#b45309", textDark: "#fbbf24", dot: "#eab308", border: "#eab30830" },
-  Gazette:         { bg: "#10b98120", text: "#059669", textDark: "#34d399", dot: "#10b981", border: "#10b98130" },
+const dayBucket = (ts) => {
+  if (!ts) return "Plus ancien";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "Plus ancien";
+  const now = new Date();
+  const startOf = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(d)) / 86400000);
+  if (diffDays <= 0) return "Aujourd'hui";
+  if (diffDays === 1) return "Hier";
+  if (diffDays <= 7) return "Cette semaine";
+  return "Plus ancien";
 };
-
-const DEFAULT_COLORS = { bg: "#78716c20", text: "#57534e", textDark: "#a8a29e", dot: "#78716c", border: "#78716c30" };
+const BUCKET_ORDER = ["Aujourd'hui", "Hier", "Cette semaine", "Plus ancien"];
 
 const NotificationCenterView = ({
   allWithStatus,
@@ -81,6 +72,19 @@ const NotificationCenterView = ({
     return list;
   }, [allWithStatus, activeFilter, showRead, sortOrder]);
 
+  // Groupement par jour (uniquement pertinent en tri "plus récentes" ; en tri croissant
+  // on affiche une liste plate pour éviter des groupes désordonnés).
+  const buckets = useMemo(() => {
+    if (sortOrder !== "desc") return null;
+    const map = {};
+    displayed.forEach((n) => {
+      const b = dayBucket(n.timestamp);
+      if (!map[b]) map[b] = [];
+      map[b].push(n);
+    });
+    return BUCKET_ORDER.filter((b) => map[b]?.length).map((b) => [b, map[b]]);
+  }, [displayed, sortOrder]);
+
   const totalCount = (allWithStatus || []).length;
 
   const categoryStats = useMemo(() => {
@@ -105,8 +109,100 @@ const NotificationCenterView = ({
     return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
   };
 
-  const catColor = (cat) => CATEGORY_COLORS[cat] || DEFAULT_COLORS;
+  const catColor = (cat) => notifCategoryColors(cat);
   const catText = (cat) => isDark ? catColor(cat).textDark : catColor(cat).text;
+
+  const NotifCard = ({ notif }) => {
+    const IconComp = NOTIF_ICON_MAP[notif.icon] || Bell;
+    const colors = catColor(notif.category);
+
+    return (
+      <div
+        className="relative rounded-xl overflow-hidden transition-all"
+        style={{
+          backgroundColor: isDark ? "#29252460" : "#ffffff",
+          border: `1px solid ${notif.isRead ? t.borderLight : colors.border}`,
+          opacity: notif.isRead ? 0.65 : 1,
+        }}
+        onMouseEnter={(e) => { if (notif.isRead) e.currentTarget.style.opacity = "0.85"; }}
+        onMouseLeave={(e) => { if (notif.isRead) e.currentTarget.style.opacity = "0.65"; }}
+      >
+        {!notif.isRead && (
+          <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: colors.dot }} />
+        )}
+        <div className="flex items-start gap-3 p-4 pl-5">
+          {/* Icône */}
+          <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
+            <IconComp size={16} style={{ color: catText(notif.category) }} />
+          </div>
+
+          {/* Contenu */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {!notif.isRead && (
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#eab308" }} />
+              )}
+              <span className="text-xs font-bold" style={{ color: notif.isRead ? t.textMuted : t.textPrimary }}>
+                {notif.title}
+              </span>
+              <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style={{
+                backgroundColor: colors.bg,
+                color: catText(notif.category),
+              }}>
+                {notif.category}
+              </span>
+            </div>
+            <div className="text-[10px] mt-0.5" style={{ color: t.textSecondary }}>
+              {notif.description}
+            </div>
+            <div className="text-[9px] mt-1" style={{ color: t.textMuted }}>
+              {notif.rpDate || formatTimestamp(notif.timestamp)}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 shrink-0">
+            {notif.isRead ? (
+              <button
+                onClick={() => onUndismiss && onUndismiss(notif.id)}
+                className="p-1.5 rounded-lg transition-all"
+                style={{ color: t.textMuted }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = t.textSecondary)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = t.textMuted)}
+                title="Marquer non lue"
+              >
+                <EyeOff size={12} />
+              </button>
+            ) : (
+              <button
+                onClick={() => onDismiss && onDismiss(notif.id)}
+                className="p-1.5 rounded-lg transition-all"
+                style={{ color: t.textMuted }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#eab308")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = t.textMuted)}
+                title="Marquer comme lue"
+              >
+                <CheckCheck size={12} />
+              </button>
+            )}
+            <button
+              onClick={() => {
+                if (onDismiss) onDismiss(notif.id);
+                if (onNavigate) onNavigate(notif.route);
+              }}
+              className="p-1.5 rounded-lg transition-all"
+              style={{ color: t.textMuted }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = t.textPrimary)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = t.textMuted)}
+              title="Ouvrir"
+            >
+              <ChevronRight size={12} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -255,97 +351,28 @@ const NotificationCenterView = ({
           </div>
           <div className="text-[10px]" style={{ color: t.textMuted }}>Vous êtes à jour.</div>
         </div>
+      ) : buckets ? (
+        <div className="space-y-5">
+          {buckets.map(([bucket, notifs]) => (
+            <div key={bucket} className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: t.textMuted }}>
+                  {bucket}
+                </span>
+                <span className="text-[9px] font-mono" style={{ color: t.textFaint }}>
+                  ({notifs.length})
+                </span>
+                <div className="flex-1 h-px" style={{ backgroundColor: t.borderLight }} />
+              </div>
+              <div className="space-y-2">
+                {notifs.map((notif) => <NotifCard key={notif.id} notif={notif} />)}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-2">
-          {displayed.map((notif) => {
-            const IconComp = ICON_MAP[notif.icon] || Bell;
-            const colors = catColor(notif.category);
-
-            return (
-              <div
-                key={notif.id}
-                className="rounded-xl overflow-hidden transition-all"
-                style={{
-                  backgroundColor: isDark ? "#29252460" : "#ffffff",
-                  border: `1px solid ${notif.isRead ? t.borderLight : colors.border}`,
-                  opacity: notif.isRead ? 0.65 : 1,
-                }}
-                onMouseEnter={(e) => { if (notif.isRead) e.currentTarget.style.opacity = "0.85"; }}
-                onMouseLeave={(e) => { if (notif.isRead) e.currentTarget.style.opacity = "0.65"; }}
-              >
-                <div className="flex items-start gap-3 p-4">
-                  {/* Icône */}
-                  <div className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.bg }}>
-                    <IconComp size={16} style={{ color: catText(notif.category) }} />
-                  </div>
-
-                  {/* Contenu */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {!notif.isRead && (
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#eab308" }} />
-                      )}
-                      <span className="text-xs font-bold" style={{ color: notif.isRead ? t.textMuted : t.textPrimary }}>
-                        {notif.title}
-                      </span>
-                      <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded" style={{
-                        backgroundColor: colors.bg,
-                        color: catText(notif.category),
-                      }}>
-                        {notif.category}
-                      </span>
-                    </div>
-                    <div className="text-[10px] mt-0.5" style={{ color: t.textSecondary }}>
-                      {notif.description}
-                    </div>
-                    <div className="text-[9px] mt-1" style={{ color: t.textMuted }}>
-                      {notif.rpDate || formatTimestamp(notif.timestamp)}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {notif.isRead ? (
-                      <button
-                        onClick={() => onUndismiss && onUndismiss(notif.id)}
-                        className="p-1.5 rounded-lg transition-all"
-                        style={{ color: t.textMuted }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = t.textSecondary)}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = t.textMuted)}
-                        title="Marquer non lue"
-                      >
-                        <EyeOff size={12} />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => onDismiss && onDismiss(notif.id)}
-                        className="p-1.5 rounded-lg transition-all"
-                        style={{ color: t.textMuted }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "#eab308")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = t.textMuted)}
-                        title="Marquer comme lue"
-                      >
-                        <CheckCheck size={12} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (onDismiss) onDismiss(notif.id);
-                        if (onNavigate) onNavigate(notif.route);
-                      }}
-                      className="p-1.5 rounded-lg transition-all"
-                      style={{ color: t.textMuted }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = t.textPrimary)}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = t.textMuted)}
-                      title="Ouvrir"
-                    >
-                      <ChevronRight size={12} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {displayed.map((notif) => <NotifCard key={notif.id} notif={notif} />)}
         </div>
       )}
     </div>
