@@ -15,17 +15,29 @@ import {
   Trash2,
   Crown,
   Filter,
+  Heart,
+  Baby,
+  Gavel,
+  ShieldAlert,
+  TrendingUp,
+  Plane,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
-import { ROLES, BASE_STATUSES } from "../../lib/constants";
+import { ROLES, BASE_STATUSES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney } from "../../lib/gameUtils";
+
+const MARRIAGE_TYPE_LABELS = Object.fromEntries(MARRIAGE_CONTRACT_TYPES.map((t) => [t.id, `${t.emoji} ${t.label}`]));
+const MARRIAGE_END_LABELS = { divorce: "Divorce", veuvage: "Veuvage", tutelle: "Union rompue (tutelle)" };
+const SENTENCE_TYPE_LABELS = { FINE: "Amende", PRISON: "Emprisonnement", EXILE: "Exil", CUSTOM: "Autre" };
+const VERDICT_LABELS = { GUILTY: "Coupable", NOT_GUILTY: "Non coupable", DISMISSED: "Classé sans suite" };
 
 const RegistryView = ({
   citizens,
   countries,
   catalog,
   families = [],
+  bourseListings = [],
   session,
   onSave,
   onDelete,
@@ -1275,6 +1287,195 @@ const RegistryView = ({
                       </div>
                     </Card>
                   )}
+
+                  {/* --- ÉTAT CIVIL --- */}
+                  {(selected.fatherId || selected.motherId || selected.fatherName || selected.motherName ||
+                    (selected.spouses || []).length > 0 || (selected.children || []).length > 0 ||
+                    selected.guardianship?.active || (selected.marriageHistory || []).length > 0) && (
+                    <Card title="État Civil" icon={Heart}>
+                      <div className="space-y-4 text-sm font-sans">
+                        {(selected.fatherId || selected.fatherName || selected.motherId || selected.motherName) && (
+                          <div className="grid grid-cols-2 gap-4">
+                            {(selected.fatherId || selected.fatherName) && (
+                              <div>
+                                <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Père</span>
+                                <span className="text-stone-900 font-bold">
+                                  {safeCitizens.find((c) => c.id === selected.fatherId)?.name || selected.fatherName || "Inconnu"}
+                                </span>
+                              </div>
+                            )}
+                            {(selected.motherId || selected.motherName) && (
+                              <div>
+                                <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Mère</span>
+                                <span className="text-stone-900 font-bold">
+                                  {safeCitizens.find((c) => c.id === selected.motherId)?.name || selected.motherName || "Inconnue"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {(selected.spouses || []).length > 0 && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">
+                              Conjoint{selected.spouses.length > 1 ? "s" : ""}
+                            </span>
+                            <div className="space-y-1.5">
+                              {selected.spouses.map((s) => (
+                                <div key={s.id} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                                  <span className="font-bold text-stone-800">{safeCitizens.find((c) => c.id === s.id)?.name || s.name}</span>
+                                  <span className="text-[9px] font-black uppercase text-stone-400">{MARRIAGE_TYPE_LABELS[s.contractType] || s.contractType}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(selected.children || []).length > 0 && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest flex items-center gap-1"><Baby size={11} /> Enfants déclarés</span>
+                            <div className="space-y-1.5">
+                              {selected.children.map((child) => {
+                                const linked = child.citizenId ? safeCitizens.find((c) => c.id === child.citizenId) : null;
+                                const birth = linked?.birthDate || child.birthDate;
+                                return (
+                                  <div key={child.id} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                                    <span className="font-bold text-stone-800">{linked?.name || child.name}</span>
+                                    {birth && <span className="text-[9px] text-stone-400 font-mono">{formatRPDate(birth)}</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {selected.guardianship?.active && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Tutelle active</span>
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800 text-sm">
+                              Sous la tutelle de{" "}
+                              <span className="font-bold">
+                                {safeCitizens.find((c) => c.id === selected.guardianship.guardianId)?.name || selected.guardianship.guardianName}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {(selected.marriageHistory || []).length > 0 && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Historique matrimonial</span>
+                            <div className="space-y-1.5">
+                              {selected.marriageHistory.map((m, i) => (
+                                <div key={i} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                                  <span className="font-bold text-stone-700">{safeCitizens.find((c) => c.id === m.id)?.name || m.name}</span>
+                                  <span className="text-[9px] font-black uppercase text-stone-400">{MARRIAGE_END_LABELS[m.endReason] || m.endReason}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* --- CASIER JUDICIAIRE --- */}
+                  {(selected.criminalRecord || []).length > 0 && (
+                    <Card title="Casier Judiciaire" icon={Gavel}>
+                      <div className="space-y-2">
+                        {selected.criminalRecord.map((rec, i) => (
+                          <div key={i} className="bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-red-800 text-sm">{rec.charge}</span>
+                              <span className="text-[9px] font-black uppercase text-red-500">{VERDICT_LABELS[rec.verdict] || rec.verdict}</span>
+                            </div>
+                            {rec.sentence && (
+                              <div className="text-xs text-red-600 mt-1">
+                                {SENTENCE_TYPE_LABELS[rec.sentence.type] || rec.sentence.type}
+                                {rec.sentence.amount ? ` — ${formatMoney(rec.sentence.amount)}` : ""}
+                                {rec.sentence.text ? ` (${rec.sentence.text})` : ""}
+                              </div>
+                            )}
+                            <div className="text-[9px] text-stone-400 mt-1">
+                              {rec.judgeName ? `Jugé par ${rec.judgeName} — ` : ""}
+                              {rec.date ? new Date(rec.date).toLocaleDateString("fr-FR") : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* --- ESCLAVAGE --- */}
+                  {(selected.status === "Esclave" || (selected.slaveAlerts || []).length > 0) && (
+                    <Card title="Esclavage" icon={ShieldAlert}>
+                      <div className="space-y-3 text-sm font-sans">
+                        {selected.status === "Esclave" && (
+                          <>
+                            <div>
+                              <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Propriétaire</span>
+                              <span className="text-stone-900 font-bold">
+                                {safeCitizens.find((c) => c.id === selected.ownerId)?.name || (selected.ownerId ? "Inconnu" : "Trésor Impérial")}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${selected.isForSale ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-500"}`}>
+                                {selected.isForSale ? `En vente — ${formatMoney(selected.salePrice || 0)}` : "Pas en vente"}
+                              </span>
+                            </div>
+                            {selected.hiddenBalance > 0 && (
+                              <div>
+                                <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Solde dissimulé</span>
+                                <span className="text-red-600 font-bold font-mono">{formatMoney(selected.hiddenBalance)}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {(selected.slaveAlerts || []).length > 0 && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Alertes sur ses esclaves</span>
+                            <div className="space-y-1.5">
+                              {selected.slaveAlerts.map((a) => (
+                                <div key={a.id} className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                                  <span className="font-bold text-orange-800">{a.slaveName}</span>
+                                  <span className="text-[9px] font-mono text-orange-600">{formatMoney(a.amount)} dissimulés</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* --- DOSSIER ÉCONOMIQUE --- */}
+                  {(Object.keys(selected.stockholdings || {}).length > 0 || selected.bagueImperiale) && (
+                    <Card title="Dossier Économique" icon={TrendingUp}>
+                      <div className="space-y-4 text-sm font-sans">
+                        {Object.keys(selected.stockholdings || {}).length > 0 && (
+                          <div>
+                            <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest">Portefeuille boursier</span>
+                            <div className="space-y-1.5">
+                              {Object.entries(selected.stockholdings).filter(([, qty]) => qty > 0).map(([listingId, qty]) => {
+                                const listing = bourseListings.find((l) => l.id === listingId);
+                                const price = listing ? (listing.lastPrice || listing.initialPrice || 0) : 0;
+                                return (
+                                  <div key={listingId} className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                                    <span className="font-bold text-stone-800">{listing ? `${listing.symbol} — ${listing.companyName}` : listingId}</span>
+                                    <span className="text-xs font-mono text-stone-500">{qty} × {formatMoney(price)} = {formatMoney(qty * price)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {selected.bagueImperiale && (
+                          <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                            <Plane size={14} className="text-yellow-700 shrink-0" />
+                            <span className="text-yellow-800 text-sm">
+                              Bague Impériale active — {selected.bagueVoyagesUsed || 0} voyage(s) effectué(s)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+
                   <Card
                     title="Avoirs Impériaux"
                     icon={Coins}
