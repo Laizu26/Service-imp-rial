@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -31,6 +32,7 @@ import java.util.Map;
  */
 public class BubbleMessagingService extends MessagingService {
 
+    private static final String TAG = "BubbleMessagingService";
     private static final String CHANNEL_ID = "mushtagram_dm";
     private static final String CHANNEL_NAME = "Messages Mushtagram";
     private static final String QUICK_REPLY_BASE_URL = "https://service-imp-rial.vercel.app/quick-reply";
@@ -39,7 +41,13 @@ public class BubbleMessagingService extends MessagingService {
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         Map<String, String> data = remoteMessage.getData();
         if (data != null && "mushtagram_dm".equals(data.get("type"))) {
-            showBubbleNotification(data);
+            // Ne doit jamais faire planter l'app — au pire, le message ne s'affiche pas en
+            // notification "bulle" (repli silencieux), plutôt qu'un crash du processus.
+            try {
+                showBubbleNotification(data);
+            } catch (Throwable e) {
+                Log.e(TAG, "Échec construction notification bulle", e);
+            }
             return;
         }
         super.onMessageReceived(remoteMessage);
@@ -66,16 +74,23 @@ public class BubbleMessagingService extends MessagingService {
         IconCompat appIcon = IconCompat.createWithResource(this, R.mipmap.ic_launcher);
 
         // Raccourci dynamique "conversation" — requis par Android pour qu'une notification
-        // soit éligible aux bulles sur la plupart des versions/constructeurs.
-        ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(this, shortcutId)
-            .setLongLived(true)
-            .setIntent(new Intent(Intent.ACTION_VIEW).setPackage(getPackageName()))
-            .setShortLabel(fromName)
-            .setIcon(appIcon)
-            .setPerson(sender)
-            .setCategories(Collections.singleton("android.shortcut.conversation"))
-            .build();
-        ShortcutManagerCompat.pushDynamicShortcut(this, shortcut);
+        // soit éligible aux bulles sur la plupart des versions/constructeurs. Isolé dans son
+        // propre try/catch : un rejet (limite de fréquence, contraintes OEM) ne doit pas
+        // empêcher l'affichage de la notification elle-même, juste dégrader vers une
+        // notification classique sans bulle.
+        try {
+            ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(this, shortcutId)
+                .setLongLived(true)
+                .setIntent(new Intent(Intent.ACTION_VIEW).setPackage(getPackageName()))
+                .setShortLabel(fromName)
+                .setIcon(appIcon)
+                .setPerson(sender)
+                .setCategories(Collections.singleton("android.shortcut.conversation"))
+                .build();
+            ShortcutManagerCompat.pushDynamicShortcut(this, shortcut);
+        } catch (Throwable e) {
+            Log.e(TAG, "Échec création du raccourci dynamique (non bloquant)", e);
+        }
 
         String bubbleUrl = QUICK_REPLY_BASE_URL
             + "?dm=" + Uri.encode(fromId)
@@ -97,7 +112,11 @@ public class BubbleMessagingService extends MessagingService {
             .build();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            // L'icône de la barre de statut doit être une image simple (masque alpha), jamais
+            // une icône adaptative (ic_launcher moderne, faite de calques premier-plan/fond) —
+            // l'utiliser ici est une cause fréquente de plantage. android.R.drawable.sym_def_app_icon
+            // est une ressource système garantie non-adaptative, présente sur toutes les versions.
+            .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setContentTitle(fromName)
             .setContentText(content)
             .setStyle(new NotificationCompat.MessagingStyle(me).addMessage(content, System.currentTimeMillis(), sender))

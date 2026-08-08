@@ -4,10 +4,12 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.TextView;
 
 /**
  * Activité légère affichée dans une bulle Android (voir BubbleMessagingService) — une simple
@@ -17,22 +19,31 @@ import android.webkit.WebViewClient;
  */
 public class BubbleActivity extends Activity {
 
+    private static final String TAG = "BubbleActivity";
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        try {
+            WebView webView = new WebView(this);
+            webView.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+            ));
+            WebSettings settings = webView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            webView.setWebViewClient(new WebViewClient());
+            setContentView(webView);
 
-        WebView webView = new WebView(this);
-        webView.setLayoutParams(new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        webView.setWebViewClient(new WebViewClient());
-        setContentView(webView);
-
-        loadFromIntent(webView, getIntent());
+            loadFromIntent(webView, getIntent());
+        } catch (Throwable e) {
+            Log.e(TAG, "Échec ouverture de la bulle", e);
+            TextView fallback = new TextView(this);
+            fallback.setText("Impossible d'ouvrir la conversation ici — ouvrez l'application.");
+            fallback.setPadding(32, 32, 32, 32);
+            setContentView(fallback);
+        }
     }
 
     @Override
