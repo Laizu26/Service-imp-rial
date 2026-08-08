@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1026740352554",
+    "project_id": "rpempire-f3123",
+    "storage_bucket": "rpempire-f3123.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1026740352554:android:5fd1bca8e4ac3361273553",
+        "android_client_info": {
+          "package_name": "com.serviceimperial.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxCJ-3uCfuyymY9I5BPEr1pQiNtYXZqaM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
