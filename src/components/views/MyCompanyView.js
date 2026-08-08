@@ -36,6 +36,7 @@ import {
   BarChart2,
   Lock,
   ArrowLeftRight,
+  Crown,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -693,8 +694,14 @@ const MyCompanyView = ({
   onPayBuyout,
   onClaimCorvee,
   onSetCompanyMushtagramAccess,
+  onAppointCEO,
+  onRevokeCEO,
 }) => {
-  const myCompany = (companies || []).find((c) => c.ownerId === user.id);
+  // Le PDG (voir onAppointCEO) a la même vue de gestion que le propriétaire, à l'exception de
+  // la nomination/révocation du PDG et de la dissolution — réservées au vrai propriétaire.
+  const myCompany = (companies || []).find((c) => c.ownerId === user.id || c.ceoId === user.id);
+  const isTrueOwner = myCompany ? myCompany.ownerId === user.id : false;
+  const isCeoView = myCompany ? myCompany.ceoId === user.id : false;
   // Une fois l'entreprise cotée en bourse, elle a des actionnaires — le propriétaire ne doit plus
   // pouvoir ponctionner la trésorerie sous couvert de "dividendes" personnels sans les partager ;
   // seul le vrai versement de dividendes par action (onglet Bourse) reste disponible.
@@ -768,6 +775,9 @@ const MyCompanyView = ({
   const [subTargetCompany, setSubTargetCompany] = useState("");
   const [subAmount, setSubAmount] = useState("");
   const [subDesc, setSubDesc] = useState("");
+
+  // PDG
+  const [ceoTarget, setCeoTarget] = useState("");
 
   // Détachement de personnel
   const [loanForm, setLoanForm] = useState({
@@ -2689,7 +2699,7 @@ const MyCompanyView = ({
 
       {/* ONGLET DÉTACHEMENT DE PERSONNEL */}
       {activeTab === "loans" && (() => {
-        const allWorkers = [...(myCompany.employees || []), ...(myCompany.slaves || []), myCompany.ownerId];
+        const allWorkers = [...(myCompany.employees || []), ...(myCompany.slaves || []), myCompany.ownerId, ...(myCompany.ceoId ? [myCompany.ceoId] : [])];
         const loanedOutIds = new Set(staffLoans.filter((l) => l.status === "ACTIVE").map((l) => String(l.employeeId)));
         const availableWorkers = allWorkers.filter((id) => !loanedOutIds.has(String(id)));
         const lentOut = staffLoans.filter((l) => l.status === "ACTIVE" && l.fromCompanyId === myCompany.id);
@@ -2727,8 +2737,10 @@ const MyCompanyView = ({
                         <option value="">— Choisir —</option>
                         {availableWorkers.map((id) => {
                           const c = citizens.find((ci) => ci.id === id);
-                          const isOwner = String(id) === String(myCompany.ownerId);
-                          return <option key={id} value={id}>{c?.name || id}{isOwner ? " (Vous, Dirigeant)" : ""}</option>;
+                          const isOwnerOpt = String(id) === String(myCompany.ownerId);
+                          const isCeoOpt = !isOwnerOpt && String(id) === String(myCompany.ceoId);
+                          const suffix = isOwnerOpt ? " (Dirigeant)" : isCeoOpt ? " (PDG)" : "";
+                          return <option key={id} value={id}>{c?.name || id}{suffix}</option>;
                         })}
                       </select>
                     </div>
@@ -3776,8 +3788,70 @@ const MyCompanyView = ({
             )}
           </Card>
 
+          {/* PDG — délégation de gestion */}
+          {isTrueOwner && (
+            <Card title="PDG" icon={Crown}>
+              <div className="space-y-4">
+                <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
+                  Déléguez la quasi-totalité de la gestion de l'entreprise à un PDG (RH, trésorerie, Bourse,
+                  personnalisation...). Vous restez seul propriétaire — la nomination/révocation du PDG et la
+                  dissolution vous restent réservées. Si l'entreprise est cotée en bourse, le PDG reçoit en plus,
+                  gratuitement, toutes les actions du flottant jamais vendues à un investisseur.
+                </div>
+                {myCompany.ceoId ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div className="text-sm">
+                      <span className="font-bold text-stone-700">
+                        {citizens.find((c) => c.id === myCompany.ceoId)?.name || myCompany.ceoId}
+                      </span>{" "}
+                      <span className="text-stone-500">est PDG de {myCompany.name}.</span>
+                    </div>
+                    <button
+                      onClick={() => onRevokeCEO && onRevokeCEO(myCompany.id)}
+                      className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50"
+                    >
+                      Révoquer
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold uppercase text-stone-400 mb-1 block">Nommer un PDG</label>
+                      <UserSearchSelect
+                        users={citizens}
+                        onSelect={setCeoTarget}
+                        placeholder="Rechercher un citoyen..."
+                        excludeIds={[user.id]}
+                        value={ceoTarget}
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!ceoTarget || !onAppointCEO) return;
+                        onAppointCEO({ companyId: myCompany.id, citizenId: ceoTarget });
+                        setCeoTarget("");
+                      }}
+                      disabled={!ceoTarget}
+                      className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50"
+                    >
+                      Nommer
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+          {isCeoView && (
+            <Card title="PDG" icon={Crown}>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                <span className="font-black">Vous êtes PDG</span> de {myCompany.name}, avec délégation de gestion
+                du propriétaire ({citizens.find((c) => c.id === myCompany.ownerId)?.name || "Inconnu"}).
+              </div>
+            </Card>
+          )}
+
           {/* DISSOLUTION */}
-          {onDeleteCompany && (
+          {onDeleteCompany && isTrueOwner && (
             <Card title="Zone Dangereuse" icon={Trash2}>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-xs text-red-600 mb-3">

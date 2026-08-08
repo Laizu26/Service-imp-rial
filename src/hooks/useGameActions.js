@@ -248,6 +248,12 @@ export const useGameActions = (session, state, saveState, notify) => {
       return !!(employerLocked || spouseLocked || guardianLocked || ownerLocked);
     };
 
+    // Un PDG (voir onAppointCEO) a délégation de la quasi-totalité des droits de gestion du
+    // propriétaire sur son entreprise — seules la nomination/révocation du PDG et la
+    // suppression de l'entreprise restent réservées au propriétaire lui-même.
+    const isCompanyManager = (company, sessionId) =>
+      !!company && (String(company.ownerId) === String(sessionId) || String(company.ceoId) === String(sessionId));
+
     return wrapActions({
       onPassDay: () => {
         let ns = structuredClone(state);
@@ -916,7 +922,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Vous n'êtes pas propriétaire.", "error");
           return;
         }
@@ -929,6 +935,71 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCompanies[compIdx] = { ...newCompanies[compIdx], ...sanitized };
         saveState({ ...state, companies: newCompanies });
         notify("Entreprise personnalisée.", "success");
+      },
+
+      // --- PDG : délégation de gestion + actions non émises offertes ---
+      // Le propriétaire reste seul propriétaire légal (ownerId inchangé) mais délègue au PDG
+      // la quasi-totalité des droits de gestion (voir isCompanyManager, utilisé par toutes les
+      // actions de gestion d'entreprise). Si l'entreprise est cotée en bourse, le PDG reçoit en
+      // plus, gratuitement, toutes les actions du flottant COMPANY jamais vendues à un
+      // investisseur — il devient actionnaire sans rien débourser.
+      onAppointCEO: ({ companyId, citizenId }) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (String(company.ownerId) !== String(session.id)) {
+          notify("Seul le propriétaire peut nommer un PDG.", "error");
+          return;
+        }
+        if (String(citizenId) === String(company.ownerId)) {
+          notify("Vous êtes déjà propriétaire de cette entreprise.", "error");
+          return;
+        }
+        const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!citizen) { notify("Citoyen introuvable.", "error"); return; }
+
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...company, ceoId: citizenId };
+
+        let newCitizens = state.citizens;
+        let newListings = state.bourseListings;
+        let grantedShares = 0;
+        const listingIdx = (state.bourseListings || []).findIndex((l) => l.companyId === companyId);
+        if (listingIdx !== -1) {
+          const listing = state.bourseListings[listingIdx];
+          grantedShares = (listing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0);
+          if (grantedShares > 0) {
+            newListings = [...state.bourseListings];
+            newListings[listingIdx] = { ...listing, sellOrders: (listing.sellOrders || []).filter((o) => o.citizenId !== "COMPANY") };
+            const citIdx = (state.citizens || []).findIndex((c) => c.id === citizenId);
+            if (citIdx !== -1) {
+              newCitizens = [...state.citizens];
+              const holdings = { ...(newCitizens[citIdx].stockholdings || {}) };
+              holdings[listing.id] = (holdings[listing.id] || 0) + grantedShares;
+              newCitizens[citIdx] = { ...newCitizens[citIdx], stockholdings: holdings };
+            }
+          }
+        }
+
+        saveState({ ...state, companies: newCompanies, citizens: newCitizens, bourseListings: newListings });
+        notify(`${citizen.name} nommé PDG de ${company.name}${grantedShares > 0 ? ` — ${grantedShares} action(s) non émise(s) lui reviennent gratuitement.` : ""}.`, "success");
+      },
+
+      onRevokeCEO: (companyId) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (String(company.ownerId) !== String(session.id)) {
+          notify("Seul le propriétaire peut révoquer le PDG.", "error");
+          return;
+        }
+        if (!company.ceoId) return;
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...company, ceoId: null };
+        saveState({ ...state, companies: newCompanies });
+        notify("PDG révoqué — les actions déjà attribuées restent acquises au titre d'actionnaire.", "info");
       },
 
       // --- NOTIFICATIONS PUSH (app Android/iOS) ---
@@ -959,7 +1030,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const user = state.citizens[userIdx];
         const val = parseFloat(amount);
 
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Action non autorisée.", "error");
           return;
         }
@@ -1365,7 +1436,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = (state.companies || []).findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) { notify("Action non autorisée.", "error"); return; }
+        if (!isCompanyManager(company, session.id)) { notify("Action non autorisée.", "error"); return; }
         const contract = (company.employmentContracts || {})[targetId];
         if (!contract || !contract.corveeFreeDaysPerMonth || contract.corveeFreeDaysPerMonth <= 0) {
           notify("Cet employé n'a pas de clause de corvée.", "error");
@@ -4335,7 +4406,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Seul le dirigeant peut publier sur le babillard.", "error");
           return;
         }
@@ -4361,7 +4432,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Seul le dirigeant peut supprimer une annonce.", "error");
           return;
         }
@@ -4380,7 +4451,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Seul le dirigeant peut attribuer des grades.", "error");
           return;
         }
@@ -4407,7 +4478,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       onSetEmployeeSerfRights: ({ companyId, citizenId, rights }) => {
         if (!session) return;
         const company = (state.companies || []).find(c => c.id === companyId);
-        if (!company || String(company.ownerId) !== String(session.id)) return;
+        if (!isCompanyManager(company, session.id)) return;
         const contracts = { ...(company.employmentContracts || {}) };
         contracts[citizenId] = {
           ...(contracts[citizenId] || {}),
@@ -4423,7 +4494,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       onUpdateEmployeeContract: ({ companyId, citizenId, updates }) => {
         if (!session) return;
         const company = (state.companies || []).find(c => c.id === companyId);
-        if (!company || String(company.ownerId) !== String(session.id)) return;
+        if (!isCompanyManager(company, session.id)) return;
         const contracts = { ...(company.employmentContracts || {}) };
         contracts[citizenId] = { ...(contracts[citizenId] || {}), ...updates };
         const updatedCompanies = (state.companies || []).map(c =>
@@ -4437,7 +4508,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       onSetCompanyMushtagramAccess: ({ companyId, citizenId, authorized }) => {
         if (!session) return;
         const company = (state.companies || []).find(c => c.id === companyId);
-        if (!company || String(company.ownerId) !== String(session.id)) return;
+        if (!isCompanyManager(company, session.id)) return;
         if (!(company.employees || []).map(String).includes(String(citizenId))) return;
         const current = (company.mushtagramAuthorizedIds || []).map(String);
         const next = authorized
@@ -4504,7 +4575,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) return;
+        if (!isCompanyManager(company, session.id)) return;
 
         const app = (company.applications || []).find((a) => a.id === applicationId);
         if (!app) return;
@@ -4583,7 +4654,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Seul le dirigeant peut gérer le stock.", "error");
           return;
         }
@@ -4609,7 +4680,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           const rank = (company.employeeRanks || {})[session.id];
           if (!rank?.permissions?.inventory) {
             notify("Vous n'avez pas la permission.", "error");
@@ -4638,7 +4709,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) {
+        if (!isCompanyManager(company, session.id)) {
           notify("Seul le dirigeant peut créer un événement.", "error");
           return;
         }
@@ -4665,7 +4736,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
         const company = state.companies[compIdx];
-        if (company.ownerId !== session.id) return;
+        if (!isCompanyManager(company, session.id)) return;
         const newCompanies = [...state.companies];
         newCompanies[compIdx] = {
           ...company,
@@ -4687,12 +4758,15 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (fromIdx === -1 || toIdx === -1) { notify("Entreprise introuvable.", "error"); return; }
         const fromCompany = state.companies[fromIdx];
         const toCompany = state.companies[toIdx];
-        if (String(fromCompany.ownerId) !== String(session.id)) {
+        if (!isCompanyManager(fromCompany, session.id)) {
           notify("Seul le dirigeant peut détacher un salarié.", "error");
           return;
         }
         if (String(fromCompanyId) === String(toCompanyId)) { notify("Choisissez une autre entreprise.", "error"); return; }
-        const isOwnerLoan = String(fromCompany.ownerId) === String(employeeId);
+        // Ni le propriétaire ni le PDG ne comptent dans employees/slaves (voir la production
+        // journalière d'onPassDay) — les détacher n'a donc rien à déduire côté entreprise
+        // d'origine, contrairement à un salarié ordinaire.
+        const isOwnerLoan = String(fromCompany.ownerId) === String(employeeId) || String(fromCompany.ceoId || "") === String(employeeId);
         const isWorker = isOwnerLoan
           || (fromCompany.employees || []).map(String).includes(String(employeeId))
           || (fromCompany.slaves || []).map(String).includes(String(employeeId));
@@ -4761,7 +4835,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const fromCompany = (state.companies || []).find((c) => c.id === loan.fromCompanyId);
         const toCompany = (state.companies || []).find((c) => c.id === loan.toCompanyId);
         const isAdmin = ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session.role);
-        const canEnd = String(fromCompany?.ownerId) === String(session.id) || String(toCompany?.ownerId) === String(session.id) || isAdmin;
+        const canEnd = isCompanyManager(fromCompany, session.id) || isCompanyManager(toCompany, session.id) || isAdmin;
         if (!canEnd) { notify("Vous n'êtes pas partie à ce détachement.", "error"); return; }
         const newLoans = (state.staffLoans || []).map((l) =>
           l.id === loanId ? { ...l, status: reason === "RECALLED" ? "RECALLED" : "ENDED", endedAt: Date.now() } : l
@@ -4779,7 +4853,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const loan = (state.staffLoans || []).find((l) => l.id === loanId);
         if (!loan || loan.status !== "ACTIVE") return;
         const toCompany = (state.companies || []).find((c) => c.id === loan.toCompanyId);
-        if (!toCompany || String(toCompany.ownerId) !== String(session.id)) {
+        if (!isCompanyManager(toCompany, session.id)) {
           notify("Seule l'entreprise emprunteuse peut gérer ces droits.", "error");
           return;
         }
@@ -4797,7 +4871,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const toIdx = state.companies.findIndex((c) => c.id === toCompanyId);
         if (fromIdx === -1 || toIdx === -1) return;
         const fromCompany = state.companies[fromIdx];
-        if (fromCompany.ownerId !== session.id) {
+        if (!isCompanyManager(fromCompany, session.id)) {
           notify("Seul le dirigeant peut créer un contrat de sous-traitance.", "error");
           return;
         }
@@ -6270,9 +6344,12 @@ export const useGameActions = (session, state, saveState, notify) => {
       // empêche qu'un seul ordre fasse s'envoler ou s'effondrer un cours.
 
       onBourseCreateListing: ({ companyId, symbol, totalShares, sharesOnMarket, pricePerShare, description }) => {
+        if (!session) return;
         const listings = [...(state.bourseListings || [])];
         const company = (state.companies || []).find((c) => c.id === companyId);
         if (!company) { notify("Entreprise introuvable.", "error"); return; }
+        const isAdmin = (ROLES[session.role]?.level || 0) >= 40;
+        if (!isCompanyManager(company, session.id) && !isAdmin) { notify("Action non autorisée.", "error"); return; }
         const symUp = (symbol || "").toUpperCase().trim();
         if (!symUp) { notify("Le symbole boursier est requis.", "error"); return; }
         if (listings.some((l) => l.symbol === symUp)) { notify("Ce symbole est déjà utilisé.", "error"); return; }
@@ -6313,7 +6390,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (idx === -1) return;
         const listing = listings[idx];
         const company = (state.companies || []).find((c) => c.id === listing.companyId);
-        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        const isOwnerOrAdmin = isCompanyManager(company, session.id) || (ROLES[session.role]?.level || 0) >= 40;
         if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
         const allowed = {};
         if (updates.description !== undefined) allowed.description = updates.description;
@@ -6328,7 +6405,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const listing = (state.bourseListings || []).find((l) => l.id === listingId);
         if (!listing) return;
         const company = (state.companies || []).find((c) => c.id === listing.companyId);
-        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        const isOwnerOrAdmin = isCompanyManager(company, session.id) || (ROLES[session.role]?.level || 0) >= 40;
         if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
         const price = listing.lastPrice || listing.initialPrice || 0;
         let newCitizens = [...(state.citizens || [])];
@@ -6465,7 +6542,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!order) { notify("Ordre introuvable.", "error"); return; }
         if (order.citizenId === "COMPANY") {
           const company = (state.companies || []).find((c) => c.id === listing.companyId);
-          const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+          const isOwnerOrAdmin = isCompanyManager(company, session.id) || (ROLES[session.role]?.level || 0) >= 40;
           if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
         } else if (String(order.citizenId) !== String(session.id)) {
           notify("Vous ne pouvez annuler que vos propres ordres.", "error");
@@ -6505,7 +6582,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
         let listing = listings[idx];
         const company = (state.companies || []).find((c) => c.id === listing.companyId);
-        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        const isOwnerOrAdmin = isCompanyManager(company, session.id) || (ROLES[session.role]?.level || 0) >= 40;
         if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
         if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
 
@@ -6569,7 +6646,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCompanies = [...(state.companies || [])];
         const compIdx = newCompanies.findIndex((c) => c.id === listing.companyId);
         const company = compIdx !== -1 ? newCompanies[compIdx] : null;
-        const isOwnerOrAdmin = company && (String(company.ownerId) === String(session.id) || (ROLES[session.role]?.level || 0) >= 40);
+        const isOwnerOrAdmin = isCompanyManager(company, session.id) || (ROLES[session.role]?.level || 0) >= 40;
         if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
 
         const newCitizens = [...(state.citizens || [])];
@@ -6613,10 +6690,11 @@ export const useGameActions = (session, state, saveState, notify) => {
 
       // ── Plan d'Actionnariat Salarié (ESPP) ──
       onUpdateCompanyESPP: (companyId, esppSettings) => {
+        if (!session) return;
         const companies = [...(state.companies || [])];
         const idx = companies.findIndex((c) => c.id === companyId);
         if (idx === -1) return;
-        if (companies[idx].ownerId !== session.id) { notify("Action non autorisée.", "error"); return; }
+        if (!isCompanyManager(companies[idx], session.id)) { notify("Action non autorisée.", "error"); return; }
         companies[idx] = { ...companies[idx], espp: { ...esppSettings } };
         saveState({ ...state, companies });
         notify(esppSettings.enabled ? "Plan d'actionnariat salarié activé." : "Plan d'actionnariat salarié désactivé.", "success");
@@ -7076,10 +7154,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           entityAuthor = { authorId: `guild_${guild.id}`, authorName: guild.name, authorType: "guild" };
         } else if (postAsEntity?.type === "company") {
           const company = (state.companies || []).find(c => String(c.id) === String(postAsEntity.id));
-          const isAuthorized = company && (
-            String(company.ownerId) === String(session.id) ||
-            (company.mushtagramAuthorizedIds || []).map(String).includes(String(session.id))
-          );
+          const isAuthorized = isCompanyManager(company, session.id) ||
+            (company?.mushtagramAuthorizedIds || []).map(String).includes(String(session.id));
           if (!isAuthorized) { notify("Vous n'êtes pas autorisé à publier au nom de l'entreprise.", "error"); return; }
           entityAuthor = { authorId: `company_${company.id}`, authorName: company.name, authorType: "company" };
         }
@@ -7366,7 +7442,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           const companies = [...(state.companies || [])];
           const idx = companies.findIndex((c) => c.id === entityId);
           if (idx === -1) { notify("Entreprise introuvable.", "error"); return; }
-          const isOwner = String(companies[idx].ownerId) === String(session.id) || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+          const isOwner = isCompanyManager(companies[idx], session.id) || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
           if (!isOwner) { notify("Seul le propriétaire peut modifier le compte Mushtagram de l'entreprise.", "error"); return; }
           companies[idx] = applyFields(companies[idx]);
           saveState({ ...state, companies });

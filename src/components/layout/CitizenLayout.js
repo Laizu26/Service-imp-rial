@@ -495,6 +495,8 @@ const CitizenLayout = (props) => {
     onCreateStaffLoan,
     onEndStaffLoan,
     onSetStaffLoanPermissions,
+    onAppointCEO,
+    onRevokeCEO,
     propertyAlerts = [],
     bourseAlerts = [],
     staffLoanAlerts = [],
@@ -1556,6 +1558,8 @@ const CitizenLayout = (props) => {
                 onCreateStaffLoan={onCreateStaffLoan}
                 onEndStaffLoan={onEndStaffLoan}
                 onSetStaffLoanPermissions={onSetStaffLoanPermissions}
+                onAppointCEO={onAppointCEO}
+                onRevokeCEO={onRevokeCEO}
                 bourseListings={bourseListings}
                 onBourseCreateListing={onBourseCreateListing}
                 onBourseEditListing={onBourseEditListing}

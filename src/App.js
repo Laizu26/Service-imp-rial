@@ -688,6 +688,8 @@ export default function App() {
             onCreateStaffLoan={actions.onCreateStaffLoan}
             onEndStaffLoan={actions.onEndStaffLoan}
             onSetStaffLoanPermissions={actions.onSetStaffLoanPermissions}
+            onAppointCEO={actions.onAppointCEO}
+            onRevokeCEO={actions.onRevokeCEO}
             propertyAlerts={state.propertyAlerts || []}
             bourseAlerts={state.bourseAlerts || []}
             staffLoanAlerts={state.staffLoanAlerts || []}
