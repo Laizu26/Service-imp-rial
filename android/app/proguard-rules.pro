@@ -19,3 +19,18 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Capacitor / plugins : le pont JS<->natif s'appuie sur la réflexion, R8 doit garder ces
+# classes et méthodes annotées, sinon les appels depuis la WebView (push notifications, etc.)
+# cassent silencieusement en release alors qu'ils marchent en debug.
+-keep class com.getcapacitor.** { *; }
+-keep public class * extends com.getcapacitor.Plugin
+-keepclassmembers public class * extends com.getcapacitor.Plugin {
+    @com.getcapacitor.PluginMethod public *;
+}
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Firebase Cloud Messaging (notifications push)
+-keep class com.google.firebase.** { *; }

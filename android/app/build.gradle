@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// Signature du build de production — lit android/keystore.properties (jamais commité, voir
+// keystore.properties.example) si présent. Sans ce fichier, seul assembleDebug fonctionne ;
+// c'est volontaire, on ne veut pas d'identifiants de signature dans le dépôt.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.serviceimperial.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +25,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            // Le contenu web est chargé à distance (server.url dans capacitor.config.json) —
+            // seul le code natif Capacitor/plugins est empaqueté ici, donc minifier/réduire
+            // ne touche jamais le JS du site. C'est surtout le passage debug -> release
+            // (dexage optimisé, non-debuggable) qui apporte le gain de fluidité.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

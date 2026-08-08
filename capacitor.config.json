@@ -2,8 +2,13 @@
   "appId": "com.serviceimperial.app",
   "appName": "Service Impérial",
   "webDir": "build",
+  "backgroundColor": "#151f19",
   "server": {
     "url": "https://service-imp-rial.vercel.app",
     "cleartext": false
+  },
+  "android": {
+    "backgroundColor": "#151f19",
+    "allowMixedContent": false
   }
 }
