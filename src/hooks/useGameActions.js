@@ -962,6 +962,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCompanies = [...state.companies];
         newCompanies[compIdx] = { ...company, ceoId: citizenId };
 
+        // Le PROPRIÉTAIRE (pas le PDG) devient actionnaire : en se retirant de la gestion
+        // opérationnelle au profit du PDG, il récupère gratuitement toutes les actions du
+        // flottant COMPANY jamais vendues à un investisseur.
         let newCitizens = state.citizens;
         let newListings = state.bourseListings;
         let grantedShares = 0;
@@ -972,18 +975,18 @@ export const useGameActions = (session, state, saveState, notify) => {
           if (grantedShares > 0) {
             newListings = [...state.bourseListings];
             newListings[listingIdx] = { ...listing, sellOrders: (listing.sellOrders || []).filter((o) => o.citizenId !== "COMPANY") };
-            const citIdx = (state.citizens || []).findIndex((c) => c.id === citizenId);
-            if (citIdx !== -1) {
+            const ownerIdx = (state.citizens || []).findIndex((c) => c.id === company.ownerId);
+            if (ownerIdx !== -1) {
               newCitizens = [...state.citizens];
-              const holdings = { ...(newCitizens[citIdx].stockholdings || {}) };
+              const holdings = { ...(newCitizens[ownerIdx].stockholdings || {}) };
               holdings[listing.id] = (holdings[listing.id] || 0) + grantedShares;
-              newCitizens[citIdx] = { ...newCitizens[citIdx], stockholdings: holdings };
+              newCitizens[ownerIdx] = { ...newCitizens[ownerIdx], stockholdings: holdings };
             }
           }
         }
 
         saveState({ ...state, companies: newCompanies, citizens: newCitizens, bourseListings: newListings });
-        notify(`${citizen.name} nommé PDG de ${company.name}${grantedShares > 0 ? ` — ${grantedShares} action(s) non émise(s) lui reviennent gratuitement.` : ""}.`, "success");
+        notify(`${citizen.name} nommé PDG de ${company.name}${grantedShares > 0 ? ` — vous recevez gratuitement ${grantedShares} action(s) non émise(s) en tant qu'actionnaire.` : ""}.`, "success");
       },
 
       onRevokeCEO: (companyId) => {

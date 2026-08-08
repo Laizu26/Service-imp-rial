@@ -3793,10 +3793,11 @@ const MyCompanyView = ({
             <Card title="PDG" icon={Crown}>
               <div className="space-y-4">
                 <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
-                  Déléguez la quasi-totalité de la gestion de l'entreprise à un PDG (RH, trésorerie, Bourse,
-                  personnalisation...). Vous restez seul propriétaire — la nomination/révocation du PDG et la
-                  dissolution vous restent réservées. Si l'entreprise est cotée en bourse, le PDG reçoit en plus,
-                  gratuitement, toutes les actions du flottant jamais vendues à un investisseur.
+                  Déléguez la quasi-totalité de la gestion opérationnelle de l'entreprise à un PDG (RH, trésorerie,
+                  Bourse, personnalisation...). Vous restez seul propriétaire — la nomination/révocation du PDG et
+                  la dissolution vous restent réservées. Si l'entreprise est cotée en bourse, VOUS devenez
+                  actionnaire majoritaire : vous recevez gratuitement toutes les actions du flottant jamais
+                  vendues à un investisseur.
                 </div>
                 {myCompany.ceoId ? (
                   <div className="flex flex-wrap items-center justify-between gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
