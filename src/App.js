@@ -43,6 +43,7 @@ import { ROLES } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { useSettings } from "./hooks/useSettings";
 import { useVersionCheck } from "./hooks/useVersionCheck";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 
 // UI Components
 import Toast from "./components/ui/Toast";
@@ -198,6 +199,10 @@ export default function App() {
     () => (state.citizens || []).find((c) => c.id === session?.id) || session,
     [state.citizens, session]
   );
+
+  // No-op sur le web — n'enregistre l'appareil pour les notifications push que dans l'app
+  // Android/iOS empaquetée avec Capacitor.
+  usePushNotifications(session?.id, actions.onRegisterPushToken);
 
   const roleInfo = useMemo(() => {
     if (!currentUser) return ROLES.CITOYEN;
