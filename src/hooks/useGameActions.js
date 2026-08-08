@@ -282,12 +282,17 @@ export const useGameActions = (session, state, saveState, notify) => {
         // intégralement à l'entreprise emprunteuse (poids 1). Sinon, il reste partagé moitié-
         // moitié entre les deux (poids 0.5 chacune) : l'entreprise d'origine garde la moitié
         // de sa production, l'emprunteuse touche l'autre moitié.
+        // Le dirigeant lui-même n'entre jamais dans le calcul de production de sa propre
+        // entreprise (seuls employees/slaves comptent) — le prêter n'a donc rien à déduire
+        // côté fromCompany, seulement à ajouter côté emprunteuse.
         const loanOutDeductionByCompany = {};
         const loanInAdditionByCompany = {};
         (ns.staffLoans || []).forEach((l) => {
           if (l.status !== "ACTIVE") return;
           const weight = l.exclusive ? 1 : 0.5;
-          loanOutDeductionByCompany[l.fromCompanyId] = (loanOutDeductionByCompany[l.fromCompanyId] || 0) + weight;
+          if (!l.isOwnerLoan) {
+            loanOutDeductionByCompany[l.fromCompanyId] = (loanOutDeductionByCompany[l.fromCompanyId] || 0) + weight;
+          }
           loanInAdditionByCompany[l.toCompanyId] = (loanInAdditionByCompany[l.toCompanyId] || 0) + weight;
         });
 
@@ -4687,7 +4692,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
         if (String(fromCompanyId) === String(toCompanyId)) { notify("Choisissez une autre entreprise.", "error"); return; }
-        const isWorker = (fromCompany.employees || []).map(String).includes(String(employeeId)) || (fromCompany.slaves || []).map(String).includes(String(employeeId));
+        const isOwnerLoan = String(fromCompany.ownerId) === String(employeeId);
+        const isWorker = isOwnerLoan
+          || (fromCompany.employees || []).map(String).includes(String(employeeId))
+          || (fromCompany.slaves || []).map(String).includes(String(employeeId));
         if (!isWorker) { notify("Ce citoyen ne fait pas partie de votre entreprise.", "error"); return; }
         const alreadyLoaned = (state.staffLoans || []).some((l) => l.status === "ACTIVE" && String(l.employeeId) === String(employeeId));
         if (alreadyLoaned) { notify("Ce salarié est déjà détaché ailleurs.", "error"); return; }
@@ -4726,6 +4734,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           dailyRate: rate,
           signingBonus: bonus,
           exclusive: !!exclusive,
+          isOwnerLoan,
           permissions: {},
           createdAt: Date.now(),
           endedAt: null,

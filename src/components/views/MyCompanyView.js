@@ -1721,6 +1721,22 @@ const MyCompanyView = ({
         </div>
       </div>
 
+      {/* Détachement en cours en tant que dirigeant (si applicable) */}
+      {(() => {
+        const myLoanAsOwner = getActiveStaffLoan(user.id, staffLoans);
+        if (!myLoanAsOwner) return null;
+        return (
+          <div className="bg-purple-50 border-l-8 border-purple-400 p-4 rounded-r-xl flex items-center gap-3">
+            <ArrowLeftRight size={20} className="text-purple-600 shrink-0" />
+            <div className="text-sm text-purple-800">
+              <span className="font-black">Vous êtes actuellement détaché</span> chez{" "}
+              <span className="font-bold">{myLoanAsOwner.toCompanyName}</span>
+              {myLoanAsOwner.exclusive ? " (exclusif)" : ""} en tant que dirigeant, en plus de la gestion de {myCompany.name}.
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ONGLETS */}
       <div className="flex gap-2 border-b border-stone-200 pb-2 overflow-x-auto">
         {[
@@ -2673,7 +2689,7 @@ const MyCompanyView = ({
 
       {/* ONGLET DÉTACHEMENT DE PERSONNEL */}
       {activeTab === "loans" && (() => {
-        const allWorkers = [...(myCompany.employees || []), ...(myCompany.slaves || [])];
+        const allWorkers = [...(myCompany.employees || []), ...(myCompany.slaves || []), myCompany.ownerId];
         const loanedOutIds = new Set(staffLoans.filter((l) => l.status === "ACTIVE").map((l) => String(l.employeeId)));
         const availableWorkers = allWorkers.filter((id) => !loanedOutIds.has(String(id)));
         const lentOut = staffLoans.filter((l) => l.status === "ACTIVE" && l.fromCompanyId === myCompany.id);
@@ -2689,10 +2705,11 @@ const MyCompanyView = ({
             <Card title="Détacher un salarié" icon={ArrowLeftRight}>
               <div className="space-y-4">
                 <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
-                  Prêtez temporairement un salarié à une autre entreprise. Il reste employé chez vous (salaire, ancienneté,
-                  contrat inchangés) mais travaille pour l'emprunteuse, qui vous verse un tarif journalier et, si vous le
-                  souhaitez, une prime immédiate. En détachement exclusif, il ne compte plus dans votre production le temps
-                  du prêt.
+                  Prêtez temporairement un salarié — ou vous-même en tant que dirigeant — à une autre entreprise. La
+                  personne détachée reste rattachée chez vous (salaire, ancienneté, contrat inchangés, ou statut de
+                  dirigeant conservé) mais travaille pour l'emprunteuse, qui vous verse un tarif journalier et, si vous
+                  le souhaitez, une prime immédiate. En détachement exclusif, elle ne compte plus dans votre production
+                  le temps du prêt ; sinon, la production est partagée moitié-moitié entre les deux entreprises.
                 </div>
                 {availableWorkers.length === 0 ? (
                   <div className="text-center text-stone-400 italic py-3 text-xs">
@@ -2710,7 +2727,8 @@ const MyCompanyView = ({
                         <option value="">— Choisir —</option>
                         {availableWorkers.map((id) => {
                           const c = citizens.find((ci) => ci.id === id);
-                          return <option key={id} value={id}>{c?.name || id}</option>;
+                          const isOwner = String(id) === String(myCompany.ownerId);
+                          return <option key={id} value={id}>{c?.name || id}{isOwner ? " (Vous, Dirigeant)" : ""}</option>;
                         })}
                       </select>
                     </div>
@@ -2816,6 +2834,9 @@ const MyCompanyView = ({
                       <div>
                         <div className="font-bold text-sm text-stone-700 flex items-center gap-2">
                           {loan.employeeName}
+                          {loan.isOwnerLoan && (
+                            <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-yellow-300">Dirigeant</span>
+                          )}
                           {loan.exclusive && (
                             <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-purple-200">Exclusif</span>
                           )}
@@ -2848,7 +2869,12 @@ const MyCompanyView = ({
                       <div key={loan.id} className="py-3 space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <div className="font-bold text-sm text-stone-700">{loan.employeeName}</div>
+                            <div className="font-bold text-sm text-stone-700 flex items-center gap-2">
+                              {loan.employeeName}
+                              {loan.isOwnerLoan && (
+                                <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-yellow-300">Dirigeant</span>
+                              )}
+                            </div>
                             <div className="text-[10px] text-stone-400 mt-0.5">
                               Prêté par <span className="font-bold text-stone-500">{loan.fromCompanyName}</span> — {formatMoney(loan.dailyRate)}/jour
                               {loan.durationType === "FIXED" ? ` — J${loan.daysElapsed}/${loan.durationDays}` : " — indéterminé"}
