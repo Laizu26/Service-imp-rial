@@ -252,5 +252,27 @@ exports.notifyPush = onDocumentUpdated(
       if (tokens.length === 0) continue;
       await sendPush(tokens, { title: "🏠 Propriétés", body: a.propertyName ? `Concernant ${a.propertyName}` : "Un événement concerne une de vos propriétés" });
     }
+
+    // Mushtagram (DM, abonnés, pourboires, déverrouillages...) — même source et même
+    // filtre "priority: high" que la cloche de notification in-app (voir useNotifications.js),
+    // aussi ciblé par toId.
+    const MUSH_NOTIF_LABELS = {
+      dm: (n) => ({ title: "💬 Nouveau message Mushtagram", body: `De ${n.fromName || "un citoyen"}${n.content ? ` — ${n.content}` : ""}` }),
+      follow: (n) => ({ title: "👤 Nouvel abonné Mushtagram", body: `${n.fromName || "Un citoyen"} s'est abonné à vous` }),
+      subscribe: (n) => ({ title: "⭐ Nouvel abonnement payant", body: `${n.fromName || "Un citoyen"} s'est abonné — ${n.content || ""}`.trim() }),
+      unlock: (n) => ({ title: "🔓 Publication déverrouillée", body: `${n.fromName || "Un citoyen"} a déverrouillé votre publication` }),
+      tip: (n) => ({ title: "💸 Pourboire reçu", body: `${n.fromName || "Un citoyen"} vous a envoyé ${n.content || "un pourboire"}` }),
+      new_paid_post: (n) => ({ title: "🔒 Nouvelle publication réservée", body: `${n.fromName || "Un créateur"} a publié un contenu exclusif` }),
+    };
+    const beforeMushNotifIds = new Set((before.mushtagramNotifs || []).map((n) => n.id));
+    for (const n of after.mushtagramNotifs || []) {
+      if (beforeMushNotifIds.has(n.id)) continue;
+      if (n.priority !== "high") continue;
+      const tokens = citizensById.get(String(n.toId))?.pushTokens || [];
+      if (tokens.length === 0) continue;
+      const build = MUSH_NOTIF_LABELS[n.type];
+      if (!build) continue;
+      await sendPush(tokens, build(n));
+    }
   }
 );
