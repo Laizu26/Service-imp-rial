@@ -138,9 +138,16 @@ exports.notifyDiscord = onDocumentUpdated(
 // éviter d'écrire sur le document déclencheur (donc de retrigger la fonction) ; les tokens
 // morts échouent simplement à chaque envoi, sans coût fonctionnel notable.
 async function sendPush(tokens, notification) {
-  if (!tokens || tokens.length === 0) return;
+  if (!tokens || tokens.length === 0) {
+    console.log(`Push ignoré (aucun token) : ${notification.title}`);
+    return;
+  }
   try {
-    await getMessaging().sendEachForMulticast({ tokens, notification });
+    const res = await getMessaging().sendEachForMulticast({ tokens, notification });
+    console.log(`Push "${notification.title}" : ${res.successCount} succès / ${res.failureCount} échec(s) sur ${tokens.length} token(s)`);
+    res.responses.forEach((r, i) => {
+      if (!r.success) console.log(`  token ${i} échoué : ${r.error?.code} — ${r.error?.message}`);
+    });
   } catch (e) {
     console.error("Échec envoi push :", e);
   }
@@ -151,6 +158,9 @@ exports.notifyPush = onDocumentUpdated(
   async (event) => {
     const before = event.data?.before?.data() || {};
     const after = event.data?.after?.data() || {};
+
+    const citizensWithTokens = (after.citizens || []).filter((c) => (c.pushTokens || []).length > 0);
+    console.log(`notifyPush : ${citizensWithTokens.length} citoyen(s) avec au moins un token enregistré (sur ${(after.citizens || []).length} au total)`);
 
     // === DIFFUSION : Gazette / Mushtagram public / IPO Bourse, vers tous les appareils ===
     const broadcastNotifs = [];
