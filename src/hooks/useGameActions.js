@@ -641,10 +641,35 @@ export const useGameActions = (session, state, saveState, notify) => {
           } else {
             const oIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
             if (oIdx !== -1) {
+              // L'inventaire personnel référence toujours un itemId du catalogue (jamais un nom
+              // libre, contrairement au stock d'entreprise) — sans entrée catalogue, ces objets
+              // étaient silencieusement ignorés par CitizenInventoryView (myInventory filtre
+              // tout slot sans itemId). On trouve ou crée une entrée masquée (hidden: true, donc
+              // absente de la boutique publique mais visible dans l'inventaire du propriétaire).
+              const catalog = ns.inventoryCatalog || [];
+              let catEntry = catalog.find((i) => (i.name || "").toLowerCase() === prop.production.itemName.toLowerCase());
+              if (!catEntry) {
+                catEntry = {
+                  id: `ITEM-FARM-${Date.now()}-${propIdx}`,
+                  name: prop.production.itemName,
+                  description: "Produit agricole récolté automatiquement par une propriété.",
+                  rarity: "Commun",
+                  price: 1,
+                  weight: 0.1,
+                  type: "Ressource",
+                  category: "Ressources",
+                  imageUrl: "",
+                  hidden: true,
+                  stackable: true,
+                  usable: false,
+                  stock: -1,
+                };
+                ns.inventoryCatalog = [...catalog, catEntry];
+              }
               const inv = [...(ns.citizens[oIdx].inventory || [])];
-              const iIdx = inv.findIndex((i) => i.name === prop.production.itemName);
+              const iIdx = inv.findIndex((i) => i.itemId === catEntry.id);
               if (iIdx !== -1) inv[iIdx] = { ...inv[iIdx], quantity: inv[iIdx].quantity + qty };
-              else inv.push({ name: prop.production.itemName, quantity: qty });
+              else inv.push({ itemId: catEntry.id, quantity: qty });
               ns.citizens[oIdx] = { ...ns.citizens[oIdx], inventory: inv };
             }
           }
@@ -662,6 +687,32 @@ export const useGameActions = (session, state, saveState, notify) => {
             ...company,
             companyInventory: inv.map((i, ii) => (i.id ? i : { ...i, id: `INV-MIG-${Date.now()}-${ii}` })),
           };
+        });
+
+        // --- Migration silencieuse : anciens objets d'inventaire personnel issus de fermes,
+        // coincés sans itemId (même bug, corrigé ci-dessus) — les relie à une entrée catalogue
+        // (créée si besoin, masquée de la boutique) pour qu'ils redeviennent visibles.
+        (ns.citizens || []).forEach((citizen, cIdx) => {
+          const inv = citizen.inventory || [];
+          if (inv.length === 0 || inv.every((i) => i.itemId || !i.name)) return;
+          let catalog = ns.inventoryCatalog || [];
+          const fixed = inv.map((slot, si) => {
+            if (slot.itemId || !slot.name) return slot;
+            let catEntry = catalog.find((i) => (i.name || "").toLowerCase() === slot.name.toLowerCase());
+            if (!catEntry) {
+              catEntry = {
+                id: `ITEM-FARM-MIG-${Date.now()}-${cIdx}-${si}`,
+                name: slot.name,
+                description: "Produit agricole récolté automatiquement par une propriété.",
+                rarity: "Commun", price: 1, weight: 0.1, type: "Ressource", category: "Ressources",
+                imageUrl: "", hidden: true, stackable: true, usable: false, stock: -1,
+              };
+              catalog = [...catalog, catEntry];
+            }
+            return { itemId: catEntry.id, quantity: slot.quantity };
+          });
+          ns.inventoryCatalog = catalog;
+          ns.citizens[cIdx] = { ...citizen, inventory: fixed };
         });
 
         // --- Salaires du personnel de propriété ---
