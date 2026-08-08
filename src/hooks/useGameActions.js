@@ -629,9 +629,13 @@ export const useGameActions = (session, state, saveState, notify) => {
             const cIdx = (ns.companies || []).findIndex((c) => c.id === prop.ownerId);
             if (cIdx !== -1) {
               const inv = [...(ns.companies[cIdx].companyInventory || [])];
-              const iIdx = inv.findIndex((i) => i.name === prop.production.itemName);
+              // Comparaison insensible à la casse, alignée sur onCompanyInventoryAdd — sinon
+              // "Blé" (production) et "blé" (ajout manuel) finissent en deux lignes distinctes.
+              const iIdx = inv.findIndex((i) => i.name.toLowerCase() === prop.production.itemName.toLowerCase());
               if (iIdx !== -1) inv[iIdx] = { ...inv[iIdx], quantity: inv[iIdx].quantity + qty };
-              else inv.push({ name: prop.production.itemName, quantity: qty });
+              // id requis : le stock & inventaire (MyCompanyView) clé et retire les articles par
+              // id — sans lui, ces lignes ne pouvaient jamais être retirées ni affichées correctement.
+              else inv.push({ id: `INV-${Date.now()}-${prop.id || propIdx}`, name: prop.production.itemName, quantity: qty });
               ns.companies[cIdx] = { ...ns.companies[cIdx], companyInventory: inv };
             }
           } else {
@@ -645,6 +649,19 @@ export const useGameActions = (session, state, saveState, notify) => {
             }
           }
           ns.properties[propIdx] = { ...ns.properties[propIdx], production: { ...prop.production, lastProduced: `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}` } };
+        });
+
+        // --- Migration silencieuse : anciens articles de stock d'entreprise sans id (bug de
+        // production de ferme corrigé ci-dessus) — leur attribue un id stable pour qu'ils
+        // redeviennent affichables et retirables. Idempotent (ne touche que les entreprises
+        // encore concernées, ne se redéclenche donc pas les jours suivants).
+        (ns.companies || []).forEach((company, compIdx) => {
+          const inv = company.companyInventory || [];
+          if (inv.length === 0 || inv.every((i) => i.id)) return;
+          ns.companies[compIdx] = {
+            ...company,
+            companyInventory: inv.map((i, ii) => (i.id ? i : { ...i, id: `INV-MIG-${Date.now()}-${ii}` })),
+          };
         });
 
         // --- Salaires du personnel de propriété ---
