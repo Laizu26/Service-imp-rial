@@ -278,25 +278,24 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         const companies = ns.companies || [];
 
-        // Détachements de personnel actifs — un salarié en détachement exclusif ne compte
-        // plus dans la production de son entreprise d'origine, mais dans celle de l'emprunteuse.
-        const loanedOutExclusiveByCompany = {};
-        const loanedInCountByCompany = {};
+        // Détachements de personnel actifs — en exclusif, la production du salarié passe
+        // intégralement à l'entreprise emprunteuse (poids 1). Sinon, il reste partagé moitié-
+        // moitié entre les deux (poids 0.5 chacune) : l'entreprise d'origine garde la moitié
+        // de sa production, l'emprunteuse touche l'autre moitié.
+        const loanOutDeductionByCompany = {};
+        const loanInAdditionByCompany = {};
         (ns.staffLoans || []).forEach((l) => {
           if (l.status !== "ACTIVE") return;
-          if (l.exclusive) {
-            if (!loanedOutExclusiveByCompany[l.fromCompanyId]) loanedOutExclusiveByCompany[l.fromCompanyId] = new Set();
-            loanedOutExclusiveByCompany[l.fromCompanyId].add(String(l.employeeId));
-          }
-          loanedInCountByCompany[l.toCompanyId] = (loanedInCountByCompany[l.toCompanyId] || 0) + 1;
+          const weight = l.exclusive ? 1 : 0.5;
+          loanOutDeductionByCompany[l.fromCompanyId] = (loanOutDeductionByCompany[l.fromCompanyId] || 0) + weight;
+          loanInAdditionByCompany[l.toCompanyId] = (loanInAdditionByCompany[l.toCompanyId] || 0) + weight;
         });
 
         companies.forEach((company, compIdx) => {
           if (company.frozen) return;
 
-          const excludedFromCompany = loanedOutExclusiveByCompany[company.id] || new Set();
-          const empCount = (company.employees || []).filter((id) => !excludedFromCompany.has(String(id))).length
-            + (loanedInCountByCompany[company.id] || 0);
+          const empCount = Math.max(0, (company.employees || []).length - (loanOutDeductionByCompany[company.id] || 0))
+            + (loanInAdditionByCompany[company.id] || 0);
           const slaveCount = (company.slaves || []).length;
           const level = company.level || 1;
           const rates = TYPE_RATES[company.type] || { emp: 10, slave: 8 };
