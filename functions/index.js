@@ -97,20 +97,26 @@ exports.notifyDiscord = onDocumentUpdated(
       });
     });
 
-    // --- Nouveaux posts Mushtagram réellement publics ---
-    // Exclus : anonymes, verrouillés (PPV), réservés aux abonnés payants ou aux followers —
-    // ces contenus ne doivent pas être diffusés gratuitement en dehors du site.
+    // --- Nouveaux posts Mushtagram ---
+    // Toujours exclus : anonymes (anonymat) et réservés aux followers (audience restreinte).
+    // Verrouillés (PPV) / réservés aux abonnés : annoncés quand même (texte + image masqués,
+    // juste l'auteur et le prix) pour donner envie sans contourner le paiement in-app.
     const beforeMushIds = new Set((before.mushtagramPosts || []).map((p) => p.id));
     (after.mushtagramPosts || []).forEach((p) => {
       if (beforeMushIds.has(p.id)) return;
-      if (p.isAnonymous || p.locked || p.subscribersOnly || p.followersOnly) return;
+      if (p.isAnonymous || p.followersOnly) return;
+      const isPaid = p.locked || p.subscribersOnly;
       embeds.push({
         author: { name: "Mushtagram" },
         title: `📸 Nouveau post de ${p.authorName || "un citoyen"}`,
-        description: excerpt(p.content, 300) || "(publication sans texte)",
+        description: isPaid
+          ? (p.locked
+              ? `🔒 Contenu verrouillé — ${p.price ? `${p.price} écus pour le débloquer` : "débloquez-le sur le site"}`
+              : `⭐ Réservé aux abonnés de ${p.authorName || "ce compte"}`)
+          : (excerpt(p.content, 300) || "(publication sans texte)"),
         color: COLORS.mushtagram,
-        image: p.imageUrl ? { url: p.imageUrl } : undefined,
-        fields: (p.hashtags || []).length
+        image: (!isPaid && p.imageUrl) ? { url: p.imageUrl } : undefined,
+        fields: (!isPaid && (p.hashtags || []).length)
           ? [{ name: "Hashtags", value: p.hashtags.map((h) => `#${h}`).join(" ") }]
           : undefined,
         footer: { text: "Mushtagram" },
@@ -190,14 +196,19 @@ exports.notifyPush = onDocumentUpdated(
     const beforeMushIds = new Set((before.mushtagramPosts || []).map((p) => p.id));
     (after.mushtagramPosts || []).forEach((p) => {
       if (beforeMushIds.has(p.id)) return;
-      if (p.isAnonymous || p.locked || p.subscribersOnly || p.followersOnly) return;
+      if (p.isAnonymous || p.followersOnly) return;
+      const isPaid = p.locked || p.subscribersOnly;
       broadcastNotifs.push({
         notif: {
           title: `📸 ${p.authorName || "Un citoyen"} a publié sur Mushtagram`,
-          body: excerpt(p.content, 120) || "Nouvelle publication",
+          body: isPaid
+            ? (p.locked
+                ? `🔒 Contenu verrouillé${p.price ? ` — ${p.price} écus` : ""}`
+                : "⭐ Réservé aux abonnés")
+            : (excerpt(p.content, 120) || "Nouvelle publication"),
         },
         color: PUSH_COLORS.mushtagram,
-        imageUrl: p.imageUrl || undefined,
+        imageUrl: isPaid ? undefined : (p.imageUrl || undefined),
       });
     });
 
