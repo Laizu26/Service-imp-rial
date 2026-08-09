@@ -275,6 +275,16 @@ export const useGameActions = (session, state, saveState, notify) => {
       return ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session?.role);
     };
 
+    // Autorité sur la carte (Atlas) d'un pays donné : un rôle à portée globale (Empereur/Grand
+    // Fonctionnaire) a autorité partout ; un officiel local (niveau ≥ 40, même principe que
+    // GeopoliticsView.canEdit) n'a autorité que sur le pays dont il relève.
+    const hasMapAuthority = (countryId) => {
+      if (!session) return false;
+      const info = ROLES[session.role] || { level: 0, scope: "NONE" };
+      if (info.scope === "GLOBAL") return true;
+      return String(session.countryId) === String(countryId) && info.level >= 40;
+    };
+
     return wrapActions({
       onPassDay: () => {
         let ns = structuredClone(state);
@@ -1848,6 +1858,38 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCitizens = [...state.citizens];
         newCitizens[userIdx] = { ...citizen, cityHexQ: hexQ, cityHexR: hexR, cityHexRegionId: regionId };
         saveState({ ...state, citizens: newCitizens });
+      },
+
+      // Repositionnement d'un pays sur la carte de l'Empire — depuis la Carte elle-même (clic
+      // sur le pays puis sur sa nouvelle case), en plus de l'éditeur dans l'Atlas
+      // (GeopoliticsView). Portée globale uniquement : la carte Empire est partagée par tous.
+      onSetCountryPosition: (countryId, hexQ, hexR) => {
+        if (!session || (ROLES[session.role]?.scope !== "GLOBAL")) { notify("Autorité impériale requise.", "error"); return; }
+        const countries = (state.countries || []).map((c) => c.id === countryId ? { ...c, hexQ, hexR } : c);
+        saveState({ ...state, countries });
+      },
+
+      // Repositionnement d'une région sur la carte de son pays.
+      onSetRegionPosition: (countryId, regionId, hexQ, hexR) => {
+        if (!hasMapAuthority(countryId)) { notify("Autorité insuffisante sur ce territoire.", "error"); return; }
+        const countries = (state.countries || []).map((c) =>
+          c.id === countryId ? { ...c, regions: (c.regions || []).map((r) => r.id === regionId ? { ...r, hexQ, hexR } : r) } : c
+        );
+        saveState({ ...state, countries });
+      },
+
+      // Repositionnement d'un bâtiment sur la carte détaillée de sa ville — ouvert en plus à son
+      // propriétaire (citoyen ou dirigeant/PDG d'entreprise), pas seulement à l'autorité locale.
+      onSetBuildingPosition: (propertyId, hexQ, hexR) => {
+        if (!session) return;
+        const prop = (state.properties || []).find((p) => p.id === propertyId);
+        if (!prop) { notify("Bien introuvable.", "error"); return; }
+        if (!isPropertyManager(prop, session.id) && !hasMapAuthority(prop.countryId)) {
+          notify("Vous ne pouvez pas repositionner ce bien.", "error");
+          return;
+        }
+        const properties = (state.properties || []).map((p) => p.id === propertyId ? { ...p, cityHexQ: hexQ, cityHexR: hexR } : p);
+        saveState({ ...state, properties });
       },
 
       onUpdateCitizen: (formData) => {

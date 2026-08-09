@@ -601,6 +601,9 @@ export default function App() {
             onCancelTravelRequest={actions.onCancelTravelRequest}
             onInternalTravel={actions.onInternalTravel}
             onSetCityPosition={actions.onSetCityPosition}
+            onSetCountryPosition={actions.onSetCountryPosition}
+            onSetRegionPosition={actions.onSetRegionPosition}
+            onSetBuildingPosition={actions.onSetBuildingPosition}
             catalog={state.inventoryCatalog || []}
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}

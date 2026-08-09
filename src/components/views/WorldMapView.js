@@ -259,6 +259,17 @@ const Breadcrumb = ({ level, countryName, regionName, onEmpire, onCountry }) => 
   </div>
 );
 
+// ── Bascule "Mode édition" — repositionnement admin d'un pays/région/bâtiment directement sur
+// la carte (clic sur la tuile puis clic sur sa nouvelle case), en plus de l'éditeur dans l'Atlas.
+const EditToggleButton = ({ editMode, onToggle }) => (
+  <button
+    onClick={onToggle}
+    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase transition-colors shrink-0 ${editMode ? "bg-sky-600 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}
+  >
+    <Move size={12} /> {editMode ? "Terminer" : "Mode édition"}
+  </button>
+);
+
 const WorldMapView = ({
   user,
   citizens = [],
@@ -268,6 +279,10 @@ const WorldMapView = ({
   canTravel,
   onInternalTravel,
   onSetCityPosition,
+  onSetCountryPosition,
+  onSetRegionPosition,
+  onSetBuildingPosition,
+  mapAuthority,
   onRequestTravel,
   onCancelTravelRequest,
   onOpenFullProperty,
@@ -282,6 +297,8 @@ const WorldMapView = ({
   const [selectedBuildingId, setSelectedBuildingId] = useState(null);
   const [selectedCitizenId, setSelectedCitizenId] = useState(null);
   const [movingSelf, setMovingSelf] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [movingTile, setMovingTile] = useState(null); // { kind: "country" | "region" | "building", id, label }
 
   const myCountryId = user?.locationCountryId || user?.countryId;
   const myCountry = countries.find((c) => c.id === myCountryId);
@@ -310,9 +327,9 @@ const WorldMapView = ({
     (c.currentPosition || "") === (region?.name || "")
   );
 
-  const goEmpire = () => { setZoomLevel("empire"); setMovingSelf(false); };
-  const goCountry = (countryId) => { setViewCountryId(countryId); setZoomLevel("country"); setMovingSelf(false); };
-  const goCity = (regionId) => { setViewRegionId(regionId); setZoomLevel("city"); setMovingSelf(false); };
+  const goEmpire = () => { setZoomLevel("empire"); setMovingSelf(false); setEditMode(false); setMovingTile(null); };
+  const goCountry = (countryId) => { setViewCountryId(countryId); setZoomLevel("country"); setMovingSelf(false); setEditMode(false); setMovingTile(null); };
+  const goCity = (regionId) => { setViewRegionId(regionId); setZoomLevel("city"); setMovingSelf(false); setEditMode(false); setMovingTile(null); };
 
   const pendingRequestTo = (countryId) => travelRequests.find((r) => String(r.citizenId) === String(user.id) && String(r.toCountry) === String(countryId) && r.status === "PENDING");
 
@@ -320,12 +337,27 @@ const WorldMapView = ({
   const cityCitizens = zoomLevel === "city" ? citizensInRegion(displayCountry.id, displayRegion) : [];
   const isMyCurrentCity = displayCountry.id === myCountryId && displayRegion?.id === myCurrentRegion?.id;
 
-  // ── Positions + bornes du canvas selon la strate affichée ──
+  // ── Autorité sur l'Atlas — un rôle à portée globale a autorité partout ; un officiel local
+  // (niveau ≥ 40) sur son propre pays uniquement ; le propriétaire d'un bien sur son bâtiment.
+  // Vérification purement indicative côté client : le serveur revérifie tout dans les actions.
+  const hasEmpireAuthority = !!mapAuthority?.isGlobal;
+  const hasCountryAuthority = (countryId) => !!mapAuthority?.isGlobal || (String(mapAuthority?.countryId) === String(countryId) && (mapAuthority?.level || 0) >= 40);
+  const hasBuildingAuthority = (building) => hasCountryAuthority(building?.countryId) || String(building?.ownerId) === String(user.id);
+  const canEditCurrentLevel =
+    zoomLevel === "empire" ? hasEmpireAuthority :
+    zoomLevel === "country" ? hasCountryAuthority(displayCountry.id) :
+    zoomLevel === "city" ? (hasCountryAuthority(displayCountry.id) || cityBuildings.some((b) => String(b.ownerId) === String(user.id))) :
+    false;
+
+  // ── Positions + bornes du canvas selon la strate affichée — en mode édition, la grille
+  // complète (destinations possibles) doit rester visible même si peu d'entités sont placées ──
   let tiles = [];
   if (zoomLevel === "empire") {
-    tiles = countries.map((c) => ({ ...posOf(c), entity: c }));
+    tiles = countries.map((c) => posOf(c));
+    if (editMode) tiles = tiles.concat(hexGrid(CITY_RADIUS).map(([q, r]) => ({ q, r })));
   } else if (zoomLevel === "country") {
-    tiles = regions.map((r) => ({ ...posOf(r), entity: r }));
+    tiles = regions.map((r) => posOf(r));
+    if (editMode) tiles = tiles.concat(hexGrid(CITY_RADIUS).map(([q, r]) => ({ q, r })));
   } else {
     tiles = hexGrid(CITY_RADIUS).map(([q, r]) => ({ q, r }));
   }
@@ -340,10 +372,28 @@ const WorldMapView = ({
     return pos.q === q && pos.r === r;
   });
 
+  // ── Repositionnement admin — premier clic sur une tuile autorisée pour la sélectionner,
+  // second clic n'importe où sur la grille pour la déplacer à cet endroit. ──
+  const handleMapClick = (kind, entity, q, r, authority) => {
+    if (!editMode) return;
+    if (!movingTile) {
+      if (entity && authority) setMovingTile({ kind, id: entity.id, label: entity.name });
+      return;
+    }
+    if (movingTile.kind === "country") onSetCountryPosition && onSetCountryPosition(movingTile.id, q, r);
+    else if (movingTile.kind === "region") onSetRegionPosition && onSetRegionPosition(displayCountry.id, movingTile.id, q, r);
+    else if (movingTile.kind === "building") onSetBuildingPosition && onSetBuildingPosition(movingTile.id, q, r);
+    setMovingTile(null);
+  };
+
   const handleCityTileClick = (q, r, building) => {
     if (movingSelf) {
       onSetCityPosition && onSetCityPosition(q, r);
       setMovingSelf(false);
+      return;
+    }
+    if (editMode) {
+      handleMapClick("building", building, q, r, building ? hasBuildingAuthority(building) : false);
       return;
     }
     if (building) setSelectedBuildingId(building.id);
@@ -379,41 +429,67 @@ const WorldMapView = ({
           </div>
         )}
 
+        {editMode && (
+          <div className="flex items-center justify-between gap-3 bg-sky-50 border-b border-sky-200 px-4 py-2">
+            <span className="text-[10px] font-black uppercase text-sky-700 flex items-center gap-1.5">
+              <Move size={12} />
+              {movingTile ? `Cliquez une case pour y déplacer "${movingTile.label}"` : "Cliquez une tuile à déplacer"}
+            </span>
+            <button onClick={() => { setEditMode(false); setMovingTile(null); }} className="text-[10px] font-bold uppercase text-sky-600 hover:text-sky-800">Terminer</button>
+          </div>
+        )}
+
         <div style={{ background: "radial-gradient(ellipse at 50% 35%, #f7f0dc 0%, #e6d6a8 100%)" }}>
           <svg viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`} className="w-full" style={{ maxHeight: 460 }}>
-            {zoomLevel === "empire" && countries.map((c, i) => {
-              const pos = posOf(c);
-              return (
-                <HexTile
-                  key={c.id}
-                  q={pos.q} r={pos.r}
-                  fill={COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]}
-                  Icon={Flag}
-                  label={c.name}
-                  badge={(c.regions || []).length}
-                  isCurrent={c.id === myCountryId}
-                  onClick={() => goCountry(c.id)}
-                />
-              );
-            })}
+            {zoomLevel === "empire" && (
+              <>
+                {editMode && hexGrid(CITY_RADIUS).map(([q, r]) => (
+                  <HexTile key={`bg_${q}_${r}`} q={q} r={r} fill="#e9dfc4" stroke="#d8cba3" onClick={() => handleMapClick("country", null, q, r, false)} />
+                ))}
+                {countries.map((c, i) => {
+                  const pos = posOf(c);
+                  return (
+                    <HexTile
+                      key={c.id}
+                      q={pos.q} r={pos.r}
+                      fill={COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]}
+                      Icon={Flag}
+                      label={c.name}
+                      badge={(c.regions || []).length}
+                      isCurrent={c.id === myCountryId}
+                      isSelected={movingTile?.kind === "country" && movingTile.id === c.id}
+                      onClick={() => (editMode ? handleMapClick("country", c, pos.q, pos.r, hasEmpireAuthority) : goCountry(c.id))}
+                    />
+                  );
+                })}
+              </>
+            )}
 
-            {zoomLevel === "country" && regions.map((r) => {
-              const pos = posOf(r);
-              const meta = getRegionType(r.type);
-              const built = propertiesInRegion(displayCountry.id, r);
-              return (
-                <HexTile
-                  key={r.id}
-                  q={pos.q} r={pos.r}
-                  fill={meta.fill}
-                  Icon={meta.icon}
-                  label={r.name}
-                  badge={built.length}
-                  isCurrent={displayCountry.id === myCountryId && r.id === myCurrentRegion?.id}
-                  onClick={() => goCity(r.id)}
-                />
-              );
-            })}
+            {zoomLevel === "country" && (
+              <>
+                {editMode && hexGrid(CITY_RADIUS).map(([q, r]) => (
+                  <HexTile key={`bg_${q}_${r}`} q={q} r={r} fill="#e9dfc4" stroke="#d8cba3" onClick={() => handleMapClick("region", null, q, r, false)} />
+                ))}
+                {regions.map((r) => {
+                  const pos = posOf(r);
+                  const meta = getRegionType(r.type);
+                  const built = propertiesInRegion(displayCountry.id, r);
+                  return (
+                    <HexTile
+                      key={r.id}
+                      q={pos.q} r={pos.r}
+                      fill={meta.fill}
+                      Icon={meta.icon}
+                      label={r.name}
+                      badge={built.length}
+                      isCurrent={displayCountry.id === myCountryId && r.id === myCurrentRegion?.id}
+                      isSelected={movingTile?.kind === "region" && movingTile.id === r.id}
+                      onClick={() => (editMode ? handleMapClick("region", r, pos.q, pos.r, hasCountryAuthority(displayCountry.id)) : goCity(r.id))}
+                    />
+                  );
+                })}
+              </>
+            )}
 
             {zoomLevel === "city" && (
               <>
@@ -429,7 +505,7 @@ const WorldMapView = ({
                       stroke={building ? "#78716c" : "#d8cba3"}
                       Icon={Icon}
                       label={building?.name}
-                      isSelected={movingSelf}
+                      isSelected={movingSelf || (movingTile?.kind === "building" && movingTile.id === building?.id)}
                       onClick={() => handleCityTileClick(q, r, building)}
                     />
                   );
@@ -484,7 +560,12 @@ const WorldMapView = ({
         {/* Panneau contextuel — réagit à la strate affichée */}
         <div className="p-4 border-t border-stone-100 space-y-3">
           {zoomLevel === "empire" && (
-            <p className="text-[11px] text-stone-400 italic text-center py-2">Cliquez sur un royaume pour voir ses territoires.</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] text-stone-400 italic">Cliquez sur un royaume pour voir ses territoires.</p>
+              {hasEmpireAuthority && (
+                <EditToggleButton editMode={editMode} onToggle={() => { setEditMode((v) => !v); setMovingTile(null); }} />
+              )}
+            </div>
           )}
 
           {zoomLevel === "country" && (
@@ -520,6 +601,9 @@ const WorldMapView = ({
                   </span>
                 )
               )}
+              {hasCountryAuthority(displayCountry.id) && (
+                <EditToggleButton editMode={editMode} onToggle={() => { setEditMode((v) => !v); setMovingTile(null); }} />
+              )}
             </div>
           )}
 
@@ -552,11 +636,14 @@ const WorldMapView = ({
                 )}
                 {isMyCurrentCity && (
                   <button
-                    onClick={() => setMovingSelf((v) => !v)}
+                    onClick={() => { setMovingSelf((v) => !v); setEditMode(false); setMovingTile(null); }}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase transition-colors shrink-0 ${movingSelf ? "bg-amber-600 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`}
                   >
                     <Move size={12} /> {movingSelf ? "Annuler" : "Se positionner"}
                   </button>
+                )}
+                {canEditCurrentLevel && (
+                  <EditToggleButton editMode={editMode} onToggle={() => { setEditMode((v) => !v); setMovingTile(null); setMovingSelf(false); }} />
                 )}
               </div>
 

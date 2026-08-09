@@ -484,6 +484,9 @@ const CitizenLayout = (props) => {
     onCancelTravelRequest,
     onInternalTravel,
     onSetCityPosition,
+    onSetCountryPosition,
+    onSetRegionPosition,
+    onSetBuildingPosition,
     onTransfer,
     onProposeDebt,
     onSignDebt,
@@ -942,6 +945,15 @@ const CitizenLayout = (props) => {
   // Déplacement interne rapide depuis la Carte — mêmes conditions que l'onglet Voyage.
   const canTravelNow = !isBanned && !isPrisoner && canUseTravel && !combinedRestriction.travelLocked;
   const canManageProperties = !isBanned && !isPrisoner;
+  // Autorité sur l'Atlas (repositionnement de pays/régions/bâtiments directement sur la Carte) —
+  // même principe que GeopoliticsView.canEdit : portée globale partout, officiel local (niveau
+  // ≥ 40) sur son propre pays uniquement. Le serveur revérifie tout, ceci ne sert qu'à afficher
+  // ou masquer le bouton "Mode édition".
+  const mapAuthority = {
+    isGlobal: (ROLES[user?.role] || {}).scope === "GLOBAL",
+    countryId: user?.countryId,
+    level: (ROLES[user?.role] || {}).level || 0,
+  };
   // Échappatoire explicite depuis la Carte vers la fiche complète d'un bien (gestion avancée :
   // personnel, chambres, etc.) — le clic par défaut sur un bâtiment reste dans la Carte via un
   // aperçu intégré, cette fonction n'est appelée que si le citoyen demande la vue complète.
@@ -1616,6 +1628,10 @@ const CitizenLayout = (props) => {
                 travelRequests={safeRequests}
                 onInternalTravel={onInternalTravel}
                 onSetCityPosition={onSetCityPosition}
+                onSetCountryPosition={onSetCountryPosition}
+                onSetRegionPosition={onSetRegionPosition}
+                onSetBuildingPosition={onSetBuildingPosition}
+                mapAuthority={mapAuthority}
                 onRequestTravel={onRequestTravel}
                 onCancelTravelRequest={onCancelTravelRequest}
                 onOpenFullProperty={goToProperty}
