@@ -9,7 +9,8 @@ import {
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import UserSearchSelect from "../ui/UserSearchSelect";
-import { formatMoney } from "../../lib/gameUtils";
+import PositionPicker from "../ui/PositionPicker";
+import { formatMoney, getFallbackPosition } from "../../lib/gameUtils";
 
 const PROPERTY_TYPES = {
   MAISON: { label: "Maison", icon: Home, color: "bg-stone-100 text-stone-600" },
@@ -262,6 +263,7 @@ const PropertiesAdminView = ({
 
   const startEdit = (prop) => {
     setEditingId(prop.id);
+    const fb = getFallbackPosition(prop.id);
     setEditForm({
       name: prop.name || "", type: prop.type || "MAISON",
       description: prop.description || "", price: prop.price || 0,
@@ -270,6 +272,8 @@ const PropertiesAdminView = ({
       ownerType: prop.ownerType || "CITIZEN",
       forSale: !!prop.forSale, salePrice: prop.salePrice || 0,
       rentalActive: !!prop.rental, rentalRate: prop.rental?.dailyRate || 0,
+      cityX: typeof prop.cityX === "number" ? prop.cityX : fb.x,
+      cityY: typeof prop.cityY === "number" ? prop.cityY : fb.y,
     });
   };
 
@@ -303,6 +307,8 @@ const PropertiesAdminView = ({
       rental: editForm.rentalActive
         ? { ...(originalProp?.rental || { tenantId: null, tenantName: null, startDate: null }), dailyRate: parseFloat(editForm.rentalRate) || 0 }
         : null,
+      cityX: typeof editForm.cityX === "number" ? editForm.cityX : parseFloat(editForm.cityX) || 0,
+      cityY: typeof editForm.cityY === "number" ? editForm.cityY : parseFloat(editForm.cityY) || 0,
     });
     setEditingId(null); setEditForm({});
   };
@@ -509,6 +515,26 @@ const PropertiesAdminView = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Position sur la carte "Ville" de sa région */}
+                  {editForm.countryId && editForm.regionId && (
+                    <div className="bg-white border border-stone-200 rounded-lg p-4 space-y-2">
+                      <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest flex items-center gap-1"><MapPin size={12} /> Position sur la carte de la ville</div>
+                      <PositionPicker
+                        x={editForm.cityX ?? 50}
+                        y={editForm.cityY ?? 50}
+                        siblings={properties
+                          .filter((p) => p.id !== editingId && String(p.countryId) === String(editForm.countryId) && String(p.regionId) === String(editForm.regionId))
+                          .map((p) => {
+                            const fb = getFallbackPosition(p.id);
+                            return { id: p.id, label: p.name, x: typeof p.cityX === "number" ? p.cityX : fb.x, y: typeof p.cityY === "number" ? p.cityY : fb.y };
+                          })}
+                        onChange={(x, y) => setEditForm({ ...editForm, cityX: x, cityY: y })}
+                        height={140}
+                        accentColor="#0ea5e9"
+                      />
+                    </div>
+                  )}
 
                   {/* Propriétaire */}
                   <div className="bg-white border border-stone-200 rounded-lg p-4 space-y-3">

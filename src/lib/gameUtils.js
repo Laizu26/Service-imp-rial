@@ -212,6 +212,16 @@ export function hashCode(str) {
   return Math.abs(h);
 }
 
+// ===== POSITION SUR LA CARTE (Atlas — Empire/Pays/Ville) =====
+// Position de repli déterministe (0-99, %) pour un pays/région/bien qui n'a pas encore de
+// position définie dans l'Atlas — la carte (WorldMapView.js) et ses éditeurs de position
+// (GeopoliticsView.js, PropertiesAdminView.js, via PositionPicker) restent ainsi toujours en
+// mode "coordonnées réelles", sans code de rendu à deux comportements distincts.
+export function getFallbackPosition(id) {
+  const seed = String(id ?? "default");
+  return { x: hashCode(`${seed}_x`) % 100, y: hashCode(`${seed}_y`) % 100 };
+}
+
 // Teinte (0-359) propre au citoyen, dérivée de son identité — inchangée tant qu'aucun pacte
 // arcanique ne l'a rapprochée de celle d'un conjoint.
 export function getBaseMagicHue(citizen) {

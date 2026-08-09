@@ -1766,6 +1766,11 @@ export const useGameActions = (session, state, saveState, notify) => {
           if (used >= 2) { notify("Limite journalière atteinte — 2 voyages/jour inclus avec la Bague Impériale.", "error"); return; }
         }
         const fromCountry = currentCitizen?.locationCountryId || currentCitizen?.countryId || session.countryId;
+        // Mémorise si CETTE demande précise a consommé un voyage gratuit de la Bague Impériale,
+        // pour pouvoir le recréditer précisément si la demande est annulée avant validation
+        // (voir onCancelTravelRequest) — aucun argent n'est prélevé à la demande (seulement à
+        // la validation complète, via applyEntryFee), donc rien d'autre à rembourser.
+        const consumedBagueTrip = !!(currentCitizen?.bagueImperiale && hasFee);
         const newReq = {
           id: `req_${Date.now()}`,
           citizenId: session.id,
@@ -1776,9 +1781,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           status: "PENDING",
           validations: { exit: false, entry: false },
           timestamp: Date.now(),
+          consumedBagueTrip,
         };
         let newCitizens = state.citizens;
-        if (currentCitizen?.bagueImperiale && hasFee) {
+        if (consumedBagueTrip) {
           const cidx = (state.citizens || []).findIndex((c) => c.id === session.id);
           if (cidx !== -1) {
             newCitizens = [...state.citizens];
@@ -1787,6 +1793,29 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         saveState({ ...state, citizens: newCitizens, travelRequests: [...(state.travelRequests || []), newReq] });
         notify("Demande soumise.", "success");
+      },
+
+      // Annule une demande de voyage encore en attente. Aucun argent n'est prélevé à la demande
+      // (les frais de visa ne sont débités qu'à la validation complète, voir applyEntryFee) —
+      // rien à rembourser côté Écus, mais un voyage gratuit de la Bague Impériale consommé pour
+      // cette demande précise est recrédité.
+      onCancelTravelRequest: (requestId) => {
+        if (!session) return;
+        const req = (state.travelRequests || []).find((r) => r.id === requestId);
+        if (!req) { notify("Demande introuvable.", "error"); return; }
+        if (String(req.citizenId) !== String(session.id)) { notify("Ce n'est pas votre demande.", "error"); return; }
+        if (req.status !== "PENDING") { notify("Cette demande a déjà été traitée.", "error"); return; }
+        const travelRequests = (state.travelRequests || []).filter((r) => r.id !== requestId);
+        let newCitizens = state.citizens;
+        if (req.consumedBagueTrip) {
+          const cidx = (state.citizens || []).findIndex((c) => c.id === session.id);
+          if (cidx !== -1) {
+            newCitizens = [...state.citizens];
+            newCitizens[cidx] = { ...newCitizens[cidx], bagueVoyagesUsed: Math.max(0, (newCitizens[cidx].bagueVoyagesUsed || 0) - 1) };
+          }
+        }
+        saveState({ ...state, citizens: newCitizens, travelRequests });
+        notify(req.consumedBagueTrip ? "Demande annulée — votre voyage gratuit Bague Impériale a été recrédité." : "Demande annulée.", "info");
       },
 
       onInternalTravel: (toRegion) => {

@@ -56,6 +56,7 @@ import {
   Tag,
   Key,
   Compass,
+  Ban,
 } from "lucide-react";
 
 
@@ -480,6 +481,7 @@ const CitizenLayout = (props) => {
     onUpdateUser,
     onSend,
     onRequestTravel,
+    onCancelTravelRequest,
     onInternalTravel,
     onTransfer,
     onProposeDebt,
@@ -942,8 +944,10 @@ const CitizenLayout = (props) => {
   // Échappatoire explicite depuis la Carte vers la fiche complète d'un bien (gestion avancée :
   // personnel, chambres, etc.) — le clic par défaut sur un bâtiment reste dans la Carte via un
   // aperçu intégré, cette fonction n'est appelée que si le citoyen demande la vue complète.
+  // La fiche s'affiche en overlay indépendant de l'onglet actif (voir plus bas) : ne pas changer
+  // `active` ici, sinon "Retour" depuis la Carte ramènerait sur l'onglet Propriétés au lieu de
+  // la Carte.
   const goToProperty = (propId) => {
-    setActive("properties");
     setSelectedPropertyId(propId);
   };
 
@@ -1469,6 +1473,61 @@ const CitizenLayout = (props) => {
           />
         )}
 
+        {/* Fiche bâtiment — overlay persistant indépendant de l'onglet actif, pour qu'un accès
+            depuis la Carte y ramène au retour au lieu de basculer sur l'onglet Propriétés. */}
+        {!isBanned && !isPrisoner && selectedPropertyId && (() => {
+          const selProp = properties.find((p) => p.id === selectedPropertyId);
+          if (!selProp) { setSelectedPropertyId(null); return null; }
+          const ownerCompany = selProp.ownerType === "COMPANY" ? (companies || []).find((c) => c.id === selProp.ownerId) : null;
+          const isPropertyOwner = selProp.ownerId === user.id || (ownerCompany && (ownerCompany.ownerId === user.id || ownerCompany.ceoId === user.id));
+          return (
+            <div className="fixed inset-0 z-40 overflow-y-auto bg-stone-950/60 p-4 md:p-8">
+              <div className="max-w-[1100px] mx-auto">
+                <PropertyDetailView
+                  property={selProp}
+                  citizens={safeUsers}
+                  companies={companies}
+                  countries={safeCountries}
+                  user={user}
+                  session={user}
+                  isOwner={isPropertyOwner}
+                  onSellProperty={onSellProperty}
+                  onCancelPropertySale={onCancelPropertySale}
+                  onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
+                  onListPropertyForRent={onListPropertyForRent}
+                  onCancelPropertyRental={onCancelPropertyRental}
+                  onEvictTenant={onEvictTenant}
+                  onRentProperty={onRentProperty}
+                  onLeaveTenancy={onLeaveTenancy}
+                  onUpdatePropertyFeature={onUpdatePropertyFeature}
+                  onAddGarrison={onAddGarrison}
+                  onRemoveGarrison={onRemoveGarrison}
+                  onImprison={onImprison}
+                  onReleasePrisoner={onReleasePrisoner}
+                  onRequestAudience={onRequestAudience}
+                  onRespondAudience={onRespondAudience}
+                  onSetupRooms={onSetupRooms}
+                  onBookRoom={onBookRoom}
+                  onCheckoutRoom={onCheckoutRoom}
+                  onPostTavernMessage={onPostTavernMessage}
+                  onPostRumor={onPostRumor}
+                  onDeleteRumor={onDeleteRumor}
+                  onBuyFromMenu={onBuyFromMenu}
+                  onBuyFromShop={onBuyFromShop}
+                  onAddPropertyStaff={onAddPropertyStaff}
+                  onRemovePropertyStaff={onRemovePropertyStaff}
+                  onUpdatePropertyStaff={onUpdatePropertyStaff}
+                  onAddPropertyGuest={onAddPropertyGuest}
+                  onRemovePropertyGuest={onRemovePropertyGuest}
+                  onAddPropertyEvent={onAddPropertyEvent}
+                  onRemovePropertyEvent={onRemovePropertyEvent}
+                  onBack={() => setSelectedPropertyId(null)}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ══ Drawer mobile ══ */}
         {mobileDrawerOpen && (
           <>
@@ -1553,8 +1612,10 @@ const CitizenLayout = (props) => {
                 countries={safeCountries}
                 properties={properties}
                 canTravel={canTravelNow}
+                travelRequests={safeRequests}
                 onInternalTravel={onInternalTravel}
                 onRequestTravel={onRequestTravel}
+                onCancelTravelRequest={onCancelTravelRequest}
                 onOpenFullProperty={goToProperty}
                 canManageProperties={canManageProperties}
                 onBuyProperty={onBuyProperty}
@@ -1916,8 +1977,16 @@ const CitizenLayout = (props) => {
                               </div>
                             )}
 
-                            <div className="mt-3 text-[9px] text-stone-400 text-right font-mono">
-                              Soumis le {new Date(pendingReq.timestamp).toLocaleDateString("fr-FR")}
+                            <div className="mt-3 flex items-center justify-between gap-3">
+                              <div className="text-[9px] text-stone-400 font-mono">
+                                Soumis le {new Date(pendingReq.timestamp).toLocaleDateString("fr-FR")}
+                              </div>
+                              <button
+                                onClick={() => onCancelTravelRequest && onCancelTravelRequest(pendingReq.id)}
+                                className="flex items-center gap-1.5 text-red-500 border border-red-200 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-red-50 transition-colors"
+                              >
+                                <Ban size={12} /> Annuler la demande
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -3644,55 +3713,6 @@ const CitizenLayout = (props) => {
             )}
 
             {/* --- PROPRIÉTÉS --- */}
-            {active === "properties" && !isBanned && !isPrisoner && selectedPropertyId && (() => {
-              const selProp = properties.find((p) => p.id === selectedPropertyId);
-              if (!selProp) { setSelectedPropertyId(null); return null; }
-              const ownerCompany = selProp.ownerType === "COMPANY" ? (companies || []).find((c) => c.id === selProp.ownerId) : null;
-              const isPropertyOwner = selProp.ownerId === user.id || (ownerCompany && (ownerCompany.ownerId === user.id || ownerCompany.ceoId === user.id));
-              return (
-                <PropertyDetailView
-                  property={selProp}
-                  citizens={safeUsers}
-                  companies={companies}
-                  countries={safeCountries}
-                  user={user}
-                  session={user}
-                  isOwner={isPropertyOwner}
-                  onSellProperty={onSellProperty}
-                  onCancelPropertySale={onCancelPropertySale}
-                  onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
-                  onListPropertyForRent={onListPropertyForRent}
-                  onCancelPropertyRental={onCancelPropertyRental}
-                  onEvictTenant={onEvictTenant}
-                  onRentProperty={onRentProperty}
-                  onLeaveTenancy={onLeaveTenancy}
-                  onUpdatePropertyFeature={onUpdatePropertyFeature}
-                  onAddGarrison={onAddGarrison}
-                  onRemoveGarrison={onRemoveGarrison}
-                  onImprison={onImprison}
-                  onReleasePrisoner={onReleasePrisoner}
-                  onRequestAudience={onRequestAudience}
-                  onRespondAudience={onRespondAudience}
-                  onSetupRooms={onSetupRooms}
-                  onBookRoom={onBookRoom}
-                  onCheckoutRoom={onCheckoutRoom}
-                  onPostTavernMessage={onPostTavernMessage}
-                  onPostRumor={onPostRumor}
-                  onDeleteRumor={onDeleteRumor}
-                  onBuyFromMenu={onBuyFromMenu}
-                  onBuyFromShop={onBuyFromShop}
-                  onAddPropertyStaff={onAddPropertyStaff}
-                  onRemovePropertyStaff={onRemovePropertyStaff}
-                  onUpdatePropertyStaff={onUpdatePropertyStaff}
-                  onAddPropertyGuest={onAddPropertyGuest}
-                  onRemovePropertyGuest={onRemovePropertyGuest}
-                  onAddPropertyEvent={onAddPropertyEvent}
-                  onRemovePropertyEvent={onRemovePropertyEvent}
-                  onBack={() => setSelectedPropertyId(null)}
-                />
-              );
-            })()}
-
             {active === "properties" && !isBanned && !isPrisoner && !selectedPropertyId && (
               <div className="space-y-6 animate-fadeIn">
                 <div className="flex items-center gap-3 mb-2">

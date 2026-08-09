@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   Crown, Building2, Tent, Anchor, Shield, Trees, Mountain, MapPin, Landmark,
   Home, Castle, ShoppingBag, Wheat, Hammer, Utensils, Ship, Users, Compass,
-  Plane, Lock, User, Globe2, Flag, X, Coins,
+  Plane, Lock, User, Globe2, Flag, X, Coins, ChevronRight, Ban,
 } from "lucide-react";
-import { formatMoney } from "../../lib/gameUtils";
+import { formatMoney, getFallbackPosition } from "../../lib/gameUtils";
 
 // Types de région — même typologie que GeopoliticsView.js (dupliquée ici comme le reste des
 // tables d'icônes du jeu). Palette volontairement sobre (tons de terre) pour que la carte se
@@ -28,39 +28,15 @@ const PROPERTY_TYPE_ICONS = {
   FERME: Wheat, MANOIR: Castle, ATELIER: Hammer, AUBERGE: Utensils, BATEAU: Ship,
 };
 
-// ── Grille hexagonale (coordonnées axiales, hexagones "flat-top") — aucune coordonnée réelle
-// n'existe en base : la position de chaque territoire est calculée à l'affichage via une
-// spirale de tuiles adjacentes autour du territoire actuel, standard pour ce type de grille. ──
-const HEX_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
-function hexRing(radius) {
-  if (radius === 0) return [[0, 0]];
-  const results = [];
-  let hex = [HEX_DIRS[4][0] * radius, HEX_DIRS[4][1] * radius];
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < radius; j++) {
-      results.push(hex);
-      hex = [hex[0] + HEX_DIRS[i][0], hex[1] + HEX_DIRS[i][1]];
-    }
-  }
-  return results;
-}
-function hexSpiral(n) {
-  const coords = [[0, 0]];
-  let radius = 1;
-  while (coords.length < n) { coords.push(...hexRing(radius)); radius++; }
-  return coords.slice(0, Math.max(n, 1));
-}
-function axialToPixel(q, r, size) {
-  return [size * 1.5 * q, size * Math.sqrt(3) * (r + q / 2)];
-}
-function hexPoints(cx, cy, size) {
-  return Array.from({ length: 6 }, (_, i) => {
-    const rad = (Math.PI / 180) * (60 * i);
-    return `${(cx + size * Math.cos(rad)).toFixed(1)},${(cy + size * Math.sin(rad)).toFixed(1)}`;
-  }).join(" ");
-}
-
-const HEX_SIZE = 46;
+// Canvas commun aux 3 strates — les positions (x,y en %, définies dans l'Atlas ou, à défaut,
+// haché de façon stable via getFallbackPosition) sont converties en pixels sur ce repère fixe.
+const CANVAS_W = 680, CANVAS_H = 380;
+const toPixel = (x, y) => [(x / 100) * CANVAS_W, (y / 100) * CANVAS_H];
+const positionOf = (entity, xKey = "x", yKey = "y") => {
+  const px = entity?.[xKey], py = entity?.[yKey];
+  if (typeof px === "number" && typeof py === "number") return { x: px, y: py };
+  return getFallbackPosition(entity?.id);
+};
 
 // ── Aperçu intégré d'un bâtiment — s'ouvre sans quitter la Carte. La gestion avancée (personnel,
 // chambres, garnison...) reste dans la fiche complète, mais l'achat/la location, la description
@@ -150,52 +126,112 @@ const BuildingModal = ({ property, user, onClose, onBuyProperty, onBuyPropertyFr
   );
 };
 
+// ── Marqueur "pays" (strate Empire) ou "région" (strate Pays) — cercle à sa position réelle,
+// définie dans l'Atlas ou, à défaut, une position stable dérivée de son id. ──
+const PinMarker = ({ x, y, fill, Icon, label, isCurrent, badge, onClick }) => {
+  const [px, py] = toPixel(x, y);
+  const r = 20;
+  return (
+    <g onClick={onClick} style={{ cursor: onClick ? "pointer" : "default" }} transform={`translate(${px}, ${py})`}>
+      {isCurrent && (
+        <circle r={r + 6} fill="none" stroke="#d97706" strokeWidth={3}>
+          <animate attributeName="opacity" values="0.9;0.25;0.9" dur="2.2s" repeatCount="indefinite" />
+        </circle>
+      )}
+      <circle r={r} fill={fill} stroke="#3f3a34" strokeWidth={1.4} />
+      <foreignObject x={-11} y={-11} width={22} height={22}>
+        <Icon size={22} color="#1c1917" strokeWidth={2} opacity={0.85} />
+      </foreignObject>
+      {badge > 0 && (
+        <g transform={`translate(0, ${r - 5})`}>
+          <rect x={-16} y={-9} width={32} height={18} rx={9} fill="#1c1917" opacity={0.88} />
+          <text x={0} y={4} textAnchor="middle" fontSize={10.5} fontWeight={800} fill="#fff">×{badge}</text>
+        </g>
+      )}
+      <text y={r + 14} textAnchor="middle" fontSize={11} fontWeight={800} fill="#292524"
+        style={{ paintOrder: "stroke", stroke: "#fff", strokeWidth: 3 }}>
+        {label}
+      </text>
+    </g>
+  );
+};
+
+// ── Marqueur bâtiment (strate Ville) — plus petit, cliquable, ouvre BuildingModal ──
+const BuildingPin = ({ property, onClick }) => {
+  const { x, y } = positionOf(property, "cityX", "cityY");
+  const [px, py] = toPixel(x, y);
+  const Icon = PROPERTY_TYPE_ICONS[property.type] || Home;
+  return (
+    <g onClick={onClick} style={{ cursor: "pointer" }} transform={`translate(${px}, ${py})`}>
+      <circle r={13} fill="#fffbeb" stroke="#78716c" strokeWidth={1.2} />
+      <foreignObject x={-8} y={-8} width={16} height={16}>
+        <Icon size={16} color="#44403c" strokeWidth={2.2} />
+      </foreignObject>
+    </g>
+  );
+};
+
+// ── Point "citoyen présent" (strate Ville) — position décorative stable, pas une vraie
+// coordonnée individuelle (non demandée), juste une présence visible sur la carte. ──
+const CitizenDot = ({ citizen, isSelf }) => {
+  const base = getFallbackPosition(citizen.id);
+  const x = 8 + (base.x / 100) * 84, y = 8 + (base.y / 100) * 84; // marge pour rester dans le canvas
+  const [px, py] = toPixel(x, y);
+  return (
+    <g transform={`translate(${px}, ${py})`}>
+      <title>{citizen.name}</title>
+      <circle r={5} fill={isSelf ? "#d97706" : "#57534e"} stroke="#fff" strokeWidth={1.5} />
+    </g>
+  );
+};
+
+const Breadcrumb = ({ level, countryName, regionName, onEmpire, onCountry }) => (
+  <div className="flex items-center gap-1.5 px-3 py-2 border-b border-stone-100 text-[10px] font-black uppercase tracking-widest">
+    <button onClick={onEmpire} className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${level === "empire" ? "bg-stone-900 text-amber-400" : "text-stone-400 hover:text-stone-700 hover:bg-stone-100"}`}>
+      <Globe2 size={12} /> Empire
+    </button>
+    {countryName && (
+      <>
+        <ChevronRight size={11} className="text-stone-300 shrink-0" />
+        <button onClick={onCountry} className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors ${level === "country" ? "bg-stone-900 text-amber-400" : "text-stone-400 hover:text-stone-700 hover:bg-stone-100"}`}>
+          <Compass size={12} /> {countryName}
+        </button>
+      </>
+    )}
+    {regionName && (
+      <>
+        <ChevronRight size={11} className="text-stone-300 shrink-0" />
+        <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-900 text-amber-400">
+          <MapPin size={12} /> {regionName}
+        </span>
+      </>
+    )}
+  </div>
+);
+
 const WorldMapView = ({
   user,
   citizens = [],
   countries = [],
   properties = [],
+  travelRequests = [],
   canTravel,
   onInternalTravel,
   onRequestTravel,
+  onCancelTravelRequest,
   onOpenFullProperty,
   canManageProperties = true,
   onBuyProperty,
   onBuyPropertyFromPlayer,
   onRentProperty,
 }) => {
-  const [viewMode, setViewMode] = useState("region"); // "region" | "world"
-  const [selectedRegionId, setSelectedRegionId] = useState(null);
-  const [selectedCountryId, setSelectedCountryId] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState("country"); // "empire" | "country" | "city"
+  const [viewCountryId, setViewCountryId] = useState(null);
+  const [viewRegionId, setViewRegionId] = useState(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState(null);
-  const [visaRegion, setVisaRegion] = useState("");
 
   const myCountryId = user?.locationCountryId || user?.countryId;
   const myCountry = countries.find((c) => c.id === myCountryId);
-
-  const regions = useMemo(() => myCountry?.regions || [], [myCountry]);
-  const capitalRegion = regions.find((r) => r.type === "capitale") || regions.find((r) => r.name === "Capitale") || regions[0] || null;
-  const currentRegion = regions.find((r) => r.name === user?.currentPosition) || capitalRegion;
-
-  // Propriétés par région — comparaison normalisée en chaîne : region.id peut être un nombre
-  // (Date.now() côté création de région) alors que property.regionId vient toujours d'un
-  // <select> HTML, donc toujours une chaîne — une comparaison stricte === échouait silencieusement.
-  const propsByRegion = useMemo(() => {
-    const map = new Map();
-    if (!myCountry) return map;
-    regions.forEach((r) => {
-      map.set(r.id, properties.filter((p) => String(p.countryId) === String(myCountry.id) && String(p.regionId) === String(r.id)));
-    });
-    return map;
-  }, [regions, properties, myCountry]);
-
-  const citizensInRegion = (region) => citizens.filter((c) =>
-    c.id !== user?.id &&
-    (c.locationCountryId || c.countryId) === myCountryId &&
-    (c.currentPosition || "") === (region?.name || "")
-  );
-
-  const otherCountries = countries.filter((c) => c.id !== myCountryId);
 
   if (!user || !myCountry) {
     return (
@@ -206,71 +242,30 @@ const WorldMapView = ({
     );
   }
 
-  const activeRegion = regions.find((r) => r.id === selectedRegionId) || currentRegion;
-  const activeCountry = countries.find((c) => c.id === selectedCountryId) || myCountry;
+  const displayCountryId = viewCountryId || myCountryId;
+  const displayCountry = countries.find((c) => c.id === displayCountryId) || myCountry;
+  const regions = displayCountry.regions || [];
+  const capitalRegion = regions.find((r) => r.type === "capitale") || regions.find((r) => r.name === "Capitale") || regions[0] || null;
+  const myCurrentRegion = (myCountry.regions || []).find((r) => r.name === user?.currentPosition) || null;
+  const displayRegion = regions.find((r) => r.id === viewRegionId) || capitalRegion;
 
-  // ── Disposition des tuiles : le territoire/pays "actuel" occupe le centre, les autres
-  // s'enroulent en spirale de tuiles hexagonales adjacentes autour de lui ──
-  const isWorld = viewMode === "world";
-  const orderedRegions = currentRegion ? [currentRegion, ...regions.filter((r) => r.id !== currentRegion.id)] : regions;
-  const orderedCountries = [myCountry, ...otherCountries];
-  const tiles = isWorld
-    ? orderedCountries.map((c, i) => ({ kind: "country", data: c, coord: hexSpiral(orderedCountries.length)[i] }))
-    : orderedRegions.map((r, i) => ({ kind: "region", data: r, coord: hexSpiral(orderedRegions.length)[i] }));
+  const propertiesInRegion = (countryId, region) => region
+    ? properties.filter((p) => String(p.countryId) === String(countryId) && String(p.regionId) === String(region.id))
+    : [];
+  const citizensInRegion = (countryId, region) => citizens.filter((c) =>
+    c.id !== user?.id &&
+    (c.locationCountryId || c.countryId) === countryId &&
+    (c.currentPosition || "") === (region?.name || "")
+  );
 
-  const nodes = tiles.map((t) => {
-    const [x, y] = axialToPixel(t.coord[0], t.coord[1], HEX_SIZE);
-    return { ...t, x, y };
-  });
-  const xs = nodes.map((n) => n.x), ys = nodes.map((n) => n.y);
-  const pad = HEX_SIZE * 1.5;
-  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
-  const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
+  const goEmpire = () => setZoomLevel("empire");
+  const goCountry = (countryId) => { setViewCountryId(countryId); setZoomLevel("country"); };
+  const goCity = (regionId) => { setViewRegionId(regionId); setZoomLevel("city"); };
 
-  const HexTile = ({ node }) => {
-    const { kind, data, x, y } = node;
-    const isCurrent = kind === "region" ? data.id === currentRegion?.id : data.id === myCountry.id;
-    const isSelected = kind === "region" ? data.id === activeRegion?.id : data.id === activeCountry?.id;
-    const meta = kind === "region" ? getRegionType(data.type) : null;
-    const fill = kind === "region" ? meta.fill : COUNTRY_PALETTE[nodes.findIndex((n) => n.data.id === data.id) % COUNTRY_PALETTE.length];
-    const Icon = kind === "region" ? meta.icon : Flag;
-    const built = kind === "region" ? (propsByRegion.get(data.id) || []) : [];
-    const points = hexPoints(x, y, HEX_SIZE - 1.5);
+  const pendingRequestTo = (countryId) => travelRequests.find((r) => String(r.citizenId) === String(user.id) && String(r.toCountry) === String(countryId) && r.status === "PENDING");
 
-    return (
-      <g
-        onClick={() => (kind === "region" ? setSelectedRegionId(data.id) : setSelectedCountryId(data.id))}
-        style={{ cursor: "pointer" }}
-      >
-        <polygon points={points} fill={fill} stroke="#3f3a34" strokeWidth={1.4} opacity={isCurrent ? 1 : 0.92} />
-        {isSelected && <polygon points={points} fill="none" stroke="#1c1917" strokeWidth={2.5} strokeDasharray="5 3" />}
-        {isCurrent && (
-          <polygon points={hexPoints(x, y, HEX_SIZE + 4)} fill="none" stroke="#d97706" strokeWidth={3}>
-            <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2.2s" repeatCount="indefinite" />
-          </polygon>
-        )}
-
-        <foreignObject x={x - 11} y={y - (built.length > 0 ? 20 : 11)} width={22} height={22}>
-          <Icon size={22} color="#1c1917" strokeWidth={2} opacity={0.85} />
-        </foreignObject>
-
-        {built.length > 0 && (
-          <g transform={`translate(${x}, ${y + 15})`}>
-            <rect x={-17} y={-10} width={34} height={19} rx={9.5} fill="#1c1917" opacity={0.88} />
-            <text x={0} y={4} textAnchor="middle" fontSize={11} fontWeight={800} fill="#fff">×{built.length}</text>
-          </g>
-        )}
-
-        <text x={x} y={y + HEX_SIZE - 3} textAnchor="middle" fontSize={10.5} fontWeight={800} fill="#fff"
-          style={{ paintOrder: "stroke", stroke: "#1c1917", strokeWidth: 3 }}>
-          {data.name}
-        </text>
-      </g>
-    );
-  };
-
-  const activeBuildings = activeRegion ? (propsByRegion.get(activeRegion.id) || []) : [];
-  const activeCitizens = activeRegion ? citizensInRegion(activeRegion) : [];
+  const cityBuildings = zoomLevel === "city" ? propertiesInRegion(displayCountry.id, displayRegion) : [];
+  const cityCitizens = zoomLevel === "city" ? citizensInRegion(displayCountry.id, displayRegion) : [];
 
   return (
     <div className="space-y-4 animate-fadeIn">
@@ -280,54 +275,129 @@ const WorldMapView = ({
           <Compass size={24} className="text-amber-400" />
           <div>
             <h2 className="text-lg font-black font-serif text-stone-100">Où je suis</h2>
-            <p className="text-[11px] text-stone-400">Cliquez sur un territoire pour l'explorer.</p>
+            <p className="text-[11px] text-stone-400">Empire → Pays → Ville. Cliquez sur un territoire pour l'explorer.</p>
           </div>
         </div>
       </div>
 
       {/* Carte unifiée */}
       <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden">
-        {/* Barre de mode */}
-        <div className="flex items-center gap-2 p-3 border-b border-stone-100">
-          <button
-            onClick={() => setViewMode("region")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${!isWorld ? "bg-stone-900 text-amber-400" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}
-          >
-            <Compass size={12} /> {myCountry.name}
-          </button>
-          <button
-            onClick={() => setViewMode("world")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${isWorld ? "bg-stone-900 text-amber-400" : "bg-stone-100 text-stone-500 hover:bg-stone-200"}`}
-          >
-            <Globe2 size={12} /> Monde
-          </button>
-        </div>
+        <Breadcrumb
+          level={zoomLevel}
+          countryName={zoomLevel !== "empire" ? displayCountry.name : null}
+          regionName={zoomLevel === "city" ? displayRegion?.name : null}
+          onEmpire={goEmpire}
+          onCountry={() => goCountry(displayCountry.id)}
+        />
 
         <div style={{ background: "radial-gradient(ellipse at 50% 35%, #f7f0dc 0%, #e6d6a8 100%)" }}>
-          <svg viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`} className="w-full" style={{ maxHeight: 420 }}>
-            {nodes.map((n) => <HexTile key={n.data.id} node={n} />)}
+          <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} className="w-full" style={{ maxHeight: 420 }}>
+            {zoomLevel === "empire" && countries.map((c, i) => {
+              const pos = positionOf(c);
+              return (
+                <PinMarker
+                  key={c.id}
+                  x={pos.x} y={pos.y}
+                  fill={COUNTRY_PALETTE[i % COUNTRY_PALETTE.length]}
+                  Icon={Flag}
+                  label={c.name}
+                  isCurrent={c.id === myCountryId}
+                  onClick={() => goCountry(c.id)}
+                />
+              );
+            })}
+
+            {zoomLevel === "country" && regions.map((r) => {
+              const pos = positionOf(r);
+              const meta = getRegionType(r.type);
+              const built = propertiesInRegion(displayCountry.id, r);
+              return (
+                <PinMarker
+                  key={r.id}
+                  x={pos.x} y={pos.y}
+                  fill={meta.fill}
+                  Icon={meta.icon}
+                  label={r.name}
+                  badge={built.length}
+                  isCurrent={displayCountry.id === myCountryId && r.id === myCurrentRegion?.id}
+                  onClick={() => goCity(r.id)}
+                />
+              );
+            })}
+
+            {zoomLevel === "city" && (
+              <>
+                {cityBuildings.map((p) => (
+                  <BuildingPin key={p.id} property={p} onClick={() => setSelectedBuildingId(p.id)} />
+                ))}
+                {cityCitizens.map((c) => <CitizenDot key={c.id} citizen={c} />)}
+                {displayCountry.id === myCountryId && displayRegion?.id === myCurrentRegion?.id && (
+                  <CitizenDot citizen={user} isSelf />
+                )}
+              </>
+            )}
           </svg>
         </div>
 
-        {/* Panneau contextuel — un seul panneau qui réagit à la tuile sélectionnée */}
-        <div className="p-4 border-t border-stone-100">
-          {!isWorld ? (
-            <div className="space-y-3">
+        {/* Panneau contextuel — réagit à la strate affichée */}
+        <div className="p-4 border-t border-stone-100 space-y-3">
+          {zoomLevel === "empire" && (
+            <p className="text-[11px] text-stone-400 italic text-center py-2">Cliquez sur un royaume pour voir ses territoires.</p>
+          )}
+
+          {zoomLevel === "country" && (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-black text-stone-800 flex items-center gap-1.5">
+                  {displayCountry.name}
+                  {displayCountry.id === myCountryId && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black uppercase">Votre royaume</span>}
+                </div>
+                <div className="text-[10px] text-stone-400">{displayCountry.rulerName || "Souverain inconnu"} · {regions.length} territoire(s)</div>
+              </div>
+              {displayCountry.id !== myCountryId && (
+                pendingRequestTo(displayCountry.id) ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[10px] text-amber-600 font-bold uppercase">Visa en attente</span>
+                    <button
+                      onClick={() => onCancelTravelRequest && onCancelTravelRequest(pendingRequestTo(displayCountry.id).id)}
+                      className="flex items-center gap-1.5 text-red-500 border border-red-200 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-red-50 transition-colors"
+                    >
+                      <Ban size={11} /> Annuler
+                    </button>
+                  </div>
+                ) : canTravel ? (
+                  <button
+                    onClick={() => { onRequestTravel && onRequestTravel(displayCountry.id, "Frontière"); }}
+                    className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-500 transition-colors shrink-0"
+                  >
+                    <Plane size={12} /> Demander un visa
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-stone-400 text-[10px] font-bold uppercase shrink-0">
+                    <Lock size={12} /> Voyage restreint
+                  </span>
+                )
+              )}
+            </div>
+          )}
+
+          {zoomLevel === "city" && displayRegion && (
+            <>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  {(() => { const M = getRegionType(activeRegion?.type); const I = M.icon; return <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: M.fill }}><I size={16} color="#1c1917" /></div>; })()}
+                  {(() => { const M = getRegionType(displayRegion.type); const I = M.icon; return <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: M.fill }}><I size={16} color="#1c1917" /></div>; })()}
                   <div>
                     <div className="text-sm font-black text-stone-800 flex items-center gap-1.5">
-                      {activeRegion?.name}
-                      {activeRegion?.id === currentRegion?.id && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black uppercase">Vous êtes ici</span>}
+                      {displayRegion.name}
+                      {displayCountry.id === myCountryId && displayRegion.id === myCurrentRegion?.id && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black uppercase">Vous êtes ici</span>}
                     </div>
-                    <div className="text-[10px] text-stone-400">{getRegionType(activeRegion?.type).label}</div>
+                    <div className="text-[10px] text-stone-400">{getRegionType(displayRegion.type).label}</div>
                   </div>
                 </div>
-                {activeRegion?.id !== currentRegion?.id && (
+                {displayCountry.id === myCountryId && displayRegion.id !== myCurrentRegion?.id && (
                   canTravel ? (
                     <button
-                      onClick={() => onInternalTravel && onInternalTravel(activeRegion.name)}
+                      onClick={() => onInternalTravel && onInternalTravel(displayRegion.name)}
                       className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-500 transition-colors shrink-0"
                     >
                       <Plane size={12} /> Se déplacer ici
@@ -344,8 +414,8 @@ const WorldMapView = ({
                 <div>
                   <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-1.5 flex items-center gap-1"><Building2 size={10} /> Bâtiments</div>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {activeBuildings.length === 0 && <p className="text-[11px] text-stone-400 italic">Aucun bâtiment connu ici.</p>}
-                    {activeBuildings.map((p) => {
+                    {cityBuildings.length === 0 && <p className="text-[11px] text-stone-400 italic">Aucun bâtiment connu ici.</p>}
+                    {cityBuildings.map((p) => {
                       const Icon = PROPERTY_TYPE_ICONS[p.type] || Home;
                       return (
                         <button
@@ -364,8 +434,8 @@ const WorldMapView = ({
                 <div>
                   <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-1.5 flex items-center gap-1"><Users size={10} /> Citoyens présents</div>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {activeCitizens.length === 0 && <p className="text-[11px] text-stone-400 italic">Personne d'autre en vue.</p>}
-                    {activeCitizens.map((c) => (
+                    {cityCitizens.length === 0 && <p className="text-[11px] text-stone-400 italic">Personne d'autre en vue.</p>}
+                    {cityCitizens.map((c) => (
                       <div key={c.id} className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg px-2.5 py-1.5">
                         {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" /> : <User size={13} className="text-stone-400 shrink-0" />}
                         <span className="text-xs font-bold text-stone-700 truncate">{c.name}</span>
@@ -374,41 +444,7 @@ const WorldMapView = ({
                   </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-black text-stone-800 flex items-center gap-1.5">
-                    {activeCountry?.name || "—"}
-                    {activeCountry?.id === myCountry.id && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black uppercase">Vous êtes ici</span>}
-                  </div>
-                  <div className="text-[10px] text-stone-400">{activeCountry?.rulerName || "Souverain inconnu"} · {(activeCountry?.regions || []).length} territoire(s)</div>
-                </div>
-              </div>
-              {activeCountry && activeCountry.id !== myCountry.id && (
-                canTravel ? (
-                  <div className="flex gap-2">
-                    <input
-                      value={visaRegion}
-                      onChange={(e) => setVisaRegion(e.target.value)}
-                      placeholder="Région visée (optionnel)"
-                      className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-white"
-                    />
-                    <button
-                      onClick={() => { onRequestTravel && onRequestTravel(activeCountry.id, visaRegion.trim() || "Frontière"); setVisaRegion(""); }}
-                      className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-500 transition-colors shrink-0"
-                    >
-                      <Plane size={12} /> Demander un visa
-                    </button>
-                  </div>
-                ) : (
-                  <span className="flex items-center gap-1.5 text-stone-400 text-[10px] font-bold uppercase">
-                    <Lock size={12} /> Voyage restreint
-                  </span>
-                )
-              )}
-            </div>
+            </>
           )}
         </div>
       </div>
