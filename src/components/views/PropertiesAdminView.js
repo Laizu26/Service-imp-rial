@@ -2,8 +2,9 @@ import React, { useState, useMemo } from "react";
 import {
   Plus, MapPin, Pencil, X, Save, Home, User, Globe, Key, UserX,
   Search, Filter, Building2, Coins, TrendingUp, ChevronDown, ChevronUp,
-  ShieldAlert, DoorOpen, Ban, Tag, RotateCcw, Eye, Users as UsersIcon,
+  DoorOpen, Ban, Tag, RotateCcw, Users as UsersIcon,
   Hammer, ShoppingBag, Utensils, Wheat, Castle, Ship,
+  Shield, Lock, UserPlus, Landmark, Wrench,
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
@@ -43,6 +44,94 @@ const Label = ({ children }) => (
   <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">{children}</label>
 );
 
+// Gestion avancée — jusque-là l'admin ne pouvait que consulter des compteurs (personnel,
+// garnison, prisonniers, chambres) sans agir dessus, alors que les actions backend elles-mêmes
+// n'imposaient aucune restriction d'accès particulière côté admin.
+const AdminManagementPanel = ({ prop, citizens, onAddPropertyStaff, onRemovePropertyStaff, onAddGarrison, onRemoveGarrison, onReleasePrisoner, onCheckoutRoom }) => {
+  const [open, setOpen] = useState(false);
+  const [staffId, setStaffId] = useState("");
+  const [staffRole, setStaffRole] = useState("");
+  const [staffSalary, setStaffSalary] = useState("");
+  const [garrisonId, setGarrisonId] = useState("");
+
+  return (
+    <div className="border border-stone-200 rounded-lg overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3 py-2 bg-stone-50 hover:bg-stone-100 transition-colors text-[10px] font-black uppercase text-stone-500 tracking-widest">
+        <span className="flex items-center gap-1.5"><Wrench size={12} /> Gestion avancée</span>
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {open && (
+        <div className="p-3 space-y-4 bg-white">
+          {/* Personnel */}
+          <div className="space-y-1.5">
+            <div className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-1"><UserPlus size={11} /> Personnel ({(prop.staff || []).length})</div>
+            {(prop.staff || []).map((s) => (
+              <div key={s.id} className="flex items-center justify-between bg-stone-50 rounded px-2 py-1.5 text-xs">
+                <span>{s.name} <span className="text-stone-400">({s.role}{s.salary > 0 ? `, ${formatMoney(s.salary)}/j` : ""})</span></span>
+                <button onClick={() => onRemovePropertyStaff?.(prop.id, s.id)} className="text-red-400 hover:text-red-600"><UserX size={12} /></button>
+              </div>
+            ))}
+            <div className="flex gap-1.5">
+              <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setStaffId} value={staffId} placeholder="Embaucher..." /></div>
+              <input className="w-20 p-1.5 border rounded text-xs" placeholder="Rôle" value={staffRole} onChange={(e) => setStaffRole(e.target.value)} />
+              <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Salaire" value={staffSalary} onChange={(e) => setStaffSalary(e.target.value)} />
+              <button onClick={() => { if (staffId) { onAddPropertyStaff?.(prop.id, staffId, staffRole || "Employé", staffSalary); setStaffId(""); setStaffRole(""); setStaffSalary(""); } }} disabled={!staffId} className="bg-stone-800 text-white px-2 rounded text-[10px] disabled:opacity-40"><Plus size={12} /></button>
+            </div>
+          </div>
+
+          {/* Garnison (Manoir/Château uniquement) */}
+          {prop.type === "MANOIR" && (
+            <div className="space-y-1.5">
+              <div className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-1"><Shield size={11} /> Garnison ({(prop.garrison || []).length})</div>
+              {(prop.garrison || []).map((g) => (
+                <div key={g.id} className="flex items-center justify-between bg-stone-50 rounded px-2 py-1.5 text-xs">
+                  <span>{g.name}</span>
+                  <button onClick={() => onRemoveGarrison?.(prop.id, g.id)} className="text-red-400 hover:text-red-600"><UserX size={12} /></button>
+                </div>
+              ))}
+              <div className="flex gap-1.5">
+                <div className="flex-1"><UserSearchSelect users={citizens} onSelect={setGarrisonId} value={garrisonId} placeholder="Ajouter un garde..." /></div>
+                <button onClick={() => { if (garrisonId) { onAddGarrison?.(prop.id, garrisonId); setGarrisonId(""); } }} disabled={!garrisonId} className="bg-stone-800 text-white px-2 rounded text-[10px] disabled:opacity-40"><Plus size={12} /></button>
+              </div>
+            </div>
+          )}
+
+          {/* Prisonniers */}
+          {(prop.dungeon || []).length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-1"><Lock size={11} /> Prisonniers ({prop.dungeon.length})</div>
+              {prop.dungeon.map((d) => (
+                <div key={d.citizenId} className="flex items-center justify-between bg-red-50 rounded px-2 py-1.5 text-xs">
+                  <span className="text-red-700">{d.citizenName} <span className="text-red-400">— {d.reason}</span></span>
+                  <button onClick={() => onReleasePrisoner?.(prop.id, d.citizenId)} className="text-green-600 hover:text-green-500 text-[10px] font-bold uppercase">Libérer</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Chambres */}
+          {(prop.rooms || []).length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[9px] font-black uppercase text-stone-400 flex items-center gap-1"><Home size={11} /> Chambres ({prop.rooms.length})</div>
+              {prop.rooms.map((r) => (
+                <div key={r.id} className="flex items-center justify-between bg-stone-50 rounded px-2 py-1.5 text-xs">
+                  <span>{r.name} <span className="text-stone-400 font-mono">{formatMoney(r.pricePerNight)}/nuit</span></span>
+                  {r.tenantId ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-600 font-bold">{r.tenantName}</span>
+                      <button onClick={() => onCheckoutRoom?.(prop.id, r.id)} className="text-red-400 text-[10px] font-bold uppercase">Libérer</button>
+                    </div>
+                  ) : <span className="text-green-500 italic text-[10px]">Libre</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PropertiesAdminView = ({
   properties = [],
   countries = [],
@@ -51,6 +140,15 @@ const PropertiesAdminView = ({
   onCreateProperty,
   onDeleteProperty,
   onEditProperty,
+  onCancelPropertySale,
+  onCancelPropertyRental,
+  onEvictTenant,
+  onAddPropertyStaff,
+  onRemovePropertyStaff,
+  onAddGarrison,
+  onRemoveGarrison,
+  onReleasePrisoner,
+  onCheckoutRoom,
 }) => {
   // Création
   const [showCreate, setShowCreate] = useState(false);
@@ -167,6 +265,8 @@ const PropertiesAdminView = ({
       income: prop.income || 0, countryId: prop.countryId || "",
       regionId: prop.regionId || "", ownerId: prop.ownerId || "",
       ownerType: prop.ownerType || "CITIZEN",
+      forSale: !!prop.forSale, salePrice: prop.salePrice || 0,
+      rentalActive: !!prop.rental, rentalRate: prop.rental?.dailyRate || 0,
     });
   };
 
@@ -186,13 +286,20 @@ const PropertiesAdminView = ({
         ownerType = "CITIZEN";
       }
     }
+    const originalProp = properties.find((p) => p.id === editingId);
     onEditProperty(editingId, {
-      ...editForm,
+      name: editForm.name, type: editForm.type, description: editForm.description,
+      countryId: editForm.countryId, regionId: editForm.regionId,
       price: parseFloat(editForm.price) || 0,
       income: parseFloat(editForm.income) || 0,
       ownerId: editForm.ownerId || null,
       ownerName, ownerType,
       location: country ? (region ? `${region.name}, ${country.name}` : country.name) : "",
+      forSale: !!editForm.forSale,
+      salePrice: editForm.forSale ? (parseFloat(editForm.salePrice) || 0) : 0,
+      rental: editForm.rentalActive
+        ? { ...(originalProp?.rental || { tenantId: null, tenantName: null, startDate: null }), dailyRate: parseFloat(editForm.rentalRate) || 0 }
+        : null,
     });
     setEditingId(null); setEditForm({});
   };
@@ -205,21 +312,12 @@ const PropertiesAdminView = ({
     });
   };
 
-  const adminCancelSale = (propId) => {
-    onEditProperty(propId, { forSale: false, salePrice: 0 });
-  };
-
-  const adminCancelRental = (propId) => {
-    onEditProperty(propId, { rental: null });
-  };
-
-  const adminEvictTenant = (propId) => {
-    const prop = properties.find((p) => p.id === propId);
-    if (!prop || !prop.rental) return;
-    onEditProperty(propId, {
-      rental: { ...prop.rental, tenantId: null, tenantName: null, startDate: null },
-    });
-  };
+  // Passe par les vraies actions dédiées (plutôt qu'un onEditProperty générique) pour que les
+  // alertes correspondantes soient créées — l'expulsion admin, par exemple, prévenait jusque-là
+  // silencieusement le locataire, contrairement à l'expulsion faite par le propriétaire lui-même.
+  const adminCancelSale = (propId) => onCancelPropertySale?.(propId);
+  const adminCancelRental = (propId) => onCancelPropertyRental?.(propId);
+  const adminEvictTenant = (propId) => onEvictTenant?.(propId);
 
   const TypeIcon = ({ type, size = 14 }) => {
     const t = PROPERTY_TYPES[type];
@@ -230,10 +328,22 @@ const PropertiesAdminView = ({
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* --- En-tête --- */}
+      <div className="relative overflow-hidden rounded-2xl border border-stone-700 bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 p-5">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-8xl opacity-5 select-none">🏛️</div>
+        <div className="relative flex items-center gap-3">
+          <Landmark size={26} className="text-yellow-400" />
+          <div>
+            <h2 className="text-xl font-black font-serif text-stone-100">Registre Foncier — Administration</h2>
+            <p className="text-xs text-stone-400 mt-0.5">Créez, cédez et gérez l'ensemble des biens immobiliers de l'Empire.</p>
+          </div>
+        </div>
+      </div>
+
       {/* --- Stats --- */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <StatCard icon={Home} label="Total" value={stats.total} color="bg-stone-100 text-stone-600" />
-        <StatCard icon={Key} label="Possédées" value={stats.owned} color="bg-blue-100 text-blue-600" />
+        <StatCard icon={Key} label="Toutes possédées" value={stats.owned} color="bg-blue-100 text-blue-600" sub={`dont ${stats.companyOwned} par entreprise`} />
         <StatCard icon={Tag} label="Disponibles" value={stats.available} color="bg-green-100 text-green-600" />
         <StatCard icon={Coins} label="Valeur totale" value={formatMoney(stats.totalValue)} color="bg-yellow-100 text-yellow-700"  />
         <StatCard icon={DoorOpen} label="En location" value={stats.rented} color="bg-sky-100 text-sky-600" />
@@ -423,6 +533,29 @@ const PropertiesAdminView = ({
                     </div>
                   </div>
 
+                  {/* Vente / Location — jusque-là non éditables depuis l'admin, il fallait
+                      passer par le compte du propriétaire pour créer ou modifier une annonce. */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-white border border-stone-200 rounded-lg p-4 space-y-2">
+                      <label className="flex items-center gap-2 text-[10px] font-black uppercase text-stone-500 tracking-widest">
+                        <input type="checkbox" checked={!!editForm.forSale} onChange={(e) => setEditForm({ ...editForm, forSale: e.target.checked })} />
+                        <Tag size={12} /> En vente
+                      </label>
+                      {editForm.forSale && (
+                        <input type="number" step="0.1" className="w-full p-2 border rounded font-mono text-sm" placeholder="Prix de vente" value={editForm.salePrice} onChange={(e) => setEditForm({ ...editForm, salePrice: e.target.value })} />
+                      )}
+                    </div>
+                    <div className="bg-white border border-stone-200 rounded-lg p-4 space-y-2">
+                      <label className="flex items-center gap-2 text-[10px] font-black uppercase text-stone-500 tracking-widest">
+                        <input type="checkbox" checked={!!editForm.rentalActive} onChange={(e) => setEditForm({ ...editForm, rentalActive: e.target.checked })} />
+                        <DoorOpen size={12} /> Proposée à la location
+                      </label>
+                      {editForm.rentalActive && (
+                        <input type="number" step="0.1" className="w-full p-2 border rounded font-mono text-sm" placeholder="Loyer / jour" value={editForm.rentalRate} onChange={(e) => setEditForm({ ...editForm, rentalRate: e.target.value })} />
+                      )}
+                    </div>
+                  </div>
+
                   <div><Label>Description</Label>
                     <textarea className="w-full p-2 border rounded text-sm" rows={2} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
                   </div>
@@ -464,7 +597,7 @@ const PropertiesAdminView = ({
                     <div className="flex items-center gap-3 mt-1 text-[10px] text-stone-400">
                       <span className="flex items-center gap-1"><Globe size={9} /> {getLocationLabel(prop)}</span>
                       <span className="font-mono font-bold text-yellow-700">{formatMoney((prop.price || 0))}</span>
-                      {(prop.income || 0) > 0 && <span className="font-mono font-bold text-green-600">+{prop.income}/j</span>}
+                      {(prop.income || 0) > 0 && <span className="font-mono font-bold text-green-600">+{formatMoney(prop.income)}/j</span>}
                     </div>
                   </div>
 
@@ -635,6 +768,17 @@ const PropertiesAdminView = ({
                         )}
                       </div>
                     )}
+
+                    <AdminManagementPanel
+                      prop={prop}
+                      citizens={citizens}
+                      onAddPropertyStaff={onAddPropertyStaff}
+                      onRemovePropertyStaff={onRemovePropertyStaff}
+                      onAddGarrison={onAddGarrison}
+                      onRemoveGarrison={onRemoveGarrison}
+                      onReleasePrisoner={onReleasePrisoner}
+                      onCheckoutRoom={onCheckoutRoom}
+                    />
 
                     {/* Boutons d'action */}
                     <div className="flex items-center gap-2 pt-3 border-t border-stone-200">

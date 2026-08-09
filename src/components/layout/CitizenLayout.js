@@ -347,6 +347,48 @@ const SellPropertyButton = ({ propId, onSellProperty }) => {
   );
 };
 
+// Mini-composant : achat d'un bien disponible, au nom propre ou au nom d'une entreprise dont
+// le citoyen est dirigeant ou PDG délégué — onCompanyBuyProperty existait côté backend mais
+// n'était câblé nulle part dans l'UI, une entreprise ne pouvait donc jamais acheter de bien.
+const AvailablePropertyBuyBlock = ({ prop, user, myManagedCompanies, onBuyProperty, onCompanyBuyProperty }) => {
+  const [buyerId, setBuyerId] = useState("");
+  const buyerCompany = myManagedCompanies.find((c) => c.id === buyerId);
+  const budget = buyerCompany ? (buyerCompany.balance || 0) : (user.balance || 0);
+  const canAfford = budget >= prop.price;
+
+  return (
+    <>
+      <div className="flex items-center justify-between pt-2 border-t border-stone-100 gap-2 flex-wrap">
+        <div className="font-mono text-lg font-black text-amber-700">{formatMoney(prop.price)}</div>
+        <div className="flex items-center gap-2">
+          {myManagedCompanies.length > 0 && (
+            <select
+              className="text-[10px] font-bold text-stone-500 border border-stone-200 rounded-lg px-2 py-2 bg-white outline-none"
+              value={buyerId}
+              onChange={(e) => setBuyerId(e.target.value)}
+            >
+              <option value="">En mon nom propre</option>
+              {myManagedCompanies.map((c) => <option key={c.id} value={c.id}>Au nom de {c.name}</option>)}
+            </select>
+          )}
+          <button
+            onClick={() => (buyerCompany ? onCompanyBuyProperty(buyerCompany.id, prop.id) : onBuyProperty(prop.id))}
+            disabled={!canAfford}
+            className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+          >
+            <Coins size={12} /> Acheter
+          </button>
+        </div>
+      </div>
+      {!canAfford && (
+        <div className="text-[10px] text-red-400 text-right">
+          Il manque {formatMoney(prop.price - budget)} {buyerCompany ? "à l'entreprise" : ""}
+        </div>
+      )}
+    </>
+  );
+};
+
 // Mini-composant pour proposer un bien à la location
 const RentPropertyButton = ({ propId, onListPropertyForRent }) => {
   const [open, setOpen] = useState(false);
@@ -920,7 +962,7 @@ const CitizenLayout = (props) => {
         { id: "inventory",  label: "Inventaire",     icon: Box },
         canUseBank && { id: "bank", label: "Banque", icon: Landmark },
         { id: "bourse",     label: "Bourse",         icon: TrendingUp },
-        { id: "properties", label: "Propriétés",     icon: MapPin },
+        (!isBanned && !isPrisoner) && { id: "properties", label: "Propriétés",     icon: MapPin },
         { id: "guilds",     label: "Guildes",        icon: Users },
         { id: "asia",       label: "Maison Asia",    icon: Gem },
         { id: "contracts",  label: "Contrats",       icon: Scroll },
@@ -3535,17 +3577,28 @@ const CitizenLayout = (props) => {
             )}
 
             {/* --- PROPRIÉTÉS --- */}
-            {active === "properties" && selectedPropertyId && (() => {
+            {active === "properties" && !isBanned && !isPrisoner && selectedPropertyId && (() => {
               const selProp = properties.find((p) => p.id === selectedPropertyId);
               if (!selProp) { setSelectedPropertyId(null); return null; }
-              const isPropertyOwner = selProp.ownerId === user.id || (selProp.ownerType === "COMPANY" && (companies || []).some((c) => c.id === selProp.ownerId && c.ownerId === user.id));
+              const ownerCompany = selProp.ownerType === "COMPANY" ? (companies || []).find((c) => c.id === selProp.ownerId) : null;
+              const isPropertyOwner = selProp.ownerId === user.id || (ownerCompany && (ownerCompany.ownerId === user.id || ownerCompany.ceoId === user.id));
               return (
                 <PropertyDetailView
                   property={selProp}
                   citizens={safeUsers}
+                  companies={companies}
+                  countries={safeCountries}
                   user={user}
                   session={user}
                   isOwner={isPropertyOwner}
+                  onSellProperty={onSellProperty}
+                  onCancelPropertySale={onCancelPropertySale}
+                  onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
+                  onListPropertyForRent={onListPropertyForRent}
+                  onCancelPropertyRental={onCancelPropertyRental}
+                  onEvictTenant={onEvictTenant}
+                  onRentProperty={onRentProperty}
+                  onLeaveTenancy={onLeaveTenancy}
                   onUpdatePropertyFeature={onUpdatePropertyFeature}
                   onAddGarrison={onAddGarrison}
                   onRemoveGarrison={onRemoveGarrison}
@@ -3573,7 +3626,7 @@ const CitizenLayout = (props) => {
               );
             })()}
 
-            {active === "properties" && !selectedPropertyId && (
+            {active === "properties" && !isBanned && !isPrisoner && !selectedPropertyId && (
               <div className="space-y-6 animate-fadeIn">
                 <div className="flex items-center gap-3 mb-2">
                   <MapPin size={24} className="text-stone-400" />
@@ -3600,7 +3653,8 @@ const CitizenLayout = (props) => {
                     return r ? `${r.name}, ${c.name}` : c.name;
                   };
 
-                  const myCompanyIds = (companies || []).filter((c) => c.ownerId === user.id).map((c) => c.id);
+                  const myManagedCompanies = (companies || []).filter((c) => c.ownerId === user.id || c.ceoId === user.id);
+                  const myCompanyIds = myManagedCompanies.map((c) => c.id);
                   const isMine = (p) => p.ownerId === user.id || (p.ownerType === "COMPANY" && myCompanyIds.includes(p.ownerId));
                   const myProps = properties.filter(isMine);
                   const available = properties.filter((p) => !p.ownerId);
@@ -3802,21 +3856,13 @@ const CitizenLayout = (props) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {available.map((prop) => (
                               <PropertyCard key={prop.id} prop={prop} variant="admin">
-                                <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                                  <div className="font-mono text-lg font-black text-amber-700">{formatMoney(prop.price)}</div>
-                                  <button
-                                    onClick={() => onBuyProperty && onBuyProperty(prop.id)}
-                                    disabled={(user.balance || 0) < prop.price}
-                                    className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-                                  >
-                                    <Coins size={12} /> Acheter
-                                  </button>
-                                </div>
-                                {(user.balance || 0) < prop.price && (
-                                  <div className="text-[10px] text-red-400 text-right">
-                                    Il vous manque {formatMoney((prop.price - (user.balance || 0)))}
-                                  </div>
-                                )}
+                                <AvailablePropertyBuyBlock
+                                  prop={prop}
+                                  user={user}
+                                  myManagedCompanies={myManagedCompanies}
+                                  onBuyProperty={onBuyProperty}
+                                  onCompanyBuyProperty={onCompanyBuyProperty}
+                                />
                               </PropertyCard>
                             ))}
                           </div>

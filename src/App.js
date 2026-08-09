@@ -1557,6 +1557,15 @@ export default function App() {
                       onCreateProperty={actions.onCreateProperty}
                       onDeleteProperty={actions.onDeleteProperty}
                       onEditProperty={actions.onEditProperty}
+                      onCancelPropertySale={actions.onCancelPropertySale}
+                      onCancelPropertyRental={actions.onCancelPropertyRental}
+                      onEvictTenant={actions.onEvictTenant}
+                      onAddPropertyStaff={actions.onAddPropertyStaff}
+                      onRemovePropertyStaff={actions.onRemovePropertyStaff}
+                      onAddGarrison={actions.onAddGarrison}
+                      onRemoveGarrison={actions.onRemoveGarrison}
+                      onReleasePrisoner={actions.onReleasePrisoner}
+                      onCheckoutRoom={actions.onCheckoutRoom}
                     />
                   )}
 

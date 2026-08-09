@@ -295,6 +295,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         evicted_nonpayment: { title: "Bail résilié (impayé)",    icon: "Building2", desc: (a) => `Loyer impayé — vous avez quitté ${a.propertyName}` },
         rent_failed:        { title: "Loyer impayé",             icon: "Building2", desc: (a) => `${a.otherName} n'a pas pu payer le loyer de ${a.propertyName}` },
         staff_unpaid:       { title: "Salaire impayé",           icon: "Building2", desc: (a) => `Le propriétaire de ${a.propertyName} n'a pas pu vous verser ${formatMoney(a.amount)}` },
+        owner_changed:      { title: "Changement de bailleur",   icon: "Building2", desc: (a) => `${a.propertyName} a été vendu à ${a.otherName} — votre location continue avec le nouveau propriétaire` },
       };
       (state?.propertyAlerts || [])
         .filter((a) => String(a.toId) === String(user.id))

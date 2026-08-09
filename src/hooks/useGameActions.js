@@ -262,6 +262,19 @@ export const useGameActions = (session, state, saveState, notify) => {
     const isCompanyManager = (company, sessionId) =>
       !!company && (String(company.ownerId) === String(sessionId) || String(company.ceoId) === String(sessionId));
 
+    // Un bien détenu par une entreprise est géré par son dirigeant (propriétaire ou PDG
+    // délégué, cf. isCompanyManager) ; un rôle impérial de haut niveau garde systématiquement
+    // la main, comme pour la liste d'invités (onAddPropertyGuest).
+    const isPropertyManager = (prop, sessionId) => {
+      if (!prop) return false;
+      if (String(prop.ownerId) === String(sessionId)) return true;
+      if (prop.ownerType === "COMPANY") {
+        const company = (state.companies || []).find((c) => c.id === prop.ownerId);
+        if (isCompanyManager(company, sessionId)) return true;
+      }
+      return ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session?.role);
+    };
+
     return wrapActions({
       onPassDay: () => {
         let ns = structuredClone(state);
@@ -5301,9 +5314,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           rumors: [], // Auberge: [{id, text, timestamp}]
           menu: [], // Auberge: [{itemName, price, stock}]
           production: null, // Ferme: {itemName, qtyPerDay, lastProduced}
-          farmWorkers: [], // Ferme: [{id, name, salary}]
-          craftRecipes: [], // Atelier: [{id, inputItem, inputQty, outputItem, outputQty}]
-          commissions: [], // Atelier: [{id, clientId, clientName, recipe, status, date}]
+          craftRecipes: [], // Atelier: [{id, inputItem, inputQty, outputItem, outputQty}] — indicatif, sans transformation automatique
           shopStock: [], // Commerce: [{itemName, qty, price}]
           staff: [], // Commun: [{id, name, role, salary}]
           propertyEvents: [], // Commun: [{id, title, desc, date}]
@@ -5367,7 +5378,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const prop = properties[pIdx];
-        if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
+        if (!isPropertyManager(prop, session.id)) { notify("Ce n'est pas votre propriété.", "error"); return; }
         const pr = parseFloat(price);
         if (!pr || pr <= 0) { notify("Prix invalide.", "error"); return; }
         properties[pIdx] = { ...prop, forSale: true, salePrice: pr };
@@ -5380,7 +5391,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
-        if (properties[pIdx].ownerId !== session.id) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Ce n'est pas votre propriété.", "error"); return; }
         properties[pIdx] = { ...properties[pIdx], forSale: false, salePrice: 0 };
         saveState({ ...state, properties });
         notify("Vente annulée.", "info");
@@ -5397,26 +5408,33 @@ export const useGameActions = (session, state, saveState, notify) => {
         const buyerIdx = state.citizens.findIndex((c) => c.id === session.id);
         const sellerIdx = state.citizens.findIndex((c) => c.id === prop.ownerId);
         if (buyerIdx === -1) return;
+        // Vendeur introuvable (compte supprimé) : on bloque plutôt que de débiter l'acheteur
+        // sans personne à créditer — l'argent partirait sinon dans le vide.
+        if (sellerIdx === -1) { notify("Le vendeur de ce bien n'existe plus, transaction annulée.", "error"); return; }
         const buyer = state.citizens[buyerIdx];
         if ((buyer.balance || 0) < prop.salePrice) { notify("Fonds insuffisants.", "error"); return; }
         const newCitizens = [...state.citizens];
         newCitizens[buyerIdx] = { ...buyer, balance: buyer.balance - prop.salePrice };
-        if (sellerIdx !== -1) {
-          newCitizens[sellerIdx] = { ...newCitizens[sellerIdx], balance: (newCitizens[sellerIdx].balance || 0) + prop.salePrice };
-        }
+        newCitizens[sellerIdx] = { ...newCitizens[sellerIdx], balance: (newCitizens[sellerIdx].balance || 0) + prop.salePrice };
+        // Le changement de bailleur est silencieux pour le locataire/le personnel en place —
+        // on prévient au moins le locataire actuel, puisque son loyer ira désormais au nouvel
+        // acquéreur (onPassDay relit prop.ownerId en direct).
+        const previousTenantId = prop.rental?.tenantId;
         properties[pIdx] = { ...prop, ownerId: session.id, ownerName: buyer.name, forSale: false, salePrice: 0 };
         const ledgerEntry = {
           id: Date.now(),
           fromName: buyer.name,
-          toName: sellerIdx !== -1 ? newCitizens[sellerIdx].name : prop.ownerName,
+          toName: newCitizens[sellerIdx].name,
           amount: prop.salePrice,
           timestamp: Date.now(),
           reason: `Achat propriété: ${prop.name}`,
           type: "PROPERTY_PURCHASE",
         };
-        const propertyAlerts = sellerIdx !== -1
-          ? [...(state.propertyAlerts || []), { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: prop.ownerId, type: "sold", propertyId: prop.id, propertyName: prop.name, otherName: buyer.name, amount: prop.salePrice, timestamp: Date.now() }]
-          : (state.propertyAlerts || []);
+        const propertyAlerts = [
+          ...(state.propertyAlerts || []),
+          { id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: prop.ownerId, type: "sold", propertyId: prop.id, propertyName: prop.name, otherName: buyer.name, amount: prop.salePrice, timestamp: Date.now() },
+          ...(previousTenantId ? [{ id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}t`, toId: previousTenantId, type: "owner_changed", propertyId: prop.id, propertyName: prop.name, otherName: buyer.name, timestamp: Date.now() }] : []),
+        ];
         saveState({
           ...state,
           citizens: newCitizens,
@@ -5438,7 +5456,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const companies = [...(state.companies || [])];
         const cIdx = companies.findIndex((c) => c.id === companyId);
         if (cIdx === -1) return;
-        if (companies[cIdx].ownerId !== session.id) { notify("Vous n'êtes pas le dirigeant.", "error"); return; }
+        if (!isCompanyManager(companies[cIdx], session.id)) { notify("Vous n'êtes pas le dirigeant.", "error"); return; }
         if ((companies[cIdx].balance || 0) < prop.price) { notify("L'entreprise n'a pas assez de fonds.", "error"); return; }
         companies[cIdx] = { ...companies[cIdx], balance: companies[cIdx].balance - prop.price };
         properties[pIdx] = { ...prop, ownerId: companyId, ownerName: companies[cIdx].name, ownerType: "COMPANY" };
@@ -5454,9 +5472,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const prop = properties[pIdx];
-        // Vérifier que le joueur ou son entreprise possède la propriété
-        const isOwner = prop.ownerId === session.id || (prop.ownerType === "COMPANY" && (state.companies || []).find((c) => c.id === prop.ownerId && c.ownerId === session.id));
-        if (!isOwner) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
+        if (!isPropertyManager(prop, session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         properties[pIdx] = { ...prop, [featureKey]: featureValue };
         saveState({ ...state, properties });
       },
@@ -5467,6 +5483,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const citizen = (state.citizens || []).find((c) => c.id === citizenId);
         if (!citizen) return;
         const garrison = [...(properties[pIdx].garrison || [])];
@@ -5482,6 +5499,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         properties[pIdx] = { ...properties[pIdx], garrison: (properties[pIdx].garrison || []).filter((g) => g.id !== citizenId) };
         saveState({ ...state, properties });
         notify("Retiré de la garnison.", "info");
@@ -5498,6 +5516,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const citizen = (state.citizens || []).find((c) => c.id === citizenId);
         if (!citizen) return;
         if (citizen.status === "Prisonnier") { notify("Ce citoyen est déjà incarcéré.", "error"); return; }
@@ -5514,6 +5533,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const citizen = (state.citizens || []).find((c) => c.id === citizenId);
         properties[pIdx] = { ...properties[pIdx], dungeon: (properties[pIdx].dungeon || []).filter((d) => d.citizenId !== citizenId) };
         const newCitizens = (state.citizens || []).map((c) => c.id === citizenId ? { ...c, status: "Actif" } : c);
@@ -5541,6 +5561,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const audiences = (properties[pIdx].audiences || []).map((a) => a.id === audienceId ? { ...a, status } : a);
         properties[pIdx] = { ...properties[pIdx], audiences };
         saveState({ ...state, properties });
@@ -5553,7 +5574,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
-        properties[pIdx] = { ...properties[pIdx], rooms };
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
+        // Une chambre occupée ne doit pas pouvoir perdre son locataire ou disparaître via un
+        // simple remplacement du tableau — on préserve l'occupation en cours dans tous les cas.
+        const existingRooms = properties[pIdx].rooms || [];
+        const existingById = new Map(existingRooms.map((r) => [r.id, r]));
+        const merged = rooms.map((r) => {
+          const prev = existingById.get(r.id);
+          return prev && prev.tenantId ? { ...r, tenantId: prev.tenantId, tenantName: prev.tenantName } : r;
+        });
+        const mergedIds = new Set(merged.map((r) => r.id));
+        const droppedOccupied = existingRooms.filter((r) => r.tenantId && !mergedIds.has(r.id));
+        properties[pIdx] = { ...properties[pIdx], rooms: [...merged, ...droppedOccupied] };
         saveState({ ...state, properties });
         notify("Chambres mises à jour.", "success");
       },
@@ -5595,6 +5627,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        const room = (properties[pIdx].rooms || []).find((r) => r.id === roomId);
+        if (!room) return;
+        const isTenant = String(room.tenantId) === String(session.id);
+        if (!isTenant && !isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne pouvez pas libérer cette chambre.", "error"); return; }
         const rooms = (properties[pIdx].rooms || []).map((r) => r.id === roomId ? { ...r, tenantId: null, tenantName: null } : r);
         properties[pIdx] = { ...properties[pIdx], rooms };
         saveState({ ...state, properties });
@@ -5634,6 +5670,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         properties[pIdx] = { ...properties[pIdx], rumors: (properties[pIdx].rumors || []).filter((r) => r.id !== rumorId) };
         saveState({ ...state, properties });
       },
@@ -5714,6 +5751,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const staff = [...(properties[pIdx].staff || [])];
         if (staff.find((s) => s.id === citizenId)) { notify("Déjà employé.", "error"); return; }
         staff.push({ id: citizenId, name: citizen.name, role: role || "Employé", salary: parseFloat(salary) || 0 });
@@ -5727,6 +5765,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const staff = (properties[pIdx].staff || []).map((s) =>
           s.id === citizenId ? { ...s, role: role !== undefined ? (role || "Employé") : s.role, salary: salary !== undefined ? (parseFloat(salary) || 0) : s.salary } : s
         );
@@ -5740,6 +5779,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         properties[pIdx] = { ...properties[pIdx], staff: (properties[pIdx].staff || []).filter((s) => s.id !== citizenId) };
         saveState({ ...state, properties });
         notify("Employé retiré.", "info");
@@ -5755,10 +5795,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const prop = properties[pIdx];
-        const isOwner = String(prop.ownerId) === String(session.id)
-          || (prop.ownerType === "COMPANY" && (state.companies || []).some((c) => c.id === prop.ownerId && String(c.ownerId) === String(session.id)))
-          || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
-        if (!isOwner) { notify("Seul le propriétaire peut inviter un visiteur.", "error"); return; }
+        if (!isPropertyManager(prop, session.id)) { notify("Seul le propriétaire peut inviter un visiteur.", "error"); return; }
         const guestList = [...(prop.guestList || [])];
         if (guestList.find((g) => g.id === citizenId)) { notify("Déjà invité(e).", "error"); return; }
         guestList.push({ id: citizenId, name: citizen.name });
@@ -5773,10 +5810,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const prop = properties[pIdx];
-        const isOwner = String(prop.ownerId) === String(session.id)
-          || (prop.ownerType === "COMPANY" && (state.companies || []).some((c) => c.id === prop.ownerId && String(c.ownerId) === String(session.id)))
-          || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
-        if (!isOwner) { notify("Seul le propriétaire peut retirer un invité.", "error"); return; }
+        if (!isPropertyManager(prop, session.id)) { notify("Seul le propriétaire peut retirer un invité.", "error"); return; }
         properties[pIdx] = { ...prop, guestList: (prop.guestList || []).filter((g) => g.id !== citizenId) };
         saveState({ ...state, properties });
         notify("Invité retiré.", "info");
@@ -5788,6 +5822,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         const events = [...(properties[pIdx].propertyEvents || [])];
         events.push({ id: Date.now(), title, desc: desc || "", date: date || "" });
         properties[pIdx] = { ...properties[pIdx], propertyEvents: events };
@@ -5800,6 +5835,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Vous ne gérez pas cette propriété.", "error"); return; }
         properties[pIdx] = { ...properties[pIdx], propertyEvents: (properties[pIdx].propertyEvents || []).filter((e) => e.id !== eventId) };
         saveState({ ...state, properties });
       },
@@ -5811,7 +5847,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const prop = properties[pIdx];
-        if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
+        if (!isPropertyManager(prop, session.id)) { notify("Ce n'est pas votre propriété.", "error"); return; }
         const rate = parseFloat(dailyRate);
         if (!rate || rate <= 0) { notify("Tarif invalide.", "error"); return; }
         if (prop.rental && prop.rental.tenantId) { notify("Un locataire occupe déjà ce bien.", "error"); return; }
@@ -5825,7 +5861,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
-        if (properties[pIdx].ownerId !== session.id) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) { notify("Ce n'est pas votre propriété.", "error"); return; }
         properties[pIdx] = { ...properties[pIdx], rental: null };
         saveState({ ...state, properties });
         notify("Annonce de location retirée.", "info");
@@ -5884,7 +5920,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const prop = properties[pIdx];
-        if (prop.ownerId !== session.id) { notify("Ce n'est pas votre propriété.", "error"); return; }
+        if (!isPropertyManager(prop, session.id)) { notify("Ce n'est pas votre propriété.", "error"); return; }
         if (!prop.rental || !prop.rental.tenantId) { notify("Aucun locataire.", "error"); return; }
         const tenantName = prop.rental.tenantName;
         const tenantId = prop.rental.tenantId;

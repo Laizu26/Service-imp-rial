@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import {
   MapPin, Shield, Users, MessageSquare, Lock, Home, Utensils, Eye,
   Package, Hammer, ShoppingBag, Calendar, Plus, Trash2, X, ArrowLeft,
-  Coins, Crown, UserPlus, Pencil, Save,
+  Coins, Crown, UserPlus, Pencil, Save, Building2, Tag, Key, Banknote,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -15,9 +15,105 @@ const PROP_TYPES = {
   BATEAU: "Bateau",
 };
 
+/* ── Bloc financier : prix, vente, location — jusque-là absent de cette fiche détail,
+   on devait retourner au Registre Foncier pour voir/agir sur ces informations. ── */
+const FinancialPanel = ({ prop, user, isOwner, ownerCompany,
+  onSellProperty, onCancelPropertySale, onBuyPropertyFromPlayer,
+  onListPropertyForRent, onCancelPropertyRental, onEvictTenant,
+  onRentProperty, onLeaveTenancy,
+}) => {
+  const [salePrice, setSalePrice] = useState(prop.salePrice || "");
+  const [rentRate, setRentRate] = useState(prop.rental?.dailyRate || "");
+  const isTenant = prop.rental && String(prop.rental.tenantId) === String(user?.id);
+
+  return (
+    <div className="bg-white border border-stone-200 rounded-2xl p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <div>
+          <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Valeur estimée</div>
+          <div className="text-xl font-black font-mono text-amber-700">{formatMoney(prop.price || 0)}</div>
+        </div>
+        {(prop.income || 0) > 0 && (
+          <div>
+            <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Revenu</div>
+            <div className="text-xl font-black font-mono text-green-600">+{formatMoney(prop.income)}/j</div>
+          </div>
+        )}
+        {ownerCompany && (
+          <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-1.5 text-xs font-bold text-indigo-700">
+            <Building2 size={12} /> Détenu par {ownerCompany.name}
+          </div>
+        )}
+      </div>
+
+      {isOwner ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-stone-100">
+          {/* Vente */}
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
+            <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest flex items-center gap-1"><Tag size={10} /> Vente</div>
+            {prop.forSale ? (
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-black text-amber-700">{formatMoney(prop.salePrice)}</span>
+                <button onClick={() => onCancelPropertySale?.(prop.id)} className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Retirer</button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input type="number" step="0.1" className="flex-1 p-1.5 border rounded-lg text-xs font-mono" placeholder="Prix" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
+                <button onClick={() => onSellProperty?.(prop.id, salePrice)} disabled={!parseFloat(salePrice)} className="bg-amber-500 text-stone-900 px-3 rounded-lg text-[10px] font-black uppercase disabled:opacity-40">Mettre en vente</button>
+              </div>
+            )}
+          </div>
+          {/* Location */}
+          <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
+            <div className="text-[9px] font-black uppercase text-stone-500 tracking-widest flex items-center gap-1"><Key size={10} /> Location</div>
+            {prop.rental && prop.rental.tenantId ? (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-sky-700 font-bold">{prop.rental.tenantName} — {formatMoney(prop.rental.dailyRate)}/j</span>
+                <button onClick={() => onEvictTenant?.(prop.id)} className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Expulser</button>
+              </div>
+            ) : prop.rental ? (
+              <div className="flex items-center justify-between">
+                <span className="font-mono font-black text-sky-700">{formatMoney(prop.rental.dailyRate)}/j</span>
+                <button onClick={() => onCancelPropertyRental?.(prop.id)} className="text-red-500 text-[10px] font-black uppercase border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Retirer</button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input type="number" step="0.1" className="flex-1 p-1.5 border rounded-lg text-xs font-mono" placeholder="Tarif/jour" value={rentRate} onChange={(e) => setRentRate(e.target.value)} />
+                <button onClick={() => onListPropertyForRent?.(prop.id, rentRate)} disabled={!parseFloat(rentRate)} className="bg-sky-600 text-white px-3 rounded-lg text-[10px] font-black uppercase disabled:opacity-40">Louer</button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-stone-100">
+          {prop.forSale && (
+            <button onClick={() => onBuyPropertyFromPlayer?.(prop.id)} disabled={(user?.balance || 0) < prop.salePrice}
+              className="flex items-center gap-1.5 bg-amber-500 text-stone-900 px-4 py-2 rounded-lg font-black text-[10px] uppercase disabled:opacity-40 hover:bg-amber-400 transition-colors">
+              <Coins size={12} /> Acheter pour {formatMoney(prop.salePrice)}
+            </button>
+          )}
+          {isTenant ? (
+            <button onClick={() => onLeaveTenancy?.(prop.id)} className="flex items-center gap-1.5 text-red-500 border border-red-200 px-4 py-2 rounded-lg font-black text-[10px] uppercase hover:bg-red-50 transition-colors">
+              Quitter la location
+            </button>
+          ) : prop.rental && !prop.rental.tenantId ? (
+            <button onClick={() => onRentProperty?.(prop.id)} disabled={(user?.balance || 0) < prop.rental.dailyRate}
+              className="flex items-center gap-1.5 bg-sky-600 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase disabled:opacity-40 hover:bg-sky-500 transition-colors">
+              <Banknote size={12} /> Louer pour {formatMoney(prop.rental.dailyRate)}/j
+            </button>
+          ) : null}
+          {!prop.forSale && !prop.rental && <span className="text-xs text-stone-400 italic">Ce bien n'est ni à vendre, ni à louer.</span>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PropertyDetailView = ({
   property,
   citizens = [],
+  companies = [],
+  countries = [],
   user,
   session,
   isOwner,
@@ -32,6 +128,9 @@ const PropertyDetailView = ({
   onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
   onAddPropertyGuest, onRemovePropertyGuest,
   onAddPropertyEvent, onRemovePropertyEvent,
+  onSellProperty, onCancelPropertySale, onBuyPropertyFromPlayer,
+  onListPropertyForRent, onCancelPropertyRental, onEvictTenant,
+  onRentProperty, onLeaveTenancy,
   onBack,
 }) => {
   const prop = property;
@@ -86,23 +185,42 @@ const PropertyDetailView = ({
   const isCommerce = type === "COMMERCE";
   const isBateau = type === "BATEAU";
 
+  const ownerCompany = prop.ownerType === "COMPANY" ? companies.find((c) => c.id === prop.ownerId) : null;
+  const country = countries.find((c) => c.id === prop.countryId);
+  const region = country ? (country.regions || []).find((r) => r.id === prop.regionId) : null;
+  const location = country ? (region ? `${region.name}, ${country.name}` : country.name) : prop.location;
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* En-tête */}
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-stone-400 hover:text-stone-600 p-1"><ArrowLeft size={20} /></button>
-        <MapPin size={24} className="text-stone-400" />
-        <div>
-          <h2 className="text-2xl font-black font-serif text-stone-800">{prop.name}</h2>
-          <div className="flex items-center gap-2 text-xs text-stone-400">
-            <span className="bg-stone-100 text-stone-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{PROP_TYPES[type] || type}</span>
-            {prop.location && <span>{prop.location}</span>}
-            <span>Propriétaire : {prop.ownerName}{prop.ownerType === "COMPANY" ? " (Entreprise)" : ""}</span>
+      <div className="bg-gradient-to-br from-stone-900 to-amber-950/30 border border-amber-900/40 rounded-2xl p-5 relative overflow-hidden">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-8xl opacity-5 select-none">🏛️</div>
+        <div className="relative">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-stone-400 hover:text-amber-300 text-[10px] font-black uppercase tracking-widest mb-3 transition-colors">
+            <ArrowLeft size={14} /> Retour au Registre
+          </button>
+          <div className="flex items-start gap-3">
+            <MapPin size={24} className="text-amber-400 shrink-0 mt-1" />
+            <div className="min-w-0">
+              <h2 className="text-2xl font-black font-serif text-stone-100 truncate">{prop.name}</h2>
+              <div className="flex items-center gap-2 text-xs text-stone-400 flex-wrap mt-1">
+                <span className="bg-amber-900/30 border border-amber-800/40 text-amber-300 px-2 py-0.5 rounded text-[9px] font-bold uppercase">{PROP_TYPES[type] || type}</span>
+                {location && <span>{location}</span>}
+                {prop.ownerName && <span>· Propriétaire : {prop.ownerName}{prop.ownerType === "COMPANY" ? " (Entreprise)" : ""}</span>}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {prop.description && <p className="text-sm text-stone-600 bg-stone-50 border border-stone-200 rounded-lg p-3">{prop.description}</p>}
+
+      <FinancialPanel
+        prop={prop} user={user} isOwner={isOwner} ownerCompany={ownerCompany}
+        onSellProperty={onSellProperty} onCancelPropertySale={onCancelPropertySale} onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
+        onListPropertyForRent={onListPropertyForRent} onCancelPropertyRental={onCancelPropertyRental} onEvictTenant={onEvictTenant}
+        onRentProperty={onRentProperty} onLeaveTenancy={onLeaveTenancy}
+      />
 
       {/* === CHÂTEAU / MANOIR === */}
       {isChateau && (
@@ -361,6 +479,7 @@ const PropertyDetailView = ({
       {isAtelier && (
         <Card title="Atelier de Fabrication" icon={Hammer}>
           <div className="space-y-2">
+            <p className="text-[10px] text-stone-400 -mt-1 mb-1">Recettes indicatives — la production reste à organiser en jeu (RP), aucune transformation automatique n'a lieu.</p>
             {(prop.craftRecipes || []).length === 0 && <p className="text-stone-400 text-xs italic">Aucune recette configurée.</p>}
             {(prop.craftRecipes || []).map((r) => (
               <div key={r.id} className="bg-stone-50 border border-stone-200 rounded px-3 py-2 text-xs">
