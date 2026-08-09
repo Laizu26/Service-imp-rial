@@ -247,7 +247,7 @@ export default function App() {
   const { grouped: adminGrouped, unreadCount: adminUnreadCount, dismiss: adminDismiss, dismissAll: adminDismissAll } = useNotifications(
     currentUser,
     state.citizens || [],
-    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [], mushtagramNotifs: state.mushtagramNotifs || [], propertyAlerts: state.propertyAlerts || [], bourseAlerts: state.bourseAlerts || [], staffLoanAlerts: state.staffLoanAlerts || [] },
+    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [], mushtagramNotifs: state.mushtagramNotifs || [], propertyAlerts: state.propertyAlerts || [], bourseAlerts: state.bourseAlerts || [], staffLoanAlerts: state.staffLoanAlerts || [], magicBondAlerts: state.magicBondAlerts || [] },
     undefined,
     undefined,
     handleDismissedChange
@@ -693,6 +693,8 @@ export default function App() {
             propertyAlerts={state.propertyAlerts || []}
             bourseAlerts={state.bourseAlerts || []}
             staffLoanAlerts={state.staffLoanAlerts || []}
+            magicBondAlerts={state.magicBondAlerts || []}
+            onAcknowledgeMagicBondAlert={actions.onAcknowledgeMagicBondAlert}
             onAddJournalEntry={actions.onAddJournalEntry}
             onEditJournalEntry={actions.onEditJournalEntry}
             onDeleteJournalEntry={actions.onDeleteJournalEntry}

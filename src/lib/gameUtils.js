@@ -256,3 +256,34 @@ export function bondMagicTraces(citizenA, citizenB) {
     hueB: circularHueBlend(hueB, midpoint, 0.35),
   };
 }
+
+// Écart (0-180°) en-dessous duquel deux traces liées entrent en résonance et se figent.
+export const MAGIC_RESONANCE_THRESHOLD_DEG = 6;
+
+function circularHueDistance(hueA, hueB) {
+  const d = Math.abs(hueA - hueB) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/**
+ * Dérive quotidienne d'un couple lié par pacte arcanique : un tirage aléatoire rapproche ou
+ * éloigne les deux traces magiques d'une petite fraction du chemin qui les sépare. Si l'écart
+ * devient très faible, la résonance est atteinte : les deux teintes se figent à l'identique et
+ * ne dérivent plus jamais (appelant : ne pas rappeler cette fonction pour un couple résonant).
+ */
+export function driftMagicBond(citizenA, citizenB) {
+  const hueA = getEffectiveMagicHue(citizenA);
+  const hueB = getEffectiveMagicHue(citizenB);
+  const midpoint = circularHueBlend(hueA, hueB, 0.5);
+  const direction = Math.random() < 0.5 ? -1 : 1; // -1 = s'éloigne, +1 = se rapproche
+  const magnitude = Math.random() * 0.1; // jusqu'à 10% du chemin vers/depuis le point moyen
+  const weight = direction * magnitude;
+  const newHueA = circularHueBlend(hueA, midpoint, weight);
+  const newHueB = circularHueBlend(hueB, midpoint, weight);
+  const gap = circularHueDistance(newHueA, newHueB);
+  if (gap <= MAGIC_RESONANCE_THRESHOLD_DEG) {
+    const resonantHue = circularHueBlend(newHueA, newHueB, 0.5);
+    return { hueA: resonantHue, hueB: resonantHue, resonance: true };
+  }
+  return { hueA: newHueA, hueB: newHueB, resonance: false };
+}

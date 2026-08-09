@@ -316,6 +316,26 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Résonance arcanique (pacte magique) — la grande alerte plein écran s'affiche
+    // séparément (voir MagicResonanceModal), cette entrée n'assure que la trace dans la cloche.
+    if (prefs.unions !== false) {
+      (state?.magicBondAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          notifs.push({
+            id: `magicbond_${a.id}`,
+            type: "magic_resonance",
+            category: "Liens & Unions",
+            title: "Résonance arcanique",
+            description: `Votre trace magique et celle de ${a.spouseName} sont entrées en résonance`,
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "physique_magie",
+            icon: "Sparkles",
+          });
+        });
+    }
+
     // --- Alertes Bourse (dividende reçu, ordre exécuté par une contrepartie) ---
     if (prefs.finances !== false) {
       const BOURSE_ALERT_META = {

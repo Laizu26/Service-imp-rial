@@ -61,6 +61,7 @@ import {
 import NotificationCenter from "../ui/NotificationCenter";
 import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
+import MagicResonanceModal from "../ui/MagicResonanceModal";
 import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive, getActiveStaffLoan } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
@@ -542,6 +543,8 @@ const CitizenLayout = (props) => {
     propertyAlerts = [],
     bourseAlerts = [],
     staffLoanAlerts = [],
+    magicBondAlerts = [],
+    onAcknowledgeMagicBondAlert,
     onAddJournalEntry,
     onEditJournalEntry,
     onDeleteJournalEntry,
@@ -862,11 +865,16 @@ const CitizenLayout = (props) => {
   } = useNotifications(
     user,
     users,
-    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [], propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [] },
+    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [], propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [], magicBondAlerts: magicBondAlerts || [] },
     settings.notifPrefs,
     gd,
     onDismissedChange
   );
+
+  // Résonance arcanique non encore acquittée — une seule à la fois, la plus ancienne d'abord
+  const pendingMagicBondAlert = [...(magicBondAlerts || [])]
+    .filter((a) => String(a.toId) === String(user?.id) && !a.read)
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))[0] || null;
 
   // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
   // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
@@ -1428,6 +1436,13 @@ const CitizenLayout = (props) => {
             <Lock size={12} /> Propriété de :{" "}
             {owner ? owner.name : "L'État (Sans maître)"}
           </div>
+        )}
+
+        {pendingMagicBondAlert && (
+          <MagicResonanceModal
+            alert={pendingMagicBondAlert}
+            onAcknowledge={(alertId) => onAcknowledgeMagicBondAlert && onAcknowledgeMagicBondAlert(alertId)}
+          />
         )}
 
         {/* ══ Drawer mobile ══ */}

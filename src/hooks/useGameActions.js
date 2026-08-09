@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -844,12 +844,73 @@ export const useGameActions = (session, state, saveState, notify) => {
           ns.globalLedger = [...subLedgerEntries, ...(ns.globalLedger || [])];
         }
 
+        // --- Dérive quotidienne des pactes arcaniques (traces magiques) ---
+        // Chaque couple lié par un pacte arcanique voit l'écart entre ses deux traces
+        // magiques varier aléatoirement (rapprochement ou éloignement). Si l'écart devient
+        // très faible, la résonance est atteinte : les deux teintes se figent à l'identique,
+        // une alerte est envoyée aux deux conjoints, et la dérive s'arrête définitivement
+        // pour ce couple.
+        let resonanceCount = 0;
+        const magicBondAlertEntries = [];
+        (ns.citizens || []).forEach((citizen) => {
+          (citizen.spouses || []).forEach((s) => {
+            if (s.contractType !== "arcane") return;
+            if (String(citizen.id) >= String(s.id)) return; // ne traiter chaque paire qu'une fois
+            if ((citizen.magicBond?.resonantWith || []).includes(s.id)) return; // déjà figé
+            const spouseIdx = (ns.citizens || []).findIndex((c) => String(c.id) === String(s.id));
+            if (spouseIdx === -1) return;
+            const citizenIdx = (ns.citizens || []).findIndex((c) => String(c.id) === String(citizen.id));
+            if (citizenIdx === -1) return;
+            const spouse = ns.citizens[spouseIdx];
+
+            const { hueA, hueB, resonance } = driftMagicBond(ns.citizens[citizenIdx], spouse);
+            ns.citizens[citizenIdx] = {
+              ...ns.citizens[citizenIdx],
+              magicBond: {
+                ...ns.citizens[citizenIdx].magicBond,
+                hue: hueA,
+                ...(resonance ? { resonantWith: [...(ns.citizens[citizenIdx].magicBond?.resonantWith || []), spouse.id] } : {}),
+              },
+            };
+            ns.citizens[spouseIdx] = {
+              ...ns.citizens[spouseIdx],
+              magicBond: {
+                ...ns.citizens[spouseIdx].magicBond,
+                hue: hueB,
+                ...(resonance ? { resonantWith: [...(ns.citizens[spouseIdx].magicBond?.resonantWith || []), citizen.id] } : {}),
+              },
+            };
+
+            if (resonance) {
+              resonanceCount++;
+              const ts = Date.now();
+              magicBondAlertEntries.push(
+                { id: `magicbond_${ts}_${Math.random().toString(36).slice(2, 6)}`, toId: citizen.id, spouseId: spouse.id, spouseName: spouse.name, timestamp: ts, read: false },
+                { id: `magicbond_${ts}_${Math.random().toString(36).slice(2, 6)}`, toId: spouse.id, spouseId: citizen.id, spouseName: citizen.name, timestamp: ts, read: false },
+              );
+            }
+          });
+        });
+        if (magicBondAlertEntries.length > 0) {
+          ns.magicBondAlerts = [...magicBondAlertEntries, ...(ns.magicBondAlerts || [])];
+        }
+
         saveState(ns);
         notify(
-          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}${subBillings > 0 ? ` — ${subBillings} abonnement(s) Mushtagram facturé(s)` : ""}${subCancellations > 0 ? ` — ${subCancellations} résilié(s)` : ""}`,
+          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}${subBillings > 0 ? ` — ${subBillings} abonnement(s) Mushtagram facturé(s)` : ""}${subCancellations > 0 ? ` — ${subCancellations} résilié(s)` : ""}${resonanceCount > 0 ? ` — ${resonanceCount} pacte(s) arcanique(s) en résonance !` : ""}`,
           "info"
         );
       },
+
+      // Marque une alerte de résonance arcanique comme lue (ferme le grand rituel affiché).
+      onAcknowledgeMagicBondAlert: (alertId) => {
+        if (!session) return;
+        const alert = (state.magicBondAlerts || []).find((a) => a.id === alertId);
+        if (!alert || String(alert.toId) !== String(session.id)) return;
+        const magicBondAlerts = (state.magicBondAlerts || []).map((a) => a.id === alertId ? { ...a, read: true } : a);
+        saveState({ ...state, magicBondAlerts });
+      },
+
       onAddTreasury: (amount) => {
         const val = parseFloat(amount);
         if (val && !isNaN(val) && val > 0) {
