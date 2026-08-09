@@ -1651,6 +1651,11 @@ const MyCompanyView = ({
   const rates = TYPE_RATES[myCompany.type] || { emp: 10, slave: 8, label: myCompany.type };
   const empCount = (myCompany.employees || []).length;
   const slaveCount = (myCompany.slaves || []).length;
+  // Personnel détaché reçu d'une autre entreprise (voir onglet "Détachement") — doit apparaître
+  // dans l'effectif principal comme un travailleur à part entière, pas seulement dans un onglet séparé.
+  const borrowedInLoans = (staffLoans || []).filter(
+    (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(myCompany.id)
+  );
   const level = myCompany.level || 1;
   const taxRate = (myCompany.taxRate ?? 10) / 100;
   const dailyRevenue = (empCount * rates.emp + slaveCount * rates.slave) * level;
@@ -1820,7 +1825,7 @@ const MyCompanyView = ({
 
               <div className="border-t border-stone-100 pt-2">
                 <div className="text-[10px] font-black uppercase text-stone-400 mb-2">
-                  Effectifs ({empCount + 1})
+                  Effectifs ({empCount + 1 + borrowedInLoans.length})
                 </div>
                 <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
                   {/* Dirigeant */}
@@ -1879,6 +1884,30 @@ const MyCompanyView = ({
                       </div>
                     );
                   })}
+                  {borrowedInLoans.map((loan) => (
+                    <div key={loan.id} className="py-2 border-b border-stone-100 last:border-0">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-stone-700 text-sm">{loan.employeeName}</span>
+                          <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200 flex items-center gap-0.5">
+                            <ArrowLeftRight size={9} /> Détaché — {loan.fromCompanyName}
+                          </span>
+                          <span className="text-[9px] text-stone-400 font-mono">{formatMoney(loan.dailyRate)}/j</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => { setActiveTab("loans"); setManagingLoanId(loan.id); setLoanPermsDraft(loan.permissions || {}); }}
+                            className="text-stone-500 border border-stone-300 hover:border-stone-500 hover:text-stone-700 text-[9px] font-black uppercase px-2 py-1 rounded">
+                            Gérer
+                          </button>
+                          <button onClick={() => onEndStaffLoan && onEndStaffLoan(loan.id, "ENDED")}
+                            className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50">
+                            Mettre fin
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
