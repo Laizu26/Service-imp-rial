@@ -79,8 +79,7 @@ const HexTile = ({ q, r, fill, stroke = "#3f3a34", Icon, label, badge, isCurrent
 // ── Point "citoyen" — coloré selon sa trace magique (même teinte que l'orbe de Physique &
 // Magie), affiché sur la grille de la Ville. Cliquer son propre point permet de se déplacer
 // (clic-clic) ; cliquer un autre citoyen ouvre un résumé de son registre. ──
-const CitizenDot = ({ citizen, q, r, isSelf, isMoving, onClick }) => {
-  const [x, y] = axialToPixel(q, r, SIZE);
+const CitizenDot = ({ citizen, x, y, isSelf, isMoving, onClick }) => {
   const hue = getEffectiveMagicHue(citizen);
   return (
     <g
@@ -435,24 +434,48 @@ const WorldMapView = ({
                     />
                   );
                 })}
-                {cityCitizens.map((c) => {
-                  const isSelf = String(c.id) === String(user.id);
-                  const validPos = c.cityHexRegionId === displayRegion?.id;
-                  const pos = validPos ? { q: c.cityHexQ, r: c.cityHexR } : getFallbackHex(`${c.id}_self`);
-                  return (
-                    <CitizenDot
-                      key={c.id}
-                      citizen={c}
-                      q={pos.q} r={pos.r}
-                      isSelf={isSelf}
-                      isMoving={movingSelf}
-                      onClick={() => {
-                        if (isSelf) setMovingSelf((v) => !v);
-                        else if (!movingSelf) setSelectedCitizenId(c.id);
-                      }}
-                    />
-                  );
-                })}
+                {(() => {
+                  // Répartir les citoyens en cercle autour du centre de la case quand plusieurs
+                  // partagent la même cellule — sinon leurs points se superposent exactement.
+                  const groups = new Map();
+                  cityCitizens.forEach((c) => {
+                    const validPos = c.cityHexRegionId === displayRegion?.id;
+                    const pos = validPos ? { q: c.cityHexQ, r: c.cityHexR } : getFallbackHex(`${c.id}_self`);
+                    const key = `${pos.q}_${pos.r}`;
+                    if (!groups.has(key)) groups.set(key, { pos, members: [] });
+                    groups.get(key).members.push(c);
+                  });
+                  const dots = [];
+                  groups.forEach(({ pos, members }) => {
+                    const [cx, cy] = axialToPixel(pos.q, pos.r, SIZE);
+                    members.forEach((c, i) => {
+                      let dx = 0, dy = 0;
+                      if (members.length > 1) {
+                        const angle = (2 * Math.PI * i) / members.length - Math.PI / 2;
+                        const spread = Math.min(16, 8 + members.length * 1.5);
+                        dx = spread * Math.cos(angle);
+                        dy = spread * Math.sin(angle);
+                      }
+                      dots.push({ citizen: c, x: cx + dx, y: cy + dy });
+                    });
+                  });
+                  return dots.map(({ citizen: c, x, y }) => {
+                    const isSelf = String(c.id) === String(user.id);
+                    return (
+                      <CitizenDot
+                        key={c.id}
+                        citizen={c}
+                        x={x} y={y}
+                        isSelf={isSelf}
+                        isMoving={movingSelf}
+                        onClick={() => {
+                          if (isSelf) setMovingSelf((v) => !v);
+                          else if (!movingSelf) setSelectedCitizenId(c.id);
+                        }}
+                      />
+                    );
+                  });
+                })()}
               </>
             )}
           </svg>
