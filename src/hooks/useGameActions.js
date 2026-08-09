@@ -7949,9 +7949,28 @@ export const useGameActions = (session, state, saveState, notify) => {
           createdAt: Date.now(),
           readByRecipient: false,
         };
+        // Une conversation active pousse un message par échange RP — regrouper plutôt que
+        // créer une entrée par message évite un mur de notifications individuelles sur une
+        // négociation un peu longue : on met à jour l'entrée non lue existante (compteur +
+        // horodatage) au lieu d'en empiler une nouvelle.
         const existingNotifs = state.mushtagramNotifs || [];
-        const dmNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(toId), type: "dm", fromId: String(session.id), fromName: session.name, content: content.trim().slice(0, 60), timestamp: Date.now(), read: false, priority: "high" };
-        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs: [...existingNotifs, dmNotif] });
+        const existingIdx = existingNotifs.findIndex((n) =>
+          n.type === "dm" && String(n.fromId) === String(session.id) && String(n.toId) === String(toId) && !n.read
+        );
+        let mushtagramNotifs;
+        if (existingIdx !== -1) {
+          mushtagramNotifs = [...existingNotifs];
+          mushtagramNotifs[existingIdx] = {
+            ...mushtagramNotifs[existingIdx],
+            content: content.trim().slice(0, 60),
+            count: (mushtagramNotifs[existingIdx].count || 1) + 1,
+            timestamp: Date.now(),
+          };
+        } else {
+          const dmNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(toId), type: "dm", fromId: String(session.id), fromName: session.name, content: content.trim().slice(0, 60), timestamp: Date.now(), read: false, priority: "high", count: 1 };
+          mushtagramNotifs = [...existingNotifs, dmNotif];
+        }
+        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs });
       },
 
       onDeleteMushtagramDM: (dmId) => {
@@ -7991,12 +8010,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, mushtagramNotifs: notifs });
       },
 
+      // Marque les messages d'une conversation comme lus ET la ou les notifications de la
+      // cloche correspondantes — auparavant seul mushtagramDMs.readByRecipient était mis à
+      // jour ici, laissant les entrées de mushtagramNotifs bloquées sur read:false même après
+      // lecture effective (une resynchronisation ne se faisait qu'au travers d'un useEffect
+      // fragile côté UI, déclenché uniquement en cliquant précisément la conversation dans
+      // l'onglet Messages — jamais depuis un clic sur la notification elle-même).
       onMarkMushtagramDMsRead: (fromId) => {
         if (!session) return;
         const dms = (state.mushtagramDMs || []).map((dm) =>
           dm.fromId === fromId && dm.toId === session.id ? { ...dm, readByRecipient: true } : dm
         );
-        saveState({ ...state, mushtagramDMs: dms });
+        const mushtagramNotifs = (state.mushtagramNotifs || []).map((n) =>
+          n.type === "dm" && String(n.fromId) === String(fromId) && String(n.toId) === String(session.id) ? { ...n, read: true } : n
+        );
+        saveState({ ...state, mushtagramDMs: dms, mushtagramNotifs });
       },
 
       onFollowMushtagram: (userId) => {
@@ -8338,7 +8366,8 @@ export const useGameActions = (session, state, saveState, notify) => {
             ? { ...c, mushtagramPublicPersonality: "approved" }
             : c
         );
-        saveState({ ...state, citizens: updated });
+        const ppNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(citizenId), type: "pp_status", status: "approved", fromName: "Administration Impériale", content: "Statut Personnalité Publique accordé : paliers de contenu payant illimités, publications réservées aux abonnés et badge de profil débloqués.", timestamp: Date.now(), read: false, priority: "high" };
+        saveState({ ...state, citizens: updated, mushtagramNotifs: [...(state.mushtagramNotifs || []), ppNotif] });
         notify("Statut Personnalité Publique accordé.", "success");
       },
 
@@ -8349,7 +8378,8 @@ export const useGameActions = (session, state, saveState, notify) => {
             ? { ...c, mushtagramPublicPersonality: "rejected" }
             : c
         );
-        saveState({ ...state, citizens: updated });
+        const ppNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(citizenId), type: "pp_status", status: "rejected", fromName: "Administration Impériale", content: "Demande de statut Personnalité Publique refusée. Une nouvelle demande peut être soumise à tout moment.", timestamp: Date.now(), read: false, priority: "high" };
+        saveState({ ...state, citizens: updated, mushtagramNotifs: [...(state.mushtagramNotifs || []), ppNotif] });
         notify("Demande refusée.", "info");
       },
 
@@ -8360,7 +8390,8 @@ export const useGameActions = (session, state, saveState, notify) => {
             ? { ...c, mushtagramPublicPersonality: "rejected" }
             : c
         );
-        saveState({ ...state, citizens: updated });
+        const ppNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(citizenId), type: "pp_status", status: "revoked", fromName: "Administration Impériale", content: "Statut Personnalité Publique révoqué par l'administration.", timestamp: Date.now(), read: false, priority: "high" };
+        saveState({ ...state, citizens: updated, mushtagramNotifs: [...(state.mushtagramNotifs || []), ppNotif] });
         notify("Statut Personnalité Publique révoqué.", "success");
       },
 

@@ -411,15 +411,21 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
             )}
           </div>
           {tipOpen && (
-            <div className="flex items-center gap-2 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              <input type="number" min={0.1} step={0.1} value={tipAmount} onChange={e => setTipAmount(e.target.value)}
-                placeholder="Montant en écus"
-                className="flex-1 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
-              <button
-                onClick={() => { if (Number(tipAmount) > 0) { onTip({ toId: citizenId, amount: Number(tipAmount) }); setTipAmount(""); setTipOpen(false); } }}
-                className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors">
-                Envoyer
-              </button>
+            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 space-y-2">
+              <p className="text-[10px] text-amber-800 leading-snug">
+                Don en écus, prélevé immédiatement sur votre bourse et versé directement au destinataire — irréversible,
+                distinct du contenu payant (PPV) qui verrouille une publication.
+              </p>
+              <div className="flex items-center gap-2">
+                <input type="number" min={0.1} step={0.1} value={tipAmount} onChange={e => setTipAmount(e.target.value)}
+                  placeholder="Montant en écus"
+                  className="flex-1 px-2 py-1 bg-white border border-amber-200 rounded text-xs text-stone-800 outline-none focus:border-amber-400" />
+                <button
+                  onClick={() => { if (Number(tipAmount) > 0) { onTip({ toId: citizenId, amount: Number(tipAmount) }); setTipAmount(""); setTipOpen(false); } }}
+                  className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors">
+                  Envoyer
+                </button>
+              </div>
             </div>
           )}
           {/* Badges */}
@@ -1379,9 +1385,10 @@ export default function MushtagramView({
   ], [guilds, companies]);
   const authorResolutionCitizens = useMemo(() => [...citizens, ...entityProfiles], [citizens, entityProfiles]);
   const myLeaderGuilds = useMemo(() => guilds.filter(g => String(g.leaderId) === myId), [guilds, myId]);
-  // Compagnies au nom desquelles je peux publier : propriétaire, ou employé auquel l'accès a été délégué.
+  // Compagnies au nom desquelles je peux publier : propriétaire, PDG délégué, ou employé auquel l'accès a été délégué
+  // — doit rester aligné avec l'autorisation réelle du backend (isCompanyManager) dans onPostMushtagram.
   const myOwnerCompanies = useMemo(() => companies.filter(c =>
-    String(c.ownerId) === myId || (c.mushtagramAuthorizedIds || []).map(String).includes(myId)
+    String(c.ownerId) === myId || String(c.ceoId) === myId || (c.mushtagramAuthorizedIds || []).map(String).includes(myId)
   ), [companies, myId]);
   // Comptes d'entité sur lesquels j'ai un contrôle total (édition du profil, modération de tout post
   // publié par un employé délégué) — contrairement à myOwnerCompanies, ne couvre pas les employés délégués.
@@ -1521,6 +1528,15 @@ export default function MushtagramView({
   }, [mushtagramPosts]);
 
   /* ── follow suggestions ───────────────────────────────────────────── */
+  // Entreprises où je travaille, que je dirige (PDG délégué) ou que je possède — sert de base
+  // aux suggestions "collègues" ci-dessous, découverte sociale liée au réseau économique du
+  // joueur plutôt qu'à un simple flux tendance déconnecté de la partie en cours.
+  const myCompanyIds = useMemo(() => new Set(
+    companies
+      .filter(c => String(c.ownerId) === myId || String(c.ceoId) === myId || (c.employees || []).map(String).includes(myId))
+      .map(c => c.id)
+  ), [companies, myId]);
+
   const followSuggestions = useMemo(() => {
     const myGuildIds = new Set(
       guilds.filter(g => (g.members || []).some(m => String(m.id) === myId)).map(g => g.id)
@@ -1530,10 +1546,15 @@ export default function MushtagramView({
       let score = 0;
       if (myCitizen?.countryId && c.countryId === myCitizen.countryId) score += 1;
       if (myGuildIds.size > 0 && guilds.some(g => myGuildIds.has(g.id) && (g.members || []).some(m => String(m.id) === String(c.id)))) score += 2;
+      // Collègue : même entreprise que moi (employeur, dirigeant délégué ou collègue de travail)
+      if (myCompanyIds.size > 0 && companies.some(comp =>
+        myCompanyIds.has(comp.id) &&
+        (String(comp.ownerId) === String(c.id) || String(comp.ceoId) === String(c.id) || (comp.employees || []).map(String).includes(String(c.id)))
+      )) score += 3;
       return { c, score };
     });
     return scored.sort((a, b) => b.score - a.score).slice(0, 5).map(x => x.c);
-  }, [citizens, myId, myFollowing, guilds, myCitizen]);
+  }, [citizens, myId, myFollowing, guilds, myCitizen, myCompanyIds, companies]);
 
   const submitPost = () => {
     if (!postContent.trim() && !(showPoll && pollOptions.some(o => o.trim()))) return;
@@ -2782,6 +2803,12 @@ export default function MushtagramView({
               {/* Section Personnalité Publique */}
               <div className="border-t border-stone-100 pt-5">
                 <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3">Personnalité Publique</div>
+                <p className="text-[10px] text-stone-400 leading-snug mb-3">
+                  Statut réservé aux comptes à forte visibilité (dirigeants, mécènes, érudits reconnus...). Débloque des
+                  paliers de contenu payant illimités, la possibilité de publier réservé aux abonnés et un badge visible
+                  sur le profil. La demande est examinée par l'administration ; le résultat (accordé, refusé ou révoqué)
+                  arrive en notification.
+                </p>
                 {myCitizen?.mushtagramPublicPersonality === "approved" || myCitizen?.mushtagramPublicPersonality === true ? (
                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-xs font-black">
                     <Crown size={14} className="text-amber-500" /> ✓ Personnalité Publique reconnue

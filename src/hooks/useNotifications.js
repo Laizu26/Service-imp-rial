@@ -481,13 +481,15 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
           ? { title: "Nouvel abonné Mushtagram", icon: "UserPlus" }
           : n.type === "dm"
             ? { title: "Message Mushtagram", icon: "MessageCircle" }
-            : { title: "Notification Mushtagram", icon: "Bell" };
+            : n.type === "pp_status"
+              ? { title: "Personnalité Publique", icon: "Crown" }
+              : { title: "Notification Mushtagram", icon: "Bell" };
         notifs.push({
           id: `mushnotif_${n.id}`,
           type: `mush_${n.type}`,
           category: "Mushtagram",
           title: label.title,
-          description: `De ${n.fromName}`,
+          description: n.type === "dm" && n.count > 1 ? `${n.count} messages de ${n.fromName}` : n.type === "pp_status" ? n.content : `De ${n.fromName}`,
           timestamp: n.timestamp,
           route: "mushtagram",
           icon: label.icon,
