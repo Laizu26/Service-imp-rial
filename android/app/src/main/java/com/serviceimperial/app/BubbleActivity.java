@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -25,6 +24,7 @@ public class BubbleActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        RemoteLog.i(TAG, "onCreate — url=" + (getIntent() != null ? getIntent().getStringExtra("url") : null));
         try {
             WebView webView = new WebView(this);
             webView.setLayoutParams(new ViewGroup.LayoutParams(
@@ -38,7 +38,7 @@ public class BubbleActivity extends Activity {
 
             loadFromIntent(webView, getIntent());
         } catch (Throwable e) {
-            Log.e(TAG, "Échec ouverture de la bulle", e);
+            RemoteLog.e(TAG, "Échec ouverture de la bulle", e);
             TextView fallback = new TextView(this);
             fallback.setText("Impossible d'ouvrir la conversation ici — ouvrez l'application.");
             fallback.setPadding(32, 32, 32, 32);

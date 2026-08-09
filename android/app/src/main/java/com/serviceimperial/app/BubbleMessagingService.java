@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -43,14 +42,14 @@ public class BubbleMessagingService extends MessagingService {
         // trace systématique de TOUT message reçu par ce service, pour vérifier qu'il est
         // bien celui invoqué par le système (et pas l'ancien service Capacitor).
         Map<String, String> data = remoteMessage.getData();
-        Log.i(TAG, "onMessageReceived — data=" + data);
+        RemoteLog.i(TAG, "onMessageReceived — data=" + data);
         if (data != null && "mushtagram_dm".equals(data.get("type"))) {
             // Ne doit jamais faire planter l'app — au pire, le message ne s'affiche pas en
             // notification "bulle" (repli silencieux), plutôt qu'un crash du processus.
             try {
                 showBubbleNotification(data);
             } catch (Throwable e) {
-                Log.e(TAG, "Échec construction notification bulle", e);
+                RemoteLog.e(TAG, "Échec construction notification bulle", e);
             }
             return;
         }
@@ -63,12 +62,12 @@ public class BubbleMessagingService extends MessagingService {
         String fromName = data.get("fromName") != null ? data.get("fromName") : "Mushtagram";
         String content = data.get("content") != null ? data.get("content") : "";
         if (fromId == null) {
-            Log.w(TAG, "mushtagram_dm reçu sans fromId, abandon");
+            RemoteLog.w(TAG, "mushtagram_dm reçu sans fromId, abandon");
             return;
         }
 
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-            Log.w(TAG, "Notifications désactivées pour l'app (permission refusée ou coupée) — rien à afficher");
+            RemoteLog.w(TAG, "Notifications désactivées pour l'app (permission refusée ou coupée) — rien à afficher");
             return;
         }
 
@@ -101,7 +100,7 @@ public class BubbleMessagingService extends MessagingService {
                 .build();
             ShortcutManagerCompat.pushDynamicShortcut(this, shortcut);
         } catch (Throwable e) {
-            Log.e(TAG, "Échec création du raccourci dynamique (non bloquant)", e);
+            RemoteLog.e(TAG, "Échec création du raccourci dynamique (non bloquant)", e);
         }
 
         String bubbleUrl = QUICK_REPLY_BASE_URL
@@ -140,7 +139,7 @@ public class BubbleMessagingService extends MessagingService {
             .setContentIntent(bubblePendingIntent);
 
         NotificationManagerCompat.from(this).notify(shortcutId, 1, builder.build());
-        Log.i(TAG, "Notification bulle affichée pour " + fromName + " (shortcutId=" + shortcutId + ")");
+        RemoteLog.i(TAG, "Notification bulle affichée pour " + fromName + " (shortcutId=" + shortcutId + ")");
     }
 
     private void ensureChannel() {

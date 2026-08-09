@@ -9,6 +9,9 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
         classpath 'com.google.gms:google-services:4.4.4'
+        // Crashlytics : remonte les erreurs/logs de BubbleMessagingService vers la console
+        // Firebase (Crashlytics), accessible depuis un navigateur sans Android Studio/adb.
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.2'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
