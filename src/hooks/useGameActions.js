@@ -256,11 +256,13 @@ export const useGameActions = (session, state, saveState, notify) => {
       return !!(employerLocked || spouseLocked || guardianLocked || ownerLocked);
     };
 
-    // Un PDG (voir onAppointCEO) a délégation de la quasi-totalité des droits de gestion du
-    // propriétaire sur son entreprise — seules la nomination/révocation du PDG et la
-    // suppression de l'entreprise restent réservées au propriétaire lui-même.
+    // Un PDG (voir onAppointCEO) reçoit délégation de la TOTALITÉ des droits de gestion
+    // opérationnelle de l'entreprise — dès qu'un PDG est en poste, le propriétaire les perd (il
+    // reste seul propriétaire légal : nomination/révocation du PDG et dissolution restent réservées
+    // à lui seul, cf. onAppointCEO/onRevokeCEO/onDeleteCompany, qui vérifient ownerId directement
+    // et non isCompanyManager). Sans PDG, le propriétaire opère normalement l'entreprise.
     const isCompanyManager = (company, sessionId) =>
-      !!company && (String(company.ownerId) === String(sessionId) || String(company.ceoId) === String(sessionId));
+      !!company && String(company.ceoId ? company.ceoId : company.ownerId) === String(sessionId);
 
     // Bonus de revenu d'un bien d'entreprise selon le personnel affecté (voir
     // onAssignEmployeeToProperty) : +8% par employé/esclave affecté, plafonné à 4 (soit +32%
