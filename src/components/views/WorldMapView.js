@@ -28,7 +28,7 @@ const PROPERTY_TYPE_ICONS = {
   FERME: Wheat, MANOIR: Castle, ATELIER: Hammer, AUBERGE: Utensils, BATEAU: Ship,
 };
 
-const SIZE = 30; // taille des tuiles hexagonales, identique aux 3 strates pour rester "collées"
+const SIZE = 36; // taille des tuiles hexagonales, identique aux 3 strates pour rester "collées"
 const CITY_RADIUS = 4; // grille complète de la Ville : 61 cellules
 
 const posOf = (entity, qKey = "hexQ", rKey = "hexR") => {
@@ -38,34 +38,40 @@ const posOf = (entity, qKey = "hexQ", rKey = "hexR") => {
 };
 
 // ── Tuile hexagonale générique — pays (Empire), région (Pays) ou bâtiment/case vide (Ville) ──
+// Icône + nom restent DANS les limites de la tuile (au lieu de déborder en dessous) : des
+// hexagones collés ne laissent aucune marge pour du texte extérieur, tout chevauche sinon dès
+// que deux voisins ont un nom un peu long.
 const HexTile = ({ q, r, fill, stroke = "#3f3a34", Icon, label, badge, isCurrent, isSelected, onClick }) => {
   const [x, y] = axialToPixel(q, r, SIZE);
   const points = hexPoints(x, y, SIZE - 1.5);
+  const contentSize = SIZE * 1.3;
   return (
     <g onClick={onClick} style={{ cursor: onClick ? "pointer" : "default" }}>
       {isCurrent && (
-        <polygon points={hexPoints(x, y, SIZE + 4)} fill="none" stroke="#d97706" strokeWidth={3}>
-          <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2.2s" repeatCount="indefinite" />
+        <polygon points={hexPoints(x, y, SIZE - 1)} fill="none" stroke="#d97706" strokeWidth={2.5}>
+          <animate attributeName="opacity" values="0.9;0.35;0.9" dur="2.2s" repeatCount="indefinite" />
         </polygon>
       )}
-      <polygon points={points} fill={fill} stroke={isSelected ? "#1c1917" : stroke} strokeWidth={isSelected ? 2.8 : 1.3} />
-      {Icon && (
-        <foreignObject x={x - 10} y={y - (badge > 0 ? 18 : 10)} width={20} height={20}>
-          <Icon size={20} color="#1c1917" strokeWidth={2} opacity={0.85} />
+      <polygon points={points} fill={fill} stroke={isSelected ? "#1c1917" : stroke} strokeWidth={isSelected ? 2.6 : 1.2} />
+      {(Icon || label) && (
+        <foreignObject x={x - contentSize / 2} y={y - contentSize / 2} width={contentSize} height={contentSize} style={{ pointerEvents: "none" }}>
+          <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, padding: "0 3px", overflow: "hidden" }}>
+            {Icon && <Icon size={15} color="#1c1917" strokeWidth={2} style={{ opacity: 0.85, flexShrink: 0 }} />}
+            {label && (
+              <span style={{ fontSize: 7.5, lineHeight: 1.1, fontWeight: 800, color: isCurrent ? "#b45309" : "#292524", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+                {label}
+              </span>
+            )}
+          </div>
         </foreignObject>
       )}
       {badge > 0 && (
-        <g transform={`translate(${x}, ${y + SIZE * 0.45})`}>
-          <rect x={-15} y={-9} width={30} height={18} rx={9} fill="#1c1917" opacity={0.88} />
-          <text x={0} y={4} textAnchor="middle" fontSize={10} fontWeight={800} fill="#fff">×{badge}</text>
+        <g transform={`translate(${x + SIZE * 0.6}, ${y - SIZE * 0.6})`}>
+          <circle r={9} fill="#1c1917" opacity={0.9} />
+          <text textAnchor="middle" dy="0.32em" fontSize={8.5} fontWeight={800} fill="#fff">{badge}</text>
         </g>
       )}
-      {label && (
-        <text x={x} y={y + SIZE + 12} textAnchor="middle" fontSize={10.5} fontWeight={800} fill={isCurrent ? "#b45309" : "#292524"}
-          style={{ paintOrder: "stroke", stroke: "#fff", strokeWidth: 3 }}>
-          {label}
-        </text>
-      )}
+      {label && <title>{label}</title>}
     </g>
   );
 };
