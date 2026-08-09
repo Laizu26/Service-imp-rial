@@ -187,7 +187,7 @@ const PropertyDetailView = ({
 
   const ownerCompany = prop.ownerType === "COMPANY" ? companies.find((c) => c.id === prop.ownerId) : null;
   const country = countries.find((c) => c.id === prop.countryId);
-  const region = country ? (country.regions || []).find((r) => r.id === prop.regionId) : null;
+  const region = country ? (country.regions || []).find((r) => String(r.id) === String(prop.regionId)) : null;
   const location = country ? (region ? `${region.name}, ${country.name}` : country.name) : prop.location;
 
   return (

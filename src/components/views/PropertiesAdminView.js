@@ -220,7 +220,10 @@ const PropertiesAdminView = ({
   const getLocationLabel = (prop) => {
     const country = countries.find((c) => c.id === prop.countryId);
     if (!country) return prop.location || "—";
-    const region = (country.regions || []).find((r) => r.id === prop.regionId);
+    // Comparaison normalisée en chaîne : region.id peut être un nombre (Date.now() côté
+    // création de région) alors que prop.regionId vient toujours d'un <select> HTML, donc
+    // toujours une chaîne — une comparaison stricte échouait silencieusement.
+    const region = (country.regions || []).find((r) => String(r.id) === String(prop.regionId));
     return region ? `${region.name}, ${country.name}` : country.name;
   };
 
@@ -249,7 +252,7 @@ const PropertiesAdminView = ({
       location: (() => {
         const c = countries.find((c) => c.id === newCountryId);
         if (!c) return "";
-        const r = (c.regions || []).find((r) => r.id === newRegionId);
+        const r = (c.regions || []).find((r) => String(r.id) === String(newRegionId));
         return r ? `${r.name}, ${c.name}` : c.name;
       })(),
     });
@@ -272,7 +275,7 @@ const PropertiesAdminView = ({
 
   const saveEdit = () => {
     const country = countries.find((c) => c.id === editForm.countryId);
-    const region = country ? (country.regions || []).find((r) => r.id === editForm.regionId) : null;
+    const region = country ? (country.regions || []).find((r) => String(r.id) === String(editForm.regionId)) : null;
     let ownerName = null;
     let ownerType = null;
     if (editForm.ownerId) {

@@ -3715,7 +3715,7 @@ const CitizenLayout = (props) => {
                   const getLocation = (prop) => {
                     const c = safeCountries.find((x) => x.id === prop.countryId);
                     if (!c) return prop.location || null;
-                    const r = (c.regions || []).find((x) => x.id === prop.regionId);
+                    const r = (c.regions || []).find((x) => String(x.id) === String(prop.regionId));
                     return r ? `${r.name}, ${c.name}` : c.name;
                   };
 
