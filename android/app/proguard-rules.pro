@@ -34,3 +34,7 @@
 
 # Firebase Cloud Messaging (notifications push)
 -keep class com.google.firebase.** { *; }
+
+# Généré automatiquement par R8 (missing_rules.txt) — référence optionnelle (extension Kotlin)
+# absente au runtime, sans impact fonctionnel sur les notifications push.
+-dontwarn com.google.firebase.ktx.Firebase
