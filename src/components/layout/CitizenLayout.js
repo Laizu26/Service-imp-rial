@@ -939,11 +939,9 @@ const CitizenLayout = (props) => {
   // Déplacement interne rapide depuis la Carte — mêmes conditions que l'onglet Voyage.
   const canTravelNow = !isBanned && !isPrisoner && canUseTravel && !combinedRestriction.travelLocked;
   const canManageProperties = !isBanned && !isPrisoner;
-  const goToTravelWith = (countryId) => {
-    setActive("travel");
-    setTravelDestCountry(countryId);
-    setTravelDestRegion("");
-  };
+  // Échappatoire explicite depuis la Carte vers la fiche complète d'un bien (gestion avancée :
+  // personnel, chambres, etc.) — le clic par défaut sur un bâtiment reste dans la Carte via un
+  // aperçu intégré, cette fonction n'est appelée que si le citoyen demande la vue complète.
   const goToProperty = (propId) => {
     setActive("properties");
     setSelectedPropertyId(propId);
@@ -1556,9 +1554,12 @@ const CitizenLayout = (props) => {
                 properties={properties}
                 canTravel={canTravelNow}
                 onInternalTravel={onInternalTravel}
-                onNavigateToTravel={goToTravelWith}
-                onSelectProperty={goToProperty}
+                onRequestTravel={onRequestTravel}
+                onOpenFullProperty={goToProperty}
                 canManageProperties={canManageProperties}
+                onBuyProperty={onBuyProperty}
+                onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
+                onRentProperty={onRentProperty}
               />
             )}
 

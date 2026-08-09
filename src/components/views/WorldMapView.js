@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import {
   Crown, Building2, Tent, Anchor, Shield, Trees, Mountain, MapPin, Landmark,
   Home, Castle, ShoppingBag, Wheat, Hammer, Utensils, Ship, Users, Compass,
-  Plane, Lock, User, Globe2, Flag,
+  Plane, Lock, User, Globe2, Flag, X, Coins,
 } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
 
@@ -62,6 +62,94 @@ function hexPoints(cx, cy, size) {
 
 const HEX_SIZE = 46;
 
+// ── Aperçu intégré d'un bâtiment — s'ouvre sans quitter la Carte. La gestion avancée (personnel,
+// chambres, garnison...) reste dans la fiche complète, mais l'achat/la location, la description
+// et le prix sont directement accessibles ici via onOpenFullProperty comme échappatoire explicite.
+const BuildingModal = ({ property, user, onClose, onBuyProperty, onBuyPropertyFromPlayer, onRentProperty, onOpenFullProperty, canManageProperties }) => {
+  const Icon = PROPERTY_TYPE_ICONS[property.type] || Home;
+  const isMine = String(property.ownerId) === String(user?.id);
+  const balance = user?.balance || 0;
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.55)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-stone-50">
+          <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center shrink-0">
+            <Icon size={18} className="text-stone-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">{property.name}</div>
+            <div className="text-[10px] text-stone-500">{property.ownerName ? `Propriétaire : ${property.ownerName}` : "Disponible"}</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 shrink-0 p-1 rounded"><X size={18} /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          {property.description && <p className="text-xs text-stone-600 leading-relaxed">{property.description}</p>}
+
+          <div className="flex items-center gap-4">
+            {(property.price || 0) > 0 && (
+              <div>
+                <div className="text-[9px] font-black uppercase text-stone-400">Valeur</div>
+                <div className="font-mono font-bold text-amber-700 flex items-center gap-1"><Coins size={11} /> {formatMoney(property.price)}</div>
+              </div>
+            )}
+            {(property.income || 0) > 0 && (
+              <div>
+                <div className="text-[9px] font-black uppercase text-stone-400">Revenu</div>
+                <div className="font-mono font-bold text-green-600">+{formatMoney(property.income)}/j</div>
+              </div>
+            )}
+          </div>
+
+          {!canManageProperties ? (
+            <div className="bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-center text-xs font-bold text-stone-400 flex items-center justify-center gap-1.5">
+              <Lock size={12} /> Accès aux biens restreint
+            </div>
+          ) : isMine ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-center text-xs font-bold text-amber-700">C'est votre bien</div>
+          ) : !property.ownerId ? (
+            <button
+              onClick={() => onBuyProperty && onBuyProperty(property.id)}
+              disabled={balance < property.price}
+              className="w-full py-2.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-xl hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Acheter pour {formatMoney(property.price)}
+            </button>
+          ) : property.forSale ? (
+            <button
+              onClick={() => onBuyPropertyFromPlayer && onBuyPropertyFromPlayer(property.id)}
+              disabled={balance < property.salePrice}
+              className="w-full py-2.5 bg-amber-500 text-stone-900 text-xs font-black uppercase rounded-xl hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Acheter pour {formatMoney(property.salePrice)}
+            </button>
+          ) : property.rental && !property.rental.tenantId ? (
+            <button
+              onClick={() => onRentProperty && onRentProperty(property.id)}
+              disabled={balance < property.rental.dailyRate}
+              className="w-full py-2.5 bg-sky-600 text-white text-xs font-black uppercase rounded-xl hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Louer pour {formatMoney(property.rental.dailyRate)}/j
+            </button>
+          ) : null}
+
+          {canManageProperties && (
+            <button
+              onClick={() => onOpenFullProperty && onOpenFullProperty(property.id)}
+              className="w-full py-2 text-stone-500 text-[10px] font-bold uppercase hover:text-stone-700 transition-colors"
+            >
+              {isMine ? "Gérer en détail →" : "Voir en détail →"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const WorldMapView = ({
   user,
   citizens = [],
@@ -69,13 +157,18 @@ const WorldMapView = ({
   properties = [],
   canTravel,
   onInternalTravel,
-  onNavigateToTravel,
-  onSelectProperty,
+  onRequestTravel,
+  onOpenFullProperty,
   canManageProperties = true,
+  onBuyProperty,
+  onBuyPropertyFromPlayer,
+  onRentProperty,
 }) => {
   const [viewMode, setViewMode] = useState("region"); // "region" | "world"
   const [selectedRegionId, setSelectedRegionId] = useState(null);
   const [selectedCountryId, setSelectedCountryId] = useState(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState(null);
+  const [visaRegion, setVisaRegion] = useState("");
 
   const myCountryId = user?.locationCountryId || user?.countryId;
   const myCountry = countries.find((c) => c.id === myCountryId);
@@ -257,9 +350,8 @@ const WorldMapView = ({
                       return (
                         <button
                           key={p.id}
-                          onClick={() => canManageProperties && onSelectProperty && onSelectProperty(p.id)}
-                          disabled={!canManageProperties}
-                          className="w-full flex items-center gap-2 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-lg px-2.5 py-1.5 text-left transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          onClick={() => setSelectedBuildingId(p.id)}
+                          className="w-full flex items-center gap-2 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-lg px-2.5 py-1.5 text-left transition-colors"
                         >
                           <Icon size={13} className="text-stone-500 shrink-0" />
                           <span className="text-xs font-bold text-stone-700 truncate flex-1">{p.name}</span>
@@ -284,26 +376,59 @@ const WorldMapView = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-black text-stone-800 flex items-center gap-1.5">
-                  {activeCountry?.name || "—"}
-                  {activeCountry?.id === myCountry.id && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black uppercase">Vous êtes ici</span>}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-black text-stone-800 flex items-center gap-1.5">
+                    {activeCountry?.name || "—"}
+                    {activeCountry?.id === myCountry.id && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-black uppercase">Vous êtes ici</span>}
+                  </div>
+                  <div className="text-[10px] text-stone-400">{activeCountry?.rulerName || "Souverain inconnu"} · {(activeCountry?.regions || []).length} territoire(s)</div>
                 </div>
-                <div className="text-[10px] text-stone-400">{activeCountry?.rulerName || "Souverain inconnu"} · {(activeCountry?.regions || []).length} territoire(s)</div>
               </div>
               {activeCountry && activeCountry.id !== myCountry.id && (
-                <button
-                  onClick={() => onNavigateToTravel && onNavigateToTravel(activeCountry.id)}
-                  className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-500 transition-colors shrink-0"
-                >
-                  <Plane size={12} /> Demander un visa
-                </button>
+                canTravel ? (
+                  <div className="flex gap-2">
+                    <input
+                      value={visaRegion}
+                      onChange={(e) => setVisaRegion(e.target.value)}
+                      placeholder="Région visée (optionnel)"
+                      className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-white"
+                    />
+                    <button
+                      onClick={() => { onRequestTravel && onRequestTravel(activeCountry.id, visaRegion.trim() || "Frontière"); setVisaRegion(""); }}
+                      className="flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-500 transition-colors shrink-0"
+                    >
+                      <Plane size={12} /> Demander un visa
+                    </button>
+                  </div>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-stone-400 text-[10px] font-bold uppercase">
+                    <Lock size={12} /> Voyage restreint
+                  </span>
+                )
               )}
             </div>
           )}
         </div>
       </div>
+
+      {selectedBuildingId && (() => {
+        const property = properties.find((p) => p.id === selectedBuildingId);
+        if (!property) return null;
+        return (
+          <BuildingModal
+            property={property}
+            user={user}
+            onClose={() => setSelectedBuildingId(null)}
+            onBuyProperty={onBuyProperty}
+            onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
+            onRentProperty={onRentProperty}
+            onOpenFullProperty={onOpenFullProperty}
+            canManageProperties={canManageProperties}
+          />
+        );
+      })()}
     </div>
   );
 };
