@@ -212,14 +212,53 @@ export function hashCode(str) {
   return Math.abs(h);
 }
 
-// ===== POSITION SUR LA CARTE (Atlas — Empire/Pays/Ville) =====
-// Position de repli déterministe (0-99, %) pour un pays/région/bien qui n'a pas encore de
-// position définie dans l'Atlas — la carte (WorldMapView.js) et ses éditeurs de position
-// (GeopoliticsView.js, PropertiesAdminView.js, via PositionPicker) restent ainsi toujours en
-// mode "coordonnées réelles", sans code de rendu à deux comportements distincts.
-export function getFallbackPosition(id) {
-  const seed = String(id ?? "default");
-  return { x: hashCode(`${seed}_x`) % 100, y: hashCode(`${seed}_y`) % 100 };
+// ===== GRILLE HEXAGONALE (Atlas — Empire/Pays/Ville) =====
+// Coordonnées axiales, hexagones "flat-top" — partagées entre la carte (WorldMapView.js) et ses
+// éditeurs de position dans l'Atlas (GeopoliticsView.js, PropertiesAdminView.js, via
+// HexPositionPicker), pour que la génération de repli et le rendu utilisent exactement la même
+// géométrie.
+const HEX_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+export function hexRing(radius) {
+  if (radius === 0) return [[0, 0]];
+  const results = [];
+  let hex = [HEX_DIRS[4][0] * radius, HEX_DIRS[4][1] * radius];
+  for (let i = 0; i < 6; i++) {
+    for (let j = 0; j < radius; j++) {
+      results.push(hex);
+      hex = [hex[0] + HEX_DIRS[i][0], hex[1] + HEX_DIRS[i][1]];
+    }
+  }
+  return results;
+}
+export function hexSpiral(n) {
+  const coords = [[0, 0]];
+  let radius = 1;
+  while (coords.length < n) { coords.push(...hexRing(radius)); radius++; }
+  return coords.slice(0, Math.max(n, 1));
+}
+// Toutes les cellules à distance ≤ radius du centre — grille complète pour un sélecteur de
+// position (contrairement à hexSpiral, qui ne retourne qu'un sous-ensemble ordonné).
+export function hexGrid(radius) {
+  const cells = [];
+  for (let r = 0; r <= radius; r++) cells.push(...hexRing(r));
+  return cells;
+}
+export function axialToPixel(q, r, size) {
+  return [size * 1.5 * q, size * Math.sqrt(3) * (r + q / 2)];
+}
+export function hexPoints(cx, cy, size) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const rad = (Math.PI / 180) * (60 * i);
+    return `${(cx + size * Math.cos(rad)).toFixed(1)},${(cy + size * Math.sin(rad)).toFixed(1)}`;
+  }).join(" ");
+}
+// Cellule de repli déterministe (jamais aléatoire d'un rendu à l'autre) pour un pays/région/bien
+// sans position définie dans l'Atlas — tirée d'une spirale de 61 cellules (rayon 4), ce qui
+// garantit toujours une position valide et stable tant que rien n'a été placé à la main.
+const FALLBACK_SPIRAL = hexSpiral(61);
+export function getFallbackHex(id) {
+  const idx = hashCode(String(id ?? "default")) % FALLBACK_SPIRAL.length;
+  return { q: FALLBACK_SPIRAL[idx][0], r: FALLBACK_SPIRAL[idx][1] };
 }
 
 // Teinte (0-359) propre au citoyen, dérivée de son identité — inchangée tant qu'aucun pacte

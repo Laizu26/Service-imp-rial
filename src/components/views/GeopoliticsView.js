@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
-import PositionPicker from "../ui/PositionPicker";
+import HexPositionPicker from "../ui/HexPositionPicker";
 import { MARRIAGE_STRUCTURES, FILIATION_TYPES } from "../../lib/constants";
-import { formatMoney, getFallbackPosition } from "../../lib/gameUtils";
+import { formatMoney, getFallbackHex } from "../../lib/gameUtils";
 
 // ── Palette couleurs pays ──────────────────────────────────────────────────
 const COUNTRY_COLORS = [
@@ -79,8 +79,8 @@ const GeopoliticsView = ({
   const [editRegionName, setEditRegionName] = useState("");
   const [editRegionType, setEditRegionType] = useState("ville");
   const [editRegionNote, setEditRegionNote] = useState("");
-  const [editRegionX, setEditRegionX] = useState(50);
-  const [editRegionY, setEditRegionY] = useState(50);
+  const [editRegionHexQ, setEditRegionHexQ] = useState(0);
+  const [editRegionHexR, setEditRegionHexR] = useState(0);
 
   // Hiérarchie
   const [newRoleName, setNewRoleName]               = useState("");
@@ -542,15 +542,14 @@ const GeopoliticsView = ({
                   {canEdit && (
                     <div className="bg-white/70 rounded-xl border border-stone-200 p-4 space-y-2">
                       <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-2"><MapPin size={11} /> Position sur la carte de l'Empire</div>
-                      <PositionPicker
-                        x={typeof selectedCountry.x === "number" ? selectedCountry.x : getFallbackPosition(selectedCountry.id).x}
-                        y={typeof selectedCountry.y === "number" ? selectedCountry.y : getFallbackPosition(selectedCountry.id).y}
-                        siblings={safeCountries.filter((c) => c.id !== selectedCountry.id).map((c) => ({
-                          id: c.id, label: c.name,
-                          x: typeof c.x === "number" ? c.x : getFallbackPosition(c.id).x,
-                          y: typeof c.y === "number" ? c.y : getFallbackPosition(c.id).y,
-                        }))}
-                        onChange={(x, y) => updateSelected({ x, y })}
+                      <HexPositionPicker
+                        q={typeof selectedCountry.hexQ === "number" ? selectedCountry.hexQ : getFallbackHex(selectedCountry.id).q}
+                        r={typeof selectedCountry.hexR === "number" ? selectedCountry.hexR : getFallbackHex(selectedCountry.id).r}
+                        siblings={safeCountries.filter((c) => c.id !== selectedCountry.id).map((c) => {
+                          const fb = getFallbackHex(c.id);
+                          return { id: c.id, label: c.name, q: typeof c.hexQ === "number" ? c.hexQ : fb.q, r: typeof c.hexR === "number" ? c.hexR : fb.r };
+                        })}
+                        onChange={(hexQ, hexR) => updateSelected({ hexQ, hexR })}
                       />
                     </div>
                   )}
@@ -924,22 +923,21 @@ const GeopoliticsView = ({
                             placeholder="Note / description..." />
                           <div>
                             <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1 flex items-center gap-1"><MapPin size={10} /> Position sur la carte du pays</div>
-                            <PositionPicker
-                              x={editRegionX}
-                              y={editRegionY}
-                              siblings={(selectedCountry.regions || []).filter((x) => x.id !== r.id).map((x) => ({
-                                id: x.id, label: x.name,
-                                x: typeof x.x === "number" ? x.x : getFallbackPosition(x.id).x,
-                                y: typeof x.y === "number" ? x.y : getFallbackPosition(x.id).y,
-                              }))}
-                              onChange={(x, y) => { setEditRegionX(x); setEditRegionY(y); }}
+                            <HexPositionPicker
+                              q={editRegionHexQ}
+                              r={editRegionHexR}
+                              siblings={(selectedCountry.regions || []).filter((x) => x.id !== r.id).map((x) => {
+                                const fb = getFallbackHex(x.id);
+                                return { id: x.id, label: x.name, q: typeof x.hexQ === "number" ? x.hexQ : fb.q, r: typeof x.hexR === "number" ? x.hexR : fb.r };
+                              })}
+                              onChange={(hexQ, hexR) => { setEditRegionHexQ(hexQ); setEditRegionHexR(hexR); }}
                               height={140}
                             />
                           </div>
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => {
                               const regions = (selectedCountry.regions || []).map((x) =>
-                                x.id === r.id ? { ...x, name: editRegionName.trim() || x.name, type: editRegionType, note: editRegionNote, x: editRegionX, y: editRegionY } : x);
+                                x.id === r.id ? { ...x, name: editRegionName.trim() || x.name, type: editRegionType, note: editRegionNote, hexQ: editRegionHexQ, hexR: editRegionHexR } : x);
                               updateSelected({ regions });
                               setEditingRegionId(null);
                             }} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1"><Check size={12} /> Enregistrer</button>
@@ -968,9 +966,9 @@ const GeopoliticsView = ({
                             <div className="flex items-center gap-1 shrink-0">
                               <button onClick={() => {
                                 setEditingRegionId(r.id); setEditRegionName(r.name); setEditRegionType(r.type || "ville"); setEditRegionNote(r.note || "");
-                                const fb = getFallbackPosition(r.id);
-                                setEditRegionX(typeof r.x === "number" ? r.x : fb.x);
-                                setEditRegionY(typeof r.y === "number" ? r.y : fb.y);
+                                const fb = getFallbackHex(r.id);
+                                setEditRegionHexQ(typeof r.hexQ === "number" ? r.hexQ : fb.q);
+                                setEditRegionHexR(typeof r.hexR === "number" ? r.hexR : fb.r);
                               }}
                                 className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-400 hover:text-stone-700"><Edit3 size={13} /></button>
                               <button onClick={() => updateSelected({ regions: (selectedCountry.regions || []).filter((x) => x.id !== r.id) })}

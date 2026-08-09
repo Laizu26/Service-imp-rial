@@ -600,6 +600,7 @@ export default function App() {
             onRequestTravel={actions.onRequestTravel}
             onCancelTravelRequest={actions.onCancelTravelRequest}
             onInternalTravel={actions.onInternalTravel}
+            onSetCityPosition={actions.onSetCityPosition}
             catalog={state.inventoryCatalog || []}
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}

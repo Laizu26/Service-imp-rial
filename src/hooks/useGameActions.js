@@ -1833,6 +1833,23 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: newCitizens });
         notify(`Déplacement vers ${toRegion || "la Capitale"}.`, "success");
       },
+
+      // Position décorative d'un citoyen sur la grille hexagonale de la Ville (carte détaillée
+      // de sa région actuelle) — purement visuel/RP, ne change ni son pays ni sa région
+      // (voir onInternalTravel/onRequestTravel pour ça), juste où il apparaît sur le plan.
+      onSetCityPosition: (hexQ, hexR) => {
+        if (!session) return;
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const citizen = state.citizens[userIdx];
+        const regionId = (state.countries || [])
+          .find((c) => c.id === (citizen.locationCountryId || citizen.countryId))
+          ?.regions?.find((r) => r.name === citizen.currentPosition)?.id ?? null;
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...citizen, cityHexQ: hexQ, cityHexR: hexR, cityHexRegionId: regionId };
+        saveState({ ...state, citizens: newCitizens });
+      },
+
       onUpdateCitizen: (formData) => {
         if (!session) return;
         let freshCitizens = [...(state.citizens || [])];

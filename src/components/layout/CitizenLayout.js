@@ -483,6 +483,7 @@ const CitizenLayout = (props) => {
     onRequestTravel,
     onCancelTravelRequest,
     onInternalTravel,
+    onSetCityPosition,
     onTransfer,
     onProposeDebt,
     onSignDebt,
@@ -1614,6 +1615,7 @@ const CitizenLayout = (props) => {
                 canTravel={canTravelNow}
                 travelRequests={safeRequests}
                 onInternalTravel={onInternalTravel}
+                onSetCityPosition={onSetCityPosition}
                 onRequestTravel={onRequestTravel}
                 onCancelTravelRequest={onCancelTravelRequest}
                 onOpenFullProperty={goToProperty}

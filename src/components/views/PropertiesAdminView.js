@@ -9,8 +9,8 @@ import {
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import UserSearchSelect from "../ui/UserSearchSelect";
-import PositionPicker from "../ui/PositionPicker";
-import { formatMoney, getFallbackPosition } from "../../lib/gameUtils";
+import HexPositionPicker from "../ui/HexPositionPicker";
+import { formatMoney, getFallbackHex } from "../../lib/gameUtils";
 
 const PROPERTY_TYPES = {
   MAISON: { label: "Maison", icon: Home, color: "bg-stone-100 text-stone-600" },
@@ -263,7 +263,7 @@ const PropertiesAdminView = ({
 
   const startEdit = (prop) => {
     setEditingId(prop.id);
-    const fb = getFallbackPosition(prop.id);
+    const fb = getFallbackHex(prop.id);
     setEditForm({
       name: prop.name || "", type: prop.type || "MAISON",
       description: prop.description || "", price: prop.price || 0,
@@ -272,8 +272,8 @@ const PropertiesAdminView = ({
       ownerType: prop.ownerType || "CITIZEN",
       forSale: !!prop.forSale, salePrice: prop.salePrice || 0,
       rentalActive: !!prop.rental, rentalRate: prop.rental?.dailyRate || 0,
-      cityX: typeof prop.cityX === "number" ? prop.cityX : fb.x,
-      cityY: typeof prop.cityY === "number" ? prop.cityY : fb.y,
+      cityHexQ: typeof prop.cityHexQ === "number" ? prop.cityHexQ : fb.q,
+      cityHexR: typeof prop.cityHexR === "number" ? prop.cityHexR : fb.r,
     });
   };
 
@@ -307,8 +307,8 @@ const PropertiesAdminView = ({
       rental: editForm.rentalActive
         ? { ...(originalProp?.rental || { tenantId: null, tenantName: null, startDate: null }), dailyRate: parseFloat(editForm.rentalRate) || 0 }
         : null,
-      cityX: typeof editForm.cityX === "number" ? editForm.cityX : parseFloat(editForm.cityX) || 0,
-      cityY: typeof editForm.cityY === "number" ? editForm.cityY : parseFloat(editForm.cityY) || 0,
+      cityHexQ: Math.round(typeof editForm.cityHexQ === "number" ? editForm.cityHexQ : parseFloat(editForm.cityHexQ) || 0),
+      cityHexR: Math.round(typeof editForm.cityHexR === "number" ? editForm.cityHexR : parseFloat(editForm.cityHexR) || 0),
     });
     setEditingId(null); setEditForm({});
   };
@@ -520,16 +520,16 @@ const PropertiesAdminView = ({
                   {editForm.countryId && editForm.regionId && (
                     <div className="bg-white border border-stone-200 rounded-lg p-4 space-y-2">
                       <div className="text-[10px] font-black uppercase text-stone-500 tracking-widest flex items-center gap-1"><MapPin size={12} /> Position sur la carte de la ville</div>
-                      <PositionPicker
-                        x={editForm.cityX ?? 50}
-                        y={editForm.cityY ?? 50}
+                      <HexPositionPicker
+                        q={editForm.cityHexQ ?? 0}
+                        r={editForm.cityHexR ?? 0}
                         siblings={properties
                           .filter((p) => p.id !== editingId && String(p.countryId) === String(editForm.countryId) && String(p.regionId) === String(editForm.regionId))
                           .map((p) => {
-                            const fb = getFallbackPosition(p.id);
-                            return { id: p.id, label: p.name, x: typeof p.cityX === "number" ? p.cityX : fb.x, y: typeof p.cityY === "number" ? p.cityY : fb.y };
+                            const fb = getFallbackHex(p.id);
+                            return { id: p.id, label: p.name, q: typeof p.cityHexQ === "number" ? p.cityHexQ : fb.q, r: typeof p.cityHexR === "number" ? p.cityHexR : fb.r };
                           })}
-                        onChange={(x, y) => setEditForm({ ...editForm, cityX: x, cityY: y })}
+                        onChange={(hexQ, hexR) => setEditForm({ ...editForm, cityHexQ: hexQ, cityHexR: hexR })}
                         height={140}
                         accentColor="#0ea5e9"
                       />
