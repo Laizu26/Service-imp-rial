@@ -78,9 +78,14 @@ export const useGameEngine = (firebaseUser, notify) => {
       if (connection === "connected" && db) {
         setSyncStatus("saving");
         try {
+          // Firestore refuse toute valeur `undefined` dans un document (setDoc lève une
+          // exception synchrone). Un round-trip JSON élimine ces champs (et les Timestamp
+          // Firestore hérités d'un `state` précédent) sans risque : l'état du jeu ne contient
+          // que des données sérialisables, et `lastUpdate` est de toute façon réécrit juste après.
+          const sanitized = JSON.parse(JSON.stringify(newState));
           await setDoc(
             doc(db, ...SYSTEM_CONFIG.dbPath),
-            { ...newState, lastUpdate: serverTimestamp() },
+            { ...sanitized, lastUpdate: serverTimestamp() },
             { merge: true }
           );
           setSyncStatus("saved");
@@ -89,7 +94,7 @@ export const useGameEngine = (firebaseUser, notify) => {
           console.error("Erreur save:", e);
           setSyncStatus("error");
           setDbError(e.message);
-          notify("Erreur d'archivage (vérifiez votre connexion).", "error");
+          notify(`Erreur d'archivage : ${e.message || "vérifiez votre connexion"}.`, "error");
         }
       } else {
         setSyncStatus("error");

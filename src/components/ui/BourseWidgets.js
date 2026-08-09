@@ -46,28 +46,38 @@ export const BourseTicker = ({ symbol, className = "" }) => (
 );
 
 /* ── Profondeur du carnet d'ordres : colonnes achat / vente ── */
-export const OrderBookDepth = ({ buyOrders = [], sellOrders = [], myId, onCancel, maxRows = 6 }) => {
+// ownerId (optionnel) : dirigeant de la société cotée — ses propres ordres sont signalés d'un
+// badge "Dir." dans le carnet, pour qu'un rachat massif de ses propres titres reste visible au
+// lieu de se fondre anonymement parmi les autres ordres.
+export const OrderBookDepth = ({ buyOrders = [], sellOrders = [], myId, ownerId, onCancel, maxRows = 6 }) => {
   const buys = [...buyOrders].sort((a, b) => b.price - a.price).slice(0, maxRows);
   const sells = [...sellOrders].sort((a, b) => a.price - b.price).slice(0, maxRows);
 
   const Row = ({ o, side }) => {
     const isMine = o.citizenId === myId;
     const isCompany = o.citizenId === "COMPANY";
+    const isOwner = !isCompany && ownerId && String(o.citizenId) === String(ownerId);
+    const canCancel = (isMine || (isCompany && onCancel)) && onCancel;
     return (
       <div className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] ${side === "buy" ? "bg-green-50" : "bg-red-50"} ${isMine ? "ring-1 ring-amber-300" : ""}`}>
         <span className="font-mono font-bold text-stone-700">{o.qty}</span>
         <span className={`font-mono font-black ${side === "buy" ? "text-green-700" : "text-red-600"}`}>{formatMoney(o.price)}</span>
-        {(isMine || (isCompany && onCancel)) && onCancel ? (
-          <button
-            onClick={() => onCancel(o.id, side)}
-            className="text-[9px] text-stone-400 hover:text-red-500 font-bold uppercase ml-1"
-            title="Annuler cet ordre"
-          >
-            ✕
-          </button>
-        ) : (
-          <span className="text-[9px] text-stone-400 ml-1 truncate max-w-[70px]">{isCompany ? "Société" : (o.citizenName || "")}</span>
-        )}
+        <span className="flex items-center gap-1 ml-1 shrink-0">
+          {isOwner && (
+            <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-700 px-1 rounded" title="Ordre du dirigeant de la société">Dir.</span>
+          )}
+          {canCancel ? (
+            <button
+              onClick={() => onCancel(o.id, side)}
+              className="text-[9px] text-stone-400 hover:text-red-500 font-bold uppercase"
+              title="Annuler cet ordre"
+            >
+              ✕
+            </button>
+          ) : (
+            <span className="text-[9px] text-stone-400 truncate max-w-[70px]">{isCompany ? "Société" : (o.citizenName || "")}</span>
+          )}
+        </span>
       </div>
     );
   };

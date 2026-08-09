@@ -74,7 +74,7 @@ const OrderForm = ({ listing, user, side, onSubmit, onCancel }) => {
   );
 };
 
-const CitizenBourseView = ({ user, bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [] }) => {
+const CitizenBourseView = ({ user, citizens = [], bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [] }) => {
   const [bourseTab, setBourseTab] = useState("market");
   const [bourseSearch, setBourseSearch] = useState("");
   const [expandedId, setExpandedId] = useState(null);
@@ -181,6 +181,12 @@ const CitizenBourseView = ({ user, bourseListings = [], onBoursePlaceOrder, onBo
                 const isExpanded = expandedId === listing.id;
                 const bestBid = [...(listing.buyOrders || [])].sort((a, b) => b.price - a.price)[0];
                 const bestAsk = [...(listing.sellOrders || [])].sort((a, b) => a.price - b.price)[0];
+                // Actions en circulation (détenues par un citoyen), en réserve chez la société
+                // (offertes sur le marché mais pas encore achetées), et jamais émises du tout —
+                // pour clarifier l'écart entre le capital total et ce qui s'échange vraiment.
+                const totalHeld = citizens.reduce((s, c) => s + ((c.stockholdings || {})[listing.id] || 0), 0);
+                const companyFloat = (listing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0);
+                const unissued = Math.max(0, (listing.totalShares || 0) - totalHeld - companyFloat);
                 return (
                   <div key={listing.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
                     <button onClick={() => toggleExpand(listing.id)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-stone-50 transition-colors text-left">
@@ -189,22 +195,64 @@ const CitizenBourseView = ({ user, bourseListings = [], onBoursePlaceOrder, onBo
                         <div className="font-bold text-stone-800 text-sm truncate">{listing.companyName}</div>
                         {listing.description && <div className="text-[10px] text-stone-400 truncate">{listing.description}</div>}
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="font-black font-mono text-stone-800 text-base">{formatMoney(listing.lastPrice || listing.initialPrice)}</div>
-                        <PriceChangeBadge current={listing.lastPrice || listing.initialPrice} reference={listing.initialPrice} />
-                        <PriceSparkline history={listing.priceHistory} />
-                      </div>
+                      <PriceSparkline history={listing.priceHistory} />
                       {isExpanded ? <ChevronUp size={14} className="text-stone-400 shrink-0" /> : <ChevronDown size={14} className="text-stone-400 shrink-0" />}
                     </button>
-                    <div className="flex items-center gap-4 px-4 py-2 bg-stone-50/50 border-t border-stone-100 text-[9px] text-stone-500 flex-wrap">
-                      <span>Meilleur achat : {bestBid ? formatMoney(bestBid.price) : "—"}</span>
-                      <span className="text-stone-300">|</span>
-                      <span>Meilleure vente : {bestAsk ? formatMoney(bestAsk.price) : "—"}</span>
-                      {myShares > 0 && <><span className="text-stone-300">|</span><span className="text-amber-600 font-bold">Vous détenez : {myShares}</span></>}
+                    {/* Dernier / Achat / Vente — même poids visuel, pour ne pas laisser croire
+                        que le "dernier prix" est ce qu'on peut réellement obtenir tout de suite. */}
+                    <div className="grid grid-cols-3 divide-x divide-stone-100 border-t border-stone-100 bg-stone-50/50">
+                      <div className="px-3 py-2 text-center">
+                        <div className="text-[8px] font-black uppercase tracking-widest text-stone-400">Dernier</div>
+                        <div className="font-black font-mono text-stone-800 text-sm">{formatMoney(listing.lastPrice || listing.initialPrice)}</div>
+                        <PriceChangeBadge current={listing.lastPrice || listing.initialPrice} reference={listing.initialPrice} />
+                      </div>
+                      <div className="px-3 py-2 text-center">
+                        <div className="text-[8px] font-black uppercase tracking-widest text-green-600">Meilleur achat</div>
+                        <div className="font-black font-mono text-green-700 text-sm">{bestBid ? formatMoney(bestBid.price) : "—"}</div>
+                        <div className="text-[8px] text-stone-400">{bestBid ? `${bestBid.qty} en attente` : "aucun ordre"}</div>
+                      </div>
+                      <div className="px-3 py-2 text-center">
+                        <div className="text-[8px] font-black uppercase tracking-widest text-red-500">Meilleure vente</div>
+                        <div className="font-black font-mono text-red-600 text-sm">{bestAsk ? formatMoney(bestAsk.price) : "—"}</div>
+                        <div className="text-[8px] text-stone-400">{bestAsk ? `${bestAsk.qty} en attente` : "aucun ordre"}</div>
+                      </div>
                     </div>
+                    {myShares > 0 && (
+                      <div className="px-4 py-1.5 border-t border-stone-100 text-[9px] text-amber-600 font-bold text-center">
+                        Vous détenez : {myShares} action{myShares > 1 ? "s" : ""}
+                      </div>
+                    )}
                     {isExpanded && (
                       <div className="px-4 py-3 border-t border-stone-100 space-y-3">
-                        <OrderBookDepth buyOrders={listing.buyOrders} sellOrders={listing.sellOrders} myId={user.id} onCancel={(orderId, side) => onBourseCancelOrder({ listingId: listing.id, orderId, side })} />
+                        <div className="flex items-center gap-3 flex-wrap text-[9px] text-stone-500 bg-stone-50 border border-stone-100 rounded-lg px-3 py-2">
+                          <span>Capital total : <strong className="text-stone-700">{listing.totalShares || 0}</strong></span>
+                          <span className="text-stone-300">|</span>
+                          <span>En circulation : <strong className="text-stone-700">{totalHeld}</strong></span>
+                          <span className="text-stone-300">|</span>
+                          <span>Offertes sur le marché : <strong className="text-stone-700">{companyFloat}</strong></span>
+                          {unissued > 0 && (
+                            <>
+                              <span className="text-stone-300">|</span>
+                              <span>En réserve (non émises) : <strong className="text-stone-700">{unissued}</strong></span>
+                            </>
+                          )}
+                        </div>
+                        <OrderBookDepth buyOrders={listing.buyOrders} sellOrders={listing.sellOrders} myId={user.id} ownerId={listing.ownerId} onCancel={(orderId, side) => onBourseCancelOrder({ listingId: listing.id, orderId, side })} />
+                        {(listing.priceHistory || []).length > 1 && (
+                          <details className="bg-stone-50 border border-stone-100 rounded-lg">
+                            <summary className="px-3 py-2 cursor-pointer text-[9px] font-black uppercase tracking-widest text-stone-500 select-none hover:text-stone-700">
+                              Historique des cours ({listing.priceHistory.length})
+                            </summary>
+                            <div className="px-3 pb-2 max-h-40 overflow-y-auto space-y-1">
+                              {listing.priceHistory.map((h, i) => (
+                                <div key={i} className="flex items-center justify-between text-[10px]">
+                                  <span className="text-stone-400">{new Date(h.timestamp).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                                  <span className="font-mono font-bold text-stone-700">{formatMoney(h.price)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
                         {formSide && expandedId === listing.id ? (
                           <OrderForm listing={listing} user={user} side={formSide} onSubmit={submitOrder} onCancel={() => setFormSide(null)} />
                         ) : (

@@ -3082,6 +3082,7 @@ const CitizenLayout = (props) => {
             {active === "bourse" && marketAccessAllowed && (
               <CitizenBourseView
                 user={user}
+                citizens={safeUsers}
                 bourseListings={bourseListings}
                 onBoursePlaceOrder={onBoursePlaceOrder}
                 onBourseCancelOrder={onBourseCancelOrder}

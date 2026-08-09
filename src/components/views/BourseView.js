@@ -181,7 +181,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
         <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 flex items-center gap-1.5">
           <BarChart2 size={11} /> Carnet d'ordres
         </div>
-        <OrderBookDepth buyOrders={listing.buyOrders} sellOrders={listing.sellOrders} onCancel={(orderId, side) => onCancelOrder({ listingId: listing.id, orderId, side })} maxRows={8} />
+        <OrderBookDepth buyOrders={listing.buyOrders} sellOrders={listing.sellOrders} ownerId={listing.ownerId} onCancel={(orderId, side) => onCancelOrder({ listingId: listing.id, orderId, side })} maxRows={8} />
       </div>
 
       {/* Offre de titres au nom de la société */}
@@ -273,8 +273,11 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
                 <div className="w-6 h-6 bg-stone-200 rounded flex items-center justify-center text-[10px] font-black text-stone-500 shrink-0">
                   {(c.firstName || c.name || "?")[0].toUpperCase()}
                 </div>
-                <span className="text-xs text-stone-700 font-bold flex-1 truncate">
+                <span className="text-xs text-stone-700 font-bold flex-1 truncate flex items-center gap-1.5">
                   {c.firstName ? `${c.firstName} ${c.lastName || ""}`.trim() : c.name}
+                  {String(c.id) === String(listing.ownerId) && (
+                    <span className="text-[8px] font-black uppercase bg-amber-100 text-amber-700 px-1 rounded shrink-0" title="Dirigeant de la société">Dir.</span>
+                  )}
                 </span>
                 <span className="text-[10px] font-mono text-stone-400 shrink-0">{c.shares.toLocaleString()} actions</span>
                 <span className="text-[10px] font-mono text-amber-600 shrink-0">{formatMoney(c.value)}</span>

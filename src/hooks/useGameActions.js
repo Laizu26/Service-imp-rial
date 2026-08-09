@@ -149,6 +149,13 @@ export function matchBourseOrders(listing) {
   let sells = (listing.sellOrders || []).map((o) => ({ ...o }));
   buys.sort((a, b) => b.price - a.price || a.timestamp - b.timestamp);
   sells.sort((a, b) => a.price - b.price || a.timestamp - b.timestamp);
+  // Bande de prix légale du jour — un ordre résident (déjà dans le carnet) a pu être placé un
+  // jour où le plafond était différent ; sans ce garde-fou, son exécution pouvait fixer un
+  // lastPrice hors de la bande actuelle (ex: 55 écus exécutés alors que le plafond du jour
+  // plafonne à ~39), rendant le cours affiché incohérent avec le carnet réel.
+  const capBase = listing.dayOpenPrice || listing.lastPrice || listing.initialPrice || 0;
+  const minAllowed = capBase > 0 ? Math.round(capBase * (1 - BOURSE_DAILY_CAP) * 10) / 10 : 0;
+  const maxAllowed = capBase > 0 ? Math.round(capBase * (1 + BOURSE_DAILY_CAP) * 10) / 10 : Infinity;
   const trades = [];
   let bi = 0, si = 0;
   while (bi < buys.length && si < sells.length && buys[bi].price >= sells[si].price) {
@@ -160,7 +167,8 @@ export function matchBourseOrders(listing) {
       if (buy.timestamp <= sell.timestamp) si++; else bi++;
       continue;
     }
-    const tradePrice = buy.timestamp <= sell.timestamp ? buy.price : sell.price;
+    const residentPrice = buy.timestamp <= sell.timestamp ? buy.price : sell.price;
+    const tradePrice = Math.min(maxAllowed, Math.max(minAllowed, residentPrice));
     const tradeQty = Math.min(buy.qty, sell.qty);
     trades.push({
       buyerId: buy.citizenId, buyerName: buy.citizenName, buyOrderPrice: buy.price,

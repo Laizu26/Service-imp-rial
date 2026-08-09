@@ -3508,7 +3508,7 @@ const MyCompanyView = ({
                     Mettre en vente
                   </button>
                   <div className="pt-2 border-t border-stone-100">
-                    <OrderBookDepth buyOrders={myListing.buyOrders} sellOrders={myListing.sellOrders} onCancel={onBourseCancelOrder ? (orderId, side) => onBourseCancelOrder({ listingId: myListing.id, orderId, side }) : undefined} />
+                    <OrderBookDepth buyOrders={myListing.buyOrders} sellOrders={myListing.sellOrders} myId={user.id} ownerId={myListing.ownerId} onCancel={onBourseCancelOrder ? (orderId, side) => onBourseCancelOrder({ listingId: myListing.id, orderId, side }) : undefined} />
                   </div>
                 </div>
               </Card>
