@@ -39,7 +39,11 @@ public class BubbleMessagingService extends MessagingService {
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
+        // Log.i (jamais retiré par R8/ProGuard, contrairement à Log.d dans certaines confs) —
+        // trace systématique de TOUT message reçu par ce service, pour vérifier qu'il est
+        // bien celui invoqué par le système (et pas l'ancien service Capacitor).
         Map<String, String> data = remoteMessage.getData();
+        Log.i(TAG, "onMessageReceived — data=" + data);
         if (data != null && "mushtagram_dm".equals(data.get("type"))) {
             // Ne doit jamais faire planter l'app — au pire, le message ne s'affiche pas en
             // notification "bulle" (repli silencieux), plutôt qu'un crash du processus.
@@ -58,7 +62,15 @@ public class BubbleMessagingService extends MessagingService {
         String toId = data.get("toId");
         String fromName = data.get("fromName") != null ? data.get("fromName") : "Mushtagram";
         String content = data.get("content") != null ? data.get("content") : "";
-        if (fromId == null) return;
+        if (fromId == null) {
+            Log.w(TAG, "mushtagram_dm reçu sans fromId, abandon");
+            return;
+        }
+
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            Log.w(TAG, "Notifications désactivées pour l'app (permission refusée ou coupée) — rien à afficher");
+            return;
+        }
 
         ensureChannel();
 
@@ -128,6 +140,7 @@ public class BubbleMessagingService extends MessagingService {
             .setContentIntent(bubblePendingIntent);
 
         NotificationManagerCompat.from(this).notify(shortcutId, 1, builder.build());
+        Log.i(TAG, "Notification bulle affichée pour " + fromName + " (shortcutId=" + shortcutId + ")");
     }
 
     private void ensureChannel() {
