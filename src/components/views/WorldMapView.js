@@ -615,7 +615,7 @@ const WorldMapView = ({
             onBuyProperty={onBuyProperty}
             onBuyPropertyFromPlayer={onBuyPropertyFromPlayer}
             onRentProperty={onRentProperty}
-            onOpenFullProperty={onOpenFullProperty}
+            onOpenFullProperty={(propId) => { setSelectedBuildingId(null); onOpenFullProperty && onOpenFullProperty(propId); }}
             canManageProperties={canManageProperties}
           />
         );
