@@ -6583,7 +6583,9 @@ export const useGameActions = (session, state, saveState, notify) => {
           newCompanies = applied.newCompanies;
           ledgerEntries = applied.ledgerEntries;
           const lastTrade = trades[trades.length - 1];
-          const newHistory = [...trades.map((t) => ({ price: t.price, timestamp: ts })), ...(listing.priceHistory || [])].slice(0, 50);
+          // Plafond généreux (300) pour que la vue "mois" du graphe de cours ait des données
+          // même sur un titre actif, au lieu de ne retenir que les toutes dernières heures.
+          const newHistory = [...trades.map((t) => ({ price: t.price, timestamp: ts })), ...(listing.priceHistory || [])].slice(0, 300);
           listing = { ...listing, lastPrice: lastTrade.price, priceHistory: newHistory };
           // Notifier la contrepartie dont l'ordre résident vient d'être exécuté par ce nouvel ordre
           trades.forEach((t, i) => {
@@ -6703,7 +6705,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           newCompanies = applied.newCompanies;
           ledgerEntries = applied.ledgerEntries;
           const lastTrade = trades[trades.length - 1];
-          listing = { ...listing, lastPrice: lastTrade.price, priceHistory: [...trades.map((t) => ({ price: t.price, timestamp: ts })), ...(listing.priceHistory || [])].slice(0, 50) };
+          listing = { ...listing, lastPrice: lastTrade.price, priceHistory: [...trades.map((t) => ({ price: t.price, timestamp: ts })), ...(listing.priceHistory || [])].slice(0, 300) };
           trades.forEach((t, i) => {
             if (t.buyerId !== "COMPANY") {
               bourseAlerts.push({ id: `ba_${ts}_${i}_buy`, toId: t.buyerId, type: "trade_filled", symbol: listing.symbol, qty: t.qty, price: t.price, side: "buy", timestamp: ts });

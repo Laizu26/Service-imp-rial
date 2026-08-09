@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
 
@@ -17,6 +17,72 @@ export const PriceSparkline = ({ history, width = 56, height = 18 }) => {
     <svg width={width} height={height} className="opacity-80 shrink-0">
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
+  );
+};
+
+/* ── Graphe de cours avec sélecteur de période (jour / semaine / mois / tout) ── */
+const HISTORY_RANGES = [
+  { id: "day", label: "Jour", ms: 24 * 60 * 60 * 1000 },
+  { id: "week", label: "Semaine", ms: 7 * 24 * 60 * 60 * 1000 },
+  { id: "month", label: "Mois", ms: 30 * 24 * 60 * 60 * 1000 },
+  { id: "all", label: "Tout", ms: Infinity },
+];
+
+export const PriceHistoryChart = ({ history = [], height = 110, defaultRange = "week" }) => {
+  const [range, setRange] = useState(defaultRange);
+  const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+  if (sorted.length < 2) {
+    return <p className="text-xs text-stone-400 italic text-center py-4">Pas assez de transactions pour un graphique.</p>;
+  }
+  const rangeDef = HISTORY_RANGES.find((r) => r.id === range) || HISTORY_RANGES[1];
+  const now = Date.now();
+  const filtered = rangeDef.ms === Infinity ? sorted : sorted.filter((h) => now - h.timestamp <= rangeDef.ms);
+  // Si trop peu de transactions sont tombées dans la période choisie, on retombe sur tout
+  // l'historique disponible plutôt que d'afficher un graphique vide ou à un seul point.
+  const tooSparse = filtered.length < 2;
+  const points = tooSparse ? sorted : filtered;
+
+  const width = 320;
+  const prices = points.map((p) => p.price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const spread = max - min || 1;
+  const pad = 6;
+  const coords = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * width;
+    const y = pad + (height - pad * 2) - ((p.price - min) / spread) * (height - pad * 2);
+    return [x, y];
+  });
+  const linePoints = coords.map(([x, y]) => `${x},${y}`).join(" ");
+  const areaPoints = `0,${height} ${linePoints} ${width},${height}`;
+  const trendUp = points[points.length - 1].price >= points[0].price;
+  const color = trendUp ? "#10b981" : "#ef4444";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+        <div className="flex gap-1">
+          {HISTORY_RANGES.map((r) => (
+            <button key={r.id} onClick={() => setRange(r.id)}
+              className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide transition-colors ${
+                range === r.id ? "bg-stone-800 text-amber-400" : "bg-stone-100 text-stone-400 hover:text-stone-600"
+              }`}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <div className="text-[9px] text-stone-400">
+          {points.length} point{points.length > 1 ? "s" : ""}{tooSparse && range !== "all" ? " (hors période, tout l'historique affiché)" : ""}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} preserveAspectRatio="none" className="block">
+        <polygon points={areaPoints} fill={color} opacity="0.08" />
+        <polyline points={linePoints} fill="none" stroke={color} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <div className="flex items-center justify-between text-[9px] text-stone-400 font-mono">
+        <span>{formatMoney(min)}</span>
+        <span>{formatMoney(max)}</span>
+      </div>
+    </div>
   );
 };
 

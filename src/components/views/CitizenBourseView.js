@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { TrendingUp, BarChart2, History, Search, X, ChevronDown, ChevronUp, ListOrdered } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
-import { PriceSparkline, PriceChangeBadge, BourseTicker, OrderBookDepth } from "../ui/BourseWidgets";
+import { PriceSparkline, PriceHistoryChart, PriceChangeBadge, BourseTicker, OrderBookDepth } from "../ui/BourseWidgets";
 
 const BOURSE_DAILY_CAP = 0.3;
 
@@ -238,6 +238,11 @@ const CitizenBourseView = ({ user, citizens = [], bourseListings = [], onBourseP
                           )}
                         </div>
                         <OrderBookDepth buyOrders={listing.buyOrders} sellOrders={listing.sellOrders} myId={user.id} ownerId={listing.ownerId} onCancel={(orderId, side) => onBourseCancelOrder({ listingId: listing.id, orderId, side })} />
+                        {(listing.priceHistory || []).length > 1 && (
+                          <div className="bg-stone-50 border border-stone-100 rounded-lg p-3">
+                            <PriceHistoryChart history={listing.priceHistory} />
+                          </div>
+                        )}
                         {(listing.priceHistory || []).length > 1 && (
                           <details className="bg-stone-50 border border-stone-100 rounded-lg">
                             <summary className="px-3 py-2 cursor-pointer text-[9px] font-black uppercase tracking-widest text-stone-500 select-none hover:text-stone-700">

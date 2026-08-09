@@ -5,7 +5,7 @@ import {
   Users,
 } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
-import { PriceSparkline, PriceChangeBadge, BourseTicker, OrderBookDepth } from "../ui/BourseWidgets";
+import { PriceSparkline, PriceHistoryChart, PriceChangeBadge, BourseTicker, OrderBookDepth } from "../ui/BourseWidgets";
 
 /* ── Formulaire IPO ── */
 const IPOForm = ({ companies, listings, onCreateListing, onCancel }) => {
@@ -289,10 +289,11 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
 
       {/* Historique des prix */}
       {(listing.priceHistory || []).length > 1 && (
-        <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-2">
+        <div className="bg-white border border-stone-200 rounded-xl p-4 space-y-3">
           <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 flex items-center gap-1.5">
             <BarChart2 size={11} /> Historique des cours (transactions réelles)
           </div>
+          <PriceHistoryChart history={listing.priceHistory} />
           <div className="flex items-center gap-2">
             <PriceSparkline history={listing.priceHistory} width={80} height={26} />
             <div className="space-y-0.5">

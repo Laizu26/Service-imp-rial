@@ -41,7 +41,7 @@ import {
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
-import { OrderBookDepth } from "../ui/BourseWidgets";
+import { OrderBookDepth, PriceHistoryChart } from "../ui/BourseWidgets";
 import { formatMoney, getActiveStaffLoan } from "../../lib/gameUtils";
 
 // ── Sous-composant ESPP — config patron (state propre pour éviter la synchro inter-entreprises) ──
@@ -3623,6 +3623,9 @@ const MyCompanyView = ({
             {/* Historique des prix */}
             {(myListing.priceHistory || []).length > 1 && (
               <Card title="Historique des cours (transactions réelles)" icon={History}>
+                <div className="mb-3">
+                  <PriceHistoryChart history={myListing.priceHistory} />
+                </div>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {myListing.priceHistory.slice(0, 15).map((h, i) => (
                     <div key={i} className="flex items-center justify-between px-2 py-1 rounded hover:bg-stone-50 text-xs">
