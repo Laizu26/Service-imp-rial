@@ -47,31 +47,31 @@ const CitizenSelect = ({ users, value, onChange, isMulti = false, label = "Desti
 
   return (
     <div className={`relative ${isOpen ? "z-[100]" : "z-10"}`}>
-      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1 block">{label}</label>
+      <label className="text-[9px] font-black uppercase text-stone-400 dark:text-stone-500 tracking-widest mb-1 block">{label}</label>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer hover:border-[#b8860b] transition-colors min-h-[38px]"
+        className="w-full bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg px-3 py-2 flex items-center gap-2 cursor-pointer hover:border-[#b8860b] transition-colors min-h-[38px]"
       >
         {isMulti ? (
           selected.length > 0 ? (
             <div className="flex flex-wrap gap-1 flex-1">
               {selected.map((u) => (
-                <span key={u.id} className="bg-stone-200 text-stone-700 px-2 py-0.5 rounded text-[11px] flex items-center gap-1">
+                <span key={u.id} className="bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-200 px-2 py-0.5 rounded text-[11px] flex items-center gap-1">
                   {u.name}
                   <span className="cursor-pointer hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleSelect(u.id); }}>×</span>
                 </span>
               ))}
             </div>
-          ) : <span className="text-stone-400 text-xs italic flex-1">En copie (optionnel)…</span>
+          ) : <span className="text-stone-400 dark:text-stone-500 text-xs italic flex-1">En copie (optionnel)…</span>
         ) : selected ? (
-          <span className="flex items-center gap-2 flex-1 text-sm font-semibold text-stone-800">
+          <span className="flex items-center gap-2 flex-1 text-sm font-semibold text-stone-800 dark:text-stone-200">
             <span className={`w-5 h-5 rounded-full text-white text-[9px] font-black flex items-center justify-center ${avatarColor(selected.name)}`} style={{ width: 20, height: 20, minWidth: 20, minHeight: 20 }}>
               {selected.name[0]?.toUpperCase()}
             </span>
             {selected.name}
           </span>
-        ) : <span className="text-stone-400 text-xs italic flex-1">Choisir un destinataire…</span>}
-        <span className="text-stone-400 text-xs shrink-0">▼</span>
+        ) : <span className="text-stone-400 dark:text-stone-500 text-xs italic flex-1">Choisir un destinataire…</span>}
+        <span className="text-stone-400 dark:text-stone-500 text-xs shrink-0">▼</span>
       </div>
 
       {isOpen && (
@@ -264,23 +264,23 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
   /* ─── RENDER ────────────────────────────────────────────────────────────── */
   return (
-    <div className="flex w-full h-full bg-stone-100 rounded-xl overflow-hidden border border-stone-300 shadow-2xl font-sans text-stone-800 relative">
+    <div className="flex w-full h-full bg-stone-100 dark:bg-stone-900 rounded-xl overflow-hidden border border-stone-300 dark:border-stone-700 shadow-2xl font-sans text-stone-800 dark:text-stone-200 relative">
 
       {/* ── MODAL DELETE ── */}
       {deleteConfirmId && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 p-6 max-w-sm w-full mx-4">
+          <div className="bg-white dark:bg-stone-800 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-700 p-6 max-w-sm w-full mx-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <Trash2 size={18} className="text-red-600" />
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="font-black text-stone-900 text-sm">Supprimer ce message ?</p>
-                <p className="text-xs text-stone-500">Action irréversible</p>
+                <p className="font-black text-stone-900 dark:text-stone-100 text-sm">Supprimer ce message ?</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Action irréversible</p>
               </div>
             </div>
             <div className="flex gap-2 justify-end mt-4">
-              <button onClick={() => setDeleteConfirmId(null)} className="px-4 py-2 text-xs font-bold text-stone-600 hover:text-stone-900 rounded-lg hover:bg-stone-100 transition-colors">Annuler</button>
+              <button onClick={() => setDeleteConfirmId(null)} className="px-4 py-2 text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors">Annuler</button>
               <button onClick={confirmDelete} className="px-4 py-2 text-xs font-black bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Supprimer</button>
             </div>
           </div>
@@ -344,43 +344,43 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
       {/* ── COLONNE 2 : LISTE ── */}
       {showList && (
-        <div className="w-full md:w-80 border-r border-stone-200 flex flex-col bg-white shrink-0">
+        <div className="w-full md:w-80 border-r border-stone-200 dark:border-stone-700 flex flex-col bg-white dark:bg-stone-900 shrink-0">
           {/* Barre de recherche */}
-          <div className="px-3 py-3 border-b border-stone-100 space-y-2">
+          <div className="px-3 py-3 border-b border-stone-100 dark:border-stone-800 space-y-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={13} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500" size={13} />
               <input
-                className="w-full pl-8 pr-8 py-2 bg-stone-100 rounded-lg text-xs outline-none focus:bg-white focus:ring-2 focus:ring-[#b8860b]/30 transition-all"
+                className="w-full pl-8 pr-8 py-2 bg-stone-100 dark:bg-stone-800 dark:text-stone-200 rounded-lg text-xs outline-none focus:bg-white dark:focus:bg-stone-800 focus:ring-2 focus:ring-[#b8860b]/30 transition-all"
                 placeholder="Rechercher…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               {searchTerm && (
-                <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700">
+                <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-300">
                   <X size={13} />
                 </button>
               )}
             </div>
             {activeFolder === "inbox" && unreadCount > 0 && (
               <button onClick={handleMarkAllRead}
-                className="w-full flex items-center justify-center gap-1.5 py-1 text-[10px] font-bold uppercase tracking-wide text-stone-500 hover:text-stone-800 rounded-lg hover:bg-stone-100 transition-colors">
+                className="w-full flex items-center justify-center gap-1.5 py-1 text-[10px] font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
                 <CheckCheck size={12} /> Tout marquer comme lu ({unreadCount})
               </button>
             )}
           </div>
 
           {/* En-tête dossier */}
-          <div className="px-4 py-2 flex items-center justify-between border-b border-stone-100">
-            <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">
+          <div className="px-4 py-2 flex items-center justify-between border-b border-stone-100 dark:border-stone-800">
+            <span className="text-[10px] font-black uppercase tracking-widest text-stone-500 dark:text-stone-400">
               {folders.find((f) => f.id === activeFolder)?.label}
-              {" "}<span className="text-stone-300">{displayedMessages.length}</span>
+              {" "}<span className="text-stone-300 dark:text-stone-600">{displayedMessages.length}</span>
             </span>
           </div>
 
           {/* Liste des messages */}
           <div className="flex-1 overflow-y-auto">
             {displayedMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-stone-300 gap-3 pb-10">
+              <div className="flex flex-col items-center justify-center h-full text-stone-300 dark:text-stone-600 gap-3 pb-10">
                 <Inbox size={36} className="opacity-40" />
                 <span className="text-xs">Aucune missive</span>
               </div>
@@ -397,10 +397,10 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                     onClick={() => openMsg(msg)}
                     onMouseEnter={() => setHoverMsgId(String(msg.id))}
                     onMouseLeave={() => setHoverMsgId(null)}
-                    className={`relative px-4 py-3 border-b border-stone-100 cursor-pointer transition-all ${
-                      isSelected ? "bg-amber-50 border-l-2 border-l-[#b8860b]" :
-                      isUnread ? "bg-amber-50/40 hover:bg-amber-50" :
-                      "hover:bg-stone-50"
+                    className={`relative px-4 py-3 border-b border-stone-100 dark:border-stone-800 cursor-pointer transition-all ${
+                      isSelected ? "bg-amber-50 dark:bg-amber-900/20 border-l-2 border-l-[#b8860b]" :
+                      isUnread ? "bg-amber-50/40 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20" :
+                      "hover:bg-stone-50 dark:hover:bg-stone-800"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -412,19 +412,19 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                       <div className="flex-1 min-w-0">
                         {/* Ligne 1: nom + date */}
                         <div className="flex items-center justify-between gap-1 mb-0.5">
-                          <span className={`text-xs truncate ${isUnread ? "font-black text-stone-900" : "font-semibold text-stone-700"}`}>
+                          <span className={`text-xs truncate ${isUnread ? "font-black text-stone-900 dark:text-stone-100" : "font-semibold text-stone-700 dark:text-stone-300"}`}>
                             {displayName}
                           </span>
-                          <span className="text-[9px] text-stone-400 font-mono shrink-0 whitespace-nowrap">{msg.date}</span>
+                          <span className="text-[9px] text-stone-400 dark:text-stone-500 font-mono shrink-0 whitespace-nowrap">{msg.date}</span>
                         </div>
                         {/* Ligne 2: sujet + badge seal */}
                         <div className="flex items-center gap-1.5 mb-0.5">
                           {(msg.subject?.startsWith("Re: ") || msg.subject?.startsWith("Fwd: ")) && (
-                            <span className="text-[8px] font-black bg-stone-200 text-stone-500 px-1 rounded shrink-0">
+                            <span className="text-[8px] font-black bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-300 px-1 rounded shrink-0">
                               {msg.subject.startsWith("Fwd: ") ? "Fwd" : "Re"}
                             </span>
                           )}
-                          <span className={`text-xs truncate ${isUnread ? "font-bold text-stone-900" : "text-stone-600"}`}>
+                          <span className={`text-xs truncate ${isUnread ? "font-bold text-stone-900 dark:text-stone-100" : "text-stone-600 dark:text-stone-400"}`}>
                             {msg.subject?.replace(/^(Re|Fwd): /, "") || "(sans objet)"}
                           </span>
                           {msg.seal && msg.seal !== "NORMAL" && (
@@ -434,7 +434,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                           )}
                         </div>
                         {/* Ligne 3: aperçu */}
-                        <div className="text-[10px] text-stone-400 truncate">{msg.content?.substring(0, 55)}…</div>
+                        <div className="text-[10px] text-stone-400 dark:text-stone-500 truncate">{msg.content?.substring(0, 55)}…</div>
                       </div>
 
                       {/* Indicateur non lu */}
@@ -443,31 +443,31 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
                     {/* Actions rapides au survol */}
                     {hoverMsgId === String(msg.id) && !isSent && (
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white border border-stone-200 rounded-lg shadow-md px-1 py-0.5">
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-md px-1 py-0.5">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleUpdateMsg(msg.id, { isStarred: !msg.isStarred }); }}
-                          className={`p-1 rounded hover:bg-stone-100 transition-colors ${msg.isStarred ? "text-[#b8860b]" : "text-stone-400"}`}
+                          className={`p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors ${msg.isStarred ? "text-[#b8860b]" : "text-stone-400 dark:text-stone-500"}`}
                           title="Prioritaire"
                         >
                           <Star size={12} fill={msg.isStarred ? "currentColor" : "none"} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleUpdateMsg(msg.id, { isRead: !msg.isRead }); }}
-                          className="p-1 rounded hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors"
+                          className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-300 transition-colors"
                           title={msg.isRead ? "Marquer non lu" : "Marquer lu"}
                         >
                           <MailOpen size={12} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleUpdateMsg(msg.id, { isSpam: !msg.isSpam }); }}
-                          className={`p-1 rounded hover:bg-stone-100 transition-colors ${msg.isSpam ? "text-red-500" : "text-stone-400"}`}
+                          className={`p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors ${msg.isSpam ? "text-red-500" : "text-stone-400 dark:text-stone-500"}`}
                           title="Rebut"
                         >
                           <AlertOctagon size={12} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteMsg(msg.id); }}
-                          className="p-1 rounded hover:bg-red-50 text-stone-400 hover:text-red-600 transition-colors"
+                          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-stone-400 dark:text-stone-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                           title="Supprimer"
                         >
                           <Trash2 size={12} />
@@ -484,15 +484,15 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
       {/* ── COLONNE 3 : PANNEAU LECTURE / RÉDACTION ── */}
       {showPane && (
-        <div className="flex-1 flex flex-col min-w-0 bg-[#fdfbf7]">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#fdfbf7] dark:bg-stone-900">
 
           {/* ── VIDE ── */}
           {!isComposing && !selectedMsg && (
-            <div className="flex-1 flex flex-col items-center justify-center text-stone-300 gap-4">
-              <div className="w-20 h-20 rounded-full bg-stone-100 flex items-center justify-center">
+            <div className="flex-1 flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 gap-4">
+              <div className="w-20 h-20 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
                 <Mail size={32} className="opacity-40" />
               </div>
-              <p className="text-sm font-bold text-stone-400">Sélectionner une missive</p>
+              <p className="text-sm font-bold text-stone-400 dark:text-stone-500">Sélectionner une missive</p>
               <button onClick={() => handleCompose()} className="flex items-center gap-2 px-4 py-2 bg-[#b8860b] text-stone-900 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-[#d4a017] transition-all">
                 <PenTool size={13} /> Rédiger
               </button>
@@ -503,8 +503,8 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
           {!isComposing && selectedMsg && (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Toolbar */}
-              <div className="px-4 py-2.5 border-b border-stone-200 bg-white flex items-center gap-2 shrink-0">
-                <button onClick={() => setSelectedMsg(null)} className="md:hidden flex items-center gap-1 text-stone-500 hover:text-stone-800 mr-1">
+              <div className="px-4 py-2.5 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 flex items-center gap-2 shrink-0">
+                <button onClick={() => setSelectedMsg(null)} className="md:hidden flex items-center gap-1 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 mr-1">
                   <ChevronLeft size={16} />
                 </button>
                 <div className="flex-1" />
@@ -517,7 +517,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                   <ActionBtn
                     onClick={() => handleUpdateMsg(selectedMsg.id, { isStarred: !selectedMsg.isStarred })}
                     active={selectedMsg.isStarred}
-                    activeClass="bg-amber-50 text-[#b8860b]"
+                    activeClass="bg-amber-50 dark:bg-amber-900/30 text-[#b8860b]"
                     title="Prioritaire"
                   >
                     <Star size={15} fill={selectedMsg.isStarred ? "currentColor" : "none"} />
@@ -535,7 +535,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                   <ActionBtn
                     onClick={() => handleUpdateMsg(selectedMsg.id, { isSpam: !selectedMsg.isSpam })}
                     active={selectedMsg.isSpam}
-                    activeClass="bg-red-50 text-red-600"
+                    activeClass="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                     title={selectedMsg.isSpam ? "Retirer des rebuts" : "Rebut"}
                   >
                     <AlertOctagon size={15} />
@@ -549,12 +549,12 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
               </div>
 
               {/* Corps — lettre formelle */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-stone-100">
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-stone-100 dark:bg-stone-950">
                 <div className="max-w-2xl mx-auto">
                   {/* Document lettre */}
-                  <div className="bg-[#fdf8ee] border border-stone-300 rounded-xl shadow-lg overflow-hidden">
+                  <div className="bg-[#fdf8ee] dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-xl shadow-lg overflow-hidden">
                     {/* En-tête */}
-                    <div className="border-b border-stone-200 px-6 py-5">
+                    <div className="border-b border-stone-200 dark:border-stone-700 px-6 py-5">
                       {selectedMsg.seal && selectedMsg.seal !== "NORMAL" && (
                         <div className="mb-4">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getSealStyle(selectedMsg.seal)}`}>
@@ -563,39 +563,39 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                           </span>
                         </div>
                       )}
-                      <h1 className="text-xl font-black font-serif text-stone-900 leading-tight mb-5">
+                      <h1 className="text-xl font-black font-serif text-stone-900 dark:text-stone-100 leading-tight mb-5">
                         {selectedMsg.subject}
                       </h1>
-                      <table className="text-xs text-stone-700 w-full">
+                      <table className="text-xs text-stone-700 dark:text-stone-300 w-full">
                         <tbody>
-                          <tr className="border-b border-stone-100">
-                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 w-16 whitespace-nowrap">De</td>
-                            <td className="py-1.5 font-semibold text-stone-800">{selectedMsg.from || "Inconnu"}</td>
+                          <tr className="border-b border-stone-100 dark:border-stone-700">
+                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 w-16 whitespace-nowrap">De</td>
+                            <td className="py-1.5 font-semibold text-stone-800 dark:text-stone-200">{selectedMsg.from || "Inconnu"}</td>
                           </tr>
-                          <tr className="border-b border-stone-100">
-                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">À</td>
-                            <td className="py-1.5 font-semibold text-stone-800">
+                          <tr className="border-b border-stone-100 dark:border-stone-700">
+                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 whitespace-nowrap">À</td>
+                            <td className="py-1.5 font-semibold text-stone-800 dark:text-stone-200">
                               {activeFolder === "sent" ? (selectedMsg.toName || "Destinataire") : (session?.name || "Vous")}
                             </td>
                           </tr>
                           {(selectedMsg.cc?.length > 0) && (
-                            <tr className="border-b border-stone-100">
-                              <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">CC</td>
-                              <td className="py-1.5 text-stone-600">
+                            <tr className="border-b border-stone-100 dark:border-stone-700">
+                              <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 whitespace-nowrap">CC</td>
+                              <td className="py-1.5 text-stone-600 dark:text-stone-400">
                                 {selectedMsg.cc.map((id) => safeUsers.find((x) => String(x.id) === String(id))?.name || id).join(", ")}
                               </td>
                             </tr>
                           )}
                           <tr>
-                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 whitespace-nowrap">Date</td>
-                            <td className="py-1.5 text-stone-500 font-mono text-[10px]">{selectedMsg.date || "—"}</td>
+                            <td className="py-1.5 pr-6 font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 whitespace-nowrap">Date</td>
+                            <td className="py-1.5 text-stone-500 dark:text-stone-400 font-mono text-[10px]">{selectedMsg.date || "—"}</td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
                     {/* Corps */}
                     <div className="px-8 py-8">
-                      <div className="font-serif text-stone-800 text-sm leading-relaxed whitespace-pre-wrap">
+                      <div className="font-serif text-stone-800 dark:text-stone-200 text-sm leading-relaxed whitespace-pre-wrap">
                         {selectedMsg.content}
                       </div>
                     </div>
@@ -609,7 +609,7 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                         <Reply size={13} /> Répondre
                       </button>
                       <button onClick={() => handleForward(selectedMsg)}
-                        className="flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg text-xs font-black uppercase tracking-wide hover:bg-stone-200 border border-stone-200 transition-all">
+                        className="flex items-center gap-2 px-4 py-2 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 rounded-lg text-xs font-black uppercase tracking-wide hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 transition-all">
                         <CornerUpRight size={13} /> Transférer
                       </button>
                     </div>
@@ -623,11 +623,11 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
           {isComposing && (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Toolbar compose */}
-              <div className="px-4 py-2.5 border-b border-stone-200 bg-white flex items-center gap-3 shrink-0">
-                <button onClick={() => setIsComposing(false)} className="flex items-center gap-1.5 text-stone-500 hover:text-stone-800 text-xs font-bold">
+              <div className="px-4 py-2.5 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 flex items-center gap-3 shrink-0">
+                <button onClick={() => setIsComposing(false)} className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 text-xs font-bold">
                   <X size={15} /> Annuler
                 </button>
-                <span className="text-xs font-black uppercase tracking-widest text-stone-400 flex-1 text-center">Nouvelle missive</span>
+                <span className="text-xs font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 flex-1 text-center">Nouvelle missive</span>
                 <button onClick={handleSend}
                   className="flex items-center gap-2 px-4 py-1.5 bg-stone-900 text-[#b8860b] rounded-lg text-xs font-black uppercase tracking-widest hover:bg-black transition-all">
                   <Send size={13} /> Envoyer
@@ -638,15 +638,15 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
               <div className="flex-1 overflow-y-auto p-4 md:p-6">
                 <div className="max-w-2xl mx-auto space-y-4">
                   {/* Destinataire + CC */}
-                  <div className="bg-white rounded-xl border border-stone-200 overflow-visible p-4 space-y-4">
+                  <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700 overflow-visible p-4 space-y-4">
                     <CitizenSelect users={users} value={draft.to} onChange={(id) => setDraft({ ...draft, to: id })} label="Destinataire" />
                     <CitizenSelect users={users} value={draft.cc} onChange={(ids) => setDraft({ ...draft, cc: ids })} isMulti label="Copie (CC)" />
 
                     {/* Objet */}
                     <div>
-                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1 block">Objet</label>
+                      <label className="text-[9px] font-black uppercase text-stone-400 dark:text-stone-500 tracking-widest mb-1 block">Objet</label>
                       <input
-                        className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-sm font-semibold outline-none focus:border-[#b8860b] focus:bg-white transition-colors"
+                        className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 dark:text-stone-200 border border-stone-200 dark:border-stone-700 rounded-lg text-sm font-semibold outline-none focus:border-[#b8860b] focus:bg-white dark:focus:bg-stone-900 transition-colors"
                         value={draft.subject}
                         onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
                         placeholder="Sujet de la missive…"
@@ -655,14 +655,14 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 
                     {/* Sceau */}
                     <div>
-                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2 block">Sceau</label>
+                      <label className="text-[9px] font-black uppercase text-stone-400 dark:text-stone-500 tracking-widest mb-2 block">Sceau</label>
                       <div className="flex flex-wrap gap-2">
                         {["NORMAL", "URGENT", "OFFICIAL", "SECRET"].map((seal) => {
                           const m = SEAL_META[seal];
                           return (
                             <button key={seal} onClick={() => setDraft({ ...draft, seal })}
                               className={`px-3 py-1 text-[9px] font-black uppercase rounded-lg border transition-all ${
-                                draft.seal === seal ? `${m.bg} ${m.text} border-transparent shadow-sm` : "bg-stone-50 text-stone-500 border-stone-200 hover:border-stone-400"
+                                draft.seal === seal ? `${m.bg} ${m.text} border-transparent shadow-sm` : "bg-stone-50 dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500"
                               }`}>
                               {seal === "NORMAL" ? "Normal" : seal === "URGENT" ? "Urgent" : seal === "OFFICIAL" ? "Officiel" : "Secret"}
                             </button>
@@ -673,38 +673,38 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
                   </div>
 
                   {/* Options avancées (collapsibles) */}
-                  <details className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-                    <summary className="px-4 py-3 cursor-pointer text-[10px] font-black uppercase tracking-widest text-stone-400 select-none hover:text-stone-600">
+                  <details className="bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden">
+                    <summary className="px-4 py-3 cursor-pointer text-[10px] font-black uppercase tracking-widest text-stone-400 dark:text-stone-500 select-none hover:text-stone-600 dark:hover:text-stone-300">
                       Options avancées (en-tête · signature)
                     </summary>
                     <div className="px-4 pb-4 space-y-3">
                       <div>
-                        <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1 block">En-tête du document</label>
+                        <label className="text-[9px] font-black uppercase text-stone-400 dark:text-stone-500 tracking-widest mb-1 block">En-tête du document</label>
                         <div className="relative">
-                          <FileText className="absolute left-3 top-2.5 text-stone-400" size={13} />
-                          <input className="w-full pl-8 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs font-black uppercase tracking-widest outline-none focus:border-[#b8860b]"
+                          <FileText className="absolute left-3 top-2.5 text-stone-400 dark:text-stone-500" size={13} />
+                          <input className="w-full pl-8 pr-3 py-2 bg-stone-50 dark:bg-stone-900 dark:text-stone-200 border border-stone-200 dark:border-stone-700 rounded-lg text-xs font-black uppercase tracking-widest outline-none focus:border-[#b8860b]"
                             value={draft.heading} onChange={(e) => setDraft({ ...draft, heading: e.target.value })} placeholder="Ex: ACTE DE CESSION" />
                         </div>
                       </div>
                       <div>
-                        <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1 block">Signature (alias)</label>
-                        <input className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-xs outline-none focus:border-[#b8860b]"
+                        <label className="text-[9px] font-black uppercase text-stone-400 dark:text-stone-500 tracking-widest mb-1 block">Signature (alias)</label>
+                        <input className="w-full px-3 py-2 bg-stone-50 dark:bg-stone-900 dark:text-stone-200 border border-stone-200 dark:border-stone-700 rounded-lg text-xs outline-none focus:border-[#b8860b]"
                           value={draft.alias} onChange={(e) => setDraft({ ...draft, alias: e.target.value })} placeholder="Laisser vide pour votre nom…" />
                       </div>
                     </div>
                   </details>
 
                   {/* Zone de texte */}
-                  <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                  <div className="bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700 overflow-hidden">
                     <textarea
-                      className="w-full p-4 font-serif text-stone-800 text-sm leading-relaxed resize-none outline-none bg-transparent min-h-[220px]"
+                      className="w-full p-4 font-serif text-stone-800 dark:text-stone-200 text-sm leading-relaxed resize-none outline-none bg-transparent min-h-[220px]"
                       placeholder="Rédigez votre missive ici…"
                       value={draft.content}
                       onChange={(e) => setDraft({ ...draft, content: e.target.value })}
                     />
-                    <div className="px-4 py-2 border-t border-stone-100 flex justify-between text-[10px] text-stone-400">
+                    <div className="px-4 py-2 border-t border-stone-100 dark:border-stone-700 flex justify-between text-[10px] text-stone-400 dark:text-stone-500">
                       <span>{draft.content.length} caractère{draft.content.length !== 1 ? "s" : ""}</span>
-                      {draft.content.length > 2000 && <span className="text-amber-600 font-bold">Message long</span>}
+                      {draft.content.length > 2000 && <span className="text-amber-600 dark:text-amber-400 font-bold">Message long</span>}
                     </div>
                   </div>
                 </div>
@@ -718,11 +718,11 @@ const PostView = ({ users, session, onSend, onUpdateUser, notify }) => {
 };
 
 /* ─── BOUTON ACTION (toolbar lecture) ───────────────────────────────────────── */
-const ActionBtn = ({ onClick, children, title, active, activeClass = "", hoverClass = "hover:bg-stone-100 hover:text-stone-800" }) => (
+const ActionBtn = ({ onClick, children, title, active, activeClass = "", hoverClass = "hover:bg-stone-100 dark:hover:bg-stone-700 hover:text-stone-800 dark:hover:text-stone-200" }) => (
   <button
     onClick={onClick}
     title={title}
-    className={`w-8 h-8 flex items-center justify-center rounded-lg text-stone-500 transition-all ${active ? activeClass : ""} ${hoverClass}`}
+    className={`w-8 h-8 flex items-center justify-center rounded-lg text-stone-500 dark:text-stone-400 transition-all ${active ? activeClass : ""} ${hoverClass}`}
   >
     {children}
   </button>
