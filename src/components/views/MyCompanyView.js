@@ -3817,31 +3817,52 @@ const MyCompanyView = ({
                       Révoquer
                     </button>
                   </div>
-                ) : (
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="text-[10px] font-bold uppercase text-stone-400 mb-1 block">Nommer un PDG</label>
-                      <UserSearchSelect
-                        users={citizens}
-                        onSelect={setCeoTarget}
-                        placeholder="Rechercher un citoyen..."
-                        excludeIds={[user.id]}
-                        value={ceoTarget}
-                      />
+                ) : (() => {
+                  // Le PDG doit être choisi parmi le personnel de l'entreprise : salariés en poste
+                  // ou salariés actuellement détachés vers cette entreprise (staffLoans, toCompanyId).
+                  const borrowedInIds = new Set(
+                    staffLoans.filter((l) => l.status === "ACTIVE" && l.toCompanyId === myCompany.id).map((l) => String(l.employeeId))
+                  );
+                  const eligibleIds = new Set([
+                    ...((myCompany.employees || []).map(String)),
+                    ...borrowedInIds,
+                  ]);
+                  const eligibleCitizens = citizens.filter((c) => eligibleIds.has(String(c.id)) && c.id !== user.id);
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="text-[10px] font-bold uppercase text-stone-400 mb-1 block">
+                            Nommer un PDG (parmi les salariés ou salariés détachés)
+                          </label>
+                          <UserSearchSelect
+                            users={eligibleCitizens}
+                            onSelect={setCeoTarget}
+                            placeholder="Rechercher parmi le personnel..."
+                            excludeIds={[user.id]}
+                            value={ceoTarget}
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (!ceoTarget || !onAppointCEO) return;
+                            onAppointCEO({ companyId: myCompany.id, citizenId: ceoTarget });
+                            setCeoTarget("");
+                          }}
+                          disabled={!ceoTarget}
+                          className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50"
+                        >
+                          Nommer
+                        </button>
+                      </div>
+                      {eligibleCitizens.length === 0 && (
+                        <div className="text-[10px] text-stone-400 italic">
+                          Aucun salarié ou salarié détaché disponible — recrutez ou faites-vous détacher du personnel avant de nommer un PDG.
+                        </div>
+                      )}
                     </div>
-                    <button
-                      onClick={() => {
-                        if (!ceoTarget || !onAppointCEO) return;
-                        onAppointCEO({ companyId: myCompany.id, citizenId: ceoTarget });
-                        setCeoTarget("");
-                      }}
-                      disabled={!ceoTarget}
-                      className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50"
-                    >
-                      Nommer
-                    </button>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </Card>
           )}

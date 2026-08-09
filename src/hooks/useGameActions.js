@@ -1118,6 +1118,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         const citizen = (state.citizens || []).find((c) => c.id === citizenId);
         if (!citizen) { notify("Citoyen introuvable.", "error"); return; }
+        // Le PDG doit être choisi parmi le personnel de l'entreprise : salarié en poste, ou
+        // salarié actuellement détaché vers cette entreprise (staffLoans, toCompanyId).
+        const isEmployee = (company.employees || []).map(String).includes(String(citizenId));
+        const isBorrowedIn = (state.staffLoans || []).some(
+          (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId) && String(l.employeeId) === String(citizenId)
+        );
+        if (!isEmployee && !isBorrowedIn) {
+          notify("Le PDG doit être choisi parmi les salariés ou salariés détachés de l'entreprise.", "error");
+          return;
+        }
 
         const newCompanies = [...state.companies];
         newCompanies[compIdx] = { ...company, ceoId: citizenId };
