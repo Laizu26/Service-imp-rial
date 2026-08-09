@@ -7190,6 +7190,65 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Offre de ${quantity} action(s) ${listing.symbol} à ${formatMoney(askPrice)} placée sur le marché.`, "success");
       },
 
+      // --- CESSION DIRECTE D'ACTIONS À UN CITOYEN CHOISI ---
+      // Distincte du marché public (onBourseCompanyOffer, anonyme, tout le monde peut acheter)
+      // et de l'ESPP (onEmployeeBuyShares, réservée aux employés) : ici l'entreprise cible
+      // n'importe quel citoyen directement, hors carnet d'ordres. Prix à 0 = don pur (aucun
+      // transfert d'écus), sinon vente immédiate au prix convenu (hors plafond journalier du
+      // marché public, qui ne s'applique qu'aux échanges sur le carnet d'ordres).
+      onBourseDirectOffer: ({ listingId, citizenId, qty, price }) => {
+        if (!session) return;
+        const quantity = parseInt(qty);
+        const unitPrice = Math.max(0, Math.round((parseFloat(price) || 0) * 10) / 10);
+        if (!quantity || quantity <= 0) { notify("Quantité invalide.", "error"); return; }
+        const listings = [...(state.bourseListings || [])];
+        const idx = listings.findIndex((l) => l.id === listingId);
+        if (idx === -1) { notify("Cotation introuvable.", "error"); return; }
+        const listing = listings[idx];
+        const company = (state.companies || []).find((c) => c.id === listing.companyId);
+        const isOwnerOrAdmin = isCompanyManager(company, session.id) || (ROLES[session.role]?.level || 0) >= 40;
+        if (!isOwnerOrAdmin) { notify("Action non autorisée.", "error"); return; }
+        if (!listing.isActive) { notify("Cette valeur n'est plus active.", "error"); return; }
+
+        const citIdx = (state.citizens || []).findIndex((c) => c.id === citizenId);
+        if (citIdx === -1) { notify("Citoyen introuvable.", "error"); return; }
+        const citizen = state.citizens[citIdx];
+
+        const totalHeld = (state.citizens || []).reduce((s, c) => s + ((c.stockholdings || {})[listingId] || 0), 0);
+        const totalOpenSell = (listing.sellOrders || []).reduce((s, o) => s + o.qty, 0);
+        if (totalHeld + totalOpenSell + quantity > listing.totalShares) {
+          notify(`Dépasse le capital autorisé (${listing.totalShares} actions au total, ${totalHeld + totalOpenSell} déjà en circulation ou en vente).`, "error");
+          return;
+        }
+        const cost = Math.round(quantity * unitPrice * 10) / 10;
+        if (cost > 0 && (citizen.balance || 0) < cost) {
+          notify(`${citizen.name} n'a pas les fonds nécessaires (${formatMoney(cost)} requis).`, "error");
+          return;
+        }
+
+        const newCitizens = [...state.citizens];
+        const holdings = { ...(newCitizens[citIdx].stockholdings || {}) };
+        holdings[listingId] = (holdings[listingId] || 0) + quantity;
+        newCitizens[citIdx] = {
+          ...newCitizens[citIdx],
+          stockholdings: holdings,
+          balance: cost > 0 ? Math.round(((newCitizens[citIdx].balance || 0) - cost) * 10) / 10 : newCitizens[citIdx].balance,
+        };
+        let newCompanies = state.companies || [];
+        let ledgerEntries = [];
+        if (cost > 0) {
+          const compIdx = state.companies.findIndex((c) => c.id === company.id);
+          newCompanies = [...state.companies];
+          newCompanies[compIdx] = { ...newCompanies[compIdx], balance: Math.round(((newCompanies[compIdx].balance || 0) + cost) * 10) / 10 };
+          ledgerEntries.push({
+            id: Date.now(), fromName: citizen.name, toName: company.name, amount: cost,
+            timestamp: Date.now(), reason: `Cession directe de ${quantity} action(s) ${listing.symbol}`, type: "BOURSE_DIRECT",
+          });
+        }
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, globalLedger: ledgerEntries.length ? [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) : state.globalLedger });
+        notify(`${quantity} action(s) ${listing.symbol} ${cost > 0 ? `vendue(s) à ${citizen.name} pour ${formatMoney(cost)}` : `offerte(s) à ${citizen.name}`}.`, "success");
+      },
+
       onBoursePayDividends: (listingId, dividendPerShare) => {
         if (!session) return;
         const dpS = parseFloat(dividendPerShare);

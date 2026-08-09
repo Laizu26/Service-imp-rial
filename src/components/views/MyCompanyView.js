@@ -760,6 +760,7 @@ const MyCompanyView = ({
   onBourseEditListing,
   onBoursePayDividends,
   onBourseCompanyOffer,
+  onBourseDirectOffer,
   onBourseCancelOrder,
   onUpdateCompanyESPP,
   onEmployeeBuyShares,
@@ -869,7 +870,7 @@ const MyCompanyView = ({
   const [loanPermsDraft, setLoanPermsDraft] = useState({});
 
   // Bourse
-  const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", offerQty: "", offerPrice: "", dividend: "", showDividendForm: false });
+  const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", offerQty: "", offerPrice: "", dividend: "", showDividendForm: false, directTarget: "", directQty: "", directPrice: "" });
   const setBF = (patch) => setBourseForm((p) => ({ ...p, ...patch }));
 
   const mySlaves = (citizens || []).filter(
@@ -3848,6 +3849,53 @@ const MyCompanyView = ({
                   <div className="pt-2 border-t border-stone-100">
                     <OrderBookDepth buyOrders={myListing.buyOrders} sellOrders={myListing.sellOrders} myId={user.id} ownerId={myListing.ownerId} onCancel={onBourseCancelOrder ? (orderId, side) => onBourseCancelOrder({ listingId: myListing.id, orderId, side }) : undefined} />
                   </div>
+                </div>
+              </Card>
+
+              {/* Cession directe à un citoyen choisi — hors marché public, n'importe qui (pas
+                  seulement les employés comme pour l'ESPP) */}
+              <Card title="Offrir des titres à un citoyen" icon={UserPlus}>
+                <div className="space-y-3">
+                  <p className="text-[10px] text-stone-400">
+                    Cédez des actions directement à n'importe quel citoyen, hors carnet d'ordres. Prix à 0 = don pur ;
+                    sinon le montant est prélevé immédiatement sur son compte.
+                  </p>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Destinataire</label>
+                    <UserSearchSelect
+                      users={citizens}
+                      onSelect={(id) => setBF({ directTarget: id })}
+                      placeholder="Rechercher un citoyen..."
+                      excludeIds={[]}
+                      value={bourseForm.directTarget}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Quantité</label>
+                      <input type="number" min={1} className="w-full border border-stone-200 rounded-lg p-2 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                        value={bourseForm.directQty} onChange={(e) => setBF({ directQty: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prix / action (0 = don)</label>
+                      <input type="number" step="0.1" min={0} className="w-full border border-stone-200 rounded-lg p-2 text-sm outline-none focus:border-stone-400 bg-stone-50 font-mono"
+                        placeholder="0" value={bourseForm.directPrice} onChange={(e) => setBF({ directPrice: e.target.value })} />
+                    </div>
+                  </div>
+                  <button
+                    disabled={!bourseForm.directTarget || !bourseForm.directQty || parseInt(bourseForm.directQty) <= 0}
+                    onClick={() => {
+                      onBourseDirectOffer && onBourseDirectOffer({
+                        listingId: myListing.id,
+                        citizenId: bourseForm.directTarget,
+                        qty: parseInt(bourseForm.directQty),
+                        price: parseFloat(bourseForm.directPrice) || 0,
+                      });
+                      setBF({ directTarget: "", directQty: "", directPrice: "" });
+                    }}
+                    className="w-full py-2 bg-stone-800 text-amber-400 text-xs font-black uppercase rounded-lg hover:bg-stone-700 disabled:opacity-40 transition-colors">
+                    Céder les titres
+                  </button>
                 </div>
               </Card>
 

@@ -155,11 +155,12 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
       </div>
 
       {/* Stats rapides */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {[
           { label: "Cours", value: formatMoney(price) },
-          { label: "Capital total", value: formatMoney(listing.totalShares * price), sub: `${listing.totalShares.toLocaleString()} actions` },
-          { label: "Offre société", value: companyFloat.toLocaleString(), sub: `${floatPct}% du capital` },
+          { label: "Actions totales", value: listing.totalShares.toLocaleString(), sub: formatMoney(listing.totalShares * price) },
+          { label: "Actions en circulation", value: totalHeld.toLocaleString(), sub: `${heldPct}% du capital` },
+          { label: "Actions flottantes", value: companyFloat.toLocaleString(), sub: `${floatPct}% du capital` },
           { label: "Actionnaires", value: shareholders.length, sub: `${heldPct}% détenu` },
         ].map((s, i) => (
           <div key={i} className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-2">

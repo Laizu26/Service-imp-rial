@@ -810,6 +810,7 @@ export default function App() {
             onBoursePlaceOrder={actions.onBoursePlaceOrder}
             onBourseCancelOrder={actions.onBourseCancelOrder}
             onBourseCompanyOffer={actions.onBourseCompanyOffer}
+            onBourseDirectOffer={actions.onBourseDirectOffer}
             onBourseCreateListing={actions.onBourseCreateListing}
             onBourseEditListing={actions.onBourseEditListing}
             onBoursePayDividends={actions.onBoursePayDividends}

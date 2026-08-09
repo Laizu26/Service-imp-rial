@@ -650,6 +650,7 @@ const CitizenLayout = (props) => {
     onBoursePlaceOrder,
     onBourseCancelOrder,
     onBourseCompanyOffer,
+    onBourseDirectOffer,
     onBourseCreateListing,
     onBourseEditListing,
     onBoursePayDividends,
@@ -1743,6 +1744,7 @@ const CitizenLayout = (props) => {
                 onBourseEditListing={onBourseEditListing}
                 onBoursePayDividends={onBoursePayDividends}
                 onBourseCompanyOffer={onBourseCompanyOffer}
+                onBourseDirectOffer={onBourseDirectOffer}
                 onBourseCancelOrder={onBourseCancelOrder}
                 onUpdateCompanyESPP={onUpdateCompanyESPP}
                 onEmployeeBuyShares={onEmployeeBuyShares}
