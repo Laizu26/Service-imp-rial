@@ -648,6 +648,78 @@ function EmployeeManagementModal({
   );
 }
 
+/* ── Modale de gestion d'un salarié détaché — évite de renvoyer vers l'onglet Détachement pour
+   gérer quelqu'un depuis la liste des Effectifs, comme pour un employé classique. ── */
+function LoanRightsModal({ loan, permsDraft, setPermsDraft, onClose, onSave, onEnd }) {
+  const RIGHTS = [
+    { key: "travelLocked", icon: "🚫", label: "Bloquer le voyage" },
+    { key: "mushtagramLocked", icon: "📵", label: "Bloquer Mushtagram" },
+    { key: "bankLocked", icon: "🏦", label: "Bloquer le compte bancaire" },
+    { key: "marketLocked", icon: "🛒", label: "Bloquer le marché" },
+    { key: "postLocked", icon: "✉️", label: "Bloquer la Poste Impériale" },
+  ];
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-[10px] font-black uppercase text-blue-600 tracking-widest flex items-center gap-1">
+              <ArrowLeftRight size={11} /> Personnel détaché
+            </div>
+            <h3 className="text-lg font-black text-stone-800">{loan.employeeName}</h3>
+            <div className="text-xs text-stone-400">
+              Prêté par {loan.fromCompanyName} — {formatMoney(loan.dailyRate)}/jour
+              {loan.durationType === "FIXED" ? ` — J${loan.daysElapsed}/${loan.durationDays}` : " — indéterminé"}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+            <X size={18} />
+          </button>
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2">
+            Restrictions — gérées comme un employé classique
+          </div>
+          <div className="space-y-1.5">
+            {RIGHTS.map((r) => (
+              <button
+                key={r.key}
+                onClick={() => setPermsDraft((prev) => ({ ...prev, [r.key]: !prev[r.key] }))}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-left text-xs font-bold transition-colors ${
+                  permsDraft[r.key] ? "bg-red-50 border-red-300 text-red-700" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300"
+                }`}
+              >
+                <span>{r.icon} {r.label}</span>
+                <span className="text-[9px] font-black uppercase">{permsDraft[r.key] ? "Bloqué" : "Autorisé"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="text-[10px] text-stone-400 italic">
+          Le grade se gère depuis l'onglet Gestion → Grades &amp; Rangs, comme pour un employé classique.
+        </div>
+        <div className="flex gap-2 pt-2 border-t border-stone-100">
+          <button
+            onClick={onSave}
+            className="flex-1 bg-stone-800 text-white px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-stone-700"
+          >
+            Enregistrer
+          </button>
+          <button
+            onClick={onEnd}
+            className="text-red-500 hover:text-red-700 px-3 py-2 rounded-lg text-xs font-black uppercase border border-red-200 hover:bg-red-50"
+          >
+            Mettre fin
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const MyCompanyView = ({
   user,
   companies,
@@ -1656,16 +1728,24 @@ const MyCompanyView = ({
 
   // --- CAS 2 : PROPRIÉTAIRE D'ENTREPRISE ---
   const rates = TYPE_RATES[myCompany.type] || { emp: 10, slave: 8, label: myCompany.type };
-  const empCount = (myCompany.employees || []).length;
-  const slaveCount = (myCompany.slaves || []).length;
   // Personnel détaché reçu d'une autre entreprise (voir onglet "Détachement") — doit apparaître
   // dans l'effectif principal comme un travailleur à part entière, pas seulement dans un onglet séparé.
   const borrowedInLoans = (staffLoans || []).filter(
     (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(myCompany.id)
   );
+  const empCount = (myCompany.employees || []).length;
+  const slaveCount = (myCompany.slaves || []).length;
+  // L'estimation affichée doit refléter le même calcul que le versement réel de production
+  // (onPassDay, useGameActions.js) : un détachement exclusif transfère 100% de la contribution du
+  // salarié à l'emprunteuse, un détachement non-exclusif la partage moitié-moitié entre les deux.
+  const lentOutWeight = (staffLoans || [])
+    .filter((l) => l.status === "ACTIVE" && String(l.fromCompanyId) === String(myCompany.id) && !l.isOwnerLoan)
+    .reduce((sum, l) => sum + (l.exclusive ? 1 : 0.5), 0);
+  const borrowedInWeight = borrowedInLoans.reduce((sum, l) => sum + (l.exclusive ? 1 : 0.5), 0);
+  const effectiveEmpCount = Math.max(0, empCount - lentOutWeight) + borrowedInWeight;
   const level = myCompany.level || 1;
   const taxRate = (myCompany.taxRate ?? 10) / 100;
-  const dailyRevenue = (empCount * rates.emp + slaveCount * rates.slave) * level;
+  const dailyRevenue = (effectiveEmpCount * rates.emp + slaveCount * rates.slave) * level;
   const dailyTax = Math.floor(dailyRevenue * taxRate);
   const dailyNet = dailyRevenue - dailyTax;
 
@@ -1931,7 +2011,23 @@ const MyCompanyView = ({
                       </span>
                     </div>
                   </div>
-                  {(myCompany.employees || []).map((empId) => {
+                  {/* PDG — toujours affiché à part avec son propre tag, qu'il vienne des salariés ou d'un détachement */}
+                  {myCompany.ceoId && (
+                    <div className="py-3 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-stone-700 text-sm">
+                          {citizens.find((c) => c.id === myCompany.ceoId)?.name || myCompany.ceoId}
+                        </span>
+                        <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-purple-300 flex items-center gap-0.5">
+                          <Crown size={9} /> PDG
+                        </span>
+                        {borrowedInLoans.some((l) => String(l.employeeId) === String(myCompany.ceoId)) && (
+                          <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200">Détaché</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {(myCompany.employees || []).filter((empId) => String(empId) !== String(myCompany.ceoId)).map((empId) => {
                     const emp = citizens.find((c) => c.id === empId);
                     const empRank = (myCompany.employeeRanks || {})[empId];
                     const empDays = (myCompany.employeeSeniority || {})[empId] || 0;
@@ -1978,30 +2074,39 @@ const MyCompanyView = ({
                       </div>
                     );
                   })}
-                  {borrowedInLoans.map((loan) => (
-                    <div key={loan.id} className="py-2 border-b border-stone-100 last:border-0">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-stone-700 text-sm">{loan.employeeName}</span>
-                          <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200 flex items-center gap-0.5">
-                            <ArrowLeftRight size={9} /> Détaché — {loan.fromCompanyName}
-                          </span>
-                          <span className="text-[9px] text-stone-400 font-mono">{formatMoney(loan.dailyRate)}/j</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => { setActiveTab("loans"); setManagingLoanId(loan.id); setLoanPermsDraft(loan.permissions || {}); }}
-                            className="text-stone-500 border border-stone-300 hover:border-stone-500 hover:text-stone-700 text-[9px] font-black uppercase px-2 py-1 rounded">
-                            Gérer
-                          </button>
-                          <button onClick={() => onEndStaffLoan && onEndStaffLoan(loan.id, "ENDED")}
-                            className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50">
-                            Mettre fin
-                          </button>
+                  {borrowedInLoans.filter((loan) => String(loan.employeeId) !== String(myCompany.ceoId)).map((loan) => {
+                    const loanRank = (myCompany.employeeRanks || {})[loan.employeeId];
+                    return (
+                      <div key={loan.id} className="py-2 border-b border-stone-100 last:border-0">
+                        <div className="flex justify-between items-center">
+                          <div
+                            className="flex items-center gap-2 flex-wrap cursor-pointer hover:opacity-75"
+                            onClick={() => { setManagingLoanId(loan.id); setLoanPermsDraft(loan.permissions || {}); }}
+                          >
+                            <span className="font-bold text-stone-700 text-sm">{loan.employeeName}</span>
+                            {loanRank?.title && (
+                              <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">{loanRank.title}</span>
+                            )}
+                            <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200 flex items-center gap-0.5">
+                              <ArrowLeftRight size={9} /> Détaché — {loan.fromCompanyName}
+                            </span>
+                            <span className="text-[9px] text-stone-400 font-mono">{formatMoney(loan.dailyRate)}/j</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => { setManagingLoanId(loan.id); setLoanPermsDraft(loan.permissions || {}); }}
+                              className="text-stone-500 border border-stone-300 hover:border-stone-500 hover:text-stone-700 text-[9px] font-black uppercase px-2 py-1 rounded">
+                              Gérer
+                            </button>
+                            <button onClick={() => onEndStaffLoan && onEndStaffLoan(loan.id, "ENDED")}
+                              className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase tracking-wide border border-red-200 px-2 py-1 rounded hover:bg-red-50">
+                              Mettre fin
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -2330,10 +2435,10 @@ const MyCompanyView = ({
               <div className="bg-stone-50 rounded-lg p-3 border border-stone-200 text-xs text-stone-600 space-y-1">
                 <div className="flex justify-between">
                   <span>
-                    Employés ({empCount}) x {formatMoney(rates.emp)} x Niv.{level}
+                    Employés ({empCount}{effectiveEmpCount !== empCount ? ` → ${effectiveEmpCount} avec détachements` : ""}) x {formatMoney(rates.emp)} x Niv.{level}
                   </span>
                   <span className="font-mono font-bold">
-                    {(empCount * rates.emp * level).toLocaleString()}
+                    {(effectiveEmpCount * rates.emp * level).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -3249,18 +3354,27 @@ const MyCompanyView = ({
           <Card title="Grades & Rangs" icon={Shield}>
             <div className="space-y-4">
               <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded border border-stone-200">
-                Attribuez des grades personnalisés à vos employés. Les grades peuvent inclure des permissions spéciales.
+                Attribuez des grades personnalisés à vos employés, y compris le personnel détaché reçu d'une autre
+                entreprise. Les grades peuvent inclure des permissions spéciales.
               </div>
               <div className="divide-y divide-stone-100">
-                {(myCompany.employees || []).map((empId) => {
+                {[
+                  ...(myCompany.employees || []).map((empId) => ({ id: empId, loaned: false })),
+                  ...borrowedInLoans.map((l) => ({ id: l.employeeId, loaned: true, loan: l })),
+                ].map(({ id: empId, loaned, loan }) => {
                   const emp = citizens.find((c) => c.id === empId);
                   const currentRank = (myCompany.employeeRanks || {})[empId];
                   const isEditing = rankEditTarget === empId;
                   return (
                     <div key={empId} className="py-3 space-y-2">
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-stone-700">{emp?.name || empId}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-stone-700">{emp?.name || loan?.employeeName || empId}</span>
+                          {loaned && (
+                            <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200 flex items-center gap-0.5">
+                              <ArrowLeftRight size={9} /> Détaché
+                            </span>
+                          )}
                           {currentRank?.title && (
                             <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-bold uppercase border border-purple-200">
                               {currentRank.title}
@@ -3347,7 +3461,7 @@ const MyCompanyView = ({
                     </div>
                   );
                 })}
-                {(myCompany.employees || []).length === 0 && (
+                {(myCompany.employees || []).length === 0 && borrowedInLoans.length === 0 && (
                   <div className="text-center text-stone-400 italic py-4 text-xs">
                     Aucun employé à qui attribuer un grade.
                   </div>
@@ -4111,6 +4225,29 @@ const MyCompanyView = ({
             onClaimCorvee={onClaimCorvee}
             onSetCompanyMushtagramAccess={onSetCompanyMushtagramAccess}
             formatMoney={formatMoney}
+          />
+        );
+      })()}
+
+      {/* Modale de gestion d'un salarié détaché — atteignable directement depuis les Effectifs,
+          sans passer par l'onglet Détachement (déjà géré en place là-bas quand on y est). */}
+      {managingLoanId && activeTab !== "loans" && (() => {
+        const loan = (staffLoans || []).find((l) => l.id === managingLoanId);
+        if (!loan) return null;
+        return (
+          <LoanRightsModal
+            loan={loan}
+            permsDraft={loanPermsDraft}
+            setPermsDraft={setLoanPermsDraft}
+            onClose={() => setManagingLoanId(null)}
+            onSave={() => {
+              onSetStaffLoanPermissions && onSetStaffLoanPermissions({ loanId: loan.id, permissions: loanPermsDraft });
+              setManagingLoanId(null);
+            }}
+            onEnd={() => {
+              onEndStaffLoan && onEndStaffLoan(loan.id, "ENDED");
+              setManagingLoanId(null);
+            }}
           />
         );
       })()}

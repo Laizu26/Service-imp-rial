@@ -4982,7 +4982,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Seul le dirigeant peut attribuer des grades.", "error");
           return;
         }
-        const isWorker = (company.employees || []).includes(employeeId) || (company.slaves || []).includes(employeeId);
+        const isBorrowedIn = (state.staffLoans || []).some(
+          (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId) && String(l.employeeId) === String(employeeId)
+        );
+        const isWorker = (company.employees || []).includes(employeeId) || (company.slaves || []).includes(employeeId) || isBorrowedIn;
         if (!isWorker) {
           notify("Ce citoyen ne fait pas partie de l'entreprise.", "error");
           return;
