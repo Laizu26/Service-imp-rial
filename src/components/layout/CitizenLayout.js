@@ -55,6 +55,7 @@ import {
   Ship,
   Tag,
   Key,
+  Compass,
 } from "lucide-react";
 
 
@@ -89,6 +90,7 @@ const ContractsView = lazy(() => import("../views/ContractsView"));
 const PropertyDetailView = lazy(() => import("../views/PropertyDetailView"));
 const SettingsView = lazy(() => import("../views/SettingsView"));
 const CitizenBourseView = lazy(() => import("../views/CitizenBourseView"));
+const WorldMapView = lazy(() => import("../views/WorldMapView"));
 
 // Affiché le temps du téléchargement du chunk JS d'un onglet (voir le <Suspense> autour du
 // contenu de <main>) — n'apparaît que lors du tout premier passage sur un onglet donné.
@@ -742,7 +744,7 @@ const CitizenLayout = (props) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
 
   // --- 1. HOOKS (DOIVENT ÊTRE EN PREMIER) ---
-  const [active, setActiveRaw] = useState("gazette");
+  const [active, setActiveRaw] = useState("carte");
   // Verrouille la navigation entre onglets tant qu'une nouvelle version du site
   // n'a pas été rechargée — l'onglet en cours reste utilisable (ex: finir un message).
   const setActive = (id) => {
@@ -770,15 +772,15 @@ const CitizenLayout = (props) => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Onglets non-fermables (essentiels)
-  const NON_CLOSEABLE = new Set(["profil", "notifications", "settings"]);
+  const NON_CLOSEABLE = new Set(["carte", "profil", "notifications", "settings"]);
 
   const hiddenTabs = settings.hiddenTabs || [];
 
   const closeTab = (tabId) => {
     const next = [...hiddenTabs, tabId];
     updateSetting("hiddenTabs", next);
-    // Si l'onglet actif est fermé, basculer sur gazette
-    if (active === tabId) setActive("gazette");
+    // Si l'onglet actif est fermé, basculer sur la carte (écran d'accueil)
+    if (active === tabId) setActive("carte");
   };
 
   const restoreTab = (tabId) => {
@@ -934,6 +936,19 @@ const CitizenLayout = (props) => {
   const canUseMaison = !isSlave || !!permissions.maison;
   const maisonAccessAllowed = canUseMaison && !combinedRestriction.maisonLocked;
 
+  // Déplacement interne rapide depuis la Carte — mêmes conditions que l'onglet Voyage.
+  const canTravelNow = !isBanned && !isPrisoner && canUseTravel && !combinedRestriction.travelLocked;
+  const canManageProperties = !isBanned && !isPrisoner;
+  const goToTravelWith = (countryId) => {
+    setActive("travel");
+    setTravelDestCountry(countryId);
+    setTravelDestRegion("");
+  };
+  const goToProperty = (propId) => {
+    setActive("properties");
+    setSelectedPropertyId(propId);
+  };
+
   // Sécurité sur users
   const safeUsers = Array.isArray(users) ? users : [];
   const mySlaves = safeUsers.filter((u) => u.ownerId === user?.id);
@@ -951,6 +966,7 @@ const CitizenLayout = (props) => {
       id: "monde",
       label: "Information & Monde",
       items: [
+        { id: "carte",      label: "Où je suis",     icon: Compass },
         { id: "gazette",    label: "Gazette",       icon: Scroll },
         { id: "library",    label: "Bibliothèque",  icon: Book },
         { id: "annuaire",   label: "Annuaire",       icon: Eye },
@@ -1532,6 +1548,20 @@ const CitizenLayout = (props) => {
           <div className={(active === "msg" || active === "mushtagram") ? "h-full w-full" : "max-w-[1400px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
           <TabErrorBoundary tabKey={active}>
           <Suspense fallback={<TabLoadingFallback />}>
+            {active === "carte" && (
+              <WorldMapView
+                user={user}
+                citizens={safeUsers}
+                countries={safeCountries}
+                properties={properties}
+                canTravel={canTravelNow}
+                onInternalTravel={onInternalTravel}
+                onNavigateToTravel={goToTravelWith}
+                onSelectProperty={goToProperty}
+                canManageProperties={canManageProperties}
+              />
+            )}
+
             {active === "gazette" && <GazetteView gazette={gazette} gameDate={gd} userCountryId={user.countryId} />}
 
             {/* --- BLOC BIBLIOTHÈQUE --- */}
