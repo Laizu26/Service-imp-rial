@@ -34,7 +34,3 @@
 
 # Firebase Cloud Messaging (notifications push)
 -keep class com.google.firebase.** { *; }
-
-# Généré automatiquement par R8 (missing_rules.txt) lors de l'ajout du service de bulles
-# Mushtagram — référence optionnelle absente au runtime, sans impact fonctionnel.
--dontwarn com.google.firebase.ktx.Firebase
