@@ -548,6 +548,7 @@ const CitizenLayout = (props) => {
     onSetStaffLoanPermissions,
     onAppointCEO,
     onRevokeCEO,
+    onAssignEmployeeToProperty,
     propertyAlerts = [],
     bourseAlerts = [],
     staffLoanAlerts = [],
@@ -1748,6 +1749,8 @@ const CitizenLayout = (props) => {
                 onPayBuyout={onPayBuyout}
                 onClaimCorvee={onClaimCorvee}
                 onSetCompanyMushtagramAccess={onSetCompanyMushtagramAccess}
+                properties={properties}
+                onAssignEmployeeToProperty={onAssignEmployeeToProperty}
               />
             )}
 

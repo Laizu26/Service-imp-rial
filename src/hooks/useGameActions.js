@@ -262,6 +262,12 @@ export const useGameActions = (session, state, saveState, notify) => {
     const isCompanyManager = (company, sessionId) =>
       !!company && (String(company.ownerId) === String(sessionId) || String(company.ceoId) === String(sessionId));
 
+    // Bonus de revenu d'un bien d'entreprise selon le personnel affecté (voir
+    // onAssignEmployeeToProperty) : +8% par employé/esclave affecté, plafonné à 4 (soit +32%
+    // max), pour éviter qu'un seul bâtiment n'absorbe tout l'effectif sans limite.
+    const PROPERTY_STAFF_BONUS_RATE = 0.08;
+    const PROPERTY_STAFF_BONUS_CAP = 4;
+
     // Un bien détenu par une entreprise est géré par son dirigeant (propriétaire ou PDG
     // délégué, cf. isCompanyManager) ; un rôle impérial de haut niveau garde systématiquement
     // la main, comme pour la liste d'invités (onAddPropertyGuest).
@@ -639,16 +645,25 @@ export const useGameActions = (session, state, saveState, notify) => {
         (ns.properties || []).forEach((prop) => {
           if (!prop.ownerId || !(prop.income > 0)) return;
           let ownerName = prop.ownerName;
+          let payout = prop.income;
           if (prop.ownerType === "COMPANY") {
             const cIdx = (ns.companies || []).findIndex((c) => c.id === prop.ownerId);
-            if (cIdx !== -1) { ns.companies[cIdx] = { ...ns.companies[cIdx], balance: (ns.companies[cIdx].balance || 0) + prop.income }; ownerName = ns.companies[cIdx].name; }
-            else return;
+            if (cIdx === -1) return;
+            // Bonus de revenu selon le personnel affecté au bien (employeeAssignments) — un
+            // bâtiment tenu par une entreprise (auberge, atelier...) rapporte davantage s'il est
+            // réellement staffé, sans pénaliser un bien laissé sans personnel affecté.
+            const assignedCount = Object.values(ns.companies[cIdx].employeeAssignments || {})
+              .filter((pid) => String(pid) === String(prop.id)).length;
+            const bonusStaff = Math.min(assignedCount, PROPERTY_STAFF_BONUS_CAP);
+            payout = Math.round(prop.income * (1 + bonusStaff * PROPERTY_STAFF_BONUS_RATE) * 10) / 10;
+            ns.companies[cIdx] = { ...ns.companies[cIdx], balance: (ns.companies[cIdx].balance || 0) + payout };
+            ownerName = ns.companies[cIdx].name;
           } else {
             const ownerIdx = (ns.citizens || []).findIndex((c) => c.id === prop.ownerId);
             if (ownerIdx === -1) return;
-            ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + prop.income };
+            ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], balance: (ns.citizens[ownerIdx].balance || 0) + payout };
           }
-          ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: prop.name, toName: ownerName, amount: prop.income, timestamp: Date.now(), reason: `Revenu — ${prop.name}`, type: "PROPERTY_INCOME" }, ...(ns.globalLedger || [])];
+          ns.globalLedger = [{ id: Date.now() + Math.random(), fromName: prop.name, toName: ownerName, amount: payout, timestamp: Date.now(), reason: `Revenu — ${prop.name}`, type: "PROPERTY_INCOME" }, ...(ns.globalLedger || [])];
         });
 
         // --- Production journalière (Ferme) ---
@@ -1175,6 +1190,40 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("PDG révoqué — les actions déjà attribuées restent acquises au titre d'actionnaire.", "info");
       },
 
+      // --- AFFECTATION DU PERSONNEL À UN BIEN DE L'ENTREPRISE ---
+      // Un employé/esclave ne peut être affecté qu'à un seul bien à la fois (son "poste"). Voir
+      // le versement du revenu passif (onPassDay) pour le bonus de revenu qui en découle.
+      // propertyId = null/"" retire l'affectation.
+      onAssignEmployeeToProperty: ({ companyId, employeeId, propertyId }) => {
+        if (!session) return;
+        const compIdx = (state.companies || []).findIndex((c) => c.id === companyId);
+        if (compIdx === -1) return;
+        const company = state.companies[compIdx];
+        if (!isCompanyManager(company, session.id)) {
+          notify("Seul le dirigeant peut affecter le personnel.", "error");
+          return;
+        }
+        const isWorker = (company.employees || []).map(String).includes(String(employeeId))
+          || (company.slaves || []).map(String).includes(String(employeeId));
+        if (!isWorker) { notify("Ce citoyen ne fait pas partie du personnel de l'entreprise.", "error"); return; }
+
+        const assignments = { ...(company.employeeAssignments || {}) };
+        if (!propertyId) {
+          delete assignments[employeeId];
+        } else {
+          const prop = (state.properties || []).find((p) => p.id === propertyId);
+          if (!prop || prop.ownerType !== "COMPANY" || String(prop.ownerId) !== String(companyId)) {
+            notify("Ce bien n'appartient pas à l'entreprise.", "error");
+            return;
+          }
+          assignments[employeeId] = propertyId;
+        }
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...company, employeeAssignments: assignments };
+        saveState({ ...state, companies: newCompanies });
+        notify(propertyId ? "Personnel affecté." : "Affectation retirée.", "success");
+      },
+
       // --- NOTIFICATIONS PUSH (app Android/iOS) ---
       // Enregistre le token FCM de l'appareil sur le citoyen, pour qu'une Cloud Function
       // puisse plus tard lui envoyer une notification push ciblée. Un citoyen peut avoir
@@ -1506,10 +1555,13 @@ export const useGameActions = (session, state, saveState, notify) => {
           const firedContracts = { ...(company.employmentContracts || {}) };
           const contract = firedContracts[targetId];
           delete firedContracts[targetId];
+          const firedAssignments = { ...(company.employeeAssignments || {}) };
+          delete firedAssignments[targetId];
           newCompanies[compIdx] = {
             ...company,
             employees: (company.employees || []).filter((id) => id !== targetId),
             employmentContracts: firedContracts,
+            employeeAssignments: firedAssignments,
             mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(targetId)),
           };
           const severance = contract?.severanceAmount || 0;
@@ -1535,9 +1587,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           };
           notify("Esclave affecté.", "success");
         } else if (action === "REMOVE_SLAVE") {
+          const removedAssignments = { ...(company.employeeAssignments || {}) };
+          delete removedAssignments[targetId];
           newCompanies[compIdx] = {
             ...company,
             slaves: (company.slaves || []).filter((id) => id !== targetId),
+            employeeAssignments: removedAssignments,
           };
           notify("Esclave retiré.", "info");
         }
@@ -1566,10 +1621,13 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCompanies = [...state.companies];
         const newContracts = { ...(company.employmentContracts || {}) };
         delete newContracts[session.id];
+        const newAssignments = { ...(company.employeeAssignments || {}) };
+        delete newAssignments[session.id];
         newCompanies[compIdx] = {
           ...company,
           employees: (company.employees || []).filter((id) => id !== session.id),
           employmentContracts: newContracts,
+          employeeAssignments: newAssignments,
           mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(session.id)),
         };
         saveState({ ...state, companies: newCompanies });

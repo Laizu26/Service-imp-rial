@@ -696,6 +696,8 @@ const MyCompanyView = ({
   onSetCompanyMushtagramAccess,
   onAppointCEO,
   onRevokeCEO,
+  properties = [],
+  onAssignEmployeeToProperty,
 }) => {
   // Le PDG (voir onAppointCEO) a la même vue de gestion que le propriétaire, à l'exception de
   // la nomination/révocation du PDG et de la dissolution — réservées au vrai propriétaire.
@@ -1934,6 +1936,97 @@ const MyCompanyView = ({
             </div>
           </Card>
         </div>
+
+          {/* Biens de l'entreprise — affectation du personnel */}
+          {(() => {
+            const myProperties = properties.filter(
+              (p) => p.ownerType === "COMPANY" && String(p.ownerId) === String(myCompany.id)
+            );
+            if (myProperties.length === 0) return null;
+            const isManager = isTrueOwner || isCeoView;
+            const allWorkerIds = [...(myCompany.employees || []), ...(myCompany.slaves || [])];
+            const assignments = myCompany.employeeAssignments || {};
+            return (
+              <Card title="Biens de l'entreprise" icon={Building2}>
+                <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded mb-3">
+                  Affectez du personnel (salarié ou esclave) à un bien pour augmenter son revenu quotidien :
+                  chaque membre affecté ajoute +8% (jusqu'à 4 affectés, soit +32% maximum).
+                </div>
+                <div className="space-y-3">
+                  {myProperties.map((prop) => {
+                    const assignedIds = allWorkerIds.filter((id) => String(assignments[id]) === String(prop.id));
+                    const bonusStaff = Math.min(assignedIds.length, 4);
+                    const effectiveIncome = Math.round((prop.income || 0) * (1 + bonusStaff * 0.08) * 10) / 10;
+                    const availableIds = allWorkerIds.filter((id) => String(assignments[id]) !== String(prop.id));
+                    return (
+                      <div key={prop.id} className="bg-white border border-stone-200 rounded-lg p-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <div className="font-bold text-sm text-stone-800">{prop.name}</div>
+                            <div className="text-[9px] text-stone-400 uppercase tracking-widest">{prop.type}</div>
+                          </div>
+                          {(prop.income || 0) > 0 && (
+                            <div className="text-right shrink-0">
+                              <div className="text-sm font-black font-mono text-green-600">+{formatMoney(effectiveIncome)}/j</div>
+                              {bonusStaff > 0 && (
+                                <div className="text-[9px] text-green-500">base {formatMoney(prop.income)} +{bonusStaff * 8}%</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {assignedIds.length === 0 && (
+                            <span className="text-[10px] text-stone-400 italic">Aucun personnel affecté.</span>
+                          )}
+                          {assignedIds.map((id) => {
+                            const worker = citizens.find((c) => c.id === id);
+                            return (
+                              <span key={id} className="flex items-center gap-1 bg-stone-100 border border-stone-200 rounded-full pl-2 pr-1 py-0.5 text-[10px] font-bold text-stone-600">
+                                {worker?.name || id}
+                                {isManager && onAssignEmployeeToProperty && (
+                                  <button
+                                    onClick={() => onAssignEmployeeToProperty({ companyId: myCompany.id, employeeId: id, propertyId: null })}
+                                    className="text-stone-400 hover:text-red-500"
+                                    title="Retirer l'affectation"
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                )}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {isManager && onAssignEmployeeToProperty && availableIds.length > 0 && (
+                          <select
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              onAssignEmployeeToProperty({ companyId: myCompany.id, employeeId: e.target.value, propertyId: prop.id });
+                              e.target.value = "";
+                            }}
+                            className="mt-2 w-full text-[10px] border border-stone-200 rounded px-2 py-1.5 text-stone-600 bg-stone-50"
+                          >
+                            <option value="">+ Affecter un membre du personnel...</option>
+                            {availableIds.map((id) => {
+                              const worker = citizens.find((c) => c.id === id);
+                              const elsewhere = assignments[id] && String(assignments[id]) !== String(prop.id)
+                                ? properties.find((p) => p.id === assignments[id])
+                                : null;
+                              return (
+                                <option key={id} value={id}>
+                                  {worker?.name || id}{elsewhere ? ` (actuellement à ${elsewhere.name})` : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })()}
 
           {/* Candidatures reçues */}
           <Card title={`Candidatures (${(myCompany.applications || []).length})`} icon={UserPlus}>

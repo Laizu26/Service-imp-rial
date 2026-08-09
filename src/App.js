@@ -695,6 +695,7 @@ export default function App() {
             onSetStaffLoanPermissions={actions.onSetStaffLoanPermissions}
             onAppointCEO={actions.onAppointCEO}
             onRevokeCEO={actions.onRevokeCEO}
+            onAssignEmployeeToProperty={actions.onAssignEmployeeToProperty}
             propertyAlerts={state.propertyAlerts || []}
             bourseAlerts={state.bourseAlerts || []}
             staffLoanAlerts={state.staffLoanAlerts || []}
