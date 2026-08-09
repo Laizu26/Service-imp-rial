@@ -2676,17 +2676,25 @@ const MyCompanyView = ({
           (c) => c.source?.id === myCompany.id
         );
 
-        // Pool des destinataires disponibles : dirigeant + employés + esclaves + trésorerie
+        // Pool des destinataires disponibles : dirigeant + employés + esclaves + personnel détaché
+        // reçu + entreprises prêteuses (pour leur reverser une part) + trésorerie.
         const ownerCitizen = citizens.find((x) => x.id === myCompany.ownerId);
+        const lendingCompanyIds = [...new Set(borrowedInLoans.map((l) => l.fromCompanyId))];
         const workerPool = [
           { id: myCompany.ownerId, type: "CITIZEN", name: (ownerCitizen ? ownerCitizen.name : myCompany.ownerId) + " (dirigeant)" },
-          ...(myCompany.employees || []).map((id) => {
+          ...(myCompany.employees || []).filter((id) => String(id) !== String(myCompany.ceoId)).map((id) => {
             const c = citizens.find((x) => x.id === id);
             return { id, type: "CITIZEN", name: (c ? c.name : id) + " (employé)" };
           }),
+          ...(myCompany.ceoId ? [{ id: myCompany.ceoId, type: "CITIZEN", name: (citizens.find((x) => x.id === myCompany.ceoId)?.name || myCompany.ceoId) + " (PDG)" }] : []),
           ...(myCompany.slaves || []).map((id) => {
             const c = citizens.find((x) => x.id === id);
             return { id, type: "CITIZEN", name: (c ? c.name : id) + " (esclave)" };
+          }),
+          ...borrowedInLoans.map((l) => ({ id: l.employeeId, type: "CITIZEN", name: `${l.employeeName} (détaché — ${l.fromCompanyName})` })),
+          ...lendingCompanyIds.map((cid) => {
+            const c = (companies || []).find((x) => x.id === cid);
+            return { id: cid, type: "COMPANY", name: (c ? c.name : cid) + " (entreprise prêteuse)" };
           }),
           { id: myCompany.id, type: "COMPANY", name: myCompany.name + " (trésorerie)" },
         ];
