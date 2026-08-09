@@ -868,6 +868,8 @@ const MyCompanyView = ({
   });
   const [managingLoanId, setManagingLoanId] = useState(null);
   const [loanPermsDraft, setLoanPermsDraft] = useState({});
+  // Employé (CAS 1) : bascule entre l'entreprise employeuse et celle où il est détaché
+  const [selectedWorkplaceId, setSelectedWorkplaceId] = useState(null);
 
   // Bourse
   const [bourseForm, setBourseForm] = useState({ symbol: "", totalShares: "", onMarket: "", price: "", desc: "", offerQty: "", offerPrice: "", dividend: "", showDividendForm: false, directTarget: "", directQty: "", directPrice: "" });
@@ -901,12 +903,45 @@ const MyCompanyView = ({
 
   // --- CAS 1 : CITOYEN SANS ENTREPRISE (ni propriétaire, ni employé, ni esclave) ---
   if (!myCompany) {
-    const workerCompany = employedAt || slavedAt;
+    const homeCompany = employedAt || slavedAt;
     const isEmployee = !!employedAt;
     const isSlave = !!slavedAt;
+    // Détaché ailleurs (comme salarié) : l'entreprise emprunteuse doit être visible au même titre
+    // que l'entreprise employeuse, avec un sélecteur pour basculer entre les deux — un employé
+    // détaché est un vrai membre de l'équipe côté emprunteur, pas juste une ligne dans un carnet.
+    const myLoanAsWorker = getActiveStaffLoan(user.id, staffLoans);
+    const loanedToCompany = myLoanAsWorker ? (companies || []).find((c) => c.id === myLoanAsWorker.toCompanyId) : null;
+    const workplaces = [
+      ...(homeCompany ? [{ company: homeCompany, kind: "home" }] : []),
+      ...(loanedToCompany && loanedToCompany.id !== homeCompany?.id ? [{ company: loanedToCompany, kind: "loaned" }] : []),
+    ];
+    const selectedWorkplace = workplaces.find((w) => w.company.id === selectedWorkplaceId) || workplaces[0];
+    const workerCompany = selectedWorkplace?.company;
+    const viewingLoanedCompany = selectedWorkplace?.kind === "loaned";
+    const workplaceSwitcher = workplaces.length > 1 && (
+      <div className="flex gap-2 flex-wrap">
+        {workplaces.map((w) => {
+          const active = w.company.id === workerCompany.id;
+          return (
+            <button
+              key={w.company.id}
+              onClick={() => setSelectedWorkplaceId(w.company.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide border transition-colors ${
+                active ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: w.company.color || "#8B5CF6" }} />
+              {w.company.name}
+              <span className={`px-1.5 py-0.5 rounded-full ${active ? "bg-white/20" : "bg-stone-100"}`}>{w.kind === "home" ? "Employeur" : "Détaché"}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
 
     return (
       <div className="space-y-6 animate-fadeIn">
+        {workplaceSwitcher}
         {/* FICHE EMPLOYÉ / ESCLAVE */}
         {workerCompany && (() => {
           const owner = citizens.find((c) => c.id === workerCompany.ownerId);
@@ -929,7 +964,7 @@ const MyCompanyView = ({
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex-1">
                     <div className="text-xs font-black uppercase text-stone-400 tracking-widest mb-1">
-                      {isEmployee ? "Employé chez" : "Affecté à"}
+                      {viewingLoanedCompany ? "Détaché chez" : isEmployee ? "Employé chez" : "Affecté à"}
                     </div>
                     <div className="flex items-center gap-3">
                       <span
@@ -948,11 +983,13 @@ const MyCompanyView = ({
                         Niveau {wLevel}
                       </span>
                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                        isEmployee
+                        viewingLoanedCompany
+                          ? "bg-blue-100 text-blue-700"
+                          : isEmployee
                           ? "bg-green-100 text-green-600"
                           : "bg-stone-200 text-stone-500"
                       }`}>
-                        {isEmployee ? "Salarié" : "Esclave affecté"}
+                        {viewingLoanedCompany ? "Personnel détaché" : isEmployee ? "Salarié" : "Esclave affecté"}
                       </span>
                       {workerCompany.frozen && (
                         <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded text-[10px] font-bold uppercase">
@@ -982,18 +1019,21 @@ const MyCompanyView = ({
                     </div>
                     <div className="text-right bg-yellow-50 p-3 rounded-xl border border-yellow-200">
                       <div className="text-[10px] font-black uppercase text-yellow-700 tracking-widest mb-1">
-                        Compte entreprise
+                        {viewingLoanedCompany ? "Tarif de détachement" : "Compte entreprise"}
                       </div>
                       <div className="text-2xl font-mono font-black text-yellow-800">
-                        {formatMoney((workerCompany.workerBalances || {})[user.id] || 0)}
+                        {viewingLoanedCompany
+                          ? `${formatMoney(myLoanAsWorker?.dailyRate || 0)}/j`
+                          : formatMoney((workerCompany.workerBalances || {})[user.id] || 0)}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Détachement en cours (si applicable) */}
-              {(() => {
+              {/* Détachement en cours (si applicable) — masqué en vue "loaned", déjà couvert par la
+                  carte "Mon détachement" plus bas dans ce cas. */}
+              {!viewingLoanedCompany && (() => {
                 const myLoan = getActiveStaffLoan(user.id, staffLoans);
                 if (!myLoan) return null;
                 return (
@@ -1055,8 +1095,23 @@ const MyCompanyView = ({
                         </span>
                       </div>
                     )}
+                    {/* PDG */}
+                    {workerCompany.ceoId && (() => {
+                      const ceo = citizens.find((c) => c.id === workerCompany.ceoId);
+                      return (
+                        <div className="py-2.5 flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-[10px] font-bold text-purple-700 flex-shrink-0 border border-purple-300" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
+                            {(ceo?.name || "?")[0]}
+                          </div>
+                          <span className="text-sm font-bold text-stone-700">{ceo?.name || workerCompany.ceoId}</span>
+                          <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-purple-300 flex items-center gap-0.5">
+                            <Crown size={9} /> PDG
+                          </span>
+                        </div>
+                      );
+                    })()}
                     {/* Collègues */}
-                    {colleagues.map((c) => {
+                    {colleagues.filter((c) => c.id !== workerCompany.ceoId).map((c) => {
                       const cRank = (workerCompany.employeeRanks || {})[c.id];
                       return (
                         <div key={c.id} className="py-2.5 flex items-center gap-2">
@@ -1076,7 +1131,27 @@ const MyCompanyView = ({
                         </div>
                       );
                     })}
-                    {colleagues.length === 0 && !owner && (
+                    {/* Personnel détaché reçu par cette entreprise — mêmes collègues qu'un employé classique */}
+                    {(staffLoans || [])
+                      .filter((l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(workerCompany.id) && String(l.employeeId) !== String(user.id))
+                      .map((l) => {
+                        const lRank = (workerCompany.employeeRanks || {})[l.employeeId];
+                        return (
+                          <div key={l.id} className="py-2.5 flex items-center gap-2 flex-wrap">
+                            <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600 flex-shrink-0" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
+                              {(l.employeeName || "?")[0]}
+                            </div>
+                            <span className="text-sm font-bold text-stone-700">{l.employeeName}</span>
+                            {lRank?.title && (
+                              <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border border-purple-200">{lRank.title}</span>
+                            )}
+                            <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200 flex items-center gap-0.5">
+                              <ArrowLeftRight size={9} /> Détaché — {l.fromCompanyName}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    {colleagues.length === 0 && !owner && !workerCompany.ceoId && (
                       <div className="text-center text-stone-400 italic py-4 text-xs">
                         Aucun autre membre.
                       </div>
@@ -1085,8 +1160,40 @@ const MyCompanyView = ({
                 </Card>
               </div>
 
+              {/* Mon détachement — vue "employé" du détachement en cours, uniquement quand on
+                  consulte l'entreprise emprunteuse */}
+              {viewingLoanedCompany && myLoanAsWorker && (
+                <Card title="Mon Détachement" icon={ArrowLeftRight}>
+                  <div className="space-y-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+                      Vous êtes actuellement détaché ici par <span className="font-black">{myLoanAsWorker.fromCompanyName}</span>, contre{" "}
+                      <span className="font-black">{formatMoney(myLoanAsWorker.dailyRate)}</span>/jour
+                      {myLoanAsWorker.exclusive ? " (détachement exclusif)" : " (détachement partagé)"}
+                      {myLoanAsWorker.durationType === "FIXED"
+                        ? ` — jour ${myLoanAsWorker.daysElapsed}/${myLoanAsWorker.durationDays}`
+                        : " — durée indéterminée, rappelable à tout moment"}
+                      .
+                    </div>
+                    {Object.values(myLoanAsWorker.permissions || {}).some(Boolean) && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
+                        <div className="text-[9px] font-black uppercase text-red-600 tracking-widest">Restrictions imposées ici</div>
+                        {[
+                          { key: "travelLocked", label: "Voyage bloqué" },
+                          { key: "mushtagramLocked", label: "Mushtagram bloqué" },
+                          { key: "bankLocked", label: "Compte bancaire bloqué" },
+                          { key: "marketLocked", label: "Marché bloqué" },
+                          { key: "postLocked", label: "Poste Impériale bloquée" },
+                        ].filter((p) => myLoanAsWorker.permissions?.[p.key]).map((p) => (
+                          <div key={p.key} className="text-[10px] text-red-700 font-bold">🚫 {p.label}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )}
+
               {/* Retrait de salaire (employé) */}
-              {isEmployee && onWithdrawCompanySalary && (() => {
+              {isEmployee && !viewingLoanedCompany && onWithdrawCompanySalary && (() => {
                 const myCompanyBalance = (workerCompany.workerBalances || {})[user.id] || 0;
                 return myCompanyBalance > 0 ? (
                   <Card title="Retrait de Salaire" icon={Wallet}>
@@ -1130,7 +1237,7 @@ const MyCompanyView = ({
               })()}
 
               {/* ── Mon Contrat de Travail ── */}
-              {isEmployee && (() => {
+              {isEmployee && !viewingLoanedCompany && (() => {
                 const myContract = (workerCompany.employmentContracts || {})[user.id];
                 const ctMeta = myContract ? CONTRACT_TYPE_META[myContract.type] : null;
                 const seniority = (workerCompany.employeeSeniority || {})[user.id] || 0;
@@ -1213,7 +1320,7 @@ const MyCompanyView = ({
               })()}
 
               {/* ── Plan d'Actionnariat Salarié (ESPP) ── */}
-              {isEmployee && (() => {
+              {isEmployee && !viewingLoanedCompany && (() => {
                 const espp = workerCompany.espp || {};
                 if (!espp.enabled) return null;
                 const listing = bourseListings.find((l) => l.companyId === workerCompany.id && l.isActive);
@@ -1323,7 +1430,7 @@ const MyCompanyView = ({
               })()}
 
               {/* Historique des paies */}
-              {isEmployee && (() => {
+              {isEmployee && !viewingLoanedCompany && (() => {
                 const salaryHistory = globalLedger.filter(
                   (e) => (e.type === "SALARY" || e.type === "SALARY_WITHDRAW") && (e.toName === user.name || e.fromName === workerCompany.name && e.toName === user.name)
                 ).slice(0, 20);
@@ -1495,8 +1602,9 @@ const MyCompanyView = ({
                 ) : null;
               })()}
 
-              {/* Profil employé / CV */}
-              {isEmployee && (
+              {/* Profil employé / CV — profil personnel, pas spécifique à une entreprise, affiché
+                  une seule fois (sous l'identité d'emploi réelle) */}
+              {isEmployee && !viewingLoanedCompany && (
                 <Card title="Mon Profil Employé" icon={FileText}>
                   <div className="space-y-3">
                     <div>
@@ -1540,8 +1648,10 @@ const MyCompanyView = ({
                 </Card>
               )}
 
-              {/* Démission (seulement employé, pas esclave) */}
-              {isEmployee && onQuitCompany && (() => {
+              {/* Démission (seulement employé, pas esclave, et pas depuis l'entreprise emprunteuse
+                  — un détaché n'y est pas réellement employé, sa relation contractuelle reste
+                  avec son entreprise d'origine, voir "Mon Détachement" ci-dessus) */}
+              {isEmployee && !viewingLoanedCompany && onQuitCompany && (() => {
                 const myQuitContract = (workerCompany.employmentContracts || {})[user.id];
                 const isBlocked = myQuitContract && myQuitContract.buyoutAmount > 0;
                 return (
