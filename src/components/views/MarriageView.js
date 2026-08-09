@@ -12,6 +12,9 @@ import {
   Lock,
   X,
   Edit3,
+  Gift,
+  Target,
+  BookHeart,
 } from "lucide-react";
 import {
   MARRIAGE_STRUCTURES,
@@ -450,6 +453,321 @@ function RequisitionModal({ spouse, spouseUser, onClose, onRequisition }) {
   );
 }
 
+// ── Modale "Offrir un cadeau" — argent ou objet d'inventaire, avec petit mot ──
+function GiftModal({ spouse, spouseUser, user, inventoryCatalog, gifts, onClose, onSend }) {
+  const [kind, setKind] = useState("money");
+  const [amount, setAmount] = useState("");
+  const [itemId, setItemId] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [message, setMessage] = useState("");
+  const name = spouseUser?.name || spouse.name || "votre conjoint";
+
+  const myItems = (user?.inventory || [])
+    .map((slot) => ({ ...slot, def: (inventoryCatalog || []).find((i) => i.id === slot.itemId) }))
+    .filter((s) => s.def && s.quantity > 0);
+
+  const amt = parseFloat(amount);
+  const canSendMoney = kind === "money" && amt > 0 && amt <= (user?.balance || 0);
+  const qty = parseInt(quantity) || 1;
+  const selectedItem = myItems.find((i) => i.itemId === itemId);
+  const canSendItem = kind === "item" && !!selectedItem && qty > 0 && qty <= selectedItem.quantity;
+  const canSubmit = canSendMoney || canSendItem;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    if (kind === "money") onSend({ type: "money", amount: amt, message: message.trim() });
+    else onSend({ type: "item", itemId, quantity: qty, message: message.trim() });
+    setAmount(""); setItemId(""); setQuantity("1"); setMessage("");
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-rose-50">
+          <div className="w-10 h-10 rounded-full bg-rose-100 border-2 border-rose-200 flex items-center justify-center flex-shrink-0">
+            <Gift size={16} className="text-rose-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Offrir un cadeau — {name}</div>
+            <div className="text-[10px] text-stone-500">Une attention pour votre conjoint(e).</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex gap-1.5 bg-stone-100 rounded-xl p-1">
+            <button onClick={() => setKind("money")} className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${kind === "money" ? "bg-white text-rose-600 shadow-sm" : "text-stone-400"}`}>Argent</button>
+            <button onClick={() => setKind("item")} className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${kind === "item" ? "bg-white text-rose-600 shadow-sm" : "text-stone-400"}`}>Objet</button>
+          </div>
+
+          {kind === "money" ? (
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Montant</label>
+              <input
+                type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white"
+              />
+              <div className="text-[10px] text-stone-400 mt-1">Votre trésor : {formatMoney(user?.balance || 0)}</div>
+            </div>
+          ) : (
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Objet</label>
+              {myItems.length === 0 ? (
+                <p className="text-xs text-stone-400 italic">Votre inventaire est vide.</p>
+              ) : (
+                <>
+                  <select
+                    value={itemId} onChange={(e) => setItemId(e.target.value)}
+                    className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white"
+                  >
+                    <option value="">-- Choisir un objet --</option>
+                    {myItems.map((i) => (
+                      <option key={i.itemId} value={i.itemId}>{i.def.name} (x{i.quantity})</option>
+                    ))}
+                  </select>
+                  {selectedItem && (
+                    <input
+                      type="number" min="1" max={selectedItem.quantity} value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      className="w-full mt-1.5 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white"
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Petit mot (optionnel)</label>
+            <textarea
+              value={message} onChange={(e) => setMessage(e.target.value)}
+              rows={2} maxLength={300}
+              placeholder="Pour toi, mon amour..."
+              className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-rose-300/30 focus:bg-white resize-none"
+            />
+          </div>
+
+          <button
+            onClick={submit}
+            disabled={!canSubmit}
+            className="w-full py-2.5 bg-rose-600 text-white text-xs font-black uppercase rounded-xl hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Envoyer le cadeau
+          </button>
+
+          {(gifts || []).length > 0 && (
+            <div className="pt-2 border-t border-stone-100 space-y-1.5 max-h-40 overflow-y-auto">
+              <div className="text-[9px] font-black uppercase tracking-widest text-stone-400">Cadeaux échangés</div>
+              {gifts.slice(0, 10).map((g) => (
+                <div key={g.id} className="text-[10px] text-stone-500">
+                  <span className="font-bold text-stone-700">{String(g.fromId) === String(user?.id) ? "Vous" : g.fromName}</span>
+                  {" → "}
+                  {g.type === "money" ? formatMoney(g.amount) : `${g.quantity}x ${g.itemName}`}
+                  {g.message && <span className="italic text-stone-400"> — "{g.message}"</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modale "Projet commun" — cagnotte à deux avec contributions ─────────────
+function GoalModal({ spouse, spouseUser, user, goal, onClose, onSetGoal, onContribute, onWithdraw, onCancel }) {
+  const [title, setTitle] = useState("");
+  const [targetAmount, setTargetAmount] = useState("");
+  const [contribAmount, setContribAmount] = useState("");
+  const name = spouseUser?.name || spouse.name || "votre conjoint";
+
+  const canCreate = title.trim() && parseFloat(targetAmount) > 0;
+  const contribAmt = parseFloat(contribAmount);
+  const canContribute = contribAmt > 0 && contribAmt <= (user?.balance || 0);
+  const progressPct = goal ? Math.min(100, Math.round(((goal.currentAmount || 0) / goal.targetAmount) * 100)) : 0;
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-emerald-50">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 border-2 border-emerald-200 flex items-center justify-center flex-shrink-0">
+            <Target size={16} className="text-emerald-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Projet commun — {name}</div>
+            <div className="text-[10px] text-stone-500">Une cagnotte à deux pour un objectif partagé.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          {!goal ? (
+            <>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Titre du projet</label>
+                <input
+                  value={title} onChange={(e) => setTitle(e.target.value)} maxLength={80}
+                  placeholder="ex : notre première maison..."
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-stone-400 block mb-1">Objectif</label>
+                <input
+                  type="number" min="0" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-white"
+                />
+              </div>
+              <button
+                onClick={() => { if (canCreate) { onSetGoal({ title: title.trim(), targetAmount: parseFloat(targetAmount) }); setTitle(""); setTargetAmount(""); } }}
+                disabled={!canCreate}
+                className="w-full py-2.5 bg-emerald-600 text-white text-xs font-black uppercase rounded-xl hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Lancer le projet
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="bg-stone-50 border border-stone-200 rounded-xl p-3">
+                <div className="font-bold text-sm text-stone-800">{goal.title}</div>
+                <div className="w-full h-2.5 bg-stone-200 rounded-full mt-2 overflow-hidden">
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
+                </div>
+                <div className="flex justify-between text-[10px] text-stone-500 mt-1">
+                  <span className="font-bold text-emerald-700">{formatMoney(goal.currentAmount || 0)}</span>
+                  <span>/ {formatMoney(goal.targetAmount)}</span>
+                </div>
+              </div>
+
+              {goal.completedAt ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center space-y-2">
+                  <p className="text-xs font-bold text-emerald-700">🎉 Objectif atteint !</p>
+                  <button onClick={onWithdraw} className="w-full py-2 bg-emerald-600 text-white text-xs font-black uppercase rounded-xl hover:bg-emerald-500 transition-colors">
+                    Retirer {formatMoney(goal.currentAmount)}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="number" min="0" value={contribAmount} onChange={(e) => setContribAmount(e.target.value)}
+                    placeholder="Contribuer..."
+                    className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-emerald-300/30 focus:bg-white"
+                  />
+                  <button
+                    onClick={() => { if (canContribute) { onContribute(contribAmt); setContribAmount(""); } }}
+                    disabled={!canContribute}
+                    className="px-4 py-2 bg-emerald-600 text-white text-xs font-black uppercase rounded-xl hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Verser
+                  </button>
+                </div>
+              )}
+
+              {(goal.currentAmount || 0) > 0 && !goal.completedAt && (
+                <button onClick={onWithdraw} className="w-full py-1.5 text-emerald-600 text-[10px] font-bold uppercase hover:text-emerald-700 transition-colors">
+                  Retirer la cagnotte ({formatMoney(goal.currentAmount)})
+                </button>
+              )}
+
+              {(goal.contributions || []).length > 0 && (
+                <div className="pt-2 border-t border-stone-100 space-y-1.5 max-h-32 overflow-y-auto">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-stone-400">Contributions récentes</div>
+                  {goal.contributions.slice(0, 8).map((c, i) => (
+                    <div key={i} className="flex items-center justify-between text-[10px] text-stone-500">
+                      <span>{c.citizenName}</span>
+                      <span className="font-bold text-stone-700">{formatMoney(c.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(goal.currentAmount || 0) === 0 && (
+                <button onClick={onCancel} className="w-full py-1.5 text-red-400 text-[10px] font-bold uppercase hover:text-red-600 transition-colors">
+                  Annuler le projet
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modale "Journal partagé" — souvenirs à deux ─────────────────────────────
+function JournalModal({ spouse, spouseUser, user, entries, onClose, onAdd, onDelete }) {
+  const [text, setText] = useState("");
+  const name = spouseUser?.name || spouse.name || "votre conjoint";
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-sky-50">
+          <div className="w-10 h-10 rounded-full bg-sky-100 border-2 border-sky-200 flex items-center justify-center flex-shrink-0">
+            <BookHeart size={16} className="text-sky-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Journal partagé — {name}</div>
+            <div className="text-[10px] text-stone-500">Vos souvenirs à deux, visibles par vous deux.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="flex gap-2">
+            <textarea
+              value={text} onChange={(e) => setText(e.target.value)}
+              rows={2} maxLength={500}
+              placeholder="Un moment à graver..."
+              className="flex-1 px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:ring-2 focus:ring-sky-300/30 focus:bg-white resize-none"
+            />
+          </div>
+          <button
+            onClick={() => { if (text.trim()) { onAdd(text.trim()); setText(""); } }}
+            disabled={!text.trim()}
+            className="w-full py-2 bg-sky-600 text-white text-xs font-black uppercase rounded-xl hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Ajouter au journal
+          </button>
+
+          <div className="pt-2 border-t border-stone-100 space-y-2 max-h-72 overflow-y-auto">
+            {(entries || []).length === 0 && (
+              <p className="text-xs text-stone-400 italic text-center py-4">Aucun souvenir consigné pour l'instant.</p>
+            )}
+            {(entries || []).map((e) => (
+              <div key={e.id} className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-stone-600">{e.authorName}</span>
+                  {String(e.authorId) === String(user?.id) && (
+                    <button onClick={() => onDelete(e.id)} className="text-stone-300 hover:text-red-500 transition-colors">
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-stone-700 mt-0.5 whitespace-pre-wrap">{e.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Panneau complet du trésor commun / fief conjoint ────────────────────────
 // Historique des mouvements, contributions par conjoint, montants rapides et
 // raison optionnelle — plus qu'un simple champ + deux boutons.
@@ -853,6 +1171,17 @@ const MarriageView = ({
   onAcceptMarriageDominance,
   onRejectMarriageDominance,
   onRequisitionSpouseMoney,
+  inventoryCatalog = [],
+  coupleGifts = {},
+  coupleGoals = {},
+  coupleJournals = {},
+  onSendCoupleGift,
+  onSetCoupleGoal,
+  onContributeToCoupleGoal,
+  onWithdrawCoupleGoal,
+  onCancelCoupleGoal,
+  onAddCoupleJournalEntry,
+  onDeleteCoupleJournalEntry,
   gameDate,
   notify,
   readOnly = false,
@@ -864,6 +1193,11 @@ const MarriageView = ({
 
   // Modale de réquisition du trésor personnel du conjoint dominé
   const [requisitioningSpouseId, setRequisitioningSpouseId] = useState(null);
+
+  // Modales "vie de couple" — cadeau, projet commun, journal partagé
+  const [giftingSpouseId, setGiftingSpouseId] = useState(null);
+  const [goalSpouseId, setGoalSpouseId] = useState(null);
+  const [journalSpouseId, setJournalSpouseId] = useState(null);
 
   // Registre matrimonial (unions passées : divorce, veuvage, rupture tutoriale)
   const [showMarriageHistory, setShowMarriageHistory] = useState(false);
@@ -1155,7 +1489,25 @@ const MarriageView = ({
                       </div>
                     </div>
                     {!readOnly && (
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                        <button
+                          onClick={() => setGiftingSpouseId(spouse.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 border border-rose-200 text-rose-600 text-[10px] font-black uppercase rounded-lg hover:bg-rose-100 transition-colors"
+                        >
+                          <Gift size={12} /> Cadeau
+                        </button>
+                        <button
+                          onClick={() => setGoalSpouseId(spouse.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-600 text-[10px] font-black uppercase rounded-lg hover:bg-emerald-100 transition-colors"
+                        >
+                          <Target size={12} /> Projet
+                        </button>
+                        <button
+                          onClick={() => setJournalSpouseId(spouse.id)}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-sky-50 border border-sky-200 text-sky-600 text-[10px] font-black uppercase rounded-lg hover:bg-sky-100 transition-colors"
+                        >
+                          <BookHeart size={12} /> Journal
+                        </button>
                         {iAmDominant && (
                           <>
                             <button
@@ -2050,6 +2402,62 @@ const MarriageView = ({
             spouseUser={targetSpouseUser}
             onClose={() => setRequisitioningSpouseId(null)}
             onRequisition={(payload) => onRequisitionSpouseMoney && onRequisitionSpouseMoney(payload)}
+          />
+        );
+      })()}
+
+      {giftingSpouseId && (() => {
+        const targetSpouse = currentSpouses.find((s) => s.id === giftingSpouseId);
+        if (!targetSpouse) return null;
+        const targetSpouseUser = safeUsers.find((u) => u.id === targetSpouse.id);
+        const pairKey = [user.id, giftingSpouseId].sort().join("_");
+        return (
+          <GiftModal
+            spouse={targetSpouse}
+            spouseUser={targetSpouseUser}
+            user={user}
+            inventoryCatalog={inventoryCatalog}
+            gifts={coupleGifts[pairKey] || []}
+            onClose={() => setGiftingSpouseId(null)}
+            onSend={(payload) => onSendCoupleGift && onSendCoupleGift(giftingSpouseId, payload)}
+          />
+        );
+      })()}
+
+      {goalSpouseId && (() => {
+        const targetSpouse = currentSpouses.find((s) => s.id === goalSpouseId);
+        if (!targetSpouse) return null;
+        const targetSpouseUser = safeUsers.find((u) => u.id === targetSpouse.id);
+        const pairKey = [user.id, goalSpouseId].sort().join("_");
+        return (
+          <GoalModal
+            spouse={targetSpouse}
+            spouseUser={targetSpouseUser}
+            user={user}
+            goal={coupleGoals[pairKey] || null}
+            onClose={() => setGoalSpouseId(null)}
+            onSetGoal={(payload) => onSetCoupleGoal && onSetCoupleGoal(goalSpouseId, payload)}
+            onContribute={(amount) => onContributeToCoupleGoal && onContributeToCoupleGoal(goalSpouseId, amount)}
+            onWithdraw={() => onWithdrawCoupleGoal && onWithdrawCoupleGoal(goalSpouseId)}
+            onCancel={() => onCancelCoupleGoal && onCancelCoupleGoal(goalSpouseId)}
+          />
+        );
+      })()}
+
+      {journalSpouseId && (() => {
+        const targetSpouse = currentSpouses.find((s) => s.id === journalSpouseId);
+        if (!targetSpouse) return null;
+        const targetSpouseUser = safeUsers.find((u) => u.id === targetSpouse.id);
+        const pairKey = [user.id, journalSpouseId].sort().join("_");
+        return (
+          <JournalModal
+            spouse={targetSpouse}
+            spouseUser={targetSpouseUser}
+            user={user}
+            entries={coupleJournals[pairKey] || []}
+            onClose={() => setJournalSpouseId(null)}
+            onAdd={(text) => onAddCoupleJournalEntry && onAddCoupleJournalEntry(journalSpouseId, text)}
+            onDelete={(entryId) => onDeleteCoupleJournalEntry && onDeleteCoupleJournalEntry(journalSpouseId, entryId)}
           />
         );
       })()}

@@ -247,7 +247,7 @@ export default function App() {
   const { grouped: adminGrouped, unreadCount: adminUnreadCount, dismiss: adminDismiss, dismissAll: adminDismissAll } = useNotifications(
     currentUser,
     state.citizens || [],
-    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [], mushtagramNotifs: state.mushtagramNotifs || [], propertyAlerts: state.propertyAlerts || [], bourseAlerts: state.bourseAlerts || [], staffLoanAlerts: state.staffLoanAlerts || [], magicBondAlerts: state.magicBondAlerts || [] },
+    { debtRegistry: state.debtRegistry || [], gazette: state.gazette || [], postalAlerts: state.postalAlerts || [], mushtagramNotifs: state.mushtagramNotifs || [], propertyAlerts: state.propertyAlerts || [], bourseAlerts: state.bourseAlerts || [], staffLoanAlerts: state.staffLoanAlerts || [], magicBondAlerts: state.magicBondAlerts || [], coupleGifts: state.coupleGifts || {}, coupleGoals: state.coupleGoals || {} },
     undefined,
     undefined,
     handleDismissedChange
@@ -695,6 +695,16 @@ export default function App() {
             staffLoanAlerts={state.staffLoanAlerts || []}
             magicBondAlerts={state.magicBondAlerts || []}
             onAcknowledgeMagicBondAlert={actions.onAcknowledgeMagicBondAlert}
+            coupleGifts={state.coupleGifts || {}}
+            coupleGoals={state.coupleGoals || {}}
+            coupleJournals={state.coupleJournals || {}}
+            onSendCoupleGift={actions.onSendCoupleGift}
+            onSetCoupleGoal={actions.onSetCoupleGoal}
+            onContributeToCoupleGoal={actions.onContributeToCoupleGoal}
+            onWithdrawCoupleGoal={actions.onWithdrawCoupleGoal}
+            onCancelCoupleGoal={actions.onCancelCoupleGoal}
+            onAddCoupleJournalEntry={actions.onAddCoupleJournalEntry}
+            onDeleteCoupleJournalEntry={actions.onDeleteCoupleJournalEntry}
             onAddJournalEntry={actions.onAddJournalEntry}
             onEditJournalEntry={actions.onEditJournalEntry}
             onDeleteJournalEntry={actions.onDeleteJournalEntry}

@@ -3189,6 +3189,177 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`${formatMoney(amt)} réquisitionnés à ${spouseCitizen.name}.`, "success");
       },
 
+      // ========== VIE DE COUPLE (cadeaux, projet commun, journal partagé) ==========
+      onSendCoupleGift: (spouseId, { type, amount, itemId, quantity, message } = {}) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        const spouseCitizen = (state.citizens || []).find((c) => String(c.id) === String(spouseId));
+        if (!spouseCitizen) { notify("Conjoint introuvable.", "error"); return; }
+
+        const newCitizens = [...state.citizens];
+        const meIdx = newCitizens.findIndex((c) => String(c.id) === String(session.id));
+        const spouseIdx = newCitizens.findIndex((c) => String(c.id) === String(spouseId));
+        let ledgerEntry, giftDesc, itemName = null, qty = null;
+
+        if (type === "money") {
+          const amt = parseFloat(amount);
+          if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+          if ((newCitizens[meIdx].balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+          newCitizens[meIdx] = { ...newCitizens[meIdx], balance: newCitizens[meIdx].balance - amt };
+          newCitizens[spouseIdx] = { ...newCitizens[spouseIdx], balance: (newCitizens[spouseIdx].balance || 0) + amt };
+          ledgerEntry = { id: Date.now(), fromName: me.name, toName: spouseCitizen.name, amount: amt, timestamp: Date.now(), reason: "Cadeau conjugal", type: "SPOUSE_GIFT" };
+          giftDesc = formatMoney(amt);
+        } else if (type === "item") {
+          qty = parseInt(quantity) || 1;
+          const srcInv = [...(newCitizens[meIdx].inventory || [])];
+          const slotIdx = srcInv.findIndex((e) => e.itemId === itemId);
+          if (slotIdx === -1 || srcInv[slotIdx].quantity < qty) { notify("Quantité insuffisante.", "error"); return; }
+          if (srcInv[slotIdx].quantity === qty) srcInv.splice(slotIdx, 1);
+          else srcInv[slotIdx] = { ...srcInv[slotIdx], quantity: srcInv[slotIdx].quantity - qty };
+          const tgtInv = [...(newCitizens[spouseIdx].inventory || [])];
+          const tgtSlot = tgtInv.findIndex((e) => e.itemId === itemId);
+          if (tgtSlot !== -1) tgtInv[tgtSlot] = { ...tgtInv[tgtSlot], quantity: tgtInv[tgtSlot].quantity + qty };
+          else tgtInv.push({ itemId, quantity: qty });
+          newCitizens[meIdx] = { ...newCitizens[meIdx], inventory: srcInv };
+          newCitizens[spouseIdx] = { ...newCitizens[spouseIdx], inventory: tgtInv };
+          itemName = (state.inventoryCatalog || []).find((i) => i.id === itemId)?.name || "objet";
+          ledgerEntry = { id: Date.now(), fromName: me.name, toName: spouseCitizen.name, amount: 0, timestamp: Date.now(), reason: `Cadeau conjugal : ${qty}x ${itemName}`, type: "SPOUSE_GIFT" };
+          giftDesc = `${qty}x ${itemName}`;
+        } else {
+          notify("Type de cadeau invalide.", "error");
+          return;
+        }
+
+        const pairKey = [session.id, spouseId].sort().join("_");
+        const coupleGifts = { ...(state.coupleGifts || {}) };
+        const giftEntry = {
+          id: `gift_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          fromId: session.id, fromName: me.name,
+          type, amount: type === "money" ? parseFloat(amount) : null,
+          itemId: type === "item" ? itemId : null, itemName, quantity: qty,
+          message: String(message || "").slice(0, 300),
+          timestamp: Date.now(),
+        };
+        coupleGifts[pairKey] = [giftEntry, ...(coupleGifts[pairKey] || [])].slice(0, 50);
+
+        saveState({ ...state, citizens: newCitizens, coupleGifts, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`Cadeau envoyé à ${spouseCitizen.name} : ${giftDesc}.`, "success");
+      },
+
+      onSetCoupleGoal: (spouseId, { title, targetAmount } = {}) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        const amt = parseFloat(targetAmount);
+        const t = String(title || "").trim();
+        if (!t || !amt || amt <= 0) { notify("Objectif invalide.", "error"); return; }
+        const spouseCitizen = (state.citizens || []).find((c) => String(c.id) === String(spouseId));
+        const pairKey = [session.id, spouseId].sort().join("_");
+        if ((state.coupleGoals || {})[pairKey]) { notify("Un projet commun est déjà en cours — retirez-le ou attendez son terme.", "error"); return; }
+        const coupleGoals = { ...(state.coupleGoals || {}) };
+        coupleGoals[pairKey] = {
+          id: `goal_${Date.now()}`,
+          title: t.slice(0, 80),
+          targetAmount: amt,
+          currentAmount: 0,
+          contributions: [],
+          createdAt: Date.now(),
+          createdBy: session.id,
+          completedAt: null,
+        };
+        saveState({ ...state, coupleGoals });
+        notify(`Projet commun "${t.slice(0, 80)}" lancé avec ${spouseCitizen?.name || "votre conjoint"} !`, "success");
+      },
+
+      onContributeToCoupleGoal: (spouseId, amount) => {
+        if (!session) return;
+        const amt = parseFloat(amount);
+        if (!amt || amt <= 0) { notify("Montant invalide.", "error"); return; }
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        if ((me.balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
+        const pairKey = [session.id, spouseId].sort().join("_");
+        const goal = (state.coupleGoals || {})[pairKey];
+        if (!goal || goal.completedAt) { notify("Aucun projet commun actif.", "error"); return; }
+        const newCitizens = state.citizens.map((c) => String(c.id) === String(session.id) ? { ...c, balance: c.balance - amt } : c);
+        const newCurrent = (goal.currentAmount || 0) + amt;
+        const completed = newCurrent >= goal.targetAmount;
+        const coupleGoals = { ...(state.coupleGoals || {}) };
+        coupleGoals[pairKey] = {
+          ...goal,
+          currentAmount: newCurrent,
+          contributions: [{ citizenId: session.id, citizenName: me.name, amount: amt, date: Date.now() }, ...(goal.contributions || [])].slice(0, 50),
+          completedAt: completed ? Date.now() : null,
+        };
+        const ledgerEntry = { id: Date.now(), fromName: me.name, toName: `Projet commun : ${goal.title}`, amount: amt, timestamp: Date.now(), reason: `Contribution au projet "${goal.title}"`, type: "COUPLE_GOAL" };
+        saveState({ ...state, citizens: newCitizens, coupleGoals, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(completed ? `Objectif "${goal.title}" atteint !` : `${formatMoney(amt)} versés au projet "${goal.title}".`, "success");
+      },
+
+      // Retire la cagnotte du projet commun (que l'objectif soit atteint ou non) et le clôt.
+      onWithdrawCoupleGoal: (spouseId) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        const pairKey = [session.id, spouseId].sort().join("_");
+        const goal = (state.coupleGoals || {})[pairKey];
+        if (!goal || (goal.currentAmount || 0) <= 0) { notify("La cagnotte est vide.", "error"); return; }
+        const amount = goal.currentAmount;
+        const newCitizens = state.citizens.map((c) => String(c.id) === String(session.id) ? { ...c, balance: (c.balance || 0) + amount } : c);
+        const coupleGoals = { ...(state.coupleGoals || {}) };
+        delete coupleGoals[pairKey];
+        const ledgerEntry = { id: Date.now(), fromName: `Projet commun : ${goal.title}`, toName: me.name, amount, timestamp: Date.now(), reason: `Retrait du projet "${goal.title}"`, type: "COUPLE_GOAL" };
+        saveState({ ...state, citizens: newCitizens, coupleGoals, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`${formatMoney(amount)} retirés du projet "${goal.title}".`, "success");
+      },
+
+      onCancelCoupleGoal: (spouseId) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        const pairKey = [session.id, spouseId].sort().join("_");
+        const goal = (state.coupleGoals || {})[pairKey];
+        if (!goal) return;
+        if ((goal.currentAmount || 0) > 0) { notify("Retirez d'abord la cagnotte avant d'annuler le projet.", "error"); return; }
+        const coupleGoals = { ...(state.coupleGoals || {}) };
+        delete coupleGoals[pairKey];
+        saveState({ ...state, coupleGoals });
+        notify("Projet commun annulé.", "info");
+      },
+
+      onAddCoupleJournalEntry: (spouseId, text) => {
+        if (!session) return;
+        const t = String(text || "").trim();
+        if (!t) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry) { notify("Union introuvable.", "error"); return; }
+        const pairKey = [session.id, spouseId].sort().join("_");
+        const coupleJournals = { ...(state.coupleJournals || {}) };
+        const entry = { id: `journal_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, authorId: session.id, authorName: me.name, text: t.slice(0, 500), timestamp: Date.now() };
+        coupleJournals[pairKey] = [entry, ...(coupleJournals[pairKey] || [])].slice(0, 200);
+        saveState({ ...state, coupleJournals });
+        notify("Souvenir ajouté au journal.", "success");
+      },
+
+      onDeleteCoupleJournalEntry: (spouseId, entryId) => {
+        if (!session) return;
+        const pairKey = [session.id, spouseId].sort().join("_");
+        const entries = (state.coupleJournals || {})[pairKey] || [];
+        const entry = entries.find((e) => e.id === entryId);
+        if (!entry || String(entry.authorId) !== String(session.id)) { notify("Vous ne pouvez retirer que vos propres souvenirs.", "error"); return; }
+        const coupleJournals = { ...(state.coupleJournals || {}) };
+        coupleJournals[pairKey] = entries.filter((e) => e.id !== entryId);
+        saveState({ ...state, coupleJournals });
+        notify("Souvenir retiré.", "info");
+      },
+
       // Dépôt dans le trésor commun / fief
       onSharedAccountDeposit: (pairKey, amount, reason = "") => {
         if (!session) return;

@@ -249,6 +249,44 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
       });
     }
 
+    // --- Vie de couple : cadeau reçu, projet commun atteint ---
+    if (prefs.unions !== false) {
+      Object.entries(state?.coupleGifts || {}).forEach(([pairKey, gifts]) => {
+        if (!pairKey.split("_").map(String).includes(String(user.id))) return;
+        (gifts || []).forEach((g) => {
+          if (String(g.fromId) === String(user.id)) return; // pas de notif pour ses propres envois
+          notifs.push({
+            id: `gift_${g.id}`,
+            type: "spouse_gift",
+            category: "Liens & Unions",
+            title: "Cadeau reçu",
+            description: g.type === "money"
+              ? `${g.fromName} vous offre ${formatMoney(g.amount)}`
+              : `${g.fromName} vous offre : ${g.quantity}x ${g.itemName}`,
+            timestamp: g.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "mariage",
+            icon: "Heart",
+          });
+        });
+      });
+      Object.entries(state?.coupleGoals || {}).forEach(([pairKey, goal]) => {
+        if (!goal?.completedAt) return;
+        if (!pairKey.split("_").map(String).includes(String(user.id))) return;
+        notifs.push({
+          id: `goal_${pairKey}`,
+          type: "couple_goal_ready",
+          category: "Liens & Unions",
+          title: "Projet commun atteint",
+          description: `"${goal.title}" — ${formatMoney(goal.currentAmount)} prêt(s) à être retirés`,
+          timestamp: goal.completedAt,
+          rpDate: rpDateStr,
+          route: "mariage",
+          icon: "Coins",
+        });
+      });
+    }
+
     // --- Alertes esclaves ---
     if (prefs.esclaves !== false) {
       (user.slaveAlerts || []).forEach((alert) => {

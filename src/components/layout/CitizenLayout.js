@@ -605,6 +605,16 @@ const CitizenLayout = (props) => {
     onAcceptMarriageDominance,
     onRejectMarriageDominance,
     onRequisitionSpouseMoney,
+    coupleGifts = {},
+    coupleGoals = {},
+    coupleJournals = {},
+    onSendCoupleGift,
+    onSetCoupleGoal,
+    onContributeToCoupleGoal,
+    onWithdrawCoupleGoal,
+    onCancelCoupleGoal,
+    onAddCoupleJournalEntry,
+    onDeleteCoupleJournalEntry,
     maisonQueue = [],
     maisonHistory = [],
     maisonReviews = [],
@@ -865,7 +875,7 @@ const CitizenLayout = (props) => {
   } = useNotifications(
     user,
     users,
-    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [], propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [], magicBondAlerts: magicBondAlerts || [] },
+    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [], propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [], magicBondAlerts: magicBondAlerts || [], coupleGifts: coupleGifts || {}, coupleGoals: coupleGoals || {} },
     settings.notifPrefs,
     gd,
     onDismissedChange
@@ -2732,6 +2742,17 @@ const CitizenLayout = (props) => {
                 onAcceptMarriageDominance={onAcceptMarriageDominance}
                 onRejectMarriageDominance={onRejectMarriageDominance}
                 onRequisitionSpouseMoney={onRequisitionSpouseMoney}
+                inventoryCatalog={catalog}
+                coupleGifts={coupleGifts}
+                coupleGoals={coupleGoals}
+                coupleJournals={coupleJournals}
+                onSendCoupleGift={onSendCoupleGift}
+                onSetCoupleGoal={onSetCoupleGoal}
+                onContributeToCoupleGoal={onContributeToCoupleGoal}
+                onWithdrawCoupleGoal={onWithdrawCoupleGoal}
+                onCancelCoupleGoal={onCancelCoupleGoal}
+                onAddCoupleJournalEntry={onAddCoupleJournalEntry}
+                onDeleteCoupleJournalEntry={onDeleteCoupleJournalEntry}
                 gameDate={gameDate}
                 notify={notify}
                 readOnly={isSlave}
