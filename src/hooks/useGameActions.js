@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -2660,16 +2660,32 @@ export const useGameActions = (session, state, saveState, notify) => {
           sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [session.id, proposerId], dominance, fiefDominantId };
         }
 
+        // ── Pacte arcanique : fusion des traces magiques ──
+        // Un mariage "arcane" lie l'aura de chaque conjoint vers une teinte partagée, sans
+        // jamais la rejoindre complètement — association visible sans perte d'identité.
+        let userMagicBond, proposerMagicBond;
+        if (contractType === "arcane") {
+          const { hueA, hueB } = bondMagicTraces(newCitizens[userIdx], newCitizens[proposerIdx]);
+          const userLinked = [...(newCitizens[userIdx].magicBond?.linkedSpouses || [])];
+          if (!userLinked.some((s) => s.id === proposerId)) userLinked.push({ id: proposerId, name: proposer.name });
+          const proposerLinked = [...(newCitizens[proposerIdx].magicBond?.linkedSpouses || [])];
+          if (!proposerLinked.some((s) => s.id === session.id)) proposerLinked.push({ id: session.id, name: user.name });
+          userMagicBond = { hue: hueA, linkedSpouses: userLinked };
+          proposerMagicBond = { hue: hueB, linkedSpouses: proposerLinked };
+        }
+
         newCitizens[userIdx] = {
           ...newCitizens[userIdx],
           spouseId: userSpouses[0]?.id || proposerId,
           spouses: userSpouses,
           marriageProposals: (user.marriageProposals || []).filter((p) => p.fromId !== proposerId),
+          ...(userMagicBond ? { magicBond: userMagicBond } : {}),
         };
         newCitizens[proposerIdx] = {
           ...newCitizens[proposerIdx],
           spouseId: proposerSpouses[0]?.id || session.id,
           spouses: proposerSpouses,
+          ...(proposerMagicBond ? { magicBond: proposerMagicBond } : {}),
         };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
         const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
@@ -2796,9 +2812,23 @@ export const useGameActions = (session, state, saveState, notify) => {
           sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [slaveId, proposerId], dominance, fiefDominantId };
         }
 
+        // ── Pacte arcanique : fusion des traces magiques (voir onAcceptMarriage) ──
+        let slaveMagicBond, proposerMagicBond;
+        if (contractType === "arcane") {
+          const { hueA, hueB } = bondMagicTraces(newCitizens[slaveIdx], newCitizens[proposerIdx]);
+          const slaveLinked = [...(newCitizens[slaveIdx].magicBond?.linkedSpouses || [])];
+          if (!slaveLinked.some((s) => s.id === proposerId)) slaveLinked.push({ id: proposerId, name: proposer.name });
+          const proposerLinked = [...(newCitizens[proposerIdx].magicBond?.linkedSpouses || [])];
+          if (!proposerLinked.some((s) => s.id === slaveId)) proposerLinked.push({ id: slaveId, name: slave.name });
+          slaveMagicBond = { hue: hueA, linkedSpouses: slaveLinked };
+          proposerMagicBond = { hue: hueB, linkedSpouses: proposerLinked };
+        }
+
         newCitizens[slaveIdx] = { ...newCitizens[slaveIdx], spouseId: slaveSpouses[0]?.id || proposerId, spouses: slaveSpouses,
-          marriageProposals: (slave.marriageProposals || []).filter((p) => p.fromId !== proposerId) };
-        newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], spouseId: proposerSpouses[0]?.id || slaveId, spouses: proposerSpouses };
+          marriageProposals: (slave.marriageProposals || []).filter((p) => p.fromId !== proposerId),
+          ...(slaveMagicBond ? { magicBond: slaveMagicBond } : {}) };
+        newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], spouseId: proposerSpouses[0]?.id || slaveId, spouses: proposerSpouses,
+          ...(proposerMagicBond ? { magicBond: proposerMagicBond } : {}) };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
         const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
         notify(`${slave.name} est désormais uni(e) à ${proposer.name} par ${ctLabel}.`, "success");
@@ -4372,9 +4402,23 @@ export const useGameActions = (session, state, saveState, notify) => {
           sharedAccounts[pairKey] = { type: "fief", balance: 0, members: [childId, proposerId], dominance, fiefDominantId };
         }
 
+        // ── Pacte arcanique : fusion des traces magiques (voir onAcceptMarriage) ──
+        let childMagicBond, proposerMagicBond;
+        if (contractType === "arcane") {
+          const { hueA, hueB } = bondMagicTraces(newCitizens[childIdx], newCitizens[proposerIdx]);
+          const childLinked = [...(newCitizens[childIdx].magicBond?.linkedSpouses || [])];
+          if (!childLinked.some((s) => s.id === proposerId)) childLinked.push({ id: proposerId, name: proposer.name });
+          const proposerLinked = [...(newCitizens[proposerIdx].magicBond?.linkedSpouses || [])];
+          if (!proposerLinked.some((s) => s.id === childId)) proposerLinked.push({ id: childId, name: child.name });
+          childMagicBond = { hue: hueA, linkedSpouses: childLinked };
+          proposerMagicBond = { hue: hueB, linkedSpouses: proposerLinked };
+        }
+
         newCitizens[childIdx] = { ...newCitizens[childIdx], spouseId: childSpouses[0]?.id || proposerId, spouses: childSpouses,
-          marriageProposals: (child.marriageProposals || []).filter((p) => p.fromId !== proposerId) };
-        newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], spouseId: proposerSpouses[0]?.id || childId, spouses: proposerSpouses };
+          marriageProposals: (child.marriageProposals || []).filter((p) => p.fromId !== proposerId),
+          ...(childMagicBond ? { magicBond: childMagicBond } : {}) };
+        newCitizens[proposerIdx] = { ...newCitizens[proposerIdx], spouseId: proposerSpouses[0]?.id || childId, spouses: proposerSpouses,
+          ...(proposerMagicBond ? { magicBond: proposerMagicBond } : {}) };
         saveState({ ...state, citizens: newCitizens, sharedAccounts });
         const ctLabel = { sacre: "mariage sacré", feodal: "mariage féodal", serment: "serment de sang", alliance: "alliance politique", promesse: "promesse sous les étoiles", arcane: "pacte arcanique" }[contractType] || contractType;
         notify(`${child.name} est désormais uni(e) à ${proposer.name} par ${ctLabel}.`, "success");

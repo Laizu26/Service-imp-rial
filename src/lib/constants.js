@@ -170,7 +170,7 @@ export const MARRIAGE_CONTRACT_TYPES = [
   { id: "serment",     label: "Serment de Sang",           emoji: "🩸", description: "Lien magique scellé par le sang des deux époux" },
   { id: "alliance",    label: "Alliance Politique",        emoji: "⚔️", description: "Union stratégique entre royaumes ou clans" },
   { id: "promesse",    label: "Promesse sous les Étoiles", emoji: "🌙", description: "Engagement libre sans cérémonie officielle" },
-  { id: "arcane",      label: "Pacte Arcanique",           emoji: "🔮", description: "Union magique liée par un sortilège ancien" },
+  { id: "arcane",      label: "Pacte Arcanique",           emoji: "🔮", description: "Union magique liée par un sortilège ancien — les traces magiques des époux se lient et deviennent proches, sans jamais se confondre" },
 ];
 
 // Contrats que les vœux rendent indissolubles : aucun divorce possible, seule la mort

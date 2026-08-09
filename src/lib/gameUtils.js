@@ -198,3 +198,61 @@ export function getActiveStaffLoan(citizenId, staffLoans) {
 export function getStaffLoanRestriction(citizenId, staffLoans) {
   return getActiveStaffLoan(citizenId, staffLoans)?.permissions || {};
 }
+
+// ===== TRACE MAGIQUE (aura) =====
+// Hash déterministe — sert à dériver la teinte de base d'un citoyen (sa "signature"
+// avant tout pacte magique). Partagé entre l'affichage (CitizenPhysicsMagicView) et
+// la fusion appliquée au mariage arcanique (useGameActions.onAcceptMarriage et variantes).
+export function hashCode(str) {
+  let h = 0;
+  const s = String(str ?? "");
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+// Teinte (0-359) propre au citoyen, dérivée de son identité — inchangée tant qu'aucun pacte
+// arcanique ne l'a rapprochée de celle d'un conjoint.
+export function getBaseMagicHue(citizen) {
+  const seed = String(citizen?.id ?? citizen?.name ?? "default");
+  return hashCode(seed) % 360;
+}
+
+// Teinte effective affichée : celle du pacte arcanique si le citoyen en a contracté un,
+// sinon sa teinte de base.
+export function getEffectiveMagicHue(citizen) {
+  if (citizen?.magicBond && typeof citizen.magicBond.hue === "number") {
+    return citizen.magicBond.hue;
+  }
+  return getBaseMagicHue(citizen);
+}
+
+function circularHueBlend(hueA, hueB, weightB) {
+  const rad = (h) => (h * Math.PI) / 180;
+  const ax = Math.cos(rad(hueA));
+  const ay = Math.sin(rad(hueA));
+  const bx = Math.cos(rad(hueB));
+  const by = Math.sin(rad(hueB));
+  const x = ax * (1 - weightB) + bx * weightB;
+  const y = ay * (1 - weightB) + by * weightB;
+  const deg = (Math.atan2(y, x) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+
+/**
+ * Un pacte magique (mariage "arcane") lie les traces magiques des deux conjoints : chacun
+ * dérive vers une teinte partagée, sans jamais la rejoindre complètement — leurs auras
+ * deviennent proches, reconnaissables l'une de l'autre, sans être identiques. Applicable
+ * plusieurs fois (unions arcaniques successives) : la teinte effective déjà liée sert de
+ * point de départ, donc le lien s'accumule au fil des pactes.
+ */
+export function bondMagicTraces(citizenA, citizenB) {
+  const hueA = getEffectiveMagicHue(citizenA);
+  const hueB = getEffectiveMagicHue(citizenB);
+  const midpoint = circularHueBlend(hueA, hueB, 0.5);
+  return {
+    hueA: circularHueBlend(hueA, midpoint, 0.35),
+    hueB: circularHueBlend(hueB, midpoint, 0.35),
+  };
+}

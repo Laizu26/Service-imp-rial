@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Sparkles, Star, HeartPulse, Info, Lock, AlertTriangle } from "lucide-react";
+import { Sparkles, Star, HeartPulse, Info, Lock, AlertTriangle, Link2 } from "lucide-react";
+import { hashCode, getEffectiveMagicHue } from "../../lib/gameUtils";
 
 // ===== CONDITIONS LIÉES À LA BAGUE (source cachée) =====
 const BAGUE_CONDITIONS = [
@@ -311,18 +312,14 @@ const BodySVG = ({ injuries, selectedZone, hoveredZone, onSelect, onHover }) => 
 };
 
 // ===== COULEUR D'AURA — déterministe par utilisateur =====
-const hashCode = (str) => {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-  }
-  return Math.abs(h);
-};
-
+// La teinte (hue) est la seule composante affectée par un pacte arcanique (voir
+// bondMagicTraces dans gameUtils.js) : saturation et luminosité restent propres à chaque
+// citoyen, ce qui garde les auras des conjoints reconnaissables l'une de l'autre même
+// rapprochées — "similaires sans être exactement pareilles".
 const getUserAura = (user) => {
   const seed  = String(user?.id ?? user?.name ?? "default");
   const hash  = hashCode(seed);
-  const hue   = hash % 360;
+  const hue   = getEffectiveMagicHue(user);
   const sat   = 60 + (hash % 25);          // 60–85 %
   const light = 44 + ((hash >> 4) % 14);   // 44–58 %
   return {
@@ -639,6 +636,12 @@ const CitizenPhysicsMagicView = ({ user }) => {
                   <p className="text-[10px] text-stone-400 italic">
                     Signature unique et permanente de {user?.name || "ce citoyen"}
                   </p>
+                  {(user?.magicBond?.linkedSpouses || []).length > 0 && (
+                    <p className="text-[10px] text-purple-500 italic flex items-center justify-center gap-1 mt-1">
+                      <Link2 size={10} />
+                      Liée par pacte arcanique à {user.magicBond.linkedSpouses.map((s) => s.name).join(", ")}
+                    </p>
+                  )}
                 </>
               )}
             </div>
