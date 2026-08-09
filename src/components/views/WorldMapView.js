@@ -429,6 +429,7 @@ const WorldMapView = ({
                       fill={building ? "#fffbeb" : "#e9dfc4"}
                       stroke={building ? "#78716c" : "#d8cba3"}
                       Icon={Icon}
+                      label={building?.name}
                       isSelected={movingSelf}
                       onClick={() => handleCityTileClick(q, r, building)}
                     />
