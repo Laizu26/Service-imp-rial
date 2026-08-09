@@ -21,7 +21,7 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
       <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 opacity-90"></div>
 
-      <div className="relative z-10 w-full max-w-md p-6 space-y-4">
+      <div className={`relative z-10 w-full p-6 space-y-4 transition-all ${hasConnected ? "max-w-md sm:max-w-2xl lg:max-w-4xl" : "max-w-md"}`}>
 
         {/* ── COMPTES MÉMORISÉS ── */}
         {hasConnected && (
@@ -30,7 +30,7 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
               <div className="text-[9px] font-black uppercase tracking-[0.25em] text-stone-500 mb-4 flex items-center gap-2">
                 <User size={10} /> Comptes mémorisés
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {connectedAccounts.map((account) => (
                   <div key={account.id} className="relative group">
                     <button
@@ -89,7 +89,7 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
 
             {/* Formulaire compact quand des comptes sont affichés */}
             <div className="px-6 pb-5">
-              <form onSubmit={handleSubmit} className="space-y-3">
+              <form onSubmit={handleSubmit} className="space-y-3 max-w-sm mx-auto">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <User size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
