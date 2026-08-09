@@ -1,9 +1,80 @@
 import React, { useState } from "react";
-import { TrendingUp, BarChart2, History, Search, X, ChevronDown, ChevronUp, ListOrdered } from "lucide-react";
+import { TrendingUp, BarChart2, History, Search, X, ChevronDown, ChevronUp, ListOrdered, Landmark, Megaphone } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
 import { PriceSparkline, PriceHistoryChart, PriceChangeBadge, BourseTicker, OrderBookDepth } from "../ui/BourseWidgets";
 
 const BOURSE_DAILY_CAP = 0.3;
+
+/* ── Dossier actionnaire : données de l'entreprise réservées à qui détient des actions ── */
+const ShareholderPanel = ({ company, listing }) => {
+  if (!company) return null;
+  const events = [...(company.companyEvents || [])].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const dividends = listing.dividendHistory || [];
+  return (
+    <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3 space-y-3">
+      <div className="text-[9px] font-black uppercase tracking-widest text-indigo-600 flex items-center gap-1.5">
+        <Landmark size={11} /> Dossier actionnaire
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+        <div className="bg-white border border-indigo-100 rounded-lg px-2 py-1.5">
+          <div className="text-[8px] font-black uppercase text-stone-400">Trésorerie</div>
+          <div className="text-xs font-black font-mono text-stone-700">{formatMoney(company.balance || 0)}</div>
+        </div>
+        <div className="bg-white border border-indigo-100 rounded-lg px-2 py-1.5">
+          <div className="text-[8px] font-black uppercase text-stone-400">Niveau</div>
+          <div className="text-xs font-black font-mono text-stone-700">{company.level || 1}</div>
+        </div>
+        <div className="bg-white border border-indigo-100 rounded-lg px-2 py-1.5">
+          <div className="text-[8px] font-black uppercase text-stone-400">Effectif</div>
+          <div className="text-xs font-black font-mono text-stone-700">{(company.employees || []).length}</div>
+        </div>
+        <div className="bg-white border border-indigo-100 rounded-lg px-2 py-1.5">
+          <div className="text-[8px] font-black uppercase text-stone-400">Imposition</div>
+          <div className="text-xs font-black font-mono text-stone-700">{company.taxRate ?? 0}%</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap text-[9px] text-stone-500">
+        {company.createdAt && <span>Fondée le {new Date(company.createdAt).toLocaleDateString("fr-FR")}</span>}
+        <span className={company.frozen ? "text-red-500 font-bold" : "text-emerald-600 font-bold"}>{company.frozen ? "Comptes gelés" : "En activité"}</span>
+        <span className={company.hiringOpen ? "text-emerald-600 font-bold" : "text-stone-400"}>{company.hiringOpen ? "Recrutement ouvert" : "Recrutement fermé"}</span>
+      </div>
+
+      <div>
+        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-1">Dividendes versés ({dividends.length})</div>
+        {dividends.length === 0 ? (
+          <p className="text-[10px] text-stone-400 italic">Aucun dividende versé pour le moment.</p>
+        ) : (
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {dividends.map((d, i) => (
+              <div key={i} className="flex items-center justify-between text-[10px] bg-white border border-indigo-100 rounded px-2 py-1">
+                <span className="text-stone-400">{new Date(d.timestamp).toLocaleDateString("fr-FR")}</span>
+                <span className="font-mono font-bold text-stone-700">{formatMoney(d.amount)} / action{d.partial ? " (partiel)" : ""}</span>
+                <span className="font-mono text-amber-600">{formatMoney(d.totalPaid || 0)} total</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {events.length > 0 && (
+        <div>
+          <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-1 flex items-center gap-1"><Megaphone size={10} /> Communiqués aux actionnaires</div>
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {events.map((e) => (
+              <div key={e.id} className="bg-white border border-indigo-100 rounded-lg px-2.5 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-stone-700">{e.title}</span>
+                  <span className="text-[8px] text-stone-400 shrink-0">{e.date || new Date(e.createdAt).toLocaleDateString("fr-FR")}</span>
+                </div>
+                {e.description && <p className="text-[9px] text-stone-500 mt-0.5">{e.description}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ── Formulaire de placement d'ordre (achat ou vente) ── */
 const OrderForm = ({ listing, user, side, onSubmit, onCancel }) => {
@@ -74,7 +145,7 @@ const OrderForm = ({ listing, user, side, onSubmit, onCancel }) => {
   );
 };
 
-const CitizenBourseView = ({ user, citizens = [], bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [] }) => {
+const CitizenBourseView = ({ user, citizens = [], companies = [], bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [] }) => {
   const [bourseTab, setBourseTab] = useState("market");
   const [bourseSearch, setBourseSearch] = useState("");
   const [expandedId, setExpandedId] = useState(null);
@@ -238,6 +309,9 @@ const CitizenBourseView = ({ user, citizens = [], bourseListings = [], onBourseP
                           )}
                         </div>
                         <OrderBookDepth buyOrders={listing.buyOrders} sellOrders={listing.sellOrders} myId={user.id} ownerId={listing.ownerId} onCancel={(orderId, side) => onBourseCancelOrder({ listingId: listing.id, orderId, side })} />
+                        {myShares > 0 && (
+                          <ShareholderPanel company={companies.find((c) => c.id === listing.companyId)} listing={listing} />
+                        )}
                         {(listing.priceHistory || []).length > 1 && (
                           <div className="bg-stone-50 border border-stone-100 rounded-lg p-3">
                             <PriceHistoryChart history={listing.priceHistory} />
@@ -320,6 +394,7 @@ const CitizenBourseView = ({ user, citizens = [], bourseListings = [], onBourseP
                     </div>
                     {isExpanded && (
                       <div className="px-4 py-3 border-t border-stone-100 space-y-3">
+                        <ShareholderPanel company={companies.find((c) => c.id === listing.companyId)} listing={listing} />
                         {formSide ? (
                           <OrderForm listing={listing} user={user} side={formSide} onSubmit={submitOrder} onCancel={() => setFormSide(null)} />
                         ) : (
