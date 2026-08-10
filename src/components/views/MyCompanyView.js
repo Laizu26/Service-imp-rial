@@ -771,6 +771,7 @@ const MyCompanyView = ({
   onRevokeCEO,
   properties = [],
   onAssignEmployeeToProperty,
+  onSetSelfRights,
 }) => {
   // Une personne peut être liée à plusieurs entreprises à la fois : dirigeante de l'une, et PDG
   // d'une autre (typiquement après avoir été détachée puis nommée PDG chez l'emprunteuse, cf.
@@ -1889,6 +1890,42 @@ const MyCompanyView = ({
     </div>
   );
 
+  // Auto-gestion des droits (dirigeant/PDG) — personne au-dessus d'eux dans l'entreprise pour
+  // gérer leurs droits à leur place (contrairement à un employé ou un détaché), donc ils le font
+  // eux-mêmes. Visible dans les deux vues (délégation ou gestion opérationnelle complète).
+  const SELF_RIGHTS_LIST = [
+    { key: "travelLocked", icon: "🚫", label: "Voyage" },
+    { key: "mushtagramLocked", icon: "📵", label: "Mushtagram" },
+    { key: "bankLocked", icon: "🏦", label: "Compte bancaire" },
+    { key: "marketLocked", icon: "🛒", label: "Marché" },
+    { key: "postLocked", icon: "✉️", label: "Poste Impériale" },
+  ];
+  const mySelfRights = user.selfLockedRights || {};
+  const mesDroitsCard = onSetSelfRights && (
+    <Card title="Mes Droits" icon={Shield}>
+      <div className="space-y-3">
+        <p className="text-[10px] text-stone-400">
+          Personne ne gère vos droits à votre place en tant que dirigeant ou PDG — vous pouvez vous
+          auto-restreindre ici (RP), comme vous le feriez pour un employé.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {SELF_RIGHTS_LIST.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => onSetSelfRights({ [r.key]: !mySelfRights[r.key] })}
+              className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left text-xs font-bold transition-colors ${
+                mySelfRights[r.key] ? "bg-red-50 border-red-300 text-red-700" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300"
+              }`}
+            >
+              <span>{r.icon} {r.label}</span>
+              <span className="text-[9px] font-black uppercase">{mySelfRights[r.key] ? "Bloqué" : "Libre"}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+
   // Dès qu'un PDG est en poste, le propriétaire n'a plus la main sur la gestion opérationnelle
   // (voir isCompanyManager, backend) — sa vue se limite à la révocation et à la dissolution,
   // au lieu d'afficher des onglets opérationnels dont les actions seraient de toute façon rejetées.
@@ -1896,6 +1933,7 @@ const MyCompanyView = ({
     return (
       <div className="space-y-6 animate-fadeIn pb-10">
         {companySwitcher}
+        {mesDroitsCard}
         <div
           className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
           style={{ borderColor: myCompany.color || "#8B5CF6" }}
@@ -1954,6 +1992,7 @@ const MyCompanyView = ({
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
       {companySwitcher}
+      {mesDroitsCard}
       {/* HEADER */}
       <div
         className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4"

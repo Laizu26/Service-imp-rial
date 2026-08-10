@@ -239,6 +239,33 @@ export function applyBourseTrades(trades, citizens, companies, listing) {
   return { newCitizens, newCompanies, ledgerEntries };
 }
 
+// Prise de contrôle par majorité (conseil des actionnaires) : dès qu'un citoyen détient plus de
+// 50% des actions ÉMISES d'une entreprise cotée (ex: 101/200), il en devient automatiquement le
+// nouveau propriétaire légal — la propriété suit le contrôle du capital. Le PDG en poste est
+// révoqué (la délégation du précédent propriétaire n'a plus de sens sous un nouveau propriétaire) ;
+// l'ancien propriétaire garde ses actions et son argent, seule la propriété de l'entreprise change
+// de main. À appeler après toute opération qui modifie des stockholdings (échange, ESPP, cession
+// directe...). Retourne null si aucune bascule n'a lieu.
+export function checkBourseTakeover(companies, citizens, listing) {
+  if (!listing?.totalShares) return null;
+  const compIdx = companies.findIndex((c) => c.id === listing.companyId);
+  if (compIdx === -1) return null;
+  const company = companies[compIdx];
+  const majorityHolder = citizens.find((c) => ((c.stockholdings || {})[listing.id] || 0) > listing.totalShares / 2);
+  if (!majorityHolder || String(majorityHolder.id) === String(company.ownerId)) return null;
+  const newCompanies = [...companies];
+  newCompanies[compIdx] = { ...company, ownerId: majorityHolder.id, ceoId: null };
+  return {
+    companies: newCompanies,
+    previousOwnerId: company.ownerId,
+    newOwnerId: majorityHolder.id,
+    newOwnerName: majorityHolder.name,
+    companyId: company.id,
+    companyName: company.name,
+    symbol: listing.symbol,
+  };
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 
 export const useGameActions = (session, state, saveState, notify) => {
@@ -5021,6 +5048,22 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Droits mis à jour.", "success");
       },
 
+      // --- AUTO-GESTION DES DROITS (dirigeant / PDG) ---
+      // Un employé ou un détaché voit ses droits (voyage, Mushtagram, banque, marché, poste)
+      // gérés par quelqu'un au-dessus de lui (employeur, entreprise emprunteuse). Un dirigeant ou
+      // PDG n'a personne pour le faire à sa place — il gère donc lui-même les siens (citizen.
+      // selfLockedRights), pris en compte au même titre que les autres sources dans
+      // combinedRestriction (CitizenLayout.js).
+      onSetSelfRights: (rights) => {
+        if (!session) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = { ...newCitizens[idx], selfLockedRights: { ...(newCitizens[idx].selfLockedRights || {}), ...rights } };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Vos droits ont été mis à jour.", "success");
+      },
+
       onUpdateEmployeeContract: ({ companyId, citizenId, updates }) => {
         if (!session) return;
         const company = (state.companies || []).find(c => c.id === companyId);
@@ -7069,6 +7112,12 @@ export const useGameActions = (session, state, saveState, notify) => {
               bourseAlerts.push({ id: `ba_${ts}_${i}_sell`, toId: t.sellerId, type: "trade_filled", symbol: listing.symbol, qty: t.qty, price: t.price, side: "sell", timestamp: ts });
             }
           });
+          const takeover = checkBourseTakeover(newCompanies, newCitizens, listing);
+          if (takeover) {
+            newCompanies = takeover.companies;
+            bourseAlerts.push({ id: `ba_${ts}_takeover_new`, toId: takeover.newOwnerId, type: "takeover_gained", companyName: takeover.companyName, symbol: takeover.symbol, timestamp: ts });
+            bourseAlerts.push({ id: `ba_${ts}_takeover_old`, toId: takeover.previousOwnerId, type: "takeover_lost", companyName: takeover.companyName, symbol: takeover.symbol, newOwnerName: takeover.newOwnerName, timestamp: ts });
+          }
         }
 
         listings[idx] = listing;
@@ -7184,6 +7233,12 @@ export const useGameActions = (session, state, saveState, notify) => {
               bourseAlerts.push({ id: `ba_${ts}_${i}_buy`, toId: t.buyerId, type: "trade_filled", symbol: listing.symbol, qty: t.qty, price: t.price, side: "buy", timestamp: ts });
             }
           });
+          const takeover = checkBourseTakeover(newCompanies, newCitizens, listing);
+          if (takeover) {
+            newCompanies = takeover.companies;
+            bourseAlerts.push({ id: `ba_${ts}_takeover_new`, toId: takeover.newOwnerId, type: "takeover_gained", companyName: takeover.companyName, symbol: takeover.symbol, timestamp: ts });
+            bourseAlerts.push({ id: `ba_${ts}_takeover_old`, toId: takeover.previousOwnerId, type: "takeover_lost", companyName: takeover.companyName, symbol: takeover.symbol, newOwnerName: takeover.newOwnerName, timestamp: ts });
+          }
         }
         listings[idx] = listing;
         saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseListings: listings, globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000), bourseAlerts: [...bourseAlerts, ...(state.bourseAlerts || [])].slice(0, 300) });
@@ -7245,7 +7300,18 @@ export const useGameActions = (session, state, saveState, notify) => {
             timestamp: Date.now(), reason: `Cession directe de ${quantity} action(s) ${listing.symbol}`, type: "BOURSE_DIRECT",
           });
         }
-        saveState({ ...state, citizens: newCitizens, companies: newCompanies, globalLedger: ledgerEntries.length ? [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) : state.globalLedger });
+        const ts = Date.now();
+        let bourseAlerts = state.bourseAlerts || [];
+        const takeover = checkBourseTakeover(newCompanies, newCitizens, listing);
+        if (takeover) {
+          newCompanies = takeover.companies;
+          bourseAlerts = [
+            { id: `ba_${ts}_takeover_new`, toId: takeover.newOwnerId, type: "takeover_gained", companyName: takeover.companyName, symbol: takeover.symbol, timestamp: ts },
+            { id: `ba_${ts}_takeover_old`, toId: takeover.previousOwnerId, type: "takeover_lost", companyName: takeover.companyName, symbol: takeover.symbol, newOwnerName: takeover.newOwnerName, timestamp: ts },
+            ...bourseAlerts,
+          ].slice(0, 300);
+        }
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies, bourseAlerts, globalLedger: ledgerEntries.length ? [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) : state.globalLedger });
         notify(`${quantity} action(s) ${listing.symbol} ${cost > 0 ? `vendue(s) à ${citizen.name} pour ${formatMoney(cost)}` : `offerte(s) à ${citizen.name}`}.`, "success");
       },
 
@@ -7370,7 +7436,18 @@ export const useGameActions = (session, state, saveState, notify) => {
         }).filter((o) => o.qty > 0);
         listings[lIdx] = { ...listing, sellOrders: newSellOrders };
         const ledgerEntry = { id: ts, fromName: `Compte salarié — ${company.name}`, toName: `${listing.companyName} (ESPP: ${listing.symbol})`, amount: totalCost, timestamp: ts, reason: `ESPP : ${quantity} action(s) ${listing.symbol} à ${formatMoney(discountedPrice)} (−${espp.discountPercent}%${lockupDays > 0 ? `, bloqué ${lockupDays}j` : ""})`, type: "ESPP_BUY" };
-        saveState({ ...state, companies, citizens: newCitizens, bourseListings: listings, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        let finalCompanies = companies;
+        let bourseAlerts = state.bourseAlerts || [];
+        const takeover = checkBourseTakeover(companies, newCitizens, listings[lIdx]);
+        if (takeover) {
+          finalCompanies = takeover.companies;
+          bourseAlerts = [
+            { id: `ba_${ts}_takeover_new`, toId: takeover.newOwnerId, type: "takeover_gained", companyName: takeover.companyName, symbol: takeover.symbol, timestamp: ts },
+            { id: `ba_${ts}_takeover_old`, toId: takeover.previousOwnerId, type: "takeover_lost", companyName: takeover.companyName, symbol: takeover.symbol, newOwnerName: takeover.newOwnerName, timestamp: ts },
+            ...bourseAlerts,
+          ].slice(0, 300);
+        }
+        saveState({ ...state, companies: finalCompanies, citizens: newCitizens, bourseListings: listings, bourseAlerts, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
         notify(`${quantity} action(s) ${listing.symbol} achetée(s) pour ${formatMoney(totalCost)} (−${espp.discountPercent}%${lockupDays > 0 ? ` · bloquées ${lockupDays} jour(s)` : ""}).`, "success");
       },
 

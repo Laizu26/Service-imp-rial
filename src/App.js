@@ -680,6 +680,7 @@ export default function App() {
             onDeleteBulletin={actions.onDeleteBulletin}
             onSetEmployeeRank={actions.onSetEmployeeRank}
             onSetEmployeeSerfRights={actions.onSetEmployeeSerfRights}
+            onSetSelfRights={actions.onSetSelfRights}
             onUpdateEmployeeContract={actions.onUpdateEmployeeContract}
             onApplyToCompany={actions.onApplyToCompany}
             onRespondApplication={actions.onRespondApplication}

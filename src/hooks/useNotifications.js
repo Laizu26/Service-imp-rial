@@ -377,8 +377,10 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     // --- Alertes Bourse (dividende reçu, ordre exécuté par une contrepartie) ---
     if (prefs.finances !== false) {
       const BOURSE_ALERT_META = {
-        trade_filled: { title: "Ordre exécuté", icon: "TrendingUp", desc: (a) => `${a.qty} action(s) ${a.symbol} ${a.side === "buy" ? "achetée(s)" : "vendue(s)"} à ${formatMoney(a.price)}` },
-        dividend:     { title: "Dividende reçu", icon: "Coins", desc: (a) => `${formatMoney(a.amount)} — ${a.symbol}` },
+        trade_filled:    { title: "Ordre exécuté", icon: "TrendingUp", desc: (a) => `${a.qty} action(s) ${a.symbol} ${a.side === "buy" ? "achetée(s)" : "vendue(s)"} à ${formatMoney(a.price)}` },
+        dividend:        { title: "Dividende reçu", icon: "Coins", desc: (a) => `${formatMoney(a.amount)} — ${a.symbol}` },
+        takeover_gained: { title: "Prise de contrôle !", icon: "Crown", desc: (a) => `Vous détenez la majorité des actions ${a.symbol} — vous devenez propriétaire de ${a.companyName}` },
+        takeover_lost:   { title: "Perte de contrôle de l'entreprise", icon: "Crown", desc: (a) => `${a.newOwnerName} détient désormais la majorité des actions ${a.symbol} et devient propriétaire de ${a.companyName}` },
       };
       (state?.bourseAlerts || [])
         .filter((a) => String(a.toId) === String(user.id))

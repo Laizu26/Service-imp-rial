@@ -533,6 +533,7 @@ const CitizenLayout = (props) => {
     onDeleteBulletin,
     onSetEmployeeRank,
     onSetEmployeeSerfRights,
+    onSetSelfRights,
     onUpdateEmployeeContract,
     onApplyToCompany,
     onRespondApplication,
@@ -921,15 +922,19 @@ const CitizenLayout = (props) => {
   // restreindre les droits du salarié détaché, même principe que l'employeur d'origine.
   const myActiveStaffLoan = getActiveStaffLoan(user?.id, staffLoans);
   const loanRestriction = myActiveStaffLoan?.permissions || {};
+  // Un dirigeant ou PDG n'a personne au-dessus de lui dans l'entreprise pour lui imposer des
+  // droits (contrairement à un employé ou un détaché) — il gère donc lui-même ses propres
+  // restrictions, comme un engagement personnel (RP), via onSetSelfRights.
+  const selfRestriction = user?.selfLockedRights || {};
   const combinedRestriction = {
-    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked || guardianRights.travelLocked || loanRestriction.travelLocked),
-    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked || guardianRights.mushtagramLocked || loanRestriction.mushtagramLocked),
-    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked || loanRestriction.bankLocked),
-    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked || loanRestriction.marketLocked),
-    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked || loanRestriction.postLocked),
+    travelLocked: !!(employerSerfRights.travelLocked || spouseRestriction.travelLocked || guardianRights.travelLocked || loanRestriction.travelLocked || selfRestriction.travelLocked),
+    mushtagramLocked: !!(employerSerfRights.mushtagramLocked || spouseRestriction.mushtagramLocked || guardianRights.mushtagramLocked || loanRestriction.mushtagramLocked || selfRestriction.mushtagramLocked),
+    bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked || loanRestriction.bankLocked || selfRestriction.bankLocked),
+    marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked || loanRestriction.marketLocked || selfRestriction.marketLocked),
+    postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked || loanRestriction.postLocked || selfRestriction.postLocked),
     maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked),
   };
-  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : (loanRestriction[key] ? "entreprise emprunteuse" : "conjoint"));
+  const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : (loanRestriction[key] ? "entreprise emprunteuse" : (selfRestriction[key] ? "vous-même" : "conjoint")));
 
   // canUsePost / canUseBank : visibilité de l'onglet dans la sidebar (statut d'esclave uniquement).
   // L'onglet reste visible même verrouillé par contrat de servage/conjoint — le blocage s'affiche
@@ -1724,6 +1729,7 @@ const CitizenLayout = (props) => {
                 onDeleteBulletin={onDeleteBulletin}
                 onSetEmployeeRank={onSetEmployeeRank}
                 onSetEmployeeSerfRights={onSetEmployeeSerfRights}
+                onSetSelfRights={onSetSelfRights}
                 onUpdateEmployeeContract={onUpdateEmployeeContract}
                 onApplyToCompany={onApplyToCompany}
                 onRespondApplication={onRespondApplication}
