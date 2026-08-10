@@ -2301,6 +2301,114 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
   );
 };
 
+const DEFAULT_ILLNESS_CONFIG = {
+  enabled: false,
+  dailyChancePercent: 2,
+  minDurationDays: 2,
+  maxDurationDays: 7,
+  severities: [
+    { id: "legere", label: "Légère", weight: 60, productionPenaltyPercent: 15 },
+    { id: "moderee", label: "Modérée", weight: 30, productionPenaltyPercent: 40 },
+    { id: "grave", label: "Grave", weight: 10, productionPenaltyPercent: 75 },
+  ],
+};
+
+const GMIllness = ({ state, onUpdateState, notify }) => {
+  const cfg = { ...DEFAULT_ILLNESS_CONFIG, ...(state.illnessConfig || {}) };
+  const severities = cfg.severities?.length ? cfg.severities : DEFAULT_ILLNESS_CONFIG.severities;
+
+  const save = (patch, msg) => {
+    onUpdateState({ ...state, illnessConfig: { ...cfg, ...patch } });
+    if (msg) notify(msg, "success");
+  };
+
+  const updateSeverity = (id, field, value) => {
+    const next = severities.map((s) => (s.id === id ? { ...s, [field]: value } : s));
+    save({ severities: next });
+  };
+
+  const sickCount = (state.citizens || []).filter((c) => c.illness).length;
+
+  return (
+    <div className="space-y-6">
+      <SectionTitle icon={Activity}>Maladies Aléatoires</SectionTitle>
+      <div className="text-xs text-stone-500 max-w-2xl">
+        Effet passif et environnemental uniquement : réduit la production de l'employé touché et
+        se signale sur son profil. Le système ne prend jamais de décision à la place d'un joueur
+        (aucune démission, aucun message envoyé en son nom).
+      </div>
+
+      <Card className="p-6">
+        <Toggle
+          checked={!!cfg.enabled}
+          onChange={(v) => save({ enabled: v }, v ? "Maladies aléatoires activées." : "Maladies aléatoires désactivées.")}
+          label="Activer les maladies aléatoires"
+          description={`Actuellement ${sickCount} citoyen${sickCount > 1 ? "s" : ""} malade${sickCount > 1 ? "s" : ""} dans le monde.`}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 pt-5 border-t border-stone-800">
+          <div>
+            <Label>Chance quotidienne (%)</Label>
+            <Input
+              type="number" min="0" max="100" step="0.1"
+              value={cfg.dailyChancePercent}
+              onChange={(e) => save({ dailyChancePercent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })}
+            />
+          </div>
+          <div>
+            <Label>Durée min. (jours)</Label>
+            <Input
+              type="number" min="1"
+              value={cfg.minDurationDays}
+              onChange={(e) => save({ minDurationDays: Math.max(1, parseInt(e.target.value) || 1) })}
+            />
+          </div>
+          <div>
+            <Label>Durée max. (jours)</Label>
+            <Input
+              type="number" min="1"
+              value={cfg.maxDurationDays}
+              onChange={(e) => save({ maxDurationDays: Math.max(1, parseInt(e.target.value) || 1) })}
+            />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-4">
+          Paliers de gravité (poids relatif au tirage + pénalité de production)
+        </div>
+        <div className="space-y-3">
+          {severities.map((s) => (
+            <div key={s.id} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end bg-stone-800/40 border border-stone-700/50 rounded-lg p-3">
+              <div>
+                <Label>Nom</Label>
+                <div className="text-sm font-bold text-stone-200 py-2.5">{s.label}</div>
+              </div>
+              <div>
+                <Label>Poids (tirage)</Label>
+                <Input
+                  type="number" min="0"
+                  value={s.weight}
+                  onChange={(e) => updateSeverity(s.id, "weight", Math.max(0, parseInt(e.target.value) || 0))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Pénalité de production (%)</Label>
+                <Input
+                  type="number" min="0" max="100"
+                  value={s.productionPenaltyPercent}
+                  onChange={(e) => updateSeverity(s.id, "productionPenaltyPercent", Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 /* ================================================
    MAIN LAYOUT
    ================================================ */
@@ -2316,6 +2424,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
     { id: "accounts",    label: "Comptes",          icon: Users, badge: pendingChildCount || null },
     { id: "quests",      label: "Quêtes",           icon: ScrollText, badge: questCount || null },
     { id: "physique",    label: "Physique & Magie", icon: HeartPulse },
+    { id: "maladies",    label: "Maladies",         icon: Activity },
     { id: "lore",        label: "Lore & Univers",   icon: BookOpen },
     { id: "lois",        label: "Lois & Nations",   icon: Gavel },
     { id: "calendrier",  label: "Calendrier",        icon: Calendar },
@@ -2483,6 +2592,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
             )}
             {activeSection === "quests" && <GMQuests state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "physique" && <GMPhysicsMagic state={state} onUpdateState={onUpdateState} notify={notify} />}
+            {activeSection === "maladies" && <GMIllness state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lore" && <GMLore state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lois" && <GMLois state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "calendrier" && <GMCalendrier state={state} onUpdateState={onUpdateState} notify={notify} />}

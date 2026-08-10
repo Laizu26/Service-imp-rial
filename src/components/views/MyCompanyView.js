@@ -37,6 +37,7 @@ import {
   Lock,
   ArrowLeftRight,
   Crown,
+  Smile,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -265,6 +266,14 @@ const TYPE_RATES = {
   MANUFACTURE: { emp: 10, slave: 8, label: "Manufacture / Artisanat" },
   EXTRACTION: { emp: 8, slave: 7, label: "Extraction / Ferme" },
 };
+
+const MORALE_OPTIONS = [
+  { id: "excellent", label: "Excellent", emoji: "😄" },
+  { id: "bon", label: "Bon", emoji: "🙂" },
+  { id: "neutre", label: "Neutre", emoji: "😐" },
+  { id: "difficile", label: "Difficile", emoji: "😞" },
+  { id: "epuise", label: "Épuisé(e)", emoji: "😫" },
+];
 
 const CONTRACT_FREQUENCIES = [
   { value: "daily", label: "Chaque jour RP" },
@@ -794,6 +803,7 @@ const MyCompanyView = ({
   properties = [],
   onAssignEmployeeToProperty,
   onSetSelfRights,
+  onSetMyMorale,
 }) => {
   // Une personne peut être liée à plusieurs entreprises à la fois : dirigeante de l'une, et PDG
   // d'une autre (typiquement après avoir été détachée puis nommée PDG chez l'emprunteuse, cf.
@@ -1673,6 +1683,48 @@ const MyCompanyView = ({
                 </Card>
               )}
 
+              {/* Moral auto-déclaré — le joueur seul décide de son moral et de s'il le partage
+                  avec son employeur. Aucune conséquence automatique n'en découle jamais. */}
+              {isEmployee && !viewingLoanedCompany && onSetMyMorale && (
+                <Card title="Mon Moral" icon={Smile}>
+                  <div className="space-y-3">
+                    <div className="text-xs text-stone-500 italic bg-stone-50 p-2 rounded">
+                      Vous seul(e) décidez de votre moral, et de le partager ou non avec {workerCompany.name}. Aucune conséquence automatique n'en découle.
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {MORALE_OPTIONS.map((opt) => {
+                        const active = user.morale?.status === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() => onSetMyMorale({ status: opt.id, visibleToEmployer: !!user.morale?.visibleToEmployer })}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                              active ? "bg-stone-800 text-white border-stone-800" : "bg-white text-stone-500 border-stone-200 hover:border-stone-400"
+                            }`}
+                          >
+                            <span>{opt.emoji}</span> {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {user.morale?.status && (
+                      <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                        <div>
+                          <div className="text-xs font-bold text-stone-700">Partager avec mon employeur</div>
+                          <div className="text-[10px] text-stone-500">Si activé, {workerCompany.name} pourra voir votre moral déclaré.</div>
+                        </div>
+                        <button
+                          onClick={() => onSetMyMorale({ status: user.morale.status, visibleToEmployer: !user.morale.visibleToEmployer })}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${user.morale.visibleToEmployer ? "bg-stone-800" : "bg-stone-300"}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${user.morale.visibleToEmployer ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )}
+
               {/* Démission (seulement employé, pas esclave, et pas depuis l'entreprise emprunteuse
                   — un détaché n'y est pas réellement employé, sa relation contractuelle reste
                   avec son entreprise d'origine, voir "Mon Détachement" ci-dessus) */}
@@ -2236,6 +2288,17 @@ const MyCompanyView = ({
                             {empContract?.buyoutAmount > 0 && (
                               <span className="text-[8px] text-amber-600 font-black flex items-center gap-0.5"><Lock size={9} />{formatMoney(empContract.buyoutAmount)}</span>
                             )}
+                            {emp?.morale?.visibleToEmployer && emp.morale.status && (() => {
+                              const moraleOpt = MORALE_OPTIONS.find((o) => o.id === emp.morale.status);
+                              return moraleOpt ? (
+                                <span
+                                  className="bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded text-[8px] font-bold border border-stone-200"
+                                  title="Moral partagé volontairement par l'employé"
+                                >
+                                  {moraleOpt.emoji} {moraleOpt.label}
+                                </span>
+                              ) : null;
+                            })()}
                             {Object.values(sr).some(Boolean) && (
                               <span className="text-[8px] text-red-500 font-black flex items-center gap-0.5"><Shield size={9} />Droits restreints</span>
                             )}
@@ -3751,21 +3814,48 @@ const MyCompanyView = ({
                     Aucun événement planifié.
                   </div>
                 ) : (
-                  (myCompany.companyEvents || []).map((evt) => (
-                    <div key={evt.id} className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex justify-between items-start">
-                      <div>
-                        <div className="font-bold text-sm text-stone-800">{evt.title}</div>
-                        {evt.date && <span className="text-[10px] font-mono text-blue-600">{evt.date}</span>}
-                        {evt.description && <div className="text-xs text-stone-500 mt-1">{evt.description}</div>}
-                      </div>
-                      <button
-                        onClick={() => onDeleteCompanyEvent && onDeleteCompanyEvent(myCompany.id, evt.id)}
-                        className="text-red-400 hover:text-red-600 p-1 flex-shrink-0"
+                  (myCompany.companyEvents || []).map((evt) => {
+                    const isAuto = evt.source === "AUTO";
+                    const isPositive = (evt.effectAmount || 0) >= 0;
+                    return (
+                      <div
+                        key={evt.id}
+                        className={`rounded-lg p-3 flex justify-between items-start border ${
+                          isAuto
+                            ? isPositive ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"
+                            : "bg-blue-50 border-blue-200"
+                        }`}
                       >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  ))
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="font-bold text-sm text-stone-800">{evt.title}</div>
+                            {isAuto && (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest bg-stone-800 text-white">
+                                Auto
+                              </span>
+                            )}
+                          </div>
+                          {evt.date && (
+                            <span className={`text-[10px] font-mono ${isAuto ? (isPositive ? "text-green-600" : "text-orange-600") : "text-blue-600"}`}>
+                              {evt.date}
+                            </span>
+                          )}
+                          {evt.description && <div className="text-xs text-stone-500 mt-1">{evt.description}</div>}
+                          {isAuto && evt.effectAmount !== 0 && (
+                            <div className={`text-xs font-bold mt-1 ${isPositive ? "text-green-700" : "text-orange-700"}`}>
+                              {isPositive ? "+" : ""}{formatMoney(evt.effectAmount)}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => onDeleteCompanyEvent && onDeleteCompanyEvent(myCompany.id, evt.id)}
+                          className="text-red-400 hover:text-red-600 p-1 flex-shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

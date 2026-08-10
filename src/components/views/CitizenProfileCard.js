@@ -76,15 +76,18 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest border ${theme.badge}`}>
                   {roleInfo.label}
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
-                  citizen.status === "Esclave" ? "bg-red-900 text-white" :
-                  citizen.status === "Prisonnier" ? "bg-orange-100 text-orange-800 border border-orange-300" :
-                  citizen.status === "Malade" ? "bg-yellow-100 text-yellow-800 border border-yellow-300" :
-                  citizen.status === "Banni" ? "bg-stone-800 text-white" :
-                  citizen.status === "Décédé" ? "bg-stone-900 text-stone-400" :
-                  "bg-green-100 text-green-800 border border-green-300"
-                }`}>
-                  {citizen.status || "Actif"}
+                <span
+                  className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
+                    citizen.status === "Esclave" ? "bg-red-900 text-white" :
+                    citizen.status === "Prisonnier" ? "bg-orange-100 text-orange-800 border border-orange-300" :
+                    citizen.status === "Malade" ? "bg-yellow-100 text-yellow-800 border border-yellow-300" :
+                    citizen.status === "Banni" ? "bg-stone-800 text-white" :
+                    citizen.status === "Décédé" ? "bg-stone-900 text-stone-400" :
+                    "bg-green-100 text-green-800 border border-green-300"
+                  }`}
+                  title={citizen.illness ? `Maladie ${citizen.illness.severityLabel?.toLowerCase()}` : undefined}
+                >
+                  {citizen.illness ? `🤒 ${citizen.status || "Malade"}` : (citizen.status || "Actif")}
                 </span>
                 {citizenFamily && (
                   <>

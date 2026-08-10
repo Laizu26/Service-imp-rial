@@ -440,6 +440,50 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes santé (maladies aléatoires — voir onPassDay) ---
+    if (prefs.employment !== false) {
+      const HEALTH_ALERT_META = {
+        illness_started:   { title: "Vous êtes tombé(e) malade", icon: "ShieldAlert", desc: (a) => `Maladie ${a.severityLabel?.toLowerCase() || ""} — repos conseillé.` },
+        illness_recovered: { title: "Rétabli(e)", icon: "HeartHandshake", desc: () => "Vous vous êtes remis(e) de votre maladie." },
+      };
+      (state?.healthAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = HEALTH_ALERT_META[a.type];
+          if (!meta) return;
+          notifs.push({
+            id: `health_${a.id}`,
+            type: `health_${a.type}`,
+            category: "Santé",
+            title: meta.title,
+            description: meta.desc(a),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "physique_magie",
+            icon: meta.icon,
+          });
+        });
+    }
+
+    // --- Alertes événements aléatoires d'entreprise ---
+    if (prefs.employment !== false) {
+      (state?.companyAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          notifs.push({
+            id: `company_${a.id}`,
+            type: "company_auto_event",
+            category: "Entreprise",
+            title: a.title,
+            description: `${a.companyName} — ${a.description}`,
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "my_company",
+            icon: "Building2",
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -514,7 +558,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

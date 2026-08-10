@@ -534,6 +534,7 @@ const CitizenLayout = (props) => {
     onSetEmployeeRank,
     onSetEmployeeSerfRights,
     onSetSelfRights,
+    onSetMyMorale,
     onUpdateEmployeeContract,
     onApplyToCompany,
     onRespondApplication,
@@ -1735,6 +1736,7 @@ const CitizenLayout = (props) => {
                 onSetEmployeeRank={onSetEmployeeRank}
                 onSetEmployeeSerfRights={onSetEmployeeSerfRights}
                 onSetSelfRights={onSetSelfRights}
+                onSetMyMorale={onSetMyMorale}
                 onUpdateEmployeeContract={onUpdateEmployeeContract}
                 onApplyToCompany={onApplyToCompany}
                 onRespondApplication={onRespondApplication}

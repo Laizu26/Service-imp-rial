@@ -470,6 +470,51 @@ export const useGameActions = (session, state, saveState, notify) => {
         else if (m >= 6 && m <= 8) season = "Été";
         else if (m >= 9 && m <= 11) season = "Automne";
 
+        // --- Maladies aléatoires (configurables par le GM, désactivées par défaut) ---
+        // Purement environnemental : réduit passivement la production de l'employé concerné,
+        // n'entreprend jamais d'action au nom du joueur (aucune démission, aucun message envoyé
+        // en son nom — juste un état visible sur son profil et une notification).
+        const illnessCfg = ns.illnessConfig;
+        const healthAlerts = [];
+        const rollIllness = (cfg) => {
+          const severities = (cfg.severities || []).filter((s) => s.weight > 0);
+          const totalWeight = severities.reduce((s, sv) => s + sv.weight, 0);
+          if (totalWeight <= 0) return null;
+          let roll = Math.random() * totalWeight;
+          let chosen = severities[0];
+          for (const sv of severities) {
+            if (roll < sv.weight) { chosen = sv; break; }
+            roll -= sv.weight;
+          }
+          const span = Math.max(0, (cfg.maxDurationDays || 1) - (cfg.minDurationDays || 1));
+          const durationDays = Math.max(1, Math.round((cfg.minDurationDays || 1) + Math.random() * span));
+          return {
+            severityId: chosen.id, severityLabel: chosen.label,
+            productionPenaltyPercent: chosen.productionPenaltyPercent || 0,
+            startedDayCycle: ns.dayCycle, durationDays, daysElapsed: 0,
+          };
+        };
+        if (illnessCfg?.enabled) {
+          ns.citizens = (ns.citizens || []).map((c) => {
+            if (c.status === "Décédé") return c;
+            if (c.illness) {
+              const daysElapsed = (c.illness.daysElapsed || 0) + 1;
+              if (daysElapsed >= c.illness.durationDays) {
+                healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_recovered", severityLabel: c.illness.severityLabel, timestamp: Date.now() });
+                return { ...c, illness: null, status: c.status === "Malade" ? "Actif" : c.status };
+              }
+              return { ...c, illness: { ...c.illness, daysElapsed } };
+            }
+            if (Math.random() * 100 < (illnessCfg.dailyChancePercent || 0)) {
+              const illness = rollIllness(illnessCfg);
+              if (!illness) return c;
+              healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_started", severityLabel: illness.severityLabel, timestamp: Date.now() });
+              return { ...c, illness, status: (!c.status || c.status === "Actif") ? "Malade" : c.status };
+            }
+            return c;
+          });
+        }
+
         // --- Production journalière des entreprises ---
         const TYPE_RATES = {
           SERVICE: { emp: 12, slave: 9 },
@@ -496,6 +541,16 @@ export const useGameActions = (session, state, saveState, notify) => {
           loanInAdditionByCompany[l.toCompanyId] = (loanInAdditionByCompany[l.toCompanyId] || 0) + weight;
         });
 
+        // Événements aléatoires d'entreprise — purement RP/économique (aucun effet ne s'exerce
+        // sur un citoyen sans que ce soit via le système de maladie, lui-même géré à part).
+        const COMPANY_EVENT_CHANCE_PERCENT = 3;
+        const companyAlerts = [];
+        const EVENT_POOL = [
+          { type: "INCENDIE", icon: "🔥", label: "Incendie", effect: (bal) => -Math.round(Math.min(bal * 0.15, 200) * 10) / 10, desc: (amt) => `Un incendie a coûté ${formatMoney(-amt)} à l'entreprise.` },
+          { type: "CONTROLE_FISCAL", icon: "📋", label: "Contrôle fiscal", effect: (bal) => -Math.round(Math.min(bal * 0.08, 100) * 10) / 10, desc: (amt) => `Un contrôle fiscal a coûté ${formatMoney(-amt)} à l'entreprise.` },
+          { type: "OPPORTUNITE", icon: "✨", label: "Opportunité commerciale", effect: (bal) => Math.round((bal * 0.1 + 20) * 10) / 10, desc: (amt) => `Une opportunité commerciale a rapporté ${formatMoney(amt)} à l'entreprise.` },
+        ];
+
         companies.forEach((company, compIdx) => {
           if (company.frozen) return;
 
@@ -505,39 +560,90 @@ export const useGameActions = (session, state, saveState, notify) => {
           const level = company.level || 1;
           const rates = TYPE_RATES[company.type] || { emp: 10, slave: 8 };
 
+          // Pénalité de production due aux employés actuellement malades (moyenne pondérée par
+          // gravité) — un effet passif, jamais une action prise à la place du joueur concerné.
+          let illnessPenaltySum = 0;
+          (company.employees || []).forEach((empId) => {
+            const c = (ns.citizens || []).find((x) => x.id === empId);
+            if (c?.illness) illnessPenaltySum += (c.illness.productionPenaltyPercent || 0) / 100;
+          });
+          const staffLen = (company.employees || []).length;
+          const illnessFactor = staffLen > 0 ? Math.max(0, 1 - illnessPenaltySum / staffLen) : 1;
+
           const revenue =
-            (empCount * rates.emp + slaveCount * rates.slave) * level;
-          if (revenue <= 0) return;
+            (empCount * rates.emp * illnessFactor + slaveCount * rates.slave) * level;
+          if (revenue > 0) {
+            const taxRate = (company.taxRate ?? 10) / 100;
+            const tax = Math.floor(revenue * taxRate);
+            const net = revenue - tax;
 
-          const taxRate = (company.taxRate ?? 10) / 100;
-          const tax = Math.floor(revenue * taxRate);
-          const net = revenue - tax;
-
-          ns.companies[compIdx] = {
-            ...ns.companies[compIdx],
-            balance: (ns.companies[compIdx].balance || 0) + net,
-            lastProduction: {
-              date: `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`,
-              gross: revenue,
-              tax,
-              net,
-              employees: empCount,
-              slaves: slaveCount,
-            },
-          };
-
-          const countryIdx = (ns.countries || []).findIndex(
-            (c) => c.id === company.countryId
-          );
-          if (countryIdx !== -1) {
-            ns.countries[countryIdx] = {
-              ...ns.countries[countryIdx],
-              treasury: (ns.countries[countryIdx].treasury || 0) + tax,
+            ns.companies[compIdx] = {
+              ...ns.companies[compIdx],
+              balance: (ns.companies[compIdx].balance || 0) + net,
+              lastProduction: {
+                date: `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`,
+                gross: revenue,
+                tax,
+                net,
+                employees: empCount,
+                slaves: slaveCount,
+              },
             };
-          } else {
-            ns.treasury = (ns.treasury || 0) + tax;
+
+            const countryIdx = (ns.countries || []).findIndex(
+              (c) => c.id === company.countryId
+            );
+            if (countryIdx !== -1) {
+              ns.countries[countryIdx] = {
+                ...ns.countries[countryIdx],
+                treasury: (ns.countries[countryIdx].treasury || 0) + tax,
+              };
+            } else {
+              ns.treasury = (ns.treasury || 0) + tax;
+            }
+          }
+
+          // --- Événement aléatoire du jour pour cette entreprise ---
+          if ((company.employees || []).length > 0 && Math.random() * 100 < COMPANY_EVENT_CHANCE_PERCENT) {
+            const pool = illnessCfg?.enabled ? [...EVENT_POOL, { type: "EPIDEMIE", icon: "🤒", label: "Épidémie parmi le personnel" }] : EVENT_POOL;
+            const chosen = pool[Math.floor(Math.random() * pool.length)];
+            let description, effectAmount = 0;
+            const currentBalance = ns.companies[compIdx].balance || 0;
+            if (chosen.type === "EPIDEMIE") {
+              const staff = company.employees || [];
+              const targetId = staff[Math.floor(Math.random() * staff.length)];
+              const targetIdx = (ns.citizens || []).findIndex((c) => c.id === targetId);
+              if (targetIdx !== -1 && !ns.citizens[targetIdx].illness) {
+                const illness = rollIllness(illnessCfg);
+                if (illness) {
+                  const target = ns.citizens[targetIdx];
+                  ns.citizens[targetIdx] = { ...target, illness, status: (!target.status || target.status === "Actif") ? "Malade" : target.status };
+                  healthAlerts.push({ id: `health_${targetId}_${Date.now()}`, toId: targetId, type: "illness_started", severityLabel: illness.severityLabel, timestamp: Date.now() });
+                  description = `${ns.citizens[targetIdx].name} est tombé(e) malade suite à une épidémie dans l'entreprise.`;
+                }
+              }
+              if (!description) return; // personne d'éligible, pas d'événement à consigner
+            } else {
+              effectAmount = chosen.effect(currentBalance);
+              const newBalance = Math.max(0, Math.round((currentBalance + effectAmount) * 10) / 10);
+              effectAmount = Math.round((newBalance - currentBalance) * 10) / 10;
+              ns.companies[compIdx] = { ...ns.companies[compIdx], balance: newBalance };
+              description = chosen.desc(effectAmount);
+            }
+            const evt = {
+              id: `EVT-${Date.now()}-${compIdx}`, title: `${chosen.icon} ${chosen.label}`, description,
+              date: `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`, createdAt: Date.now(),
+              source: "AUTO", effectAmount,
+            };
+            ns.companies[compIdx] = { ...ns.companies[compIdx], companyEvents: [evt, ...(ns.companies[compIdx].companyEvents || [])].slice(0, 30) };
+            const notifyIds = [...new Set([ns.companies[compIdx].ownerId, ns.companies[compIdx].ceoId].filter(Boolean))];
+            notifyIds.forEach((toId) => {
+              companyAlerts.push({ id: `${evt.id}_${toId}`, toId, type: "auto_event", companyId: company.id, companyName: company.name, title: evt.title, description, timestamp: Date.now() });
+            });
           }
         });
+        ns.companyAlerts = [...companyAlerts, ...(ns.companyAlerts || [])].slice(0, 300);
+        ns.healthAlerts = [...healthAlerts, ...(ns.healthAlerts || [])].slice(0, 300);
 
         // --- Ancienneté des employés (chaque jour RP) ---
         (ns.companies || []).forEach((company, compIdx) => {
@@ -5190,6 +5296,24 @@ export const useGameActions = (session, state, saveState, notify) => {
         newCitizens[idx] = { ...newCitizens[idx], selfLockedRights: { ...(newCitizens[idx].selfLockedRights || {}), ...rights } };
         saveState({ ...state, citizens: newCitizens });
         notify("Vos droits ont été mis à jour.", "success");
+      },
+
+      // --- MORAL AUTO-DÉCLARÉ (employé) ---
+      // Le moral n'est jamais calculé par le système à partir des conditions de travail — c'est
+      // le joueur qui déclare comment il se sent, et qui choisit s'il le partage avec son
+      // employeur ou non. Aucune conséquence automatique (pas de démission forcée, pas de baisse
+      // de production) : uniquement un indicateur RP que le joueur maîtrise entièrement.
+      onSetMyMorale: ({ status, visibleToEmployer }) => {
+        if (!session) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = {
+          ...newCitizens[idx],
+          morale: { status: status || null, visibleToEmployer: !!visibleToEmployer, updatedAt: Date.now() },
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Votre moral a été mis à jour.", "success");
       },
 
       onUpdateEmployeeContract: ({ companyId, citizenId, updates }) => {
