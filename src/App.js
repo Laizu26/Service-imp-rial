@@ -749,6 +749,9 @@ export default function App() {
             onPostRumor={actions.onPostRumor}
             onDeleteRumor={actions.onDeleteRumor}
             onBuyFromMenu={actions.onBuyFromMenu}
+            onCreateTavernPoll={actions.onCreateTavernPoll}
+            onVoteTavernPoll={actions.onVoteTavernPoll}
+            onCloseTavernPoll={actions.onCloseTavernPoll}
             onBuyFromShop={actions.onBuyFromShop}
             onAddPropertyStaff={actions.onAddPropertyStaff}
             onRemovePropertyStaff={actions.onRemovePropertyStaff}

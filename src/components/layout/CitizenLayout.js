@@ -586,6 +586,7 @@ const CitizenLayout = (props) => {
     onSetupRooms, onBookRoom, onCheckoutRoom,
     onPostTavernMessage, onPostRumor, onDeleteRumor,
     onBuyFromMenu, onBuyFromShop,
+    onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
     onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
     onAddPropertyGuest, onRemovePropertyGuest,
     onAddPropertyEvent, onRemovePropertyEvent,
@@ -1548,6 +1549,9 @@ const CitizenLayout = (props) => {
                   onDeleteRumor={onDeleteRumor}
                   onBuyFromMenu={onBuyFromMenu}
                   onBuyFromShop={onBuyFromShop}
+                  onCreateTavernPoll={onCreateTavernPoll}
+                  onVoteTavernPoll={onVoteTavernPoll}
+                  onCloseTavernPoll={onCloseTavernPoll}
                   onAddPropertyStaff={onAddPropertyStaff}
                   onRemovePropertyStaff={onRemovePropertyStaff}
                   onUpdatePropertyStaff={onUpdatePropertyStaff}

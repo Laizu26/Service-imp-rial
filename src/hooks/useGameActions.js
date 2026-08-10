@@ -6557,6 +6557,14 @@ export const useGameActions = (session, state, saveState, notify) => {
         const uIdx = newCitizens.findIndex((c) => c.id === session.id);
         newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - price };
         properties[pIdx] = { ...properties[pIdx], menu };
+        // Un sondage de taverne en cours exige d'avoir pris une consommation pour voter — chaque
+        // achat au menu débloque le droit de vote pour le sondage actuellement actif.
+        if (properties[pIdx].activePoll && !(properties[pIdx].activePoll.eligibleVoters || []).map(String).includes(String(session.id))) {
+          properties[pIdx] = {
+            ...properties[pIdx],
+            activePoll: { ...properties[pIdx].activePoll, eligibleVoters: [...(properties[pIdx].activePoll.eligibleVoters || []), session.id] },
+          };
+        }
         let newState = { ...state, citizens: newCitizens, properties };
         if (properties[pIdx].ownerType === "COMPANY") {
           const companies = [...(state.companies || [])];
@@ -6569,6 +6577,75 @@ export const useGameActions = (session, state, saveState, notify) => {
         newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: price, timestamp: Date.now(), reason: `Menu: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])].slice(0, 1000);
         saveState(newState);
         notify(`Vous dégustez ${itemName}. Bon appétit !`, "success");
+      },
+
+      // --- Auberge : sondages de taverne ---
+      // Lancer un nouveau sondage remplace intégralement l'ancien (nouvel objet activePoll,
+      // eligibleVoters vide) : c'est ce qui réinitialise naturellement le droit de vote à chaque
+      // nouveau sondage — il faut reprendre une consommation même si on avait déjà voté avant.
+      onCreateTavernPoll: ({ propertyId, question, options }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) {
+          notify("Seul le gérant de l'établissement peut lancer un sondage.", "error");
+          return;
+        }
+        const q = (question || "").trim();
+        const cleanOptions = (options || []).map((o) => (o || "").trim()).filter(Boolean);
+        if (!q || cleanOptions.length < 2) {
+          notify("Il faut une question et au moins 2 options.", "error");
+          return;
+        }
+        properties[pIdx] = {
+          ...properties[pIdx],
+          activePoll: {
+            id: `poll_${Date.now()}`,
+            question: q,
+            options: cleanOptions.map((text, i) => ({ id: `opt_${i}`, text })),
+            votes: {},
+            eligibleVoters: [],
+            createdAt: Date.now(),
+            createdBy: session.id,
+          },
+        };
+        saveState({ ...state, properties });
+        notify("Sondage lancé ! Une consommation est requise pour voter.", "success");
+      },
+
+      onVoteTavernPoll: ({ propertyId, optionId }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const poll = properties[pIdx].activePoll;
+        if (!poll) { notify("Aucun sondage actif.", "error"); return; }
+        if (!(poll.eligibleVoters || []).map(String).includes(String(session.id))) {
+          notify("Prenez une consommation au menu pour pouvoir voter à ce sondage.", "error");
+          return;
+        }
+        if (!(poll.options || []).some((o) => o.id === optionId)) { notify("Option invalide.", "error"); return; }
+        properties[pIdx] = {
+          ...properties[pIdx],
+          activePoll: { ...poll, votes: { ...(poll.votes || {}), [session.id]: optionId } },
+        };
+        saveState({ ...state, properties });
+        notify("Vote enregistré.", "success");
+      },
+
+      onCloseTavernPoll: ({ propertyId }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) {
+          notify("Seul le gérant de l'établissement peut clore le sondage.", "error");
+          return;
+        }
+        properties[pIdx] = { ...properties[pIdx], activePoll: null };
+        saveState({ ...state, properties });
+        notify("Sondage clos.", "info");
       },
 
       // Commerce: acheter au shop
