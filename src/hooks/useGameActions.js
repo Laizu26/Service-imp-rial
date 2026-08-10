@@ -7548,7 +7548,21 @@ export const useGameActions = (session, state, saveState, notify) => {
           createdAt: Date.now(), deadlineDayCycle: (state.dayCycle || 0) + days,
           status: "OPEN", votes: {},
         };
-        saveState({ ...state, boardProposals: [...(state.boardProposals || []), proposal] });
+        // Notifier tous les autres actionnaires : sans ça, personne ne sait qu'un vote est ouvert
+        // à moins de revenir consulter la Bourse par hasard.
+        const ts = Date.now();
+        const boardAlerts = (state.citizens || [])
+          .filter((c) => String(c.id) !== String(session.id) && ((c.stockholdings || {})[listingId] || 0) > 0)
+          .map((c, i) => ({
+            id: `board_${proposal.id}_new_${i}`, toId: c.id, type: "board_proposed",
+            title: proposal.title, symbol: listing.symbol, companyName: listing.companyName,
+            proposedByName: proposal.proposedByName, timestamp: ts,
+          }));
+        saveState({
+          ...state,
+          boardProposals: [...(state.boardProposals || []), proposal],
+          bourseAlerts: [...boardAlerts, ...(state.bourseAlerts || [])].slice(0, 300),
+        });
         notify("Proposition soumise au conseil d'administration.", "success");
       },
 

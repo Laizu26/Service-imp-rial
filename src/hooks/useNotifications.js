@@ -381,6 +381,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         dividend:        { title: "Dividende reçu", icon: "Coins", desc: (a) => `${formatMoney(a.amount)} — ${a.symbol}` },
         takeover_gained: { title: "Prise de contrôle !", icon: "Crown", desc: (a) => `Vous détenez la majorité des actions ${a.symbol} — vous devenez propriétaire de ${a.companyName}` },
         takeover_lost:   { title: "Perte de contrôle de l'entreprise", icon: "Crown", desc: (a) => `${a.newOwnerName} détient désormais la majorité des actions ${a.symbol} et devient propriétaire de ${a.companyName}` },
+        board_proposed:  { title: "Conseil d'administration — nouveau vote", icon: "Landmark", desc: (a) => `"${a.title}" (${a.symbol}) proposée par ${a.proposedByName} — votre vote compte.` },
         board_resolved:  {
           title: "Conseil d'administration — vote clos",
           icon: "Landmark",
