@@ -5082,7 +5082,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         const company = (state.companies || []).find(c => c.id === companyId);
         if (!isCompanyManager(company, session.id)) return;
-        if (!(company.employees || []).map(String).includes(String(citizenId))) return;
+        const isBorrowedIn = (state.staffLoans || []).some(
+          (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId) && String(l.employeeId) === String(citizenId)
+        );
+        if (!(company.employees || []).map(String).includes(String(citizenId)) && !isBorrowedIn) return;
         const current = (company.mushtagramAuthorizedIds || []).map(String);
         const next = authorized
           ? (current.includes(String(citizenId)) ? current : [...current, String(citizenId)])
