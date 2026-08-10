@@ -147,7 +147,7 @@ const OrderForm = ({ listing, user, side, onSubmit, onCancel }) => {
 
 const CitizenBourseView = ({
   user, citizens = [], companies = [], bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [],
-  boardProposals = [], dayCycle = 0, onCreateBoardProposal, onCastBoardVote, onCancelBoardProposal,
+  boardProposals = [], dayCycle = 0, staffLoans = [], onCreateBoardProposal, onCastBoardVote, onCancelBoardProposal,
 }) => {
   const [bourseTab, setBourseTab] = useState("market");
   const [bourseSearch, setBourseSearch] = useState("");
@@ -319,6 +319,7 @@ const CitizenBourseView = ({
                           listing={listing}
                           company={companies.find((c) => c.id === listing.companyId)}
                           citizens={citizens}
+                          staffLoans={staffLoans}
                           myId={user.id}
                           dayCycle={dayCycle}
                           proposals={boardProposals}
@@ -413,6 +414,7 @@ const CitizenBourseView = ({
                           listing={listing}
                           company={companies.find((c) => c.id === listing.companyId)}
                           citizens={citizens}
+                          staffLoans={staffLoans}
                           myId={user.id}
                           dayCycle={dayCycle}
                           proposals={boardProposals}

@@ -4123,6 +4123,7 @@ const MyCompanyView = ({
               listing={myListing}
               company={myCompany}
               citizens={citizens}
+              staffLoans={staffLoans}
               myId={user.id}
               dayCycle={dayCycle}
               proposals={boardProposals}

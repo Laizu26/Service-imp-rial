@@ -3307,6 +3307,7 @@ const CitizenLayout = (props) => {
                 globalLedger={globalLedger}
                 boardProposals={boardProposals}
                 dayCycle={dayCycle}
+                staffLoans={staffLoans}
                 onCreateBoardProposal={onCreateBoardProposal}
                 onCastBoardVote={onCastBoardVote}
                 onCancelBoardProposal={onCancelBoardProposal}

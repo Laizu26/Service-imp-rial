@@ -386,6 +386,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
           icon: "Landmark",
           desc: (a) => {
             if (a.outcome === "PASSED_REVOKE") return `"${a.title}" adoptée — le PDG a été révoqué par le conseil.`;
+            if (a.outcome === "PASSED_APPOINT") return `"${a.title}" adoptée — un nouveau PDG a été nommé par le conseil.`;
             if (a.outcome === "PASSED") return `"${a.title}" adoptée par le conseil.`;
             if (a.outcome === "REJECTED") return `"${a.title}" rejetée par le conseil.`;
             return `"${a.title}" expirée (quorum non atteint).`;

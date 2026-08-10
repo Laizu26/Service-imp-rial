@@ -381,6 +381,48 @@ export const useGameActions = (session, state, saveState, notify) => {
               } else {
                 resolutionNote = "Le PDG avait déjà été révoqué entre-temps.";
               }
+            } else if (p.type === "APPOINT_CEO") {
+              const compIdx = (ns.companies || []).findIndex((c) => c.id === p.companyId);
+              const candidateId = p.params?.candidateId;
+              const candidate = (ns.citizens || []).find((c) => c.id === candidateId);
+              if (compIdx === -1 || !candidate) {
+                resolutionNote = "Candidat ou entreprise introuvable au moment de l'exécution.";
+              } else {
+                const company = ns.companies[compIdx];
+                const isEmployee = (company.employees || []).map(String).includes(String(candidateId));
+                const isBorrowedIn = (ns.staffLoans || []).some(
+                  (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(p.companyId) && String(l.employeeId) === String(candidateId)
+                );
+                if (String(candidateId) === String(company.ownerId) || (!isEmployee && !isBorrowedIn)) {
+                  resolutionNote = `${candidate.name} n'est plus éligible (doit être salarié ou détaché de l'entreprise) au moment de l'exécution.`;
+                } else {
+                  const ownerId = company.ownerId;
+                  ns.companies[compIdx] = { ...company, ceoId: candidateId };
+                  // Même mécanique que la nomination directe par le propriétaire (onAppointCEO) :
+                  // le PROPRIÉTAIRE récupère gratuitement le flottant COMPANY jamais vendu en se
+                  // retirant de la gestion opérationnelle au profit du nouveau PDG.
+                  let grantedShares = 0;
+                  const lIdx = (ns.bourseListings || []).findIndex((l) => l.companyId === p.companyId);
+                  if (lIdx !== -1) {
+                    const boardListing = ns.bourseListings[lIdx];
+                    grantedShares = (boardListing.sellOrders || []).filter((o) => o.citizenId === "COMPANY").reduce((s, o) => s + o.qty, 0);
+                    if (grantedShares > 0) {
+                      ns.bourseListings[lIdx] = { ...boardListing, sellOrders: (boardListing.sellOrders || []).filter((o) => o.citizenId !== "COMPANY") };
+                      const ownerIdx = (ns.citizens || []).findIndex((c) => c.id === ownerId);
+                      if (ownerIdx !== -1) {
+                        const holdings = { ...(ns.citizens[ownerIdx].stockholdings || {}) };
+                        holdings[boardListing.id] = (holdings[boardListing.id] || 0) + grantedShares;
+                        ns.citizens[ownerIdx] = { ...ns.citizens[ownerIdx], stockholdings: holdings };
+                      }
+                    }
+                  }
+                  resolutionNote = `${candidate.name} nommé PDG.${grantedShares > 0 ? ` Le propriétaire reçoit ${grantedShares} action(s) non émise(s).` : ""}`;
+                  resolvedAlerts.push({ id: `board_${p.id}_newceo`, toId: candidateId, type: "board_resolved", title: p.title, outcome: "PASSED_APPOINT", timestamp: Date.now() });
+                  if (String(ownerId) !== String(candidateId)) {
+                    resolvedAlerts.push({ id: `board_${p.id}_owner2`, toId: ownerId, type: "board_resolved", title: p.title, outcome: "PASSED_APPOINT", timestamp: Date.now() });
+                  }
+                }
+              }
             } else if (p.type === "DIVIDEND") {
               const compIdx = (ns.companies || []).findIndex((c) => c.id === p.companyId);
               const dps = p.params?.dividendPerShare || 0;
@@ -7478,17 +7520,30 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (myShares <= 0) { notify("Seuls les actionnaires peuvent soumettre une proposition.", "error"); return; }
         const company = (state.companies || []).find((c) => c.id === listing.companyId);
         if (type === "REVOKE_CEO" && !company?.ceoId) { notify("Cette entreprise n'a pas de PDG à révoquer.", "error"); return; }
-        const validTypes = ["REVOKE_CEO", "DIVIDEND", "CUSTOM"];
+        const validTypes = ["REVOKE_CEO", "APPOINT_CEO", "DIVIDEND", "CUSTOM"];
         const proposalType = validTypes.includes(type) ? type : "CUSTOM";
         const dividendPerShare = proposalType === "DIVIDEND" ? Math.max(0, parseFloat(params?.dividendPerShare) || 0) : 0;
         if (proposalType === "DIVIDEND" && dividendPerShare <= 0) { notify("Montant de dividende invalide.", "error"); return; }
+        let candidateId = null, candidateName = "";
+        if (proposalType === "APPOINT_CEO") {
+          candidateId = params?.candidateId;
+          const candidate = (state.citizens || []).find((c) => c.id === candidateId);
+          if (!candidate) { notify("Candidat introuvable.", "error"); return; }
+          if (String(candidateId) === String(company?.ownerId)) { notify("Le propriétaire ne peut pas être nommé PDG de sa propre entreprise.", "error"); return; }
+          const isEmployee = (company?.employees || []).map(String).includes(String(candidateId));
+          const isBorrowedIn = (state.staffLoans || []).some(
+            (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(company?.id) && String(l.employeeId) === String(candidateId)
+          );
+          if (!isEmployee && !isBorrowedIn) { notify("Le candidat doit être salarié ou détaché de l'entreprise.", "error"); return; }
+          candidateName = candidate.name;
+        }
         const days = Math.min(14, Math.max(1, parseInt(durationDays) || 3));
         const proposal = {
           id: `board_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           listingId, companyId: listing.companyId, companyName: listing.companyName, symbol: listing.symbol,
           type: proposalType,
           title: title.trim(), description: (description || "").trim().slice(0, 400),
-          params: proposalType === "DIVIDEND" ? { dividendPerShare } : {},
+          params: proposalType === "DIVIDEND" ? { dividendPerShare } : proposalType === "APPOINT_CEO" ? { candidateId, candidateName } : {},
           proposedBy: session.id, proposedByName: me?.name || session.id,
           createdAt: Date.now(), deadlineDayCycle: (state.dayCycle || 0) + days,
           status: "OPEN", votes: {},

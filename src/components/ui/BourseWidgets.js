@@ -171,6 +171,7 @@ export const OrderBookDepth = ({ buyOrders = [], sellOrders = [], myId, ownerId,
    de MyCompanyView (dirigeant/PDG), pour n'avoir qu'une seule interface de vote. */
 const BOARD_TYPE_META = {
   REVOKE_CEO: { label: "Révoquer le PDG", badge: "bg-red-100 text-red-700 border-red-200" },
+  APPOINT_CEO: { label: "Nommer le PDG", badge: "bg-purple-100 text-purple-700 border-purple-200" },
   DIVIDEND: { label: "Dividende", badge: "bg-amber-100 text-amber-700 border-amber-200" },
   CUSTOM: { label: "Proposition", badge: "bg-stone-100 text-stone-600 border-stone-200" },
 };
@@ -182,11 +183,11 @@ const BOARD_STATUS_META = {
 };
 
 export const BoardVotingPanel = ({
-  listing, company, citizens = [], myId, dayCycle = 0,
+  listing, company, citizens = [], staffLoans = [], myId, dayCycle = 0,
   proposals = [], onCreateBoardProposal, onCastBoardVote, onCancelBoardProposal,
 }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ type: "CUSTOM", title: "", description: "", dividendPerShare: "", durationDays: "3" });
+  const [form, setForm] = useState({ type: "CUSTOM", title: "", description: "", dividendPerShare: "", candidateId: "", durationDays: "3" });
 
   const myShares = (citizens.find((c) => c.id === myId)?.stockholdings || {})[listing.id] || 0;
   const listingProposals = proposals.filter((p) => p.listingId === listing.id);
@@ -195,17 +196,39 @@ export const BoardVotingPanel = ({
 
   const weightOf = (citizenId) => (citizens.find((c) => String(c.id) === String(citizenId))?.stockholdings || {})[listing.id] || 0;
 
+  // Éligibles à la nomination : salariés en poste ou détachés actuellement reçus par
+  // l'entreprise, à l'exclusion du propriétaire — mêmes règles que la nomination directe
+  // par le propriétaire (onAppointCEO).
+  const eligibleCandidates = company ? (() => {
+    const seen = new Set();
+    const list = [];
+    (company.employees || []).forEach((id) => {
+      if (String(id) === String(company.ownerId) || seen.has(String(id))) return;
+      seen.add(String(id));
+      list.push({ id, name: citizens.find((c) => c.id === id)?.name || id });
+    });
+    (staffLoans || []).filter((l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(company.id)).forEach((l) => {
+      if (seen.has(String(l.employeeId))) return;
+      seen.add(String(l.employeeId));
+      list.push({ id: l.employeeId, name: l.employeeName });
+    });
+    return list;
+  })() : [];
+
   const submitProposal = () => {
     if (!onCreateBoardProposal || !form.title.trim()) return;
+    if (form.type === "APPOINT_CEO" && !form.candidateId) return;
     onCreateBoardProposal({
       listingId: listing.id,
       type: form.type,
       title: form.title.trim(),
       description: form.description.trim(),
-      params: form.type === "DIVIDEND" ? { dividendPerShare: parseFloat(form.dividendPerShare) || 0 } : {},
+      params: form.type === "DIVIDEND" ? { dividendPerShare: parseFloat(form.dividendPerShare) || 0 }
+        : form.type === "APPOINT_CEO" ? { candidateId: form.candidateId }
+        : {},
       durationDays: parseInt(form.durationDays) || 3,
     });
-    setForm({ type: "CUSTOM", title: "", description: "", dividendPerShare: "", durationDays: "3" });
+    setForm({ type: "CUSTOM", title: "", description: "", dividendPerShare: "", candidateId: "", durationDays: "3" });
     setShowForm(false);
   };
 
@@ -234,6 +257,7 @@ export const BoardVotingPanel = ({
               className="p-2 border border-stone-200 rounded text-xs bg-white">
               <option value="CUSTOM">Proposition libre</option>
               {company?.ceoId && <option value="REVOKE_CEO">Révoquer le PDG</option>}
+              {eligibleCandidates.length > 0 && <option value="APPOINT_CEO">Nommer le PDG</option>}
               <option value="DIVIDEND">Verser un dividende</option>
             </select>
             <select value={form.durationDays} onChange={(e) => setForm((f) => ({ ...f, durationDays: e.target.value }))}
@@ -253,7 +277,14 @@ export const BoardVotingPanel = ({
               placeholder="Dividende par action (Écus)"
               className="w-full p-2 border border-stone-200 rounded text-xs font-mono" />
           )}
-          <button onClick={submitProposal} disabled={!form.title.trim()}
+          {form.type === "APPOINT_CEO" && (
+            <select value={form.candidateId} onChange={(e) => setForm((f) => ({ ...f, candidateId: e.target.value }))}
+              className="w-full p-2 border border-stone-200 rounded text-xs bg-white">
+              <option value="">— Choisir un candidat (salarié ou détaché) —</option>
+              {eligibleCandidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          <button onClick={submitProposal} disabled={!form.title.trim() || (form.type === "APPOINT_CEO" && !form.candidateId)}
             className="w-full bg-indigo-600 text-white py-2 rounded text-xs font-black uppercase hover:bg-indigo-500 disabled:opacity-40">
             Soumettre au vote
           </button>
@@ -285,6 +316,9 @@ export const BoardVotingPanel = ({
                 {p.description && <p className="text-[10px] text-stone-500 mt-0.5">{p.description}</p>}
                 {p.type === "DIVIDEND" && p.params?.dividendPerShare > 0 && (
                   <p className="text-[10px] text-amber-700 font-bold mt-0.5">{formatMoney(p.params.dividendPerShare)}/action</p>
+                )}
+                {p.type === "APPOINT_CEO" && p.params?.candidateName && (
+                  <p className="text-[10px] text-purple-700 font-bold mt-0.5">Candidat : {p.params.candidateName}</p>
                 )}
                 <p className="text-[9px] text-stone-400 mt-0.5">Proposé par {p.proposedByName} — {daysLeft > 0 ? `${daysLeft} jour(s) restant(s)` : "clôture aujourd'hui"}</p>
               </div>
