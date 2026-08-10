@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
-import { formatMoney } from "../../lib/gameUtils";
+import { formatMoney, getActiveDrunkTiers } from "../../lib/gameUtils";
 
 // Pool d'articles types pour la génération procédurale du menu d'une auberge — évite à
 // l'aubergiste de partir d'une page blanche, propose un article plausible qu'il peut ensuite
@@ -252,6 +252,8 @@ const PropertyDetailView = ({
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const todayKey = `${gd.day}/${gd.month}/${gd.year}`;
   const todayConsumers = prop.dailyConsumersDay === todayKey ? (prop.dailyConsumers || []) : [];
+  const myDrunkPercent = user?.drunkenness?.day === todayKey ? (user.drunkenness.percent || 0) : 0;
+  const myDrunkTiers = getActiveDrunkTiers(myDrunkPercent);
   const isBateau = type === "BATEAU";
 
   const ownerCompany = prop.ownerType === "COMPANY" ? companies.find((c) => c.id === prop.ownerId) : null;
@@ -563,6 +565,24 @@ const PropertyDetailView = ({
               {(prop.freePassIds || []).map(String).includes(String(user?.id)) && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex items-center gap-2 text-xs font-bold text-purple-700">
                   <Ticket size={14} /> Vous avez un pass gratuit illimité ici — tout est offert.
+                </div>
+              )}
+              {myDrunkPercent > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-purple-700">
+                    <span className="text-base shrink-0">🍺</span>
+                    Ivresse — {myDrunkPercent}% {myDrunkPercent >= 100 ? "(bourré(e))" : ""}
+                  </div>
+                  <div className="w-full h-1.5 bg-purple-100 rounded-full overflow-hidden mt-1.5">
+                    <div className="h-full bg-purple-500" style={{ width: `${Math.min(100, myDrunkPercent)}%` }} />
+                  </div>
+                  {myDrunkTiers.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {myDrunkTiers.map((t) => (
+                        <li key={t.threshold} className="text-[10px] text-purple-800 italic">• {t.desc}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
               {(prop.menu || []).length === 0 && <p className="text-stone-400 text-xs italic">Le menu est vide.</p>}

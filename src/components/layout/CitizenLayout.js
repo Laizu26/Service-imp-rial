@@ -1519,7 +1519,10 @@ const CitizenLayout = (props) => {
           const ownerCompany = selProp.ownerType === "COMPANY" ? (companies || []).find((c) => c.id === selProp.ownerId) : null;
           const isPropertyOwner = selProp.ownerId === user.id || (ownerCompany && (ownerCompany.ownerId === user.id || ownerCompany.ceoId === user.id));
           return (
-            <div className="fixed inset-0 z-40 overflow-y-auto bg-stone-950/60 p-4 md:p-8">
+            <div
+              className="fixed inset-0 z-40 overflow-y-auto bg-stone-950/60 p-4 md:p-8"
+              onClick={(e) => { if (e.target === e.currentTarget) setSelectedPropertyId(null); }}
+            >
               <div className="max-w-[1100px] mx-auto">
                 <PropertyDetailView
                   property={selProp}
