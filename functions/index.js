@@ -98,13 +98,15 @@ exports.notifyDiscord = onDocumentUpdated(
     });
 
     // --- Nouveaux posts Mushtagram ---
-    // Toujours exclus : anonymes (anonymat) et réservés aux followers (audience restreinte).
+    // Toujours exclus : réservés aux followers (audience restreinte). Les posts anonymes sont
+    // annoncés comme les autres — authorName vaut déjà "Citoyen Anonyme" pour eux (voir
+    // useGameActions.js), donc l'anonymat reste intact ici sans exclure l'événement lui-même.
     // Verrouillés (PPV) / réservés aux abonnés : annoncés quand même (texte + image masqués,
     // juste l'auteur et le prix) pour donner envie sans contourner le paiement in-app.
     const beforeMushIds = new Set((before.mushtagramPosts || []).map((p) => p.id));
     (after.mushtagramPosts || []).forEach((p) => {
       if (beforeMushIds.has(p.id)) return;
-      if (p.isAnonymous || p.followersOnly) return;
+      if (p.followersOnly) return;
       const isPaid = p.locked || p.subscribersOnly;
       embeds.push({
         author: { name: "Mushtagram" },
