@@ -699,41 +699,43 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         });
 
-        // --- Détachements de personnel : facturation journalière + durée ---
-        // L'entreprise emprunteuse paie le tarif de location à l'entreprise prêteuse chaque
-        // jour RP ; si elle n'a pas les fonds, le prélèvement est simplement sauté (alerte
-        // envoyée au salarié) plutôt que d'annuler le détachement automatiquement.
+        // --- Détachements de personnel : durée + retour éventuel ---
+        // Plus de tarif/jour entre entreprises : le détaché touche un compte interne
+        // (workerBalances) directement chez l'emprunteuse, alimenté comme n'importe quel salarié
+        // via "Payer les salaires" (onPaySalaries). À l'échéance, ce solde est reversé sur sa
+        // banque personnelle et son éventuelle affectation à un bien de l'emprunteuse est levée.
         if ((ns.staffLoans || []).some((l) => l.status === "ACTIVE")) {
           const loanTs = Date.now();
-          const loanLedger = [];
           const loanAlerts = [...(ns.staffLoanAlerts || [])];
           ns.staffLoans = ns.staffLoans.map((loan, i) => {
             if (loan.status !== "ACTIVE") return loan;
-            let updated = { ...loan };
-            if (loan.dailyRate > 0) {
-              const toIdx = ns.companies.findIndex((c) => c.id === loan.toCompanyId);
-              const fromIdx = ns.companies.findIndex((c) => c.id === loan.fromCompanyId);
-              if (toIdx !== -1 && fromIdx !== -1) {
-                if ((ns.companies[toIdx].balance || 0) >= loan.dailyRate) {
-                  ns.companies[toIdx] = { ...ns.companies[toIdx], balance: ns.companies[toIdx].balance - loan.dailyRate };
-                  ns.companies[fromIdx] = { ...ns.companies[fromIdx], balance: (ns.companies[fromIdx].balance || 0) + loan.dailyRate };
-                  loanLedger.push({ id: loanTs + i, fromName: loan.toCompanyName, toName: loan.fromCompanyName, amount: loan.dailyRate, timestamp: loanTs, reason: `Détachement — ${loan.employeeName}`, type: "STAFF_LOAN_FEE" });
-                } else {
-                  loanAlerts.push({ id: `sla_${loanTs}_${i}`, toId: loan.employeeId, type: "unpaid", fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: loanTs });
-                }
-              }
-            }
-            updated.daysElapsed = (loan.daysElapsed || 0) + 1;
+            const updated = { ...loan, daysElapsed: (loan.daysElapsed || 0) + 1 };
             if (loan.durationType === "FIXED" && updated.daysElapsed >= loan.durationDays) {
               updated.status = "ENDED";
               updated.endedAt = loanTs;
               loanAlerts.push({ id: `sla_${loanTs}_${i}_end`, toId: loan.employeeId, type: "ended", fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: loanTs });
+              const toIdx = ns.companies.findIndex((c) => c.id === loan.toCompanyId);
+              if (toIdx !== -1) {
+                const toCompany = ns.companies[toIdx];
+                const owed = (toCompany.workerBalances || {})[loan.employeeId] || 0;
+                const assignments = { ...(toCompany.employeeAssignments || {}) };
+                const hadAssignment = !!assignments[loan.employeeId];
+                delete assignments[loan.employeeId];
+                const wb = { ...(toCompany.workerBalances || {}) };
+                delete wb[loan.employeeId];
+                if (owed > 0 || hadAssignment) {
+                  ns.companies[toIdx] = { ...toCompany, workerBalances: wb, employeeAssignments: assignments };
+                }
+                if (owed > 0) {
+                  const citIdx = ns.citizens.findIndex((c) => c.id === loan.employeeId);
+                  if (citIdx !== -1) {
+                    ns.citizens[citIdx] = { ...ns.citizens[citIdx], balance: Math.round(((ns.citizens[citIdx].balance || 0) + owed) * 10) / 10 };
+                  }
+                }
+              }
             }
             return updated;
           });
-          if (loanLedger.length > 0) {
-            ns.globalLedger = [...loanLedger, ...(ns.globalLedger || [])].slice(0, 1000);
-          }
           ns.staffLoanAlerts = loanAlerts;
         }
 
@@ -1576,7 +1578,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         });
       },
 
-      // --- PAYER SALAIRES (individuel ou uniforme, employés + esclaves) ---
+      // --- PAYER SALAIRES (individuel ou uniforme, employés + esclaves + détachés reçus) ---
       onPaySalaries: (companyId, salaryData) => {
         const compIdx = state.companies.findIndex((c) => c.id === companyId);
         if (compIdx === -1) return;
@@ -1584,7 +1586,14 @@ export const useGameActions = (session, state, saveState, notify) => {
         const company = state.companies[compIdx];
         const employees = company.employees || [];
         const slaves = company.slaves || [];
-        const allWorkers = [...employees, ...slaves];
+        // Le personnel détaché reçu d'une autre entreprise (staffLoans) n'apparaît pas dans
+        // employees/slaves — il reste inscrit chez son entreprise d'origine — mais peut désormais
+        // toucher un compte interne (workerBalances) chez l'emprunteuse au même titre qu'un
+        // salarié classique, faute de quoi il travaillerait ici sans jamais être payé pour ça.
+        const loanedInIds = (state.staffLoans || [])
+          .filter((l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId))
+          .map((l) => l.employeeId);
+        const allWorkers = [...employees, ...slaves, ...loanedInIds];
         if (allWorkers.length === 0) {
           notify("Aucun travailleur à payer.", "info");
           return;
@@ -1818,24 +1827,35 @@ export const useGameActions = (session, state, saveState, notify) => {
           delete firedContracts[targetId];
           const firedAssignments = { ...(company.employeeAssignments || {}) };
           delete firedAssignments[targetId];
+          // Le solde du compte interne (workerBalances) n'a plus de raison d'exister une fois le
+          // lien d'emploi rompu — reversé sur la banque personnelle, comme l'indemnité.
+          const firedBalances = { ...(company.workerBalances || {}) };
+          const owed = firedBalances[targetId] || 0;
+          delete firedBalances[targetId];
           newCompanies[compIdx] = {
             ...company,
             employees: (company.employees || []).filter((id) => id !== targetId),
             employmentContracts: firedContracts,
             employeeAssignments: firedAssignments,
+            workerBalances: firedBalances,
             mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(targetId)),
           };
           const severance = contract?.severanceAmount || 0;
-          if (severance > 0) {
+          const totalPayout = Math.round((severance + owed) * 10) / 10;
+          if (totalPayout > 0) {
             const citIdx = state.citizens.findIndex((c) => c.id === targetId);
             if (citIdx !== -1) {
               const newCitizens = [...state.citizens];
-              newCitizens[citIdx] = { ...newCitizens[citIdx], balance: Math.round(((newCitizens[citIdx].balance || 0) + severance) * 10) / 10 };
-              newCompanies[compIdx] = { ...newCompanies[compIdx], balance: Math.round(((newCompanies[compIdx].balance || 0) - severance) * 10) / 10 };
+              newCitizens[citIdx] = { ...newCitizens[citIdx], balance: Math.round(((newCitizens[citIdx].balance || 0) + totalPayout) * 10) / 10 };
+              if (severance > 0) {
+                newCompanies[compIdx] = { ...newCompanies[compIdx], balance: Math.round(((newCompanies[compIdx].balance || 0) - severance) * 10) / 10 };
+              }
               const ts = Date.now();
-              const ledgerEntry = { id: ts, fromName: company.name, toName: newCitizens[citIdx].name, amount: severance, timestamp: ts, reason: `Indemnité de licenciement — contrat ${contract.type}`, type: "SEVERANCE" };
-              saveState({ ...state, companies: newCompanies, citizens: newCitizens, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
-              notify(`Employé licencié. Indemnité versée : ${formatMoney(severance)}.`, "info");
+              const ledger = [];
+              if (severance > 0) ledger.push({ id: ts, fromName: company.name, toName: newCitizens[citIdx].name, amount: severance, timestamp: ts, reason: `Indemnité de licenciement — contrat ${contract.type}`, type: "SEVERANCE" });
+              if (owed > 0) ledger.push({ id: ts + 1, fromName: company.name, toName: newCitizens[citIdx].name, amount: owed, timestamp: ts, reason: "Solde du compte interne reversé", type: "SALARY" });
+              saveState({ ...state, companies: newCompanies, citizens: newCitizens, globalLedger: ledger.length ? [...ledger, ...(state.globalLedger || [])].slice(0, 1000) : state.globalLedger });
+              notify(`Employé licencié. ${formatMoney(totalPayout)} versés.`, "info");
               return;
             }
           }
@@ -1884,15 +1904,29 @@ export const useGameActions = (session, state, saveState, notify) => {
         delete newContracts[session.id];
         const newAssignments = { ...(company.employeeAssignments || {}) };
         delete newAssignments[session.id];
+        // Le solde du compte interne (workerBalances) est reversé sur la banque personnelle en
+        // quittant l'entreprise — il n'a plus de raison d'y rester une fois le lien rompu.
+        const newBalances = { ...(company.workerBalances || {}) };
+        const owed = newBalances[session.id] || 0;
+        delete newBalances[session.id];
         newCompanies[compIdx] = {
           ...company,
           employees: (company.employees || []).filter((id) => id !== session.id),
           employmentContracts: newContracts,
           employeeAssignments: newAssignments,
+          workerBalances: newBalances,
           mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(session.id)),
         };
-        saveState({ ...state, companies: newCompanies });
-        notify(`Vous avez quitté ${company.name}.`, "info");
+        let newCitizens = state.citizens;
+        if (owed > 0) {
+          const uIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+          if (uIdx !== -1) {
+            newCitizens = [...state.citizens];
+            newCitizens[uIdx] = { ...newCitizens[uIdx], balance: Math.round(((newCitizens[uIdx].balance || 0) + owed) * 10) / 10 };
+          }
+        }
+        saveState({ ...state, companies: newCompanies, citizens: newCitizens });
+        notify(owed > 0 ? `Vous avez quitté ${company.name}. ${formatMoney(owed)} reversés en banque personnelle.` : `Vous avez quitté ${company.name}.`, "info");
       },
 
       // --- RACHAT DE LIBERTÉ (serf paie pour rompre son contrat) ---
@@ -5581,7 +5615,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       // workerBalances inchangés) mais travaille temporairement pour toCompany, qui verse
       // un tarif de location + une éventuelle prime à fromCompany. Décision unilatérale du
       // dirigeant de fromCompany, aucun accord du salarié requis.
-      onCreateStaffLoan: ({ employeeId, fromCompanyId, toCompanyId, durationType, durationDays, dailyRate, signingBonus, exclusive }) => {
+      onCreateStaffLoan: ({ employeeId, fromCompanyId, toCompanyId, durationType, durationDays, signingBonus, exclusive }) => {
         if (!session) return;
         const fromIdx = state.companies.findIndex((c) => c.id === fromCompanyId);
         const toIdx = state.companies.findIndex((c) => c.id === toCompanyId);
@@ -5604,7 +5638,6 @@ export const useGameActions = (session, state, saveState, notify) => {
         const alreadyLoaned = (state.staffLoans || []).some((l) => l.status === "ACTIVE" && String(l.employeeId) === String(employeeId));
         if (alreadyLoaned) { notify("Ce salarié est déjà détaché ailleurs.", "error"); return; }
 
-        const rate = Math.max(0, parseFloat(dailyRate) || 0);
         const bonus = Math.max(0, parseFloat(signingBonus) || 0);
         const isFixed = durationType === "FIXED";
         const days = isFixed ? Math.max(1, parseInt(durationDays) || 0) : null;
@@ -5635,7 +5668,6 @@ export const useGameActions = (session, state, saveState, notify) => {
           durationType: isFixed ? "FIXED" : "INDEFINITE",
           durationDays: days,
           daysElapsed: 0,
-          dailyRate: rate,
           signingBonus: bonus,
           exclusive: !!exclusive,
           isOwnerLoan,
@@ -5675,17 +5707,36 @@ export const useGameActions = (session, state, saveState, notify) => {
           fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: Date.now(),
         }];
         // Retire son éventuelle affectation à un bien de l'entreprise emprunteuse — un
-        // détaché reparti ne doit plus compter dans le bonus de revenu du bien.
+        // détaché reparti ne doit plus compter dans le bonus de revenu du bien — et reverse le
+        // solde de son compte interne (workerBalances) chez l'emprunteuse sur sa banque
+        // personnelle : ce compte n'a plus de raison d'exister une fois le lien rompu.
         let newCompanies = state.companies || [];
+        let newCitizens = state.citizens || [];
+        let cashedOut = 0;
         const toCompIdx = (state.companies || []).findIndex((c) => c.id === loan.toCompanyId);
-        if (toCompIdx !== -1 && (state.companies[toCompIdx].employeeAssignments || {})[loan.employeeId]) {
-          const assignments = { ...state.companies[toCompIdx].employeeAssignments };
-          delete assignments[loan.employeeId];
-          newCompanies = [...state.companies];
-          newCompanies[toCompIdx] = { ...newCompanies[toCompIdx], employeeAssignments: assignments };
+        if (toCompIdx !== -1) {
+          const toCompany = state.companies[toCompIdx];
+          const hadAssignment = !!(toCompany.employeeAssignments || {})[loan.employeeId];
+          const owed = (toCompany.workerBalances || {})[loan.employeeId] || 0;
+          if (hadAssignment || owed > 0) {
+            const assignments = { ...(toCompany.employeeAssignments || {}) };
+            delete assignments[loan.employeeId];
+            const wb = { ...(toCompany.workerBalances || {}) };
+            delete wb[loan.employeeId];
+            newCompanies = [...state.companies];
+            newCompanies[toCompIdx] = { ...toCompany, employeeAssignments: assignments, workerBalances: wb };
+            cashedOut = owed;
+          }
+          if (owed > 0) {
+            const citIdx = (state.citizens || []).findIndex((c) => c.id === loan.employeeId);
+            if (citIdx !== -1) {
+              newCitizens = [...state.citizens];
+              newCitizens[citIdx] = { ...newCitizens[citIdx], balance: Math.round(((newCitizens[citIdx].balance || 0) + owed) * 10) / 10 };
+            }
+          }
         }
-        saveState({ ...state, companies: newCompanies, staffLoans: newLoans, staffLoanAlerts: alerts });
-        notify("Détachement terminé.", "info");
+        saveState({ ...state, companies: newCompanies, citizens: newCitizens, staffLoans: newLoans, staffLoanAlerts: alerts });
+        notify(cashedOut > 0 ? `Détachement terminé. ${formatMoney(cashedOut)} reversés en banque personnelle.` : "Détachement terminé.", "info");
       },
 
       onSetStaffLoanPermissions: ({ loanId, permissions }) => {

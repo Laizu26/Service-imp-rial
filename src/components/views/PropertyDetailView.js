@@ -212,6 +212,7 @@ const PropertyDetailView = ({
   const [shopItemQty, setShopItemQty] = useState("");
   const [shopItemPrice, setShopItemPrice] = useState("");
   // Menu
+  const [menuFilterCategory, setMenuFilterCategory] = useState("");
   const [menuItemName, setMenuItemName] = useState("");
   const [menuItemDesc, setMenuItemDesc] = useState("");
   const [menuItemCategory, setMenuItemCategory] = useState("");
@@ -447,96 +448,122 @@ const PropertyDetailView = ({
             </datalist>
             <div className="space-y-4">
               {(prop.menu || []).length === 0 && <p className="text-stone-400 text-xs italic">Le menu est vide.</p>}
-              {Object.entries(
-                (prop.menu || []).reduce((groups, m, i) => {
-                  const cat = m.category || "Autres";
-                  (groups[cat] = groups[cat] || []).push({ ...m, _idx: i });
-                  return groups;
-                }, {})
-              ).map(([category, items]) => (
-                <div key={category}>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1.5">{category}</div>
-                  <div className="space-y-2">
-                    {items.map((m) => {
-                      const i = m._idx;
-                      const infinite = m.stock === -1;
-                      const available = infinite || m.stock > 0;
-                      if (editingMenuIdx === i && isOwner) return (
-                        <div key={i} className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editMenuName} onChange={(e) => setEditMenuName(e.target.value)} placeholder="Plat" />
-                            <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
-                            <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuStock} onChange={(e) => setEditMenuStock(e.target.value)} placeholder="Stock (-1=∞)" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <input className="w-32 p-1.5 border rounded text-xs" list="menu-categories" placeholder="Catégorie" value={editMenuCategory} onChange={(e) => setEditMenuCategory(e.target.value)} />
-                            <input className="flex-1 p-1.5 border rounded text-xs" placeholder="URL de l'image (optionnel)" value={editMenuImage} onChange={(e) => setEditMenuImage(e.target.value)} />
-                          </div>
-                          <textarea className="w-full p-1.5 border rounded text-xs resize-none" rows={2} placeholder="Description (optionnel)" value={editMenuDesc} onChange={(e) => setEditMenuDesc(e.target.value)} />
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingMenuIdx(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
-                            <button onClick={() => {
-                              const newMenu = (prop.menu || []).map((item, idx) => idx === i ? {
-                                ...item, itemName: editMenuName.trim() || item.itemName, description: editMenuDesc.trim(),
-                                category: editMenuCategory.trim() || "Autres", imageUrl: editMenuImage.trim(),
-                                price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock),
-                              } : item);
-                              onUpdatePropertyFeature(prop.id, "menu", newMenu);
-                              setEditingMenuIdx(null);
-                            }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
-                          </div>
+
+              {(() => {
+                const menuWithIdx = (prop.menu || []).map((m, i) => ({ ...m, _idx: i }));
+                const presentCategories = [...new Set(menuWithIdx.map((m) => m.category || "Autres"))];
+                const filtered = menuFilterCategory ? menuWithIdx.filter((m) => (m.category || "Autres") === menuFilterCategory) : menuWithIdx;
+                const editingItem = editingMenuIdx !== null ? menuWithIdx.find((m) => m._idx === editingMenuIdx) : null;
+
+                return (
+                  <>
+                    {presentCategories.length > 1 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setMenuFilterCategory("")}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${!menuFilterCategory ? "bg-amber-600 text-white border-amber-600" : "bg-white text-amber-700 border-amber-200 hover:border-amber-400"}`}
+                        >
+                          Tout
+                        </button>
+                        {presentCategories.map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setMenuFilterCategory(c)}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${menuFilterCategory === c ? "bg-amber-600 text-white border-amber-600" : "bg-white text-amber-700 border-amber-200 hover:border-amber-400"}`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {editingItem && isOwner && (
+                      <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editMenuName} onChange={(e) => setEditMenuName(e.target.value)} placeholder="Plat" />
+                          <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
+                          <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuStock} onChange={(e) => setEditMenuStock(e.target.value)} placeholder="Stock (-1=∞)" />
                         </div>
-                      );
-                      return (
-                        <div key={i} className="flex items-center justify-between gap-3 bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
-                          <div className="flex items-center gap-3 min-w-0">
-                            {m.imageUrl ? (
-                              <img src={m.imageUrl} alt={m.itemName} className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0" onError={(e) => { e.target.style.display = "none"; }} />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
-                                <Utensils size={14} className="text-amber-500" />
+                        <div className="flex items-center gap-2">
+                          <input className="w-32 p-1.5 border rounded text-xs" list="menu-categories" placeholder="Catégorie" value={editMenuCategory} onChange={(e) => setEditMenuCategory(e.target.value)} />
+                          <input className="flex-1 p-1.5 border rounded text-xs" placeholder="URL de l'image (optionnel)" value={editMenuImage} onChange={(e) => setEditMenuImage(e.target.value)} />
+                        </div>
+                        <textarea className="w-full p-1.5 border rounded text-xs resize-none" rows={2} placeholder="Description (optionnel)" value={editMenuDesc} onChange={(e) => setEditMenuDesc(e.target.value)} />
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setEditingMenuIdx(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
+                          <button onClick={() => {
+                            const newMenu = (prop.menu || []).map((item, idx) => idx === editingMenuIdx ? {
+                              ...item, itemName: editMenuName.trim() || item.itemName, description: editMenuDesc.trim(),
+                              category: editMenuCategory.trim() || "Autres", imageUrl: editMenuImage.trim(),
+                              price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock),
+                            } : item);
+                            onUpdatePropertyFeature(prop.id, "menu", newMenu);
+                            setEditingMenuIdx(null);
+                          }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {filtered.filter((m) => m._idx !== editingMenuIdx).map((m) => {
+                        const i = m._idx;
+                        const infinite = m.stock === -1;
+                        const available = infinite || m.stock > 0;
+                        return (
+                          <div key={i} className="bg-white rounded-xl border border-amber-100 shadow-sm overflow-hidden flex flex-col">
+                            <div className="relative aspect-square bg-amber-50">
+                              {m.imageUrl ? (
+                                <img src={m.imageUrl} alt={m.itemName} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = "none"; }} />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Utensils size={28} className="text-amber-300" />
+                                </div>
+                              )}
+                              {!available && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <span className="text-white text-[10px] font-black uppercase tracking-widest">Épuisé</span>
+                                </div>
+                              )}
+                              {isOwner && (
+                                <div className="absolute top-1 right-1 flex gap-1">
+                                  <button onClick={() => {
+                                    setEditingMenuIdx(i); setEditMenuName(m.itemName); setEditMenuDesc(m.description || "");
+                                    setEditMenuCategory(m.category || ""); setEditMenuImage(m.imageUrl || "");
+                                    setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock));
+                                  }} className="bg-white/90 rounded-full p-1 text-stone-500 hover:text-stone-800 shadow" title="Modifier"><Pencil size={11} /></button>
+                                  <button onClick={() => { onUpdatePropertyFeature(prop.id, "menu", (prop.menu || []).filter((_, idx) => idx !== i)); }} className="bg-white/90 rounded-full p-1 text-red-400 hover:text-red-600 shadow" title="Supprimer"><Trash2 size={11} /></button>
+                                </div>
+                              )}
+                              {!infinite && available && (
+                                <span className="absolute bottom-1 right-1 bg-white/90 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-stone-500 shadow">×{m.stock}</span>
+                              )}
+                            </div>
+                            <div className="p-2.5 flex flex-col flex-1">
+                              <div className="font-bold text-stone-800 text-sm leading-tight">{m.itemName}</div>
+                              {m.description && <p className="text-[10px] text-stone-500 italic mt-0.5 line-clamp-2">{m.description}</p>}
+                              <div className="mt-auto pt-2 flex items-center justify-between">
+                                <span className="font-mono text-yellow-700 text-xs font-bold">{formatMoney(m.price)}</span>
+                                {infinite && <span className="text-[9px] text-stone-400">∞</span>}
                               </div>
-                            )}
-                            <div className="min-w-0">
-                              <div>
-                                <span className="font-bold text-stone-800">{m.itemName}</span>
-                                <span className="font-mono text-yellow-700 ml-2 text-xs">{formatMoney(m.price)}</span>
-                                <span className={`text-xs ml-2 ${!available ? "text-red-400 font-bold" : "text-stone-400"}`}>
-                                  {infinite ? "∞ illimité" : !available ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
-                                </span>
-                              </div>
-                              {m.description && <p className="text-[11px] text-stone-500 italic truncate">{m.description}</p>}
+                              {!isOwner && (
+                                <button
+                                  onClick={() => onBuyFromMenu(prop.id, m.id || m.itemName)}
+                                  disabled={!available || (user?.balance || 0) < m.price}
+                                  className="mt-2 w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                                  title="Consommé sur place — n'entre pas dans l'inventaire"
+                                >
+                                  <Utensils size={10} /> {available ? "Commander" : "Indisponible"}
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {!isOwner && available && (
-                              <button
-                                onClick={() => onBuyFromMenu(prop.id, m.id || m.itemName)}
-                                disabled={(user?.balance || 0) < m.price}
-                                className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40 flex items-center gap-1"
-                                title="Consommé sur place — n'entre pas dans l'inventaire"
-                              >
-                                <Utensils size={10} /> Commander
-                              </button>
-                            )}
-                            {!isOwner && !available && <span className="text-[10px] text-red-400 font-bold uppercase">Indisponible</span>}
-                            {isOwner && (
-                              <>
-                                <button onClick={() => {
-                                  setEditingMenuIdx(i); setEditMenuName(m.itemName); setEditMenuDesc(m.description || "");
-                                  setEditMenuCategory(m.category || ""); setEditMenuImage(m.imageUrl || "");
-                                  setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock));
-                                }} className="text-stone-400 hover:text-stone-600 p-1" title="Modifier"><Pencil size={12} /></button>
-                                <button onClick={() => { onUpdatePropertyFeature(prop.id, "menu", (prop.menu || []).filter((_, idx) => idx !== i)); }} className="text-red-400 hover:text-red-600 p-1" title="Supprimer"><Trash2 size={12} /></button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                        );
+                      })}
+                    </div>
+                  </>
+                );
+              })()}
+
               {isOwner && (
                 <div className="border border-dashed border-amber-300 rounded-lg p-3 space-y-2 mt-2">
                   <div className="flex items-center justify-between">

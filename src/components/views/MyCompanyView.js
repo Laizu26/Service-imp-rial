@@ -388,7 +388,7 @@ function EmployeeManagementModal({
                   <span className="px-1.5 py-0.5 rounded border text-[9px] font-black uppercase bg-blue-100 text-blue-700 border-blue-200">Détaché</span>
                   <span>Prêté par {loan.fromCompanyName}</span>
                   <span>·</span>
-                  <span>{fmtMoney(loan.dailyRate)}/j</span>
+                  <span>Solde ici : {fmtMoney(empBalance)}</span>
                 </>
               ) : (
                 <>
@@ -484,8 +484,8 @@ function EmployeeManagementModal({
                   <span className="text-sm font-black text-blue-900">{loan.fromCompanyName}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-800">Tarif journalier</span>
-                  <span className="text-sm font-black text-blue-900">{fmtMoney(loan.dailyRate)}/j</span>
+                  <span className="text-xs font-bold text-blue-800">Compte interne ici</span>
+                  <span className="text-sm font-black text-blue-900">{fmtMoney(empBalance)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-blue-800">Durée</span>
@@ -499,7 +499,8 @@ function EmployeeManagementModal({
                 </div>
               </div>
               <p className="text-[10px] text-stone-400 italic">
-                Le contrat d'emploi et le solde salarial restent gérés par {loan.fromCompanyName}, l'employeur d'origine.
+                Le contrat d'emploi reste géré par {loan.fromCompanyName}, l'employeur d'origine — mais {myCompany?.name || "l'entreprise emprunteuse"} peut
+                vous verser un salaire ici même, via "Payer les salaires". Ce compte est reversé sur votre banque personnelle si le détachement prend fin.
               </p>
             </div>
           )}
@@ -899,7 +900,7 @@ const MyCompanyView = ({
 
   // Détachement de personnel
   const [loanForm, setLoanForm] = useState({
-    employeeId: "", toCompanyId: "", dailyRate: "", signingBonus: "",
+    employeeId: "", toCompanyId: "", signingBonus: "",
     exclusive: false, durationType: "FIXED", durationDays: "",
   });
   const [managingLoanId, setManagingLoanId] = useState(null);
@@ -1054,12 +1055,10 @@ const MyCompanyView = ({
                     </div>
                     <div className="text-right bg-yellow-50 p-3 rounded-xl border border-yellow-200">
                       <div className="text-[10px] font-black uppercase text-yellow-700 tracking-widest mb-1">
-                        {viewingLoanedCompany ? "Tarif de détachement" : "Compte entreprise"}
+                        Compte entreprise
                       </div>
                       <div className="text-2xl font-mono font-black text-yellow-800">
-                        {viewingLoanedCompany
-                          ? `${formatMoney(myLoanAsWorker?.dailyRate || 0)}/j`
-                          : formatMoney((workerCompany.workerBalances || {})[user.id] || 0)}
+                        {formatMoney((workerCompany.workerBalances || {})[user.id] || 0)}
                       </div>
                     </div>
                   </div>
@@ -1201,13 +1200,13 @@ const MyCompanyView = ({
                 <Card title="Mon Détachement" icon={ArrowLeftRight}>
                   <div className="space-y-3">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-                      Vous êtes actuellement détaché ici par <span className="font-black">{myLoanAsWorker.fromCompanyName}</span>, contre{" "}
-                      <span className="font-black">{formatMoney(myLoanAsWorker.dailyRate)}</span>/jour
+                      Vous êtes actuellement détaché ici par <span className="font-black">{myLoanAsWorker.fromCompanyName}</span>
                       {myLoanAsWorker.exclusive ? " (détachement exclusif)" : " (détachement partagé)"}
                       {myLoanAsWorker.durationType === "FIXED"
                         ? ` — jour ${myLoanAsWorker.daysElapsed}/${myLoanAsWorker.durationDays}`
                         : " — durée indéterminée, rappelable à tout moment"}
-                      .
+                      . {workerCompany.name} peut vous verser un salaire ici via son compte interne (voir ci-dessous), reversé sur votre banque
+                      personnelle si le détachement prend fin.
                     </div>
                     {Object.values(myLoanAsWorker.permissions || {}).some(Boolean) && (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1">
@@ -1228,7 +1227,7 @@ const MyCompanyView = ({
               )}
 
               {/* Retrait de salaire (employé) */}
-              {isEmployee && !viewingLoanedCompany && onWithdrawCompanySalary && (() => {
+              {(isEmployee || (viewingLoanedCompany && myLoanAsWorker)) && onWithdrawCompanySalary && (() => {
                 const myCompanyBalance = (workerCompany.workerBalances || {})[user.id] || 0;
                 return myCompanyBalance > 0 ? (
                   <Card title="Retrait de Salaire" icon={Wallet}>
@@ -1760,7 +1759,6 @@ const MyCompanyView = ({
                 </Card>
                 );
               })() }
-              )}
             </div>
           );
         })()}
@@ -2333,7 +2331,9 @@ const MyCompanyView = ({
                             <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200 flex items-center gap-0.5">
                               <ArrowLeftRight size={9} /> Détaché — {loan.fromCompanyName}
                             </span>
-                            <span className="text-[9px] text-stone-400 font-mono">{formatMoney(loan.dailyRate)}/j</span>
+                            {(myCompany.workerBalances || {})[loan.employeeId] > 0 && (
+                              <span className="text-[9px] text-stone-400 font-mono">Compte: {formatMoney((myCompany.workerBalances || {})[loan.employeeId])}</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             <button
@@ -2864,6 +2864,64 @@ const MyCompanyView = ({
                   </div>
                 )}
 
+                {/* Détachés reçus d'une autre entreprise — leur contrat/salaire d'origine reste
+                    géré par leur employeur, mais l'emprunteuse peut désormais aussi les payer
+                    directement sur un compte interne dédié ici. */}
+                {borrowedInLoans.length > 0 && (
+                  <div>
+                    <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2 flex items-center gap-2">
+                      Détachés
+                      <span className="text-[8px] font-normal normal-case tracking-normal italic opacity-60">
+                        (compte interne dédié, reversé s'il repart)
+                      </span>
+                    </div>
+                    <div className="divide-y divide-stone-100">
+                      {borrowedInLoans.map((loan) => {
+                        const empCompBal = (myCompany.workerBalances || {})[loan.employeeId] || 0;
+                        return (
+                          <div
+                            key={loan.employeeId}
+                            className="py-3 flex justify-between items-center gap-3"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase flex-shrink-0">
+                                  Détaché
+                                </span>
+                                <span className="font-bold text-stone-700 text-sm truncate">
+                                  {loan.employeeName}
+                                </span>
+                              </div>
+                              {empCompBal > 0 && (
+                                <span className="text-[9px] font-mono text-yellow-600">
+                                  Compte interne : {formatMoney(empCompBal)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number" step="0.1"
+                                className="w-24 p-2 border rounded font-mono text-sm text-right"
+                                placeholder="0"
+                                value={salaryMap[loan.employeeId] || ""}
+                                onChange={(e) =>
+                                  setSalaryMap({
+                                    ...salaryMap,
+                                    [loan.employeeId]: e.target.value,
+                                  })
+                                }
+                              />
+                              <span className="text-[10px] font-bold text-stone-400">
+                                Écus
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center pt-3 border-t border-stone-200">
                   <div>
                     <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
@@ -3335,16 +3393,6 @@ const MyCompanyView = ({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Tarif journalier (Écus)</label>
-                      <input
-                        type="number" step="0.1" min={0}
-                        className="w-full p-2 border rounded font-mono text-sm"
-                        value={loanForm.dailyRate}
-                        onChange={(e) => setLoanForm((f) => ({ ...f, dailyRate: e.target.value }))}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
                       <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prime immédiate (optionnel)</label>
                       <input
                         type="number" step="0.1" min={0}
@@ -3390,6 +3438,10 @@ const MyCompanyView = ({
                     </div>
                   </div>
                 )}
+                <p className="text-[10px] text-stone-400 italic">
+                  Sans tarif fixe : l'entreprise emprunteuse pourra verser un salaire au détaché via "Payer les salaires",
+                  sur un compte interne dédié, reversé sur sa banque personnelle à la fin du détachement.
+                </p>
                 <button
                   onClick={() => {
                     if (!loanForm.employeeId || !loanForm.toCompanyId || !onCreateStaffLoan) return;
@@ -3399,11 +3451,10 @@ const MyCompanyView = ({
                       toCompanyId: loanForm.toCompanyId,
                       durationType: loanForm.durationType,
                       durationDays: loanForm.durationDays,
-                      dailyRate: loanForm.dailyRate,
                       signingBonus: loanForm.signingBonus,
                       exclusive: loanForm.exclusive,
                     });
-                    setLoanForm({ employeeId: "", toCompanyId: "", dailyRate: "", signingBonus: "", exclusive: false, durationType: "FIXED", durationDays: "" });
+                    setLoanForm({ employeeId: "", toCompanyId: "", signingBonus: "", exclusive: false, durationType: "FIXED", durationDays: "" });
                   }}
                   disabled={!loanForm.employeeId || !loanForm.toCompanyId || (loanForm.durationType === "FIXED" && !loanForm.durationDays)}
                   className="bg-yellow-500 text-stone-900 px-4 py-2.5 rounded-lg font-black uppercase text-xs hover:bg-yellow-400 disabled:opacity-50 flex items-center gap-2"
@@ -3431,7 +3482,7 @@ const MyCompanyView = ({
                           )}
                         </div>
                         <div className="text-[10px] text-stone-400 mt-0.5">
-                          Chez <span className="font-bold text-stone-500">{loan.toCompanyName}</span> — {formatMoney(loan.dailyRate)}/jour
+                          Chez <span className="font-bold text-stone-500">{loan.toCompanyName}</span>
                           {loan.durationType === "FIXED" ? ` — J${loan.daysElapsed}/${loan.durationDays}` : " — indéterminé"}
                         </div>
                       </div>
@@ -3462,7 +3513,8 @@ const MyCompanyView = ({
                           )}
                         </div>
                         <div className="text-[10px] text-stone-400 mt-0.5">
-                          Prêté par <span className="font-bold text-stone-500">{loan.fromCompanyName}</span> — {formatMoney(loan.dailyRate)}/jour
+                          Prêté par <span className="font-bold text-stone-500">{loan.fromCompanyName}</span>
+                          {(myCompany.workerBalances || {})[loan.employeeId] > 0 && ` — Compte: ${formatMoney((myCompany.workerBalances || {})[loan.employeeId])}`}
                           {loan.durationType === "FIXED" ? ` — J${loan.daysElapsed}/${loan.durationDays}` : " — indéterminé"}
                         </div>
                       </div>
