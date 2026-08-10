@@ -2311,6 +2311,20 @@ const DEFAULT_ILLNESS_CONFIG = {
     { id: "fievre_maligne", name: "Fièvre maligne", description: "Fièvre violente aux origines incertaines, potentiellement grave si négligée.", icon: "🥵", weight: 10, minDurationDays: 7, maxDurationDays: 14, productionPenaltyPercent: 70, statusEffectIds: ["fievre", "affaibli"] },
     { id: "peste", name: "Peste", description: "Le fléau redouté de tous les âges. Rare, mais dévastateur.", icon: "☠️", weight: 5, minDurationDays: 10, maxDurationDays: 21, productionPenaltyPercent: 90, statusEffectIds: ["fievre", "affaibli", "blessure_cachee"] },
   ],
+  // Traitements administrables par un citoyen dont l'occupation est "Apothicaire" (voir l'onglet
+  // Apothicaire côté citoyen) — chaque traitement a son propre effet et son propre prix, payé par
+  // le patient à l'apothicaire.
+  treatments: [
+    { id: "tisane", name: "Tisane fortifiante", description: "Un remède simple à base de plantes, allège un peu le mal.", icon: "🍵", effect: "REDUCE_PENALTY", value: 15, price: 3 },
+    { id: "cataplasme", name: "Cataplasme et repos forcé", description: "Accélère la convalescence de quelques jours.", icon: "🩹", effect: "REDUCE_DAYS", value: 2, price: 6 },
+    { id: "remede_savant", name: "Remède du savant", description: "Une préparation complexe, coûteuse, mais qui guérit net.", icon: "⚗️", effect: "CURE", value: 0, price: 20 },
+  ],
+};
+
+const TREATMENT_EFFECTS = {
+  CURE: { label: "Guérison immédiate", unit: "" },
+  REDUCE_DAYS: { label: "Réduit la durée restante", unit: "jour(s)" },
+  REDUCE_PENALTY: { label: "Réduit la pénalité de production", unit: "%" },
 };
 
 const blankIllness = () => ({
@@ -2319,13 +2333,33 @@ const blankIllness = () => ({
   weight: 10, minDurationDays: 2, maxDurationDays: 5, productionPenaltyPercent: 20, statusEffectIds: [],
 });
 
+const blankTreatment = () => ({
+  id: `traitement_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+  name: "Nouveau traitement", description: "", icon: "⚗️",
+  effect: "REDUCE_PENALTY", value: 10, price: 5,
+});
+
 const GMIllness = ({ state, onUpdateState, notify }) => {
   const cfg = { ...DEFAULT_ILLNESS_CONFIG, ...(state.illnessConfig || {}) };
   const illnesses = cfg.illnesses?.length ? cfg.illnesses : DEFAULT_ILLNESS_CONFIG.illnesses;
+  const treatments = cfg.treatments?.length ? cfg.treatments : DEFAULT_ILLNESS_CONFIG.treatments;
 
   const save = (patch, msg) => {
     onUpdateState({ ...state, illnessConfig: { ...cfg, ...patch } });
     if (msg) notify(msg, "success");
+  };
+
+  const updateTreatment = (id, field, value) => {
+    const next = treatments.map((t) => (t.id === id ? { ...t, [field]: value } : t));
+    save({ treatments: next });
+  };
+
+  const addTreatment = () => {
+    save({ treatments: [...treatments, blankTreatment()] }, "Traitement ajouté.");
+  };
+
+  const removeTreatment = (id) => {
+    save({ treatments: treatments.filter((t) => t.id !== id) }, "Traitement supprimé.");
   };
 
   const updateIllness = (id, field, value) => {
@@ -2629,6 +2663,72 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
         {illnesses.length === 0 && (
           <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-700 rounded-xl">
             Aucune maladie définie — les maladies aléatoires n'auront aucun effet même si activées.
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+          Traitements ({treatments.length}) — administrables en jeu par un citoyen dont l'occupation est "Apothicaire"
+        </div>
+        <button
+          onClick={addTreatment}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/60"
+        >
+          <Plus size={12} /> Ajouter un traitement
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {treatments.map((t) => (
+          <Card key={t.id} className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-14 shrink-0">
+                <Label>Icône</Label>
+                <Input value={t.icon} onChange={(e) => updateTreatment(t.id, "icon", e.target.value)} className="text-center text-lg" maxLength={4} />
+              </div>
+              <div className="flex-1">
+                <Label>Nom</Label>
+                <Input value={t.name} onChange={(e) => updateTreatment(t.id, "name", e.target.value)} placeholder="Ex: Décoction fébrifuge" />
+              </div>
+              <button onClick={() => removeTreatment(t.id)} className="mt-5 text-stone-500 hover:text-red-400 p-2 shrink-0" title="Supprimer ce traitement">
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <div className="mt-3">
+              <Label>Description (RP)</Label>
+              <textarea
+                value={t.description}
+                onChange={(e) => updateTreatment(t.id, "description", e.target.value)}
+                rows={2}
+                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+              <div className="sm:col-span-2">
+                <Label>Effet</Label>
+                <Select value={t.effect} onChange={(e) => updateTreatment(t.id, "effect", e.target.value)}>
+                  {Object.entries(TREATMENT_EFFECTS).map(([id, meta]) => (
+                    <option key={id} value={id}>{meta.label}</option>
+                  ))}
+                </Select>
+              </div>
+              {t.effect !== "CURE" && (
+                <div>
+                  <Label>Valeur ({TREATMENT_EFFECTS[t.effect]?.unit})</Label>
+                  <Input type="number" min="0" value={t.value} onChange={(e) => updateTreatment(t.id, "value", Math.max(0, parseInt(e.target.value) || 0))} />
+                </div>
+              )}
+              <div>
+                <Label>Prix (Écus)</Label>
+                <Input type="number" min="0" step="0.1" value={t.price} onChange={(e) => updateTreatment(t.id, "price", Math.max(0, parseFloat(e.target.value) || 0))} />
+              </div>
+            </div>
+          </Card>
+        ))}
+        {treatments.length === 0 && (
+          <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-700 rounded-xl">
+            Aucun traitement défini — l'onglet Apothicaire n'aura rien à proposer.
           </div>
         )}
       </div>

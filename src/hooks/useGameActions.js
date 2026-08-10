@@ -5348,6 +5348,69 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Votre moral a été mis à jour.", "success");
       },
 
+      // --- APOTHICAIRE : administrer un traitement à un citoyen malade ---
+      // Réservé aux citoyens dont l'occupation (texte libre défini par le GM sur la fiche
+      // citoyen) est "Apothicaire" — un rôle de métier, pas un lieu. Le patient paie le prix du
+      // traitement à l'apothicaire (sauf auto-traitement, sans effet économique).
+      onAdministerTreatment: ({ patientId, treatmentId }) => {
+        if (!session) return;
+        const apothecary = (state.citizens || []).find((c) => c.id === session.id);
+        if (!apothecary) return;
+        if ((apothecary.occupation || "").trim().toLowerCase() !== "apothicaire") {
+          notify("Seul un apothicaire peut administrer un traitement.", "error");
+          return;
+        }
+        const patient = (state.citizens || []).find((c) => c.id === patientId);
+        if (!patient) { notify("Patient introuvable.", "error"); return; }
+        if (!patient.illness) { notify(`${patient.name} n'est pas malade.`, "error"); return; }
+        const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
+        if (!treatment) { notify("Traitement introuvable.", "error"); return; }
+        const price = treatment.price || 0;
+        const isSelfTreatment = String(patient.id) === String(apothecary.id);
+        if (!isSelfTreatment && (patient.balance || 0) < price) {
+          notify(`${patient.name} n'a pas les fonds nécessaires (${formatMoney(price)}).`, "error");
+          return;
+        }
+
+        let updatedPatient = patient;
+        let cured = false;
+        if (treatment.effect === "CURE") {
+          updatedPatient = clearIllnessFromCitizen(patient);
+          cured = true;
+        } else if (treatment.effect === "REDUCE_DAYS") {
+          const daysElapsed = Math.min(patient.illness.durationDays, (patient.illness.daysElapsed || 0) + (treatment.value || 0));
+          updatedPatient = daysElapsed >= patient.illness.durationDays
+            ? (cured = true, clearIllnessFromCitizen(patient))
+            : { ...patient, illness: { ...patient.illness, daysElapsed } };
+        } else if (treatment.effect === "REDUCE_PENALTY") {
+          const productionPenaltyPercent = Math.max(0, (patient.illness.productionPenaltyPercent || 0) - (treatment.value || 0));
+          updatedPatient = { ...patient, illness: { ...patient.illness, productionPenaltyPercent } };
+        }
+
+        const newCitizens = (state.citizens || []).map((c) => {
+          if (isSelfTreatment && c.id === patient.id) return updatedPatient;
+          if (c.id === patient.id) return { ...updatedPatient, balance: (updatedPatient.balance || 0) - price };
+          if (c.id === apothecary.id) return { ...c, balance: (c.balance || 0) + price };
+          return c;
+        });
+
+        const healthAlerts = [
+          {
+            id: `health_${patient.id}_${Date.now()}`, toId: patient.id,
+            type: cured ? "illness_recovered" : "treatment_administered",
+            name: cured ? treatment.name : treatment.name, timestamp: Date.now(),
+          },
+          ...(state.healthAlerts || []),
+        ].slice(0, 300);
+
+        const ledger = price > 0 && !isSelfTreatment
+          ? [{ id: Date.now(), fromName: patient.name, toName: apothecary.name, amount: price, timestamp: Date.now(), reason: `Traitement — ${treatment.name}`, type: "TREATMENT" }, ...(state.globalLedger || [])].slice(0, 1000)
+          : state.globalLedger;
+
+        saveState({ ...state, citizens: newCitizens, healthAlerts, globalLedger: ledger });
+        notify(cured ? `${patient.name} est guéri(e) grâce à votre traitement.` : `Traitement administré à ${patient.name}.`, "success");
+      },
+
       onUpdateEmployeeContract: ({ companyId, citizenId, updates }) => {
         if (!session) return;
         const company = (state.companies || []).find(c => c.id === companyId);

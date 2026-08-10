@@ -682,6 +682,8 @@ export default function App() {
             onSetEmployeeSerfRights={actions.onSetEmployeeSerfRights}
             onSetSelfRights={actions.onSetSelfRights}
             onSetMyMorale={actions.onSetMyMorale}
+            illnessConfig={state.illnessConfig}
+            onAdministerTreatment={actions.onAdministerTreatment}
             onUpdateEmployeeContract={actions.onUpdateEmployeeContract}
             onApplyToCompany={actions.onApplyToCompany}
             onRespondApplication={actions.onRespondApplication}
