@@ -401,13 +401,16 @@ const CitizenPhysicsMagicView = ({ user }) => {
           <>
             {/* Maladie en cours (système de maladies aléatoires, configuré par les GM) */}
             {user?.illness && (
-              <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 px-5 py-3 flex items-center gap-3">
-                <span className="text-xl shrink-0">🤒</span>
+              <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 px-5 py-3 flex items-start gap-3">
+                <span className="text-xl shrink-0">{user.illness.icon || "🤒"}</span>
                 <div className="flex-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-yellow-700 block">
-                    Malade — {user.illness.severityLabel}
+                    Malade — {user.illness.name || user.illness.severityLabel || "Maladie"}
                   </span>
-                  <span className="text-xs text-yellow-800">
+                  {user.illness.description && (
+                    <p className="text-xs text-yellow-800 italic mt-0.5">{user.illness.description}</p>
+                  )}
+                  <span className="text-xs text-yellow-800 block mt-0.5">
                     {Math.max(0, (user.illness.durationDays || 0) - (user.illness.daysElapsed || 0))} jour
                     {Math.max(0, (user.illness.durationDays || 0) - (user.illness.daysElapsed || 0)) > 1 ? "s" : ""} avant guérison estimée
                   </span>

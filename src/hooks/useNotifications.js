@@ -443,8 +443,8 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     // --- Alertes santé (maladies aléatoires — voir onPassDay) ---
     if (prefs.employment !== false) {
       const HEALTH_ALERT_META = {
-        illness_started:   { title: "Vous êtes tombé(e) malade", icon: "ShieldAlert", desc: (a) => `Maladie ${a.severityLabel?.toLowerCase() || ""} — repos conseillé.` },
-        illness_recovered: { title: "Rétabli(e)", icon: "HeartHandshake", desc: () => "Vous vous êtes remis(e) de votre maladie." },
+        illness_started:   { title: "Vous êtes tombé(e) malade", icon: "ShieldAlert", desc: (a) => a.name ? `${a.name}${a.description ? ` — ${a.description}` : ""}` : "Repos conseillé." },
+        illness_recovered: { title: "Rétabli(e)", icon: "HeartHandshake", desc: (a) => a.name ? `Vous vous êtes remis(e) de : ${a.name}.` : "Vous vous êtes remis(e) de votre maladie." },
       };
       (state?.healthAlerts || [])
         .filter((a) => String(a.toId) === String(user.id))

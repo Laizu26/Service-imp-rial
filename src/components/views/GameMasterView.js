@@ -2304,27 +2304,41 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
 const DEFAULT_ILLNESS_CONFIG = {
   enabled: false,
   dailyChancePercent: 2,
-  minDurationDays: 2,
-  maxDurationDays: 7,
-  severities: [
-    { id: "legere", label: "Légère", weight: 60, productionPenaltyPercent: 15 },
-    { id: "moderee", label: "Modérée", weight: 30, productionPenaltyPercent: 40 },
-    { id: "grave", label: "Grave", weight: 10, productionPenaltyPercent: 75 },
+  illnesses: [
+    { id: "rhume", name: "Rhume", description: "Un simple refroidissement, gênant mais sans gravité.", icon: "🤧", weight: 40, minDurationDays: 2, maxDurationDays: 4, productionPenaltyPercent: 10 },
+    { id: "grippe", name: "Grippe", description: "Fièvre et courbatures qui clouent au lit plusieurs jours.", icon: "🤒", weight: 30, minDurationDays: 3, maxDurationDays: 7, productionPenaltyPercent: 30 },
+    { id: "dysenterie", name: "Dysenterie", description: "Infection intestinale sévère, très affaiblissante.", icon: "🤢", weight: 15, minDurationDays: 5, maxDurationDays: 10, productionPenaltyPercent: 50 },
+    { id: "fievre_maligne", name: "Fièvre maligne", description: "Fièvre violente aux origines incertaines, potentiellement grave si négligée.", icon: "🥵", weight: 10, minDurationDays: 7, maxDurationDays: 14, productionPenaltyPercent: 70 },
+    { id: "peste", name: "Peste", description: "Le fléau redouté de tous les âges. Rare, mais dévastateur.", icon: "☠️", weight: 5, minDurationDays: 10, maxDurationDays: 21, productionPenaltyPercent: 90 },
   ],
 };
 
+const blankIllness = () => ({
+  id: `maladie_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+  name: "Nouvelle maladie", description: "", icon: "🤒",
+  weight: 10, minDurationDays: 2, maxDurationDays: 5, productionPenaltyPercent: 20,
+});
+
 const GMIllness = ({ state, onUpdateState, notify }) => {
   const cfg = { ...DEFAULT_ILLNESS_CONFIG, ...(state.illnessConfig || {}) };
-  const severities = cfg.severities?.length ? cfg.severities : DEFAULT_ILLNESS_CONFIG.severities;
+  const illnesses = cfg.illnesses?.length ? cfg.illnesses : DEFAULT_ILLNESS_CONFIG.illnesses;
 
   const save = (patch, msg) => {
     onUpdateState({ ...state, illnessConfig: { ...cfg, ...patch } });
     if (msg) notify(msg, "success");
   };
 
-  const updateSeverity = (id, field, value) => {
-    const next = severities.map((s) => (s.id === id ? { ...s, [field]: value } : s));
-    save({ severities: next });
+  const updateIllness = (id, field, value) => {
+    const next = illnesses.map((i) => (i.id === id ? { ...i, [field]: value } : i));
+    save({ illnesses: next });
+  };
+
+  const addIllness = () => {
+    save({ illnesses: [...illnesses, blankIllness()] }, "Maladie ajoutée.");
+  };
+
+  const removeIllness = (id) => {
+    save({ illnesses: illnesses.filter((i) => i.id !== id) }, "Maladie supprimée.");
   };
 
   const sickCount = (state.citizens || []).filter((c) => c.illness).length;
@@ -2346,65 +2360,111 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
           description={`Actuellement ${sickCount} citoyen${sickCount > 1 ? "s" : ""} malade${sickCount > 1 ? "s" : ""} dans le monde.`}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 pt-5 border-t border-stone-800">
-          <div>
-            <Label>Chance quotidienne (%)</Label>
-            <Input
-              type="number" min="0" max="100" step="0.1"
-              value={cfg.dailyChancePercent}
-              onChange={(e) => save({ dailyChancePercent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })}
-            />
-          </div>
-          <div>
-            <Label>Durée min. (jours)</Label>
-            <Input
-              type="number" min="1"
-              value={cfg.minDurationDays}
-              onChange={(e) => save({ minDurationDays: Math.max(1, parseInt(e.target.value) || 1) })}
-            />
-          </div>
-          <div>
-            <Label>Durée max. (jours)</Label>
-            <Input
-              type="number" min="1"
-              value={cfg.maxDurationDays}
-              onChange={(e) => save({ maxDurationDays: Math.max(1, parseInt(e.target.value) || 1) })}
-            />
-          </div>
+        <div className="mt-5 pt-5 border-t border-stone-800 max-w-xs">
+          <Label>Chance quotidienne par citoyen (%)</Label>
+          <Input
+            type="number" min="0" max="100" step="0.1"
+            value={cfg.dailyChancePercent}
+            onChange={(e) => save({ dailyChancePercent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })}
+          />
         </div>
       </Card>
 
-      <Card className="p-6">
-        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-4">
-          Paliers de gravité (poids relatif au tirage + pénalité de production)
+      <div className="flex items-center justify-between">
+        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+          Maladies définies ({illnesses.length}) — poids relatif au tirage, durée et effet propres à chacune
         </div>
-        <div className="space-y-3">
-          {severities.map((s) => (
-            <div key={s.id} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end bg-stone-800/40 border border-stone-700/50 rounded-lg p-3">
-              <div>
-                <Label>Nom</Label>
-                <div className="text-sm font-bold text-stone-200 py-2.5">{s.label}</div>
+        <button
+          onClick={addIllness}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/60"
+        >
+          <Plus size={12} /> Ajouter une maladie
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {illnesses.map((ill) => (
+          <Card key={ill.id} className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-14 shrink-0">
+                <Label>Icône</Label>
+                <Input
+                  value={ill.icon}
+                  onChange={(e) => updateIllness(ill.id, "icon", e.target.value)}
+                  className="text-center text-lg"
+                  maxLength={4}
+                />
               </div>
+              <div className="flex-1">
+                <Label>Nom</Label>
+                <Input
+                  value={ill.name}
+                  onChange={(e) => updateIllness(ill.id, "name", e.target.value)}
+                  placeholder="Ex: Fièvre des marais"
+                />
+              </div>
+              <button
+                onClick={() => removeIllness(ill.id)}
+                className="mt-5 text-stone-500 hover:text-red-400 p-2 shrink-0"
+                title="Supprimer cette maladie"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+
+            <div className="mt-3">
+              <Label>Description (RP)</Label>
+              <textarea
+                value={ill.description}
+                onChange={(e) => updateIllness(ill.id, "description", e.target.value)}
+                placeholder="Symptômes, ton, ambiance..."
+                rows={2}
+                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
               <div>
                 <Label>Poids (tirage)</Label>
                 <Input
                   type="number" min="0"
-                  value={s.weight}
-                  onChange={(e) => updateSeverity(s.id, "weight", Math.max(0, parseInt(e.target.value) || 0))}
+                  value={ill.weight}
+                  onChange={(e) => updateIllness(ill.id, "weight", Math.max(0, parseInt(e.target.value) || 0))}
                 />
               </div>
-              <div className="sm:col-span-2">
-                <Label>Pénalité de production (%)</Label>
+              <div>
+                <Label>Pénalité production (%)</Label>
                 <Input
                   type="number" min="0" max="100"
-                  value={s.productionPenaltyPercent}
-                  onChange={(e) => updateSeverity(s.id, "productionPenaltyPercent", Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                  value={ill.productionPenaltyPercent}
+                  onChange={(e) => updateIllness(ill.id, "productionPenaltyPercent", Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                />
+              </div>
+              <div>
+                <Label>Durée min. (j)</Label>
+                <Input
+                  type="number" min="1"
+                  value={ill.minDurationDays}
+                  onChange={(e) => updateIllness(ill.id, "minDurationDays", Math.max(1, parseInt(e.target.value) || 1))}
+                />
+              </div>
+              <div>
+                <Label>Durée max. (j)</Label>
+                <Input
+                  type="number" min="1"
+                  value={ill.maxDurationDays}
+                  onChange={(e) => updateIllness(ill.id, "maxDurationDays", Math.max(1, parseInt(e.target.value) || 1))}
                 />
               </div>
             </div>
-          ))}
-        </div>
-      </Card>
+          </Card>
+        ))}
+        {illnesses.length === 0 && (
+          <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-700 rounded-xl">
+            Aucune maladie définie — les maladies aléatoires n'auront aucun effet même si activées.
+          </div>
+        )}
+      </div>
     </div>
   );
 };

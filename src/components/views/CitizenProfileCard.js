@@ -85,9 +85,9 @@ const CitizenProfileCard = ({ citizen, countries = [], companies = [], users = [
                     citizen.status === "Décédé" ? "bg-stone-900 text-stone-400" :
                     "bg-green-100 text-green-800 border border-green-300"
                   }`}
-                  title={citizen.illness ? `Maladie ${citizen.illness.severityLabel?.toLowerCase()}` : undefined}
+                  title={citizen.illness ? (citizen.illness.name || citizen.illness.severityLabel) : undefined}
                 >
-                  {citizen.illness ? `🤒 ${citizen.status || "Malade"}` : (citizen.status || "Actif")}
+                  {citizen.illness ? `${citizen.illness.icon || "🤒"} ${citizen.status || "Malade"}` : (citizen.status || "Actif")}
                 </span>
                 {citizenFamily && (
                   <>

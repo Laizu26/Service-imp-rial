@@ -476,20 +476,33 @@ export const useGameActions = (session, state, saveState, notify) => {
         // en son nom — juste un état visible sur son profil et une notification).
         const illnessCfg = ns.illnessConfig;
         const healthAlerts = [];
+        // Chaque maladie est définie par le GM (nom, description, durée et pénalité qui lui
+        // sont propres) — remplace l'ancien système à 3 paliers génériques (severities) par des
+        // maladies distinctes, pour plus de saveur RP. Rétro-compatible : si une config datant
+        // d'avant cette refonte ne contient que des "severities", on les convertit à la volée.
+        const illnessDefs = (illnessCfg?.illnesses?.length
+          ? illnessCfg.illnesses
+          : (illnessCfg?.severities || []).map((s) => ({
+              id: s.id, name: s.label, description: "", icon: "🤒",
+              weight: s.weight, productionPenaltyPercent: s.productionPenaltyPercent,
+              minDurationDays: illnessCfg?.minDurationDays, maxDurationDays: illnessCfg?.maxDurationDays,
+            }))
+        ).filter((d) => d.weight > 0);
         const rollIllness = (cfg) => {
-          const severities = (cfg.severities || []).filter((s) => s.weight > 0);
-          const totalWeight = severities.reduce((s, sv) => s + sv.weight, 0);
+          const totalWeight = illnessDefs.reduce((s, d) => s + d.weight, 0);
           if (totalWeight <= 0) return null;
           let roll = Math.random() * totalWeight;
-          let chosen = severities[0];
-          for (const sv of severities) {
-            if (roll < sv.weight) { chosen = sv; break; }
-            roll -= sv.weight;
+          let chosen = illnessDefs[0];
+          for (const d of illnessDefs) {
+            if (roll < d.weight) { chosen = d; break; }
+            roll -= d.weight;
           }
-          const span = Math.max(0, (cfg.maxDurationDays || 1) - (cfg.minDurationDays || 1));
-          const durationDays = Math.max(1, Math.round((cfg.minDurationDays || 1) + Math.random() * span));
+          const minD = chosen.minDurationDays || cfg.minDurationDays || 1;
+          const maxD = chosen.maxDurationDays || cfg.maxDurationDays || minD;
+          const span = Math.max(0, maxD - minD);
+          const durationDays = Math.max(1, Math.round(minD + Math.random() * span));
           return {
-            severityId: chosen.id, severityLabel: chosen.label,
+            illnessId: chosen.id, name: chosen.name, description: chosen.description || "", icon: chosen.icon || "🤒",
             productionPenaltyPercent: chosen.productionPenaltyPercent || 0,
             startedDayCycle: ns.dayCycle, durationDays, daysElapsed: 0,
           };
@@ -500,7 +513,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             if (c.illness) {
               const daysElapsed = (c.illness.daysElapsed || 0) + 1;
               if (daysElapsed >= c.illness.durationDays) {
-                healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_recovered", severityLabel: c.illness.severityLabel, timestamp: Date.now() });
+                healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_recovered", name: c.illness.name, timestamp: Date.now() });
                 return { ...c, illness: null, status: c.status === "Malade" ? "Actif" : c.status };
               }
               return { ...c, illness: { ...c.illness, daysElapsed } };
@@ -508,7 +521,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             if (Math.random() * 100 < (illnessCfg.dailyChancePercent || 0)) {
               const illness = rollIllness(illnessCfg);
               if (!illness) return c;
-              healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_started", severityLabel: illness.severityLabel, timestamp: Date.now() });
+              healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_started", name: illness.name, description: illness.description, timestamp: Date.now() });
               return { ...c, illness, status: (!c.status || c.status === "Actif") ? "Malade" : c.status };
             }
             return c;
@@ -618,8 +631,8 @@ export const useGameActions = (session, state, saveState, notify) => {
                 if (illness) {
                   const target = ns.citizens[targetIdx];
                   ns.citizens[targetIdx] = { ...target, illness, status: (!target.status || target.status === "Actif") ? "Malade" : target.status };
-                  healthAlerts.push({ id: `health_${targetId}_${Date.now()}`, toId: targetId, type: "illness_started", severityLabel: illness.severityLabel, timestamp: Date.now() });
-                  description = `${ns.citizens[targetIdx].name} est tombé(e) malade suite à une épidémie dans l'entreprise.`;
+                  healthAlerts.push({ id: `health_${targetId}_${Date.now()}`, toId: targetId, type: "illness_started", name: illness.name, description: illness.description, timestamp: Date.now() });
+                  description = `${ns.citizens[targetIdx].name} est tombé(e) malade (${illness.name}) suite à une épidémie dans l'entreprise.`;
                 }
               }
               if (!description) return; // personne d'éligible, pas d'événement à consigner
