@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { TrendingUp, BarChart2, History, Search, X, ChevronDown, ChevronUp, ListOrdered, Landmark, Megaphone } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
-import { PriceSparkline, PriceHistoryChart, PriceChangeBadge, BourseTicker, OrderBookDepth } from "../ui/BourseWidgets";
+import { PriceSparkline, PriceHistoryChart, PriceChangeBadge, BourseTicker, OrderBookDepth, BoardVotingPanel } from "../ui/BourseWidgets";
 
 const BOURSE_DAILY_CAP = 0.3;
 
@@ -145,7 +145,10 @@ const OrderForm = ({ listing, user, side, onSubmit, onCancel }) => {
   );
 };
 
-const CitizenBourseView = ({ user, citizens = [], companies = [], bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [] }) => {
+const CitizenBourseView = ({
+  user, citizens = [], companies = [], bourseListings = [], onBoursePlaceOrder, onBourseCancelOrder, globalLedger = [],
+  boardProposals = [], dayCycle = 0, onCreateBoardProposal, onCastBoardVote, onCancelBoardProposal,
+}) => {
   const [bourseTab, setBourseTab] = useState("market");
   const [bourseSearch, setBourseSearch] = useState("");
   const [expandedId, setExpandedId] = useState(null);
@@ -312,6 +315,17 @@ const CitizenBourseView = ({ user, citizens = [], companies = [], bourseListings
                         {myShares > 0 && (
                           <ShareholderPanel company={companies.find((c) => c.id === listing.companyId)} listing={listing} />
                         )}
+                        <BoardVotingPanel
+                          listing={listing}
+                          company={companies.find((c) => c.id === listing.companyId)}
+                          citizens={citizens}
+                          myId={user.id}
+                          dayCycle={dayCycle}
+                          proposals={boardProposals}
+                          onCreateBoardProposal={onCreateBoardProposal}
+                          onCastBoardVote={onCastBoardVote}
+                          onCancelBoardProposal={onCancelBoardProposal}
+                        />
                         {(listing.priceHistory || []).length > 1 && (
                           <div className="bg-stone-50 border border-stone-100 rounded-lg p-3">
                             <PriceHistoryChart history={listing.priceHistory} />
@@ -395,6 +409,17 @@ const CitizenBourseView = ({ user, citizens = [], companies = [], bourseListings
                     {isExpanded && (
                       <div className="px-4 py-3 border-t border-stone-100 space-y-3">
                         <ShareholderPanel company={companies.find((c) => c.id === listing.companyId)} listing={listing} />
+                        <BoardVotingPanel
+                          listing={listing}
+                          company={companies.find((c) => c.id === listing.companyId)}
+                          citizens={citizens}
+                          myId={user.id}
+                          dayCycle={dayCycle}
+                          proposals={boardProposals}
+                          onCreateBoardProposal={onCreateBoardProposal}
+                          onCastBoardVote={onCastBoardVote}
+                          onCancelBoardProposal={onCancelBoardProposal}
+                        />
                         {formSide ? (
                           <OrderForm listing={listing} user={user} side={formSide} onSubmit={submitOrder} onCancel={() => setFormSide(null)} />
                         ) : (

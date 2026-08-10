@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Landmark, X } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
 
 /* ── Mini-graphe d'historique de prix ── */
@@ -162,6 +162,172 @@ export const OrderBookDepth = ({ buyOrders = [], sellOrders = [], myId, ownerId,
         <div className="text-[9px] font-black uppercase text-red-500 tracking-widest px-1">Vente ({sells.length})</div>
         {sells.length === 0 ? <p className="text-[10px] text-stone-300 italic px-2">—</p> : sells.map((o) => <Row key={o.id} o={o} side="sell" />)}
       </div>
+    </div>
+  );
+};
+
+/* ── Conseil d'administration : propositions et votes pondérés par actions ──
+   Composant partagé entre CitizenBourseView (n'importe quel actionnaire) et l'onglet Bourse
+   de MyCompanyView (dirigeant/PDG), pour n'avoir qu'une seule interface de vote. */
+const BOARD_TYPE_META = {
+  REVOKE_CEO: { label: "Révoquer le PDG", badge: "bg-red-100 text-red-700 border-red-200" },
+  DIVIDEND: { label: "Dividende", badge: "bg-amber-100 text-amber-700 border-amber-200" },
+  CUSTOM: { label: "Proposition", badge: "bg-stone-100 text-stone-600 border-stone-200" },
+};
+const BOARD_STATUS_META = {
+  PASSED: { label: "Adoptée", cls: "bg-green-100 text-green-700 border-green-200" },
+  REJECTED: { label: "Rejetée", cls: "bg-red-100 text-red-700 border-red-200" },
+  EXPIRED: { label: "Expirée (quorum non atteint)", cls: "bg-stone-100 text-stone-500 border-stone-200" },
+  CANCELLED: { label: "Annulée", cls: "bg-stone-100 text-stone-500 border-stone-200" },
+};
+
+export const BoardVotingPanel = ({
+  listing, company, citizens = [], myId, dayCycle = 0,
+  proposals = [], onCreateBoardProposal, onCastBoardVote, onCancelBoardProposal,
+}) => {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ type: "CUSTOM", title: "", description: "", dividendPerShare: "", durationDays: "3" });
+
+  const myShares = (citizens.find((c) => c.id === myId)?.stockholdings || {})[listing.id] || 0;
+  const listingProposals = proposals.filter((p) => p.listingId === listing.id);
+  const openProposals = listingProposals.filter((p) => p.status === "OPEN").sort((a, b) => a.deadlineDayCycle - b.deadlineDayCycle);
+  const resolvedProposals = listingProposals.filter((p) => p.status !== "OPEN").sort((a, b) => (b.resolvedAt || 0) - (a.resolvedAt || 0)).slice(0, 5);
+
+  const weightOf = (citizenId) => (citizens.find((c) => String(c.id) === String(citizenId))?.stockholdings || {})[listing.id] || 0;
+
+  const submitProposal = () => {
+    if (!onCreateBoardProposal || !form.title.trim()) return;
+    onCreateBoardProposal({
+      listingId: listing.id,
+      type: form.type,
+      title: form.title.trim(),
+      description: form.description.trim(),
+      params: form.type === "DIVIDEND" ? { dividendPerShare: parseFloat(form.dividendPerShare) || 0 } : {},
+      durationDays: parseInt(form.durationDays) || 3,
+    });
+    setForm({ type: "CUSTOM", title: "", description: "", dividendPerShare: "", durationDays: "3" });
+    setShowForm(false);
+  };
+
+  return (
+    <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-[11px] font-black uppercase text-indigo-700 tracking-widest">
+          <Landmark size={13} /> Conseil d'administration
+        </div>
+        {onCreateBoardProposal && myShares > 0 && (
+          <button onClick={() => setShowForm((v) => !v)}
+            className="text-[9px] font-black uppercase px-2 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-500">
+            {showForm ? "Annuler" : "+ Proposition"}
+          </button>
+        )}
+      </div>
+
+      {myShares === 0 && (
+        <p className="text-[10px] text-stone-400 italic">Seuls les actionnaires de {listing.symbol} peuvent proposer ou voter ici.</p>
+      )}
+
+      {showForm && (
+        <div className="bg-white border border-indigo-200 rounded-lg p-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+              className="p-2 border border-stone-200 rounded text-xs bg-white">
+              <option value="CUSTOM">Proposition libre</option>
+              {company?.ceoId && <option value="REVOKE_CEO">Révoquer le PDG</option>}
+              <option value="DIVIDEND">Verser un dividende</option>
+            </select>
+            <select value={form.durationDays} onChange={(e) => setForm((f) => ({ ...f, durationDays: e.target.value }))}
+              className="p-2 border border-stone-200 rounded text-xs bg-white">
+              {[1, 2, 3, 5, 7].map((d) => <option key={d} value={d}>{d} jour{d > 1 ? "s" : ""} de vote</option>)}
+            </select>
+          </div>
+          <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+            placeholder="Titre de la proposition" maxLength={80}
+            className="w-full p-2 border border-stone-200 rounded text-xs" />
+          <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Détails (optionnel)" rows={2} maxLength={400}
+            className="w-full p-2 border border-stone-200 rounded text-xs resize-none" />
+          {form.type === "DIVIDEND" && (
+            <input type="number" min={0} step={0.1} value={form.dividendPerShare}
+              onChange={(e) => setForm((f) => ({ ...f, dividendPerShare: e.target.value }))}
+              placeholder="Dividende par action (Écus)"
+              className="w-full p-2 border border-stone-200 rounded text-xs font-mono" />
+          )}
+          <button onClick={submitProposal} disabled={!form.title.trim()}
+            className="w-full bg-indigo-600 text-white py-2 rounded text-xs font-black uppercase hover:bg-indigo-500 disabled:opacity-40">
+            Soumettre au vote
+          </button>
+        </div>
+      )}
+
+      {openProposals.length === 0 && resolvedProposals.length === 0 && !showForm && (
+        <p className="text-[10px] text-stone-400 italic">Aucune proposition en cours.</p>
+      )}
+
+      {openProposals.map((p) => {
+        const votes = p.votes || {};
+        const forW = Object.entries(votes).filter(([, v]) => v === "FOR").reduce((s, [id]) => s + weightOf(id), 0);
+        const againstW = Object.entries(votes).filter(([, v]) => v === "AGAINST").reduce((s, [id]) => s + weightOf(id), 0);
+        const abstainW = Object.entries(votes).filter(([, v]) => v === "ABSTAIN").reduce((s, [id]) => s + weightOf(id), 0);
+        const totalCast = forW + againstW + abstainW;
+        const forPct = totalCast > 0 ? Math.round((forW / totalCast) * 100) : 0;
+        const myVote = votes[myId];
+        const daysLeft = Math.max(0, p.deadlineDayCycle - dayCycle);
+        const typeMeta = BOARD_TYPE_META[p.type] || BOARD_TYPE_META.CUSTOM;
+        return (
+          <div key={p.id} className="bg-white border border-indigo-200 rounded-lg p-3 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${typeMeta.badge}`}>{typeMeta.label}</span>
+                  <span className="text-xs font-bold text-stone-800">{p.title}</span>
+                </div>
+                {p.description && <p className="text-[10px] text-stone-500 mt-0.5">{p.description}</p>}
+                {p.type === "DIVIDEND" && p.params?.dividendPerShare > 0 && (
+                  <p className="text-[10px] text-amber-700 font-bold mt-0.5">{formatMoney(p.params.dividendPerShare)}/action</p>
+                )}
+                <p className="text-[9px] text-stone-400 mt-0.5">Proposé par {p.proposedByName} — {daysLeft > 0 ? `${daysLeft} jour(s) restant(s)` : "clôture aujourd'hui"}</p>
+              </div>
+              {String(p.proposedBy) === String(myId) && onCancelBoardProposal && (
+                <button onClick={() => onCancelBoardProposal(p.id)} className="text-stone-400 hover:text-red-500 shrink-0"><X size={14} /></button>
+              )}
+            </div>
+            <div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
+              <div className="h-full bg-green-500" style={{ width: `${forPct}%` }} />
+            </div>
+            <div className="text-[9px] text-stone-400">{forPct}% pour ({totalCast.toLocaleString()} action(s) exprimée(s))</div>
+            {myShares > 0 && onCastBoardVote && (
+              <div className="flex gap-1.5">
+                {[
+                  { choice: "FOR", label: "Pour", active: "bg-green-600 text-white border-green-600", idle: "bg-white text-stone-500 border-stone-200 hover:border-green-300" },
+                  { choice: "AGAINST", label: "Contre", active: "bg-red-600 text-white border-red-600", idle: "bg-white text-stone-500 border-stone-200 hover:border-red-300" },
+                  { choice: "ABSTAIN", label: "Abstention", active: "bg-stone-600 text-white border-stone-600", idle: "bg-white text-stone-500 border-stone-200 hover:border-stone-400" },
+                ].map(({ choice, label, active, idle }) => (
+                  <button key={choice} onClick={() => onCastBoardVote({ proposalId: p.id, choice })}
+                    className={`flex-1 py-1.5 rounded text-[10px] font-black uppercase border transition-colors ${myVote === choice ? active : idle}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {resolvedProposals.length > 0 && (
+        <div className="space-y-1.5 pt-1 border-t border-indigo-200">
+          <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">Historique récent</div>
+          {resolvedProposals.map((p) => {
+            const statusMeta = BOARD_STATUS_META[p.status] || BOARD_STATUS_META.EXPIRED;
+            return (
+              <div key={p.id} className="flex items-center justify-between text-[10px] bg-white border border-stone-100 rounded px-2 py-1.5">
+                <span className="text-stone-600 truncate">{p.title}</span>
+                <span className={`px-1.5 py-0.5 rounded border text-[8px] font-black uppercase shrink-0 ml-2 ${statusMeta.cls}`}>{statusMeta.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

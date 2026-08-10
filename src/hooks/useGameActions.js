@@ -140,6 +140,11 @@ export function computeMaisonDiscount(citizenId, staffId, maisonHistory, maisonS
 // ±30% au-dessus/en-dessous du cours d'ouverture du jour RP en cours pour cette cotation.
 export const BOURSE_DAILY_CAP = 0.3;
 
+// ── Conseil d'administration : quorum minimal (part du capital total ayant voté, abstentions
+// comprises) pour qu'une proposition soit valide — sous ce seuil elle expire sans effet plutôt
+// que d'être tranchée par une poignée d'actionnaires non représentative.
+export const BOARD_QUORUM_PCT = 0.2;
+
 // Apparie les ordres d'achat et de vente en attente d'une cotation (priorité prix, puis
 // antériorité) et renvoie les transactions exécutées ainsi que les carnets mis à jour.
 // Le prix d'exécution est celui de l'ordre "résident" (déjà présent dans le carnet), conformément
@@ -335,6 +340,87 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
         ns.dayCycle++;
+
+        // --- Conseil d'administration : résolution des votes arrivés à échéance ---
+        if ((ns.boardProposals || []).some((p) => p.status === "OPEN" && ns.dayCycle >= p.deadlineDayCycle)) {
+          const resolvedAlerts = [];
+          ns.boardProposals = (ns.boardProposals || []).map((p) => {
+            if (p.status !== "OPEN" || ns.dayCycle < p.deadlineDayCycle) return p;
+            const listing = (ns.bourseListings || []).find((l) => l.id === p.listingId);
+            if (!listing) return { ...p, status: "EXPIRED", resolvedAt: Date.now(), resolutionNote: "Cotation introuvable." };
+            const weightOf = (citizenId) => {
+              const c = (ns.citizens || []).find((x) => String(x.id) === String(citizenId));
+              return (c?.stockholdings || {})[p.listingId] || 0;
+            };
+            const votes = p.votes || {};
+            const forW = Object.entries(votes).filter(([, v]) => v === "FOR").reduce((s, [id]) => s + weightOf(id), 0);
+            const againstW = Object.entries(votes).filter(([, v]) => v === "AGAINST").reduce((s, [id]) => s + weightOf(id), 0);
+            const abstainW = Object.entries(votes).filter(([, v]) => v === "ABSTAIN").reduce((s, [id]) => s + weightOf(id), 0);
+            const participation = forW + againstW + abstainW;
+            const quorumNeeded = (listing.totalShares || 0) * BOARD_QUORUM_PCT;
+            if (participation < quorumNeeded) {
+              resolvedAlerts.push({ id: `board_${p.id}_res`, toId: p.proposedBy, type: "board_resolved", title: p.title, outcome: "EXPIRED", timestamp: Date.now() });
+              return { ...p, status: "EXPIRED", resolvedAt: Date.now(), resolutionNote: "Quorum non atteint." };
+            }
+            if (forW <= againstW) {
+              resolvedAlerts.push({ id: `board_${p.id}_res`, toId: p.proposedBy, type: "board_resolved", title: p.title, outcome: "REJECTED", timestamp: Date.now() });
+              return { ...p, status: "REJECTED", resolvedAt: Date.now() };
+            }
+            // Adoptée — exécuter l'effet selon le type de proposition
+            let resolutionNote = "";
+            if (p.type === "REVOKE_CEO") {
+              const compIdx = (ns.companies || []).findIndex((c) => c.id === p.companyId);
+              if (compIdx !== -1 && ns.companies[compIdx].ceoId) {
+                const oldCeoId = ns.companies[compIdx].ceoId;
+                const ownerId = ns.companies[compIdx].ownerId;
+                ns.companies[compIdx] = { ...ns.companies[compIdx], ceoId: null };
+                resolvedAlerts.push({ id: `board_${p.id}_ceo`, toId: oldCeoId, type: "board_resolved", title: p.title, outcome: "PASSED_REVOKE", timestamp: Date.now() });
+                if (String(ownerId) !== String(oldCeoId)) {
+                  resolvedAlerts.push({ id: `board_${p.id}_owner`, toId: ownerId, type: "board_resolved", title: p.title, outcome: "PASSED_REVOKE", timestamp: Date.now() });
+                }
+              } else {
+                resolutionNote = "Le PDG avait déjà été révoqué entre-temps.";
+              }
+            } else if (p.type === "DIVIDEND") {
+              const compIdx = (ns.companies || []).findIndex((c) => c.id === p.companyId);
+              const dps = p.params?.dividendPerShare || 0;
+              if (compIdx !== -1 && dps > 0) {
+                const holders = [];
+                (ns.citizens || []).forEach((c, i) => {
+                  const held = (c.stockholdings || {})[p.listingId] || 0;
+                  if (held > 0) holders.push({ i, held });
+                });
+                const fullTotal = holders.reduce((s, h) => s + h.held * dps, 0);
+                const treasury = ns.companies[compIdx].balance || 0;
+                const payoutRatio = fullTotal > 0 ? Math.min(1, treasury / fullTotal) : 1;
+                const effectiveDps = Math.round(dps * payoutRatio * 1000) / 1000;
+                let totalPaid = 0;
+                holders.forEach(({ i, held }) => {
+                  const payout = Math.round(held * effectiveDps * 10) / 10;
+                  if (payout <= 0) return;
+                  totalPaid += payout;
+                  ns.citizens[i] = { ...ns.citizens[i], balance: Math.round(((ns.citizens[i].balance || 0) + payout) * 10) / 10 };
+                });
+                ns.companies[compIdx] = { ...ns.companies[compIdx], balance: Math.round(((ns.companies[compIdx].balance || 0) - totalPaid) * 10) / 10 };
+                const lIdx = (ns.bourseListings || []).findIndex((l) => l.id === p.listingId);
+                if (lIdx !== -1) {
+                  ns.bourseListings[lIdx] = {
+                    ...ns.bourseListings[lIdx],
+                    dividendHistory: [{ amount: effectiveDps, requestedAmount: dps, timestamp: Date.now(), totalPaid, partial: payoutRatio < 1 }, ...(ns.bourseListings[lIdx].dividendHistory || [])].slice(0, 20),
+                  };
+                }
+                resolutionNote = payoutRatio < 1
+                  ? `Trésorerie insuffisante : ${formatMoney(effectiveDps)}/action versé (au lieu de ${formatMoney(dps)}).`
+                  : `${formatMoney(effectiveDps)}/action versé.`;
+              } else {
+                resolutionNote = "Montant de dividende invalide au moment de l'exécution.";
+              }
+            }
+            resolvedAlerts.push({ id: `board_${p.id}_res`, toId: p.proposedBy, type: "board_resolved", title: p.title, outcome: "PASSED", timestamp: Date.now() });
+            return { ...p, status: "PASSED", resolvedAt: Date.now(), resolutionNote };
+          });
+          ns.bourseAlerts = [...resolvedAlerts, ...(ns.bourseAlerts || [])].slice(0, 300);
+        }
 
         const m = ns.gameDate.month;
         let season = "Hiver";
@@ -7373,6 +7459,71 @@ export const useGameActions = (session, state, saveState, notify) => {
         } else {
           notify(`Dividendes versés : ${formatMoney(dpS)}/action. Total distribué : ${formatMoney(totalPaid)}.`, "success");
         }
+      },
+
+      // ── CONSEIL D'ADMINISTRATION : propositions et votes pondérés par actions ──
+      // N'importe quel actionnaire (au moins 1 action) peut soumettre une proposition, tout
+      // actionnaire vote au prorata de ses actions. Résolution automatique via onPassDay quand
+      // le délai de vote est écoulé (voir BOARD_QUORUM_PCT). Coexiste avec la prise de contrôle
+      // automatique à 50%+1 (checkBourseTakeover) : un actionnaire majoritaire a de toute façon
+      // déjà le contrôle direct de l'entreprise, le conseil sert surtout tant qu'aucun actionnaire
+      // ne détient seul la majorité.
+      onCreateBoardProposal: ({ listingId, type, title, description, params, durationDays }) => {
+        if (!session) return;
+        if (!title?.trim()) { notify("Titre requis.", "error"); return; }
+        const listing = (state.bourseListings || []).find((l) => l.id === listingId);
+        if (!listing || !listing.isActive) { notify("Cotation introuvable ou inactive.", "error"); return; }
+        const me = (state.citizens || []).find((c) => c.id === session.id);
+        const myShares = (me?.stockholdings || {})[listingId] || 0;
+        if (myShares <= 0) { notify("Seuls les actionnaires peuvent soumettre une proposition.", "error"); return; }
+        const company = (state.companies || []).find((c) => c.id === listing.companyId);
+        if (type === "REVOKE_CEO" && !company?.ceoId) { notify("Cette entreprise n'a pas de PDG à révoquer.", "error"); return; }
+        const validTypes = ["REVOKE_CEO", "DIVIDEND", "CUSTOM"];
+        const proposalType = validTypes.includes(type) ? type : "CUSTOM";
+        const dividendPerShare = proposalType === "DIVIDEND" ? Math.max(0, parseFloat(params?.dividendPerShare) || 0) : 0;
+        if (proposalType === "DIVIDEND" && dividendPerShare <= 0) { notify("Montant de dividende invalide.", "error"); return; }
+        const days = Math.min(14, Math.max(1, parseInt(durationDays) || 3));
+        const proposal = {
+          id: `board_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          listingId, companyId: listing.companyId, companyName: listing.companyName, symbol: listing.symbol,
+          type: proposalType,
+          title: title.trim(), description: (description || "").trim().slice(0, 400),
+          params: proposalType === "DIVIDEND" ? { dividendPerShare } : {},
+          proposedBy: session.id, proposedByName: me?.name || session.id,
+          createdAt: Date.now(), deadlineDayCycle: (state.dayCycle || 0) + days,
+          status: "OPEN", votes: {},
+        };
+        saveState({ ...state, boardProposals: [...(state.boardProposals || []), proposal] });
+        notify("Proposition soumise au conseil d'administration.", "success");
+      },
+
+      onCastBoardVote: ({ proposalId, choice }) => {
+        if (!session) return;
+        if (!["FOR", "AGAINST", "ABSTAIN"].includes(choice)) return;
+        const proposals = [...(state.boardProposals || [])];
+        const idx = proposals.findIndex((p) => p.id === proposalId);
+        if (idx === -1) { notify("Proposition introuvable.", "error"); return; }
+        const proposal = proposals[idx];
+        if (proposal.status !== "OPEN") { notify("Ce vote est clos.", "error"); return; }
+        const me = (state.citizens || []).find((c) => c.id === session.id);
+        const myShares = (me?.stockholdings || {})[proposal.listingId] || 0;
+        if (myShares <= 0) { notify("Seuls les actionnaires peuvent voter.", "error"); return; }
+        proposals[idx] = { ...proposal, votes: { ...proposal.votes, [session.id]: choice } };
+        saveState({ ...state, boardProposals: proposals });
+        notify("Vote enregistré.", "success");
+      },
+
+      onCancelBoardProposal: (proposalId) => {
+        if (!session) return;
+        const proposals = [...(state.boardProposals || [])];
+        const idx = proposals.findIndex((p) => p.id === proposalId);
+        if (idx === -1) return;
+        const proposal = proposals[idx];
+        if (proposal.status !== "OPEN") return;
+        if (String(proposal.proposedBy) !== String(session.id)) { notify("Seul l'auteur peut annuler cette proposition.", "error"); return; }
+        proposals[idx] = { ...proposal, status: "CANCELLED", resolvedAt: Date.now() };
+        saveState({ ...state, boardProposals: proposals });
+        notify("Proposition annulée.", "info");
       },
 
       // ── Plan d'Actionnariat Salarié (ESPP) ──

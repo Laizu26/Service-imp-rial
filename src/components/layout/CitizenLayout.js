@@ -655,6 +655,11 @@ const CitizenLayout = (props) => {
     onBourseCreateListing,
     onBourseEditListing,
     onBoursePayDividends,
+    boardProposals = [],
+    dayCycle = 0,
+    onCreateBoardProposal,
+    onCastBoardVote,
+    onCancelBoardProposal,
     onUpdateCompanyESPP,
     onEmployeeBuyShares,
     onPayBuyout,
@@ -1752,6 +1757,11 @@ const CitizenLayout = (props) => {
                 onBourseCompanyOffer={onBourseCompanyOffer}
                 onBourseDirectOffer={onBourseDirectOffer}
                 onBourseCancelOrder={onBourseCancelOrder}
+                boardProposals={boardProposals}
+                dayCycle={dayCycle}
+                onCreateBoardProposal={onCreateBoardProposal}
+                onCastBoardVote={onCastBoardVote}
+                onCancelBoardProposal={onCancelBoardProposal}
                 onUpdateCompanyESPP={onUpdateCompanyESPP}
                 onEmployeeBuyShares={onEmployeeBuyShares}
                 onPayBuyout={onPayBuyout}
@@ -3295,6 +3305,11 @@ const CitizenLayout = (props) => {
                 onBoursePlaceOrder={onBoursePlaceOrder}
                 onBourseCancelOrder={onBourseCancelOrder}
                 globalLedger={globalLedger}
+                boardProposals={boardProposals}
+                dayCycle={dayCycle}
+                onCreateBoardProposal={onCreateBoardProposal}
+                onCastBoardVote={onCastBoardVote}
+                onCancelBoardProposal={onCancelBoardProposal}
               />
             )}
 

@@ -815,6 +815,11 @@ export default function App() {
             onBourseCreateListing={actions.onBourseCreateListing}
             onBourseEditListing={actions.onBourseEditListing}
             onBoursePayDividends={actions.onBoursePayDividends}
+            boardProposals={state.boardProposals || []}
+            dayCycle={state.dayCycle || 0}
+            onCreateBoardProposal={actions.onCreateBoardProposal}
+            onCastBoardVote={actions.onCastBoardVote}
+            onCancelBoardProposal={actions.onCancelBoardProposal}
             onUpdateCompanyESPP={actions.onUpdateCompanyESPP}
             onEmployeeBuyShares={actions.onEmployeeBuyShares}
             onPayBuyout={actions.onPayBuyout}

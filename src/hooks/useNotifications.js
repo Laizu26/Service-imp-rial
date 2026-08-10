@@ -381,6 +381,16 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         dividend:        { title: "Dividende reçu", icon: "Coins", desc: (a) => `${formatMoney(a.amount)} — ${a.symbol}` },
         takeover_gained: { title: "Prise de contrôle !", icon: "Crown", desc: (a) => `Vous détenez la majorité des actions ${a.symbol} — vous devenez propriétaire de ${a.companyName}` },
         takeover_lost:   { title: "Perte de contrôle de l'entreprise", icon: "Crown", desc: (a) => `${a.newOwnerName} détient désormais la majorité des actions ${a.symbol} et devient propriétaire de ${a.companyName}` },
+        board_resolved:  {
+          title: "Conseil d'administration — vote clos",
+          icon: "Landmark",
+          desc: (a) => {
+            if (a.outcome === "PASSED_REVOKE") return `"${a.title}" adoptée — le PDG a été révoqué par le conseil.`;
+            if (a.outcome === "PASSED") return `"${a.title}" adoptée par le conseil.`;
+            if (a.outcome === "REJECTED") return `"${a.title}" rejetée par le conseil.`;
+            return `"${a.title}" expirée (quorum non atteint).`;
+          },
+        },
       };
       (state?.bourseAlerts || [])
         .filter((a) => String(a.toId) === String(user.id))
