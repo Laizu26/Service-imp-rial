@@ -654,16 +654,14 @@ const PropertyDetailView = ({
                                 <span className="font-mono text-yellow-700 text-xs font-bold">{formatMoney(m.price)}</span>
                                 {infinite && <span className="text-[9px] text-stone-400">∞</span>}
                               </div>
-                              {!isOwner && (
-                                <button
-                                  onClick={() => onBuyFromMenu(prop.id, m.id || m.itemName)}
-                                  disabled={!available || (user?.balance || 0) < m.price}
-                                  className="mt-2 w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
-                                  title="Consommé sur place — n'entre pas dans l'inventaire"
-                                >
-                                  <Utensils size={10} /> {available ? "Commander" : "Indisponible"}
-                                </button>
-                              )}
+                              <button
+                                onClick={() => onBuyFromMenu(prop.id, m.id || m.itemName)}
+                                disabled={!available || (user?.balance || 0) < m.price}
+                                className="mt-2 w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                                title={isOwner ? "Payer votre propre consommation, comme n'importe quel client." : "Consommé sur place — n'entre pas dans l'inventaire"}
+                              >
+                                <Utensils size={10} /> {available ? "Commander" : "Indisponible"}
+                              </button>
                             </div>
                           </div>
                         );
