@@ -335,6 +335,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         staff_unpaid:       { title: "Salaire impayé",           icon: "Building2", desc: (a) => `Le propriétaire de ${a.propertyName} n'a pas pu vous verser ${formatMoney(a.amount)}` },
         owner_changed:      { title: "Changement de bailleur",   icon: "Building2", desc: (a) => `${a.propertyName} a été vendu à ${a.otherName} — votre location continue avec le nouveau propriétaire` },
         free_item:          { title: "Consommation offerte",     icon: "Building2", desc: (a) => `${a.propertyName} vous a offert : ${a.itemName}` },
+        free_pass_granted:  { title: "Pass gratuit accordé",      icon: "Building2", desc: (a) => `Vous consommez gratuitement et sans limite chez ${a.propertyName}` },
       };
       (state?.propertyAlerts || [])
         .filter((a) => String(a.toId) === String(user.id))

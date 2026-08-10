@@ -587,6 +587,7 @@ const CitizenLayout = (props) => {
     onPostTavernMessage, onPostRumor, onDeleteRumor,
     onBuyFromMenu, onBuyFromShop,
     onGrantFreeMenuItem,
+    onGrantFreePass, onRevokeFreePass,
     onPayRound,
     onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
     onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
@@ -1552,6 +1553,8 @@ const CitizenLayout = (props) => {
                   onBuyFromMenu={onBuyFromMenu}
                   onBuyFromShop={onBuyFromShop}
                   onGrantFreeMenuItem={onGrantFreeMenuItem}
+                  onGrantFreePass={onGrantFreePass}
+                  onRevokeFreePass={onRevokeFreePass}
                   onPayRound={onPayRound}
                   gameDate={gd}
                   onCreateTavernPoll={onCreateTavernPoll}

@@ -6566,8 +6566,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         const mIdx = menu.findIndex((m) => (m.id || m.itemName) === itemKey);
         const infinite = menu[mIdx]?.stock === -1;
         if (mIdx === -1 || (!infinite && menu[mIdx].stock <= 0)) { notify("Article indisponible.", "error"); return; }
-        if ((user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
-        const price = menu[mIdx].price;
+        // Pass gratuit illimité accordé par le gérant — dispense de paiement, mais le stock est
+        // toujours consommé normalement et la consommation compte toujours pour le sondage/la
+        // tournée du jour, comme n'importe quel achat.
+        const hasFreePass = (properties[pIdx].freePassIds || []).map(String).includes(String(session.id));
+        if (!hasFreePass && (user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
+        const price = hasFreePass ? 0 : menu[mIdx].price;
         const itemName = menu[mIdx].itemName;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         const newCitizens = [...state.citizens];
@@ -6593,9 +6597,11 @@ export const useGameActions = (session, state, saveState, notify) => {
           const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
           if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + price };
         }
-        newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: price, timestamp: Date.now(), reason: `Menu: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])].slice(0, 1000);
+        if (price > 0) {
+          newState.globalLedger = [{ id: Date.now(), fromName: user.name, toName: properties[pIdx].ownerName, amount: price, timestamp: Date.now(), reason: `Menu: ${itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])].slice(0, 1000);
+        }
         saveState(newState);
-        notify(`Vous dégustez ${itemName}. Bon appétit !`, "success");
+        notify(hasFreePass ? `Vous dégustez ${itemName} — pass gratuit. Bon appétit !` : `Vous dégustez ${itemName}. Bon appétit !`, "success");
       },
 
       // Auberge : le gérant offre une consommation gratuite à un citoyen de son choix — même
@@ -6632,6 +6638,45 @@ export const useGameActions = (session, state, saveState, notify) => {
         }];
         saveState({ ...state, properties, propertyAlerts });
         notify(`${menu[mIdx].itemName} offert(e) à ${recipient.name}.`, "success");
+      },
+
+      // Pass gratuit illimité : contrairement à onGrantFreeMenuItem (un seul article, une seule
+      // fois), ce citoyen ne paie plus jamais rien dans cet établissement tant que le gérant ne
+      // révoque pas le pass — voir la vérification hasFreePass dans onBuyFromMenu.
+      onGrantFreePass: ({ propertyId, citizenId }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) {
+          notify("Seul le gérant de l'établissement peut accorder un pass gratuit.", "error");
+          return;
+        }
+        const recipient = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!recipient) { notify("Citoyen introuvable.", "error"); return; }
+        const current = properties[pIdx].freePassIds || [];
+        if (current.map(String).includes(String(citizenId))) { notify(`${recipient.name} a déjà un pass gratuit ici.`, "info"); return; }
+        properties[pIdx] = { ...properties[pIdx], freePassIds: [...current, citizenId] };
+        const propertyAlerts = [...(state.propertyAlerts || []), {
+          id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: citizenId, type: "free_pass_granted",
+          propertyId, propertyName: properties[pIdx].name, timestamp: Date.now(),
+        }];
+        saveState({ ...state, properties, propertyAlerts });
+        notify(`Pass gratuit illimité accordé à ${recipient.name}.`, "success");
+      },
+
+      onRevokeFreePass: ({ propertyId, citizenId }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) {
+          notify("Seul le gérant de l'établissement peut révoquer un pass gratuit.", "error");
+          return;
+        }
+        properties[pIdx] = { ...properties[pIdx], freePassIds: (properties[pIdx].freePassIds || []).filter((id) => String(id) !== String(citizenId)) };
+        saveState({ ...state, properties });
+        notify("Pass gratuit révoqué.", "info");
       },
 
       // Le gérant offre l'article choisi à TOUS les citoyens ayant pris une consommation dans la

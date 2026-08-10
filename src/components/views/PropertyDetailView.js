@@ -3,7 +3,7 @@ import {
   MapPin, Shield, Users, MessageSquare, Lock, Home, Utensils, Eye,
   Package, Hammer, ShoppingBag, Calendar, Plus, Trash2, X, ArrowLeft,
   Coins, Crown, UserPlus, Pencil, Save, Building2, Tag, Key, Banknote,
-  Image as ImageIcon, Sparkles, Vote, Gift,
+  Image as ImageIcon, Sparkles, Vote, Gift, Ticket,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -170,7 +170,7 @@ const PropertyDetailView = ({
   onSetupRooms, onBookRoom, onCheckoutRoom,
   onPostTavernMessage, onPostRumor, onDeleteRumor,
   onBuyFromMenu, onBuyFromShop,
-  onGrantFreeMenuItem, onPayRound, gameDate,
+  onGrantFreeMenuItem, onGrantFreePass, onRevokeFreePass, onPayRound, gameDate,
   onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
   onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
   onAddPropertyGuest, onRemovePropertyGuest,
@@ -236,6 +236,8 @@ const PropertyDetailView = ({
   const [grantItemKey, setGrantItemKey] = useState("");
   // Payer sa tournée
   const [roundItemKey, setRoundItemKey] = useState("");
+  // Pass gratuit illimité
+  const [passCitizenId, setPassCitizenId] = useState("");
 
   if (!prop) return null;
 
@@ -556,6 +558,11 @@ const PropertyDetailView = ({
               ))}
             </datalist>
             <div className="space-y-4">
+              {(prop.freePassIds || []).map(String).includes(String(user?.id)) && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex items-center gap-2 text-xs font-bold text-purple-700">
+                  <Ticket size={14} /> Vous avez un pass gratuit illimité ici — tout est offert.
+                </div>
+              )}
               {(prop.menu || []).length === 0 && <p className="text-stone-400 text-xs italic">Le menu est vide.</p>}
 
               {(() => {
@@ -774,6 +781,49 @@ const PropertyDetailView = ({
                   >
                     <Users size={12} /> Payer sa tournée
                   </button>
+                </div>
+              )}
+              {isOwner && (
+                <div className="border border-dashed border-purple-300 rounded-lg p-3 space-y-2 mt-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Pass gratuit illimité</span>
+                  <p className="text-[10px] text-stone-400 italic">
+                    Le titulaire ne paie plus jamais rien au menu ici, jusqu'à révocation.
+                  </p>
+                  {(prop.freePassIds || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(prop.freePassIds || []).map((cid) => {
+                        const holder = citizens.find((c) => c.id === cid);
+                        return (
+                          <span key={cid} className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded-full pl-2 pr-1 py-0.5 text-[10px] font-bold text-purple-700">
+                            <Ticket size={10} /> {holder?.name || cid}
+                            <button
+                              onClick={() => onRevokeFreePass && onRevokeFreePass({ propertyId: prop.id, citizenId: cid })}
+                              className="text-purple-400 hover:text-red-500"
+                              title="Révoquer"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <UserSearchSelect users={citizens} onSelect={setPassCitizenId} value={passCitizenId} placeholder="Choisir un citoyen..." />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!passCitizenId || !onGrantFreePass) return;
+                        onGrantFreePass({ propertyId: prop.id, citizenId: passCitizenId });
+                        setPassCitizenId("");
+                      }}
+                      disabled={!passCitizenId}
+                      className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white px-3 rounded text-[10px] font-bold uppercase flex items-center gap-1"
+                    >
+                      <Ticket size={12} /> Accorder
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

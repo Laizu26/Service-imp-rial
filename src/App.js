@@ -750,6 +750,8 @@ export default function App() {
             onDeleteRumor={actions.onDeleteRumor}
             onBuyFromMenu={actions.onBuyFromMenu}
             onGrantFreeMenuItem={actions.onGrantFreeMenuItem}
+            onGrantFreePass={actions.onGrantFreePass}
+            onRevokeFreePass={actions.onRevokeFreePass}
             onPayRound={actions.onPayRound}
             onCreateTavernPoll={actions.onCreateTavernPoll}
             onVoteTavernPoll={actions.onVoteTavernPoll}
