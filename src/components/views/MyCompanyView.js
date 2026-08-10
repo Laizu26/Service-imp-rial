@@ -291,6 +291,11 @@ function EmployeeManagementModal({
   myCompany,
   loan, // présent uniquement pour gérer un salarié détaché — même modale qu'un employé classique,
         // pour éviter deux interfaces différentes pour la même chose (restrictions, grade...).
+  selfMode, // présent uniquement pour un dirigeant/PDG gérant ses PROPRES droits — personne
+            // au-dessus de lui dans l'entreprise pour le faire à sa place. Même modale, un seul
+            // onglet Restrictions pertinent (pas de grade/contrat/salaire/licenciement pour soi-même).
+  selfRights,
+  onSetSelfRights,
   onClose,
   onSetEmployeeSerfRights,
   onSetEmployeeRank,
@@ -305,9 +310,10 @@ function EmployeeManagementModal({
   const [activeTab, setActiveTab] = useState("restrictions");
   const [fireConfirm, setFireConfirm] = useState(false);
   const isLoan = !!loan;
+  const isSelf = !!selfMode;
 
   const empContract = (myCompany.employmentContracts || {})[empId] || {};
-  const sr = isLoan ? (loan.permissions || {}) : (empContract.serfRights || {});
+  const sr = isSelf ? (selfRights || {}) : isLoan ? (loan.permissions || {}) : (empContract.serfRights || {});
   const empRank = (myCompany.employeeRanks || {})[empId];
   const empDays = (myCompany.employeeSeniority || {})[empId] || 0;
   const empBalance = (myCompany.workerBalances || {})[empId] || 0;
@@ -331,7 +337,9 @@ function EmployeeManagementModal({
     { key: "postLocked", icon: "✉️", label: "Bloquer la Poste Impériale", desc: "Interdit l'envoi et la réception de courrier" },
   ];
 
-  const TABS = isLoan
+  const TABS = isSelf
+    ? [{ id: "restrictions", label: "Restrictions", icon: "🚫" }]
+    : isLoan
     ? [
         { id: "restrictions", label: "Restrictions", icon: "🚫" },
         { id: "contract", label: "Détachement", icon: "🔄" },
@@ -344,7 +352,7 @@ function EmployeeManagementModal({
         { id: "salary", label: "Salaire", icon: "💰" },
       ];
 
-  const empName = isLoan ? loan.employeeName : (emp ? emp.name : "Employé");
+  const empName = isSelf ? (emp?.name || "Moi") : isLoan ? loan.employeeName : (emp ? emp.name : "Employé");
   const initial = (empName[0] || "?").toUpperCase();
 
   return (
@@ -362,7 +370,11 @@ function EmployeeManagementModal({
           <div className="flex-1 min-w-0">
             <div className="font-black text-lg text-stone-900 truncate">{empName}</div>
             <div className="text-[10px] text-stone-400 flex items-center gap-2 flex-wrap">
-              {isLoan ? (
+              {isSelf ? (
+                <span className="px-1.5 py-0.5 rounded border text-[9px] font-black uppercase bg-yellow-100 text-yellow-700 border-yellow-200">
+                  Mes droits
+                </span>
+              ) : isLoan ? (
                 <>
                   <span className="px-1.5 py-0.5 rounded border text-[9px] font-black uppercase bg-blue-100 text-blue-700 border-blue-200">Détaché</span>
                   <span>Prêté par {loan.fromCompanyName}</span>
@@ -408,7 +420,9 @@ function EmployeeManagementModal({
           {activeTab === "restrictions" && (
             <div className="space-y-2">
               <p className="text-[10px] text-stone-400 italic mb-3">
-                {isLoan
+                {isSelf
+                  ? "Personne ne gère vos droits à votre place en tant que dirigeant ou PDG — vous pouvez vous auto-restreindre ici (RP)."
+                  : isLoan
                   ? "Ces restrictions s'appliquent tant que le détachement est en cours ici."
                   : "Ces restrictions s'appliquent tant que l'employé travaille dans cette entreprise."}
               </p>
@@ -420,7 +434,9 @@ function EmployeeManagementModal({
                   </div>
                   <button
                     onClick={() => {
-                      if (isLoan) {
+                      if (isSelf) {
+                        onSetSelfRights({ [key]: !sr[key] });
+                      } else if (isLoan) {
                         onSetStaffLoanPermissions({ loanId: loan.id, permissions: { ...sr, [key]: !sr[key] } });
                       } else {
                         onSetEmployeeSerfRights({ companyId: myCompany.id, citizenId: empId, rights: { [key]: !sr[key] } });
@@ -433,7 +449,7 @@ function EmployeeManagementModal({
                 </div>
               ))}
 
-              {onSetCompanyMushtagramAccess && (
+              {!isSelf && onSetCompanyMushtagramAccess && (
                 <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 mt-3">
                   <div>
                     <div className="text-xs font-bold text-emerald-800">🏢 Accès au compte Mushtagram de l'entreprise</div>
@@ -664,46 +680,57 @@ function EmployeeManagementModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-stone-100 gap-3">
-          <div>
-            {!isLoan && empContract.corveeFreeDaysPerMonth > 0 && onClaimCorvee && (
-              <button
-                onClick={() => { onClaimCorvee(myCompany.id, empId); onClose(); }}
-                className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 text-xs font-black uppercase px-4 py-2 rounded-lg"
-              >
-                Réclamer corvée
-              </button>
-            )}
-          </div>
-          <div>
-            {!fireConfirm ? (
-              <button
-                onClick={() => setFireConfirm(true)}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-500 flex items-center gap-1.5"
-              >
-                🔴 {isLoan ? "Mettre fin au détachement" : "Licencier"}
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-red-600">Confirmer ?</span>
+        <div className={`flex items-center px-5 py-4 border-t border-stone-100 gap-3 ${isSelf ? "justify-end" : "justify-between"}`}>
+          {!isSelf && (
+            <div>
+              {!isLoan && empContract.corveeFreeDaysPerMonth > 0 && onClaimCorvee && (
                 <button
-                  onClick={() => {
-                    if (isLoan) { onEndStaffLoan(loan.id, "ENDED"); } else { onCompanyFire(myCompany.id, empId, "FIRE"); }
-                    onClose();
-                  }}
-                  className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-black uppercase hover:bg-red-500"
+                  onClick={() => { onClaimCorvee(myCompany.id, empId); onClose(); }}
+                  className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-200 text-xs font-black uppercase px-4 py-2 rounded-lg"
                 >
-                  Oui
+                  Réclamer corvée
                 </button>
+              )}
+            </div>
+          )}
+          {isSelf ? (
+            <button
+              onClick={onClose}
+              className="bg-stone-800 text-white px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-stone-700"
+            >
+              Fermer
+            </button>
+          ) : (
+            <div>
+              {!fireConfirm ? (
                 <button
-                  onClick={() => setFireConfirm(false)}
-                  className="bg-stone-200 text-stone-700 px-3 py-1.5 rounded text-xs font-black uppercase hover:bg-stone-300"
+                  onClick={() => setFireConfirm(true)}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-500 flex items-center gap-1.5"
                 >
-                  Non
+                  🔴 {isLoan ? "Mettre fin au détachement" : "Licencier"}
                 </button>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-red-600">Confirmer ?</span>
+                  <button
+                    onClick={() => {
+                      if (isLoan) { onEndStaffLoan(loan.id, "ENDED"); } else { onCompanyFire(myCompany.id, empId, "FIRE"); }
+                      onClose();
+                    }}
+                    className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-black uppercase hover:bg-red-500"
+                  >
+                    Oui
+                  </button>
+                  <button
+                    onClick={() => setFireConfirm(false)}
+                    className="bg-stone-200 text-stone-700 px-3 py-1.5 rounded text-xs font-black uppercase hover:bg-stone-300"
+                  >
+                    Non
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -824,6 +851,9 @@ const MyCompanyView = ({
 
   // Gestion employé (modale multi-onglets)
   const [managingEmployee, setManagingEmployee] = useState(null);
+  // Auto-gestion des droits (dirigeant/PDG) — même modale que pour gérer un employé, en mode
+  // "self" (personne au-dessus d'eux dans l'entreprise pour le faire à leur place).
+  const [managingSelf, setManagingSelf] = useState(false);
 
   // Grades
   const [rankEditTarget, setRankEditTarget] = useState(null);
@@ -1879,42 +1909,6 @@ const MyCompanyView = ({
     </div>
   );
 
-  // Auto-gestion des droits (dirigeant/PDG) — personne au-dessus d'eux dans l'entreprise pour
-  // gérer leurs droits à leur place (contrairement à un employé ou un détaché), donc ils le font
-  // eux-mêmes. Visible dans les deux vues (délégation ou gestion opérationnelle complète).
-  const SELF_RIGHTS_LIST = [
-    { key: "travelLocked", icon: "🚫", label: "Voyage" },
-    { key: "mushtagramLocked", icon: "📵", label: "Mushtagram" },
-    { key: "bankLocked", icon: "🏦", label: "Compte bancaire" },
-    { key: "marketLocked", icon: "🛒", label: "Marché" },
-    { key: "postLocked", icon: "✉️", label: "Poste Impériale" },
-  ];
-  const mySelfRights = user.selfLockedRights || {};
-  const mesDroitsCard = onSetSelfRights && (
-    <Card title="Mes Droits" icon={Shield}>
-      <div className="space-y-3">
-        <p className="text-[10px] text-stone-400">
-          Personne ne gère vos droits à votre place en tant que dirigeant ou PDG — vous pouvez vous
-          auto-restreindre ici (RP), comme vous le feriez pour un employé.
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {SELF_RIGHTS_LIST.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => onSetSelfRights({ [r.key]: !mySelfRights[r.key] })}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left text-xs font-bold transition-colors ${
-                mySelfRights[r.key] ? "bg-red-50 border-red-300 text-red-700" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300"
-              }`}
-            >
-              <span>{r.icon} {r.label}</span>
-              <span className="text-[9px] font-black uppercase">{mySelfRights[r.key] ? "Bloqué" : "Libre"}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </Card>
-  );
-
   // Dès qu'un PDG est en poste, le propriétaire n'a plus la main sur la gestion opérationnelle
   // (voir isCompanyManager, backend) — sa vue se limite à la révocation et à la dissolution,
   // au lieu d'afficher des onglets opérationnels dont les actions seraient de toute façon rejetées.
@@ -1922,7 +1916,6 @@ const MyCompanyView = ({
     return (
       <div className="space-y-6 animate-fadeIn pb-10">
         {companySwitcher}
-        {mesDroitsCard}
         <div
           className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
           style={{ borderColor: myCompany.color || "#8B5CF6" }}
@@ -1951,12 +1944,22 @@ const MyCompanyView = ({
               le recrutement, les salaires, les contrats, l'inventaire et les biens de l'entreprise sont désormais gérés par
               le PDG.
             </div>
-            <button
-              onClick={() => onRevokeCEO && onRevokeCEO(myCompany.id)}
-              className="text-red-500 hover:text-red-700 text-[10px] font-black uppercase tracking-wide border border-red-200 px-3 py-2 rounded hover:bg-red-50"
-            >
-              Révoquer le PDG et reprendre la gestion
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => onRevokeCEO && onRevokeCEO(myCompany.id)}
+                className="text-red-500 hover:text-red-700 text-[10px] font-black uppercase tracking-wide border border-red-200 px-3 py-2 rounded hover:bg-red-50"
+              >
+                Révoquer le PDG et reprendre la gestion
+              </button>
+              {onSetSelfRights && (
+                <button
+                  onClick={() => setManagingSelf(true)}
+                  className="text-stone-600 hover:text-stone-800 text-[10px] font-black uppercase tracking-wide border border-stone-300 px-3 py-2 rounded hover:bg-stone-50"
+                >
+                  Gérer mes droits
+                </button>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -1974,6 +1977,19 @@ const MyCompanyView = ({
             </div>
           </Card>
         )}
+
+        {managingSelf && (
+          <EmployeeManagementModal
+            emp={user}
+            empId={user.id}
+            myCompany={myCompany}
+            selfMode
+            selfRights={user.selfLockedRights}
+            onSetSelfRights={onSetSelfRights}
+            onClose={() => setManagingSelf(false)}
+            formatMoney={formatMoney}
+          />
+        )}
       </div>
     );
   }
@@ -1981,7 +1997,6 @@ const MyCompanyView = ({
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
       {companySwitcher}
-      {mesDroitsCard}
       {/* HEADER */}
       <div
         className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
@@ -2141,19 +2156,34 @@ const MyCompanyView = ({
                   Effectifs ({empCount + 1 + borrowedInLoans.length})
                 </div>
                 <div className="divide-y divide-stone-100 max-h-60 overflow-y-auto">
-                  {/* Dirigeant */}
+                  {/* Dirigeant — cliquable pour gérer ses propres droits uniquement si c'est vous
+                      (un PDG consultant les Effectifs ne peut pas gérer les droits du propriétaire) */}
                   <div className="py-3 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-stone-700 text-sm">{user.name}</span>
+                    <div
+                      className={`flex items-center gap-2 ${isTrueOwner ? "cursor-pointer hover:opacity-75" : ""}`}
+                      onClick={() => isTrueOwner && setManagingSelf(true)}
+                    >
+                      <span className="font-bold text-stone-700 text-sm">
+                        {citizens.find((c) => c.id === myCompany.ownerId)?.name || (isTrueOwner ? user.name : myCompany.ownerId)}
+                      </span>
                       <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-yellow-200">
                         Dirigeant
                       </span>
                     </div>
+                    {isTrueOwner && (
+                      <button onClick={() => setManagingSelf(true)}
+                        className="text-stone-500 border border-stone-300 hover:border-stone-500 hover:text-stone-700 text-[9px] font-black uppercase px-2 py-1 rounded">
+                        Gérer
+                      </button>
+                    )}
                   </div>
                   {/* PDG — toujours affiché à part avec son propre tag, qu'il vienne des salariés ou d'un détachement */}
                   {myCompany.ceoId && (
                     <div className="py-3 flex justify-between items-center">
-                      <div className="flex items-center gap-2">
+                      <div
+                        className={`flex items-center gap-2 ${isCeoView ? "cursor-pointer hover:opacity-75" : ""}`}
+                        onClick={() => isCeoView && setManagingSelf(true)}
+                      >
                         <span className="font-bold text-stone-700 text-sm">
                           {citizens.find((c) => c.id === myCompany.ceoId)?.name || myCompany.ceoId}
                         </span>
@@ -2164,6 +2194,12 @@ const MyCompanyView = ({
                           <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-blue-200">Détaché</span>
                         )}
                       </div>
+                      {isCeoView && (
+                        <button onClick={() => setManagingSelf(true)}
+                          className="text-stone-500 border border-stone-300 hover:border-stone-500 hover:text-stone-700 text-[9px] font-black uppercase px-2 py-1 rounded">
+                          Gérer
+                        </button>
+                      )}
                     </div>
                   )}
                   {(myCompany.employees || []).filter((empId) => String(empId) !== String(myCompany.ceoId)).map((empId) => {
@@ -4400,6 +4436,21 @@ const MyCompanyView = ({
           />
         );
       })()}
+
+      {/* Modale d'auto-gestion des droits (dirigeant/PDG) — même modale que pour un employé,
+          en mode "self" : personne au-dessus d'eux dans l'entreprise pour le faire à leur place. */}
+      {managingSelf && (
+        <EmployeeManagementModal
+          emp={user}
+          empId={user.id}
+          myCompany={myCompany}
+          selfMode
+          selfRights={user.selfLockedRights}
+          onSetSelfRights={onSetSelfRights}
+          onClose={() => setManagingSelf(false)}
+          formatMoney={formatMoney}
+        />
+      )}
     </div>
   );
 };
