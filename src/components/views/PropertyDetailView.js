@@ -759,67 +759,77 @@ const PropertyDetailView = ({
                   </button>
                 </div>
               )}
-              {isOwner && (prop.menu || []).length > 0 && (
-                <div className="border border-dashed border-emerald-300 rounded-lg p-3 space-y-2 mt-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Offrir une consommation gratuite</span>
-                  <UserSearchSelect users={citizens} onSelect={setGrantCitizenId} value={grantCitizenId} placeholder="Choisir un citoyen..." />
-                  <select
-                    className="w-full p-1.5 border rounded text-xs"
-                    value={grantItemKey}
-                    onChange={(e) => setGrantItemKey(e.target.value)}
-                  >
-                    <option value="">— Choisir un article —</option>
-                    {(prop.menu || []).filter((m) => m.stock === -1 || m.stock > 0).map((m) => (
-                      <option key={m.id || m.itemName} value={m.id || m.itemName}>{m.itemName}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      if (!grantCitizenId || !grantItemKey || !onGrantFreeMenuItem) return;
-                      onGrantFreeMenuItem({ propertyId: prop.id, citizenId: grantCitizenId, itemKey: grantItemKey });
-                      setGrantCitizenId(""); setGrantItemKey("");
-                    }}
-                    disabled={!grantCitizenId || !grantItemKey}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
-                  >
-                    <Gift size={12} /> Offrir
-                  </button>
-                </div>
-              )}
-              {isOwner && (prop.menu || []).length > 0 && (
-                <div className="border border-dashed border-amber-300 rounded-lg p-3 space-y-2 mt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Payer sa tournée</span>
-                    <span className="text-[10px] text-stone-400 flex items-center gap-1">
-                      <Users size={11} /> {todayConsumers.length} aujourd'hui
-                    </span>
+              {(prop.menu || []).length > 0 && (() => {
+                const grantItem = (prop.menu || []).find((m) => (m.id || m.itemName) === grantItemKey);
+                return (
+                  <div className="border border-dashed border-emerald-300 rounded-lg p-3 space-y-2 mt-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Offrir une consommation</span>
+                    <p className="text-[10px] text-stone-400 italic">
+                      Vous payez, l'article est offert au citoyen choisi — comme "je t'offre un verre".
+                    </p>
+                    <UserSearchSelect users={citizens} onSelect={setGrantCitizenId} value={grantCitizenId} placeholder="Choisir un citoyen..." />
+                    <select
+                      className="w-full p-1.5 border rounded text-xs"
+                      value={grantItemKey}
+                      onChange={(e) => setGrantItemKey(e.target.value)}
+                    >
+                      <option value="">— Choisir un article —</option>
+                      {(prop.menu || []).filter((m) => m.stock === -1 || m.stock > 0).map((m) => (
+                        <option key={m.id || m.itemName} value={m.id || m.itemName}>{m.itemName} — {formatMoney(m.price)}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        if (!grantCitizenId || !grantItemKey || !onGrantFreeMenuItem) return;
+                        onGrantFreeMenuItem({ propertyId: prop.id, citizenId: grantCitizenId, itemKey: grantItemKey });
+                        setGrantCitizenId(""); setGrantItemKey("");
+                      }}
+                      disabled={!grantCitizenId || !grantItemKey || (grantItem && (user?.balance || 0) < grantItem.price)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                    >
+                      <Gift size={12} /> Offrir{grantItem ? ` — ${formatMoney(grantItem.price)}` : ""}
+                    </button>
                   </div>
-                  <p className="text-[10px] text-stone-400 italic">
-                    Offre l'article choisi à tout le monde ayant pris une consommation aujourd'hui.
-                  </p>
-                  <select
-                    className="w-full p-1.5 border rounded text-xs"
-                    value={roundItemKey}
-                    onChange={(e) => setRoundItemKey(e.target.value)}
-                  >
-                    <option value="">— Choisir un article —</option>
-                    {(prop.menu || []).filter((m) => m.stock === -1 || m.stock > 0).map((m) => (
-                      <option key={m.id || m.itemName} value={m.id || m.itemName}>{m.itemName}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => {
-                      if (!roundItemKey || !onPayRound) return;
-                      onPayRound({ propertyId: prop.id, itemKey: roundItemKey });
-                      setRoundItemKey("");
-                    }}
-                    disabled={!roundItemKey || todayConsumers.length === 0}
-                    className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
-                  >
-                    <Users size={12} /> Payer sa tournée
-                  </button>
-                </div>
-              )}
+                );
+              })()}
+              {(prop.menu || []).length > 0 && (() => {
+                const roundItem = (prop.menu || []).find((m) => (m.id || m.itemName) === roundItemKey);
+                const roundCost = roundItem ? Math.round(roundItem.price * todayConsumers.length * 10) / 10 : 0;
+                return (
+                  <div className="border border-dashed border-amber-300 rounded-lg p-3 space-y-2 mt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Payer une tournée</span>
+                      <span className="text-[10px] text-stone-400 flex items-center gap-1">
+                        <Users size={11} /> {todayConsumers.length} aujourd'hui
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-stone-400 italic">
+                      Vous payez l'article choisi pour tout le monde ayant pris une consommation aujourd'hui.
+                    </p>
+                    <select
+                      className="w-full p-1.5 border rounded text-xs"
+                      value={roundItemKey}
+                      onChange={(e) => setRoundItemKey(e.target.value)}
+                    >
+                      <option value="">— Choisir un article —</option>
+                      {(prop.menu || []).filter((m) => m.stock === -1 || m.stock > 0).map((m) => (
+                        <option key={m.id || m.itemName} value={m.id || m.itemName}>{m.itemName} — {formatMoney(m.price)}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        if (!roundItemKey || !onPayRound) return;
+                        onPayRound({ propertyId: prop.id, itemKey: roundItemKey });
+                        setRoundItemKey("");
+                      }}
+                      disabled={!roundItemKey || todayConsumers.length === 0 || (user?.balance || 0) < roundCost}
+                      className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                    >
+                      <Users size={12} /> Payer la tournée{roundItem ? ` — ${formatMoney(roundCost)}` : ""}
+                    </button>
+                  </div>
+                );
+              })()}
               {isOwner && (
                 <div className="border border-dashed border-purple-300 rounded-lg p-3 space-y-2 mt-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Pass gratuit illimité</span>

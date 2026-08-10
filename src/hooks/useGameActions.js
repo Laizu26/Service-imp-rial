@@ -6610,18 +6610,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(hasFreePass ? `Vous dégustez ${itemName} — pass gratuit. Bon appétit !` : `Vous dégustez ${itemName}. Bon appétit !`, "success");
       },
 
-      // Auberge : le gérant offre une consommation gratuite à un citoyen de son choix — même
-      // article de menu, mais sans paiement des deux côtés. Compte comme une consommation prise
-      // pour le sondage de taverne en cours, au même titre qu'un achat classique.
+      // Auberge : n'importe quel citoyen peut payer un article du menu pour quelqu'un d'autre —
+      // comme "je t'offre un verre". Le payeur est débité du prix (même flux que onBuyFromMenu),
+      // l'établissement crédité normalement ; seul le bénéficiaire reçoit l'article, sans payer.
       onGrantFreeMenuItem: ({ propertyId, citizenId, itemKey }) => {
         if (!session) return;
+        const payer = (state.citizens || []).find((c) => c.id === session.id);
+        if (!payer) return;
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
-        if (!isPropertyManager(properties[pIdx], session.id)) {
-          notify("Seul le gérant de l'établissement peut offrir une consommation.", "error");
-          return;
-        }
         const recipient = (state.citizens || []).find((c) => c.id === citizenId);
         if (!recipient) { notify("Citoyen introuvable.", "error"); return; }
         const menu = [...(properties[pIdx].menu || [])];
@@ -6629,6 +6627,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
         const infinite = menu[mIdx].stock === -1;
         if (!infinite && menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
+        const price = menu[mIdx].price || 0;
+        if ((payer.balance || 0) < price) { notify("Fonds insuffisants.", "error"); return; }
         const isAlcoholic = !!menu[mIdx].isAlcoholic;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         properties[pIdx] = { ...properties[pIdx], menu };
@@ -6639,20 +6639,35 @@ export const useGameActions = (session, state, saveState, notify) => {
           };
         }
         properties[pIdx] = addDailyConsumer(properties[pIdx], citizenId);
-        let newCitizens = state.citizens;
+
+        const newCitizens = [...state.citizens];
+        const payerIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (price > 0 && payerIdx !== -1) {
+          newCitizens[payerIdx] = { ...newCitizens[payerIdx], balance: (newCitizens[payerIdx].balance || 0) - price };
+        }
         if (isAlcoholic) {
-          const rIdx = (state.citizens || []).findIndex((c) => c.id === citizenId);
-          if (rIdx !== -1) {
-            newCitizens = [...state.citizens];
-            newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(), todayDateKey());
+          const rIdx = newCitizens.findIndex((c) => c.id === citizenId);
+          if (rIdx !== -1) newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(), todayDateKey());
+        }
+
+        let newState = { ...state, citizens: newCitizens, properties };
+        if (price > 0) {
+          if (properties[pIdx].ownerType === "COMPANY") {
+            const companies = [...(state.companies || [])];
+            const cIdx = companies.findIndex((c) => c.id === properties[pIdx].ownerId);
+            if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + price }; newState.companies = companies; }
+          } else if (properties[pIdx].ownerId) {
+            const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
+            if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + price };
           }
+          newState.globalLedger = [{ id: Date.now(), fromName: payer.name, toName: properties[pIdx].ownerName, amount: price, timestamp: Date.now(), reason: `Menu (offert à ${recipient.name}) : ${menu[mIdx].itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])].slice(0, 1000);
         }
         const propertyAlerts = [...(state.propertyAlerts || []), {
           id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: citizenId, type: "free_item",
-          propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, timestamp: Date.now(),
+          propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, fromName: payer.name, timestamp: Date.now(),
         }];
-        saveState({ ...state, citizens: newCitizens, properties, propertyAlerts });
-        notify(`${menu[mIdx].itemName} offert(e) à ${recipient.name}.`, "success");
+        saveState({ ...newState, propertyAlerts });
+        notify(`${menu[mIdx].itemName} offert(e) à ${recipient.name}${price > 0 ? ` — ${formatMoney(price)}` : ""}.`, "success");
       },
 
       // Pass gratuit illimité : contrairement à onGrantFreeMenuItem (un seul article, une seule
@@ -6701,13 +6716,11 @@ export const useGameActions = (session, state, saveState, notify) => {
       // gérant en est informé.
       onPayRound: ({ propertyId, itemKey }) => {
         if (!session) return;
+        const payer = (state.citizens || []).find((c) => c.id === session.id);
+        if (!payer) return;
         const properties = [...(state.properties || [])];
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
-        if (!isPropertyManager(properties[pIdx], session.id)) {
-          notify("Seul le gérant de l'établissement peut payer une tournée.", "error");
-          return;
-        }
         const today = todayDateKey();
         const consumers = properties[pIdx].dailyConsumersDay === today ? (properties[pIdx].dailyConsumers || []) : [];
         if (consumers.length === 0) { notify("Personne n'a encore consommé aujourd'hui.", "info"); return; }
@@ -6715,17 +6728,28 @@ export const useGameActions = (session, state, saveState, notify) => {
         const mIdx = menu.findIndex((m) => (m.id || m.itemName) === itemKey);
         if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
         const infinite = menu[mIdx].stock === -1;
-        const served = infinite ? consumers : consumers.slice(0, Math.max(0, menu[mIdx].stock));
-        if (served.length === 0) { notify("Article indisponible.", "error"); return; }
+        const price = menu[mIdx].price || 0;
+        const stockCap = infinite ? consumers.length : Math.max(0, menu[mIdx].stock);
+        const affordableCap = price > 0 ? Math.floor((payer.balance || 0) / price) : consumers.length;
+        const servedCount = Math.min(consumers.length, stockCap, affordableCap);
+        if (servedCount === 0) {
+          notify(price > 0 && affordableCap === 0 ? "Fonds insuffisants pour offrir une tournée." : "Article indisponible.", "error");
+          return;
+        }
+        const served = consumers.slice(0, servedCount);
+        const totalCost = Math.round(price * served.length * 10) / 10;
         const isAlcoholic = !!menu[mIdx].isAlcoholic;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - served.length };
         properties[pIdx] = { ...properties[pIdx], menu };
         // Chaque personne servie jette son propre d20 d'ivresse si l'article est alcoolisé.
-        let newCitizens = state.citizens;
-        if (isAlcoholic) {
-          newCitizens = (state.citizens || []).map((c) =>
-            served.map(String).includes(String(c.id)) ? addDrunkenness(c, rollDrunkenGain(), today) : c
-          );
+        const newCitizens = [...state.citizens];
+        served.forEach((cid) => {
+          const idx = newCitizens.findIndex((c) => c.id === cid);
+          if (idx !== -1 && isAlcoholic) newCitizens[idx] = addDrunkenness(newCitizens[idx], rollDrunkenGain(), today);
+        });
+        const payerIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (totalCost > 0 && payerIdx !== -1) {
+          newCitizens[payerIdx] = { ...newCitizens[payerIdx], balance: (newCitizens[payerIdx].balance || 0) - totalCost };
         }
         if (properties[pIdx].activePoll) {
           const existing = (properties[pIdx].activePoll.eligibleVoters || []).map(String);
@@ -6737,19 +6761,31 @@ export const useGameActions = (session, state, saveState, notify) => {
             };
           }
         }
+        let newState = { ...state, citizens: newCitizens, properties };
+        if (totalCost > 0) {
+          if (properties[pIdx].ownerType === "COMPANY") {
+            const companies = [...(state.companies || [])];
+            const cIdx = companies.findIndex((c) => c.id === properties[pIdx].ownerId);
+            if (cIdx !== -1) { companies[cIdx] = { ...companies[cIdx], balance: (companies[cIdx].balance || 0) + totalCost }; newState.companies = companies; }
+          } else if (properties[pIdx].ownerId) {
+            const oIdx = newCitizens.findIndex((c) => c.id === properties[pIdx].ownerId);
+            if (oIdx !== -1) newCitizens[oIdx] = { ...newCitizens[oIdx], balance: (newCitizens[oIdx].balance || 0) + totalCost };
+          }
+          newState.globalLedger = [{ id: Date.now(), fromName: payer.name, toName: properties[pIdx].ownerName, amount: totalCost, timestamp: Date.now(), reason: `Tournée (${served.length} pers.) : ${menu[mIdx].itemName}`, type: "PROPERTY_SALE" }, ...(state.globalLedger || [])].slice(0, 1000);
+        }
         const ts = Date.now();
         const propertyAlerts = [
           ...served.map((toId, i) => ({
             id: `palert_${ts}_${i}`, toId, type: "free_item",
-            propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, timestamp: ts,
+            propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, fromName: payer.name, timestamp: ts,
           })),
           ...(state.propertyAlerts || []),
         ];
-        saveState({ ...state, citizens: newCitizens, properties, propertyAlerts });
+        saveState({ ...newState, propertyAlerts });
         notify(
           served.length < consumers.length
-            ? `Tournée offerte à ${served.length}/${consumers.length} personnes (stock insuffisant pour le reste).`
-            : `Tournée offerte à ${served.length} personne${served.length > 1 ? "s" : ""} !`,
+            ? `Tournée offerte à ${served.length}/${consumers.length} personnes pour ${formatMoney(totalCost)} (stock ou fonds insuffisants pour le reste).`
+            : `Tournée offerte à ${served.length} personne${served.length > 1 ? "s" : ""} pour ${formatMoney(totalCost)} !`,
           "success"
         );
       },
