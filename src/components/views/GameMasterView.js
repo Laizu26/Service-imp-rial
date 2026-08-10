@@ -2351,17 +2351,25 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
 
   const sickCount = (state.citizens || []).filter((c) => c.illness).length;
 
-  // --- Déclenchement manuel d'une épidémie (portée : monde / pays / entreprise) ---
+  // --- Déclenchement manuel d'une épidémie (portée : monde / pays / région / entreprise) ---
   const [epiIllnessId, setEpiIllnessId] = useState("");
   const [epiScope, setEpiScope] = useState("ALL");
   const [epiScopeId, setEpiScopeId] = useState("");
+  const [epiCountryId, setEpiCountryId] = useState(""); // pays parent, utilisé par la portée région
+  const [epiRegionId, setEpiRegionId] = useState("");
   const [epiRate, setEpiRate] = useState(30);
+
+  const epiCountryRegions = (state.countries || []).find((c) => c.id === epiCountryId)?.regions || [];
 
   const triggerEpidemic = () => {
     const illnessDef = illnesses.find((i) => i.id === epiIllnessId);
     if (!illnessDef) { notify("Choisissez une maladie à propager.", "error"); return; }
     if ((epiScope === "COUNTRY" || epiScope === "COMPANY") && !epiScopeId) {
       notify("Choisissez une cible.", "error");
+      return;
+    }
+    if (epiScope === "REGION" && (!epiCountryId || !epiRegionId)) {
+      notify("Choisissez un pays puis une région.", "error");
       return;
     }
 
@@ -2373,6 +2381,14 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
       targetIds = new Set(
         (state.citizens || [])
           .filter((c) => String(c.locationCountryId || c.countryId) === String(epiScopeId))
+          .map((c) => String(c.id))
+      );
+    } else if (epiScope === "REGION") {
+      const region = epiCountryRegions.find((r) => String(r.id) === String(epiRegionId));
+      if (!region) { notify("Région introuvable.", "error"); return; }
+      targetIds = new Set(
+        (state.citizens || [])
+          .filter((c) => String(c.locationCountryId || c.countryId) === String(epiCountryId) && (c.currentPosition || "") === (region.name || ""))
           .map((c) => String(c.id))
       );
     } else {
@@ -2598,9 +2614,10 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
               </div>
               <div>
                 <Label>Portée</Label>
-                <Select value={epiScope} onChange={(e) => { setEpiScope(e.target.value); setEpiScopeId(""); }}>
+                <Select value={epiScope} onChange={(e) => { setEpiScope(e.target.value); setEpiScopeId(""); setEpiCountryId(""); setEpiRegionId(""); }}>
                   <option value="ALL">Tout le monde</option>
                   <option value="COUNTRY">Un pays</option>
+                  <option value="REGION">Une région / ville</option>
                   <option value="COMPANY">Une entreprise</option>
                 </Select>
               </div>
@@ -2622,6 +2639,28 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </Select>
+              </div>
+            )}
+            {epiScope === "REGION" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label>Pays</Label>
+                  <Select value={epiCountryId} onChange={(e) => { setEpiCountryId(e.target.value); setEpiRegionId(""); }}>
+                    <option value="">— Choisir —</option>
+                    {(state.countries || []).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <Label>Région / ville</Label>
+                  <Select value={epiRegionId} onChange={(e) => setEpiRegionId(e.target.value)} disabled={!epiCountryId}>
+                    <option value="">— Choisir —</option>
+                    {epiCountryRegions.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </Select>
+                </div>
               </div>
             )}
             {epiScope === "COMPANY" && (
