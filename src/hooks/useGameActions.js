@@ -6059,7 +6059,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           rooms: [], // Auberge: [{id, name, pricePerNight, tenantId, tenantName}]
           tavernMessages: [], // Auberge: [{id, authorName, text, timestamp}]
           rumors: [], // Auberge: [{id, text, timestamp}]
-          menu: [], // Auberge: [{itemName, price, stock}]
+          menu: [], // Auberge: [{id, itemName, description, category, imageUrl, price, stock}]
           production: null, // Ferme: {itemName, qtyPerDay, lastProduced}
           craftRecipes: [], // Atelier: [{id, inputItem, inputQty, outputItem, outputQty}] — indicatif, sans transformation automatique
           shopStock: [], // Commerce: [{itemName, qty, price}]
@@ -6422,8 +6422,9 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, properties });
       },
 
-      // Auberge: menu (vente nourriture)
-      onBuyFromMenu: (propertyId, itemName) => {
+      // Auberge: menu (vente nourriture) — identifié par id (nouveaux articles) ou par
+      // itemName en repli (articles créés avant l'ajout du champ id).
+      onBuyFromMenu: (propertyId, itemKey) => {
         if (!session) return;
         const user = (state.citizens || []).find((c) => c.id === session.id);
         if (!user) return;
@@ -6431,11 +6432,12 @@ export const useGameActions = (session, state, saveState, notify) => {
         const pIdx = properties.findIndex((p) => p.id === propertyId);
         if (pIdx === -1) return;
         const menu = [...(properties[pIdx].menu || [])];
-        const mIdx = menu.findIndex((m) => m.itemName === itemName);
+        const mIdx = menu.findIndex((m) => (m.id || m.itemName) === itemKey);
         const infinite = menu[mIdx]?.stock === -1;
         if (mIdx === -1 || (!infinite && menu[mIdx].stock <= 0)) { notify("Article indisponible.", "error"); return; }
         if ((user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
         const price = menu[mIdx].price;
+        const itemName = menu[mIdx].itemName;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         const newCitizens = [...state.citizens];
         const uIdx = newCitizens.findIndex((c) => c.id === session.id);

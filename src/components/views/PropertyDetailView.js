@@ -3,10 +3,55 @@ import {
   MapPin, Shield, Users, MessageSquare, Lock, Home, Utensils, Eye,
   Package, Hammer, ShoppingBag, Calendar, Plus, Trash2, X, ArrowLeft,
   Coins, Crown, UserPlus, Pencil, Save, Building2, Tag, Key, Banknote,
+  Image as ImageIcon, Sparkles,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import { formatMoney } from "../../lib/gameUtils";
+
+// Pool d'articles types pour la génération procédurale du menu d'une auberge — évite à
+// l'aubergiste de partir d'une page blanche, propose un article plausible qu'il peut ensuite
+// ajuster librement (nom, description, prix, catégorie restent tous éditables après génération).
+const MENU_ITEM_POOL = {
+  "Plats": [
+    { itemName: "Ragoût de sanglier", description: "Mijoté toute la nuit avec racines et herbes des bois.", priceRange: [4, 7] },
+    { itemName: "Pâté en croûte", description: "Viande hachée et épices, enfermées dans une croûte dorée.", priceRange: [3, 5] },
+    { itemName: "Poule au pot", description: "Bouillon parfumé et volaille tendre, servis avec légumes racines.", priceRange: [3, 6] },
+    { itemName: "Anguille fumée", description: "Pêchée dans la rivière voisine, fumée au bois de hêtre.", priceRange: [4, 6] },
+    { itemName: "Fromage de chèvre grillé", description: "Servi sur une tranche de pain de campagne.", priceRange: [2, 4] },
+  ],
+  "Boissons": [
+    { itemName: "Chope de bière brune", description: "Brassée dans les caves de l'auberge.", priceRange: [1, 2] },
+    { itemName: "Hydromel doré", description: "Miel fermenté, doux et capiteux.", priceRange: [2, 4] },
+    { itemName: "Vin épicé chaud", description: "Réchauffe le corps et l'âme les soirs d'hiver.", priceRange: [2, 3] },
+    { itemName: "Cidre pétillant", description: "Pommes locales pressées et fermentées.", priceRange: [1, 3] },
+    { itemName: "Eau-de-vie de prune", description: "Forte et parfumée, à consommer avec modération.", priceRange: [3, 5] },
+  ],
+  "Entrées": [
+    { itemName: "Soupe à l'oignon", description: "Servie brûlante, gratinée de fromage.", priceRange: [1, 3] },
+    { itemName: "Tourte aux champignons", description: "Cueillis dans la forêt voisine ce matin.", priceRange: [2, 4] },
+    { itemName: "Terrine de campagne", description: "Recette secrète transmise de tavernier en tavernier.", priceRange: [2, 4] },
+  ],
+  "Desserts": [
+    { itemName: "Tarte aux pommes", description: "Croustillante, saupoudrée de cannelle.", priceRange: [2, 3] },
+    { itemName: "Flan au miel", description: "Doux et onctueux, parfumé au miel local.", priceRange: [2, 3] },
+    { itemName: "Beignets de fête", description: "Frits à la minute, roulés dans le sucre.", priceRange: [1, 3] },
+  ],
+  "Spécialités": [
+    { itemName: "Plat du jour du tavernier", description: "La spécialité maison, différente chaque jour.", priceRange: [3, 6] },
+    { itemName: "Assiette du voyageur", description: "Un peu de tout ce que la cuisine a à offrir.", priceRange: [4, 7] },
+  ],
+};
+const MENU_CATEGORIES = Object.keys(MENU_ITEM_POOL);
+
+const generateMenuItem = (category) => {
+  const cat = category && MENU_ITEM_POOL[category] ? category : MENU_CATEGORIES[Math.floor(Math.random() * MENU_CATEGORIES.length)];
+  const pool = MENU_ITEM_POOL[cat];
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const [min, max] = pick.priceRange;
+  const price = Math.round((min + Math.random() * (max - min)) * 10) / 10;
+  return { itemName: pick.itemName, description: pick.description, category: cat, price };
+};
 
 const PROP_TYPES = {
   MAISON: "Maison", DOMAINE: "Domaine", TERRAIN: "Terrain",
@@ -168,10 +213,16 @@ const PropertyDetailView = ({
   const [shopItemPrice, setShopItemPrice] = useState("");
   // Menu
   const [menuItemName, setMenuItemName] = useState("");
+  const [menuItemDesc, setMenuItemDesc] = useState("");
+  const [menuItemCategory, setMenuItemCategory] = useState("");
+  const [menuItemImage, setMenuItemImage] = useState("");
   const [menuItemPrice, setMenuItemPrice] = useState("");
   const [menuItemStock, setMenuItemStock] = useState("");
   const [editingMenuIdx, setEditingMenuIdx] = useState(null);
   const [editMenuName, setEditMenuName] = useState("");
+  const [editMenuDesc, setEditMenuDesc] = useState("");
+  const [editMenuCategory, setEditMenuCategory] = useState("");
+  const [editMenuImage, setEditMenuImage] = useState("");
   const [editMenuPrice, setEditMenuPrice] = useState("");
   const [editMenuStock, setEditMenuStock] = useState("");
 
@@ -389,61 +440,145 @@ const PropertyDetailView = ({
 
           {/* Menu */}
           <Card title="Menu / Restauration" icon={Utensils}>
-            <div className="space-y-2">
+            <datalist id="menu-categories">
+              {[...new Set([...MENU_CATEGORIES, ...(prop.menu || []).map((m) => m.category).filter(Boolean)])].map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            <div className="space-y-4">
               {(prop.menu || []).length === 0 && <p className="text-stone-400 text-xs italic">Le menu est vide.</p>}
-              {(prop.menu || []).map((m, i) => {
-                const infinite = m.stock === -1;
-                const available = infinite || m.stock > 0;
-                if (editingMenuIdx === i && isOwner) return (
-                  <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2">
-                    <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editMenuName} onChange={(e) => setEditMenuName(e.target.value)} placeholder="Plat" />
-                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
-                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuStock} onChange={(e) => setEditMenuStock(e.target.value)} placeholder="Stock (-1=∞)" />
-                    <button onClick={() => {
-                      const newMenu = (prop.menu || []).map((item, idx) => idx === i ? { ...item, itemName: editMenuName.trim() || item.itemName, price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock) } : item);
-                      onUpdatePropertyFeature(prop.id, "menu", newMenu);
-                      setEditingMenuIdx(null);
-                    }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
-                    <button onClick={() => setEditingMenuIdx(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
+              {Object.entries(
+                (prop.menu || []).reduce((groups, m, i) => {
+                  const cat = m.category || "Autres";
+                  (groups[cat] = groups[cat] || []).push({ ...m, _idx: i });
+                  return groups;
+                }, {})
+              ).map(([category, items]) => (
+                <div key={category}>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1.5">{category}</div>
+                  <div className="space-y-2">
+                    {items.map((m) => {
+                      const i = m._idx;
+                      const infinite = m.stock === -1;
+                      const available = infinite || m.stock > 0;
+                      if (editingMenuIdx === i && isOwner) return (
+                        <div key={i} className="bg-amber-50 border border-amber-300 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <input className="flex-1 p-1.5 border rounded text-xs font-bold" value={editMenuName} onChange={(e) => setEditMenuName(e.target.value)} placeholder="Plat" />
+                            <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" value={editMenuPrice} onChange={(e) => setEditMenuPrice(e.target.value)} placeholder="Prix" />
+                            <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" value={editMenuStock} onChange={(e) => setEditMenuStock(e.target.value)} placeholder="Stock (-1=∞)" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input className="w-32 p-1.5 border rounded text-xs" list="menu-categories" placeholder="Catégorie" value={editMenuCategory} onChange={(e) => setEditMenuCategory(e.target.value)} />
+                            <input className="flex-1 p-1.5 border rounded text-xs" placeholder="URL de l'image (optionnel)" value={editMenuImage} onChange={(e) => setEditMenuImage(e.target.value)} />
+                          </div>
+                          <textarea className="w-full p-1.5 border rounded text-xs resize-none" rows={2} placeholder="Description (optionnel)" value={editMenuDesc} onChange={(e) => setEditMenuDesc(e.target.value)} />
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingMenuIdx(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
+                            <button onClick={() => {
+                              const newMenu = (prop.menu || []).map((item, idx) => idx === i ? {
+                                ...item, itemName: editMenuName.trim() || item.itemName, description: editMenuDesc.trim(),
+                                category: editMenuCategory.trim() || "Autres", imageUrl: editMenuImage.trim(),
+                                price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock),
+                              } : item);
+                              onUpdatePropertyFeature(prop.id, "menu", newMenu);
+                              setEditingMenuIdx(null);
+                            }} className="text-green-600 hover:text-green-500 p-1"><Save size={14} /></button>
+                          </div>
+                        </div>
+                      );
+                      return (
+                        <div key={i} className="flex items-center justify-between gap-3 bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {m.imageUrl ? (
+                              <img src={m.imageUrl} alt={m.itemName} className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0" onError={(e) => { e.target.style.display = "none"; }} />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+                                <Utensils size={14} className="text-amber-500" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div>
+                                <span className="font-bold text-stone-800">{m.itemName}</span>
+                                <span className="font-mono text-yellow-700 ml-2 text-xs">{formatMoney(m.price)}</span>
+                                <span className={`text-xs ml-2 ${!available ? "text-red-400 font-bold" : "text-stone-400"}`}>
+                                  {infinite ? "∞ illimité" : !available ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
+                                </span>
+                              </div>
+                              {m.description && <p className="text-[11px] text-stone-500 italic truncate">{m.description}</p>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {!isOwner && available && (
+                              <button
+                                onClick={() => onBuyFromMenu(prop.id, m.id || m.itemName)}
+                                disabled={(user?.balance || 0) < m.price}
+                                className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40 flex items-center gap-1"
+                                title="Consommé sur place — n'entre pas dans l'inventaire"
+                              >
+                                <Utensils size={10} /> Commander
+                              </button>
+                            )}
+                            {!isOwner && !available && <span className="text-[10px] text-red-400 font-bold uppercase">Indisponible</span>}
+                            {isOwner && (
+                              <>
+                                <button onClick={() => {
+                                  setEditingMenuIdx(i); setEditMenuName(m.itemName); setEditMenuDesc(m.description || "");
+                                  setEditMenuCategory(m.category || ""); setEditMenuImage(m.imageUrl || "");
+                                  setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock));
+                                }} className="text-stone-400 hover:text-stone-600 p-1" title="Modifier"><Pencil size={12} /></button>
+                                <button onClick={() => { onUpdatePropertyFeature(prop.id, "menu", (prop.menu || []).filter((_, idx) => idx !== i)); }} className="text-red-400 hover:text-red-600 p-1" title="Supprimer"><Trash2 size={12} /></button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-                return (
-                  <div key={i} className="flex items-center justify-between bg-amber-50 rounded-lg px-3 py-2 text-sm border border-amber-100">
-                    <div>
-                      <span className="font-bold text-stone-800">{m.itemName}</span>
-                      <span className="font-mono text-yellow-700 ml-2 text-xs">{formatMoney(m.price)}</span>
-                      <span className={`text-xs ml-2 ${!available ? "text-red-400 font-bold" : "text-stone-400"}`}>
-                        {infinite ? "∞ illimité" : !available ? "Épuisé" : `× ${m.stock} restant${m.stock > 1 ? "s" : ""}`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!isOwner && available && (
-                        <button
-                          onClick={() => onBuyFromMenu(prop.id, m.itemName)}
-                          disabled={(user?.balance || 0) < m.price}
-                          className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase disabled:opacity-40 flex items-center gap-1"
-                          title="Consommé sur place — n'entre pas dans l'inventaire"
-                        >
-                          <Utensils size={10} /> Commander
-                        </button>
-                      )}
-                      {!isOwner && !available && <span className="text-[10px] text-red-400 font-bold uppercase">Indisponible</span>}
-                      {isOwner && (
-                        <>
-                          <button onClick={() => { setEditingMenuIdx(i); setEditMenuName(m.itemName); setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock)); }} className="text-stone-400 hover:text-stone-600 p-1" title="Modifier"><Pencil size={12} /></button>
-                          <button onClick={() => { onUpdatePropertyFeature(prop.id, "menu", (prop.menu || []).filter((_, idx) => idx !== i)); }} className="text-red-400 hover:text-red-600 p-1" title="Supprimer"><Trash2 size={12} /></button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                </div>
+              ))}
               {isOwner && (
-                <div className="flex gap-2 mt-2">
-                  <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Nom du plat" value={menuItemName} onChange={(e) => setMenuItemName(e.target.value)} />
-                  <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Prix" value={menuItemPrice} onChange={(e) => setMenuItemPrice(e.target.value)} />
-                  <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Stock (-1=∞)" value={menuItemStock} onChange={(e) => setMenuItemStock(e.target.value)} />
-                  <button onClick={() => { if (menuItemName.trim()) { onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), { itemName: menuItemName.trim(), price: parseFloat(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0 }]); setMenuItemName(""); setMenuItemPrice(""); setMenuItemStock(""); } }} className="bg-stone-800 text-white px-3 rounded text-[10px] font-bold uppercase"><Plus size={12} /></button>
+                <div className="border border-dashed border-amber-300 rounded-lg p-3 space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Nouvel article</span>
+                    <button
+                      onClick={() => { const g = generateMenuItem(menuItemCategory); setMenuItemName(g.itemName); setMenuItemDesc(g.description); setMenuItemCategory(g.category); setMenuItemPrice(String(g.price)); }}
+                      className="flex items-center gap-1 text-[10px] font-bold uppercase text-amber-700 hover:text-amber-900"
+                      title="Générer un article procéduralement"
+                    >
+                      <Sparkles size={12} /> Générer
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Nom du plat" value={menuItemName} onChange={(e) => setMenuItemName(e.target.value)} />
+                    <input className="w-16 p-1.5 border rounded text-xs font-mono" type="number" step="0.1" placeholder="Prix" value={menuItemPrice} onChange={(e) => setMenuItemPrice(e.target.value)} />
+                    <input className="w-20 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Stock (-1=∞)" value={menuItemStock} onChange={(e) => setMenuItemStock(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2">
+                    <input className="w-32 p-1.5 border rounded text-xs" list="menu-categories" placeholder="Catégorie" value={menuItemCategory} onChange={(e) => setMenuItemCategory(e.target.value)} />
+                    <input className="flex-1 p-1.5 border rounded text-xs" placeholder="URL de l'image (optionnel)" value={menuItemImage} onChange={(e) => setMenuItemImage(e.target.value)} />
+                  </div>
+                  <textarea className="w-full p-1.5 border rounded text-xs resize-none" rows={2} placeholder="Description (optionnel)" value={menuItemDesc} onChange={(e) => setMenuItemDesc(e.target.value)} />
+                  {menuItemImage && (
+                    <div className="flex items-center gap-2 text-[10px] text-stone-400">
+                      <ImageIcon size={12} /> Aperçu :
+                      <img src={menuItemImage} alt="" className="w-8 h-8 rounded object-cover border border-stone-200" onError={(e) => { e.target.style.display = "none"; }} />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (!menuItemName.trim()) return;
+                      onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), {
+                        id: `menu_${Date.now()}`, itemName: menuItemName.trim(), description: menuItemDesc.trim(),
+                        category: menuItemCategory.trim() || "Autres", imageUrl: menuItemImage.trim(),
+                        price: parseFloat(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0,
+                      }]);
+                      setMenuItemName(""); setMenuItemDesc(""); setMenuItemCategory(""); setMenuItemImage(""); setMenuItemPrice(""); setMenuItemStock("");
+                    }}
+                    className="w-full bg-stone-800 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                  >
+                    <Plus size={12} /> Ajouter au menu
+                  </button>
                 </div>
               )}
             </div>
