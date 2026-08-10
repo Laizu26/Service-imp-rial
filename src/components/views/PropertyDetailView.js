@@ -352,6 +352,102 @@ const PropertyDetailView = ({
       {/* === AUBERGE / TAVERNE === */}
       {isAuberge && (
         <>
+          {/* Sondage de taverne — en tête de l'établissement pour rester bien visible dès
+              l'arrivée. Voter exige d'avoir pris une consommation depuis le lancement du
+              sondage en cours ; lancer un nouveau sondage réinitialise ce droit pour tout
+              le monde. */}
+          <Card title="Sondage" icon={Vote}>
+            {prop.activePoll ? (() => {
+              const poll = prop.activePoll;
+              const isEligible = (poll.eligibleVoters || []).map(String).includes(String(user?.id));
+              const myVote = (poll.votes || {})[user?.id];
+              const totalVotes = Object.keys(poll.votes || {}).length;
+              return (
+                <div className="space-y-3">
+                  <div className="font-bold text-stone-800 text-sm">{poll.question}</div>
+                  <div className="space-y-2">
+                    {poll.options.map((o) => {
+                      const count = Object.values(poll.votes || {}).filter((v) => v === o.id).length;
+                      const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+                      const isMine = myVote === o.id;
+                      return (
+                        <button
+                          key={o.id}
+                          onClick={() => isEligible && onVoteTavernPoll && onVoteTavernPoll({ propertyId: prop.id, optionId: o.id })}
+                          disabled={!isEligible}
+                          className={`w-full text-left p-2.5 rounded-lg border relative overflow-hidden transition-colors ${
+                            isMine ? "border-amber-400 bg-amber-50" : "border-stone-200"
+                          } ${!isEligible ? "opacity-60 cursor-not-allowed" : "hover:border-amber-300"}`}
+                        >
+                          <div className="absolute inset-y-0 left-0 bg-amber-100/70" style={{ width: `${pct}%` }} />
+                          <div className="relative flex items-center justify-between text-sm">
+                            <span className="font-bold text-stone-800">{o.text} {isMine && "✓"}</span>
+                            <span className="text-[10px] text-stone-500 font-mono">{count} ({pct}%)</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!isEligible && (
+                    <p className="text-xs text-amber-700 italic flex items-center gap-1.5">
+                      <Utensils size={12} /> Prenez une consommation au menu pour pouvoir voter à ce sondage.
+                    </p>
+                  )}
+                  <p className="text-[10px] text-stone-400">{totalVotes} vote{totalVotes > 1 ? "s" : ""}</p>
+                  {isOwner && (
+                    <button
+                      onClick={() => onCloseTavernPoll && onCloseTavernPoll({ propertyId: prop.id })}
+                      className="text-[10px] text-red-400 hover:text-red-600 underline"
+                    >
+                      Clore le sondage
+                    </button>
+                  )}
+                </div>
+              );
+            })() : (
+              <p className="text-stone-400 text-xs italic">Aucun sondage en cours.</p>
+            )}
+
+            {isOwner && !prop.activePoll && (
+              <div className="mt-3 space-y-2 border-t border-stone-100 pt-3">
+                <input
+                  className="w-full p-1.5 border rounded text-xs"
+                  placeholder="Question du sondage"
+                  value={pollQuestion}
+                  onChange={(e) => setPollQuestion(e.target.value)}
+                />
+                {pollOptions.map((opt, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      className="flex-1 p-1.5 border rounded text-xs"
+                      placeholder={`Option ${i + 1}`}
+                      value={opt}
+                      onChange={(e) => { const next = [...pollOptions]; next[i] = e.target.value; setPollOptions(next); }}
+                    />
+                    {pollOptions.length > 2 && (
+                      <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="text-stone-400 hover:text-red-500">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button onClick={() => setPollOptions([...pollOptions, ""])} className="text-[10px] text-stone-500 hover:text-stone-700 flex items-center gap-1">
+                  <Plus size={10} /> Ajouter une option
+                </button>
+                <button
+                  onClick={() => {
+                    if (!pollQuestion.trim() || !onCreateTavernPoll) return;
+                    onCreateTavernPoll({ propertyId: prop.id, question: pollQuestion, options: pollOptions });
+                    setPollQuestion(""); setPollOptions(["", ""]);
+                  }}
+                  className="w-full bg-stone-800 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                >
+                  <Vote size={12} /> Lancer le sondage
+                </button>
+              </div>
+            )}
+          </Card>
+
           {/* Chambres */}
           <Card title="Chambres" icon={Home}>
             <div className="space-y-2">
@@ -543,8 +639,8 @@ const PropertyDetailView = ({
                               )}
                             </div>
                             <div className="p-2.5 flex flex-col flex-1">
-                              <div className="font-bold text-stone-800 text-sm leading-tight">{m.itemName}</div>
-                              {m.description && <p className="text-[10px] text-stone-500 italic mt-0.5 line-clamp-2">{m.description}</p>}
+                              <div className="font-bold text-stone-800 text-sm leading-tight break-words">{m.itemName}</div>
+                              {m.description && <p className="text-[10px] text-stone-500 italic mt-0.5 break-words">{m.description}</p>}
                               <div className="mt-auto pt-2 flex items-center justify-between">
                                 <span className="font-mono text-yellow-700 text-xs font-bold">{formatMoney(m.price)}</span>
                                 {infinite && <span className="text-[9px] text-stone-400">∞</span>}
@@ -613,101 +709,6 @@ const PropertyDetailView = ({
                 </div>
               )}
             </div>
-          </Card>
-
-          {/* Sondage de taverne — voter exige d'avoir pris une consommation depuis le
-              lancement du sondage en cours ; lancer un nouveau sondage réinitialise ce
-              droit pour tout le monde. */}
-          <Card title="Sondage" icon={Vote}>
-            {prop.activePoll ? (() => {
-              const poll = prop.activePoll;
-              const isEligible = (poll.eligibleVoters || []).map(String).includes(String(user?.id));
-              const myVote = (poll.votes || {})[user?.id];
-              const totalVotes = Object.keys(poll.votes || {}).length;
-              return (
-                <div className="space-y-3">
-                  <div className="font-bold text-stone-800 text-sm">{poll.question}</div>
-                  <div className="space-y-2">
-                    {poll.options.map((o) => {
-                      const count = Object.values(poll.votes || {}).filter((v) => v === o.id).length;
-                      const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-                      const isMine = myVote === o.id;
-                      return (
-                        <button
-                          key={o.id}
-                          onClick={() => isEligible && onVoteTavernPoll && onVoteTavernPoll({ propertyId: prop.id, optionId: o.id })}
-                          disabled={!isEligible}
-                          className={`w-full text-left p-2.5 rounded-lg border relative overflow-hidden transition-colors ${
-                            isMine ? "border-amber-400 bg-amber-50" : "border-stone-200"
-                          } ${!isEligible ? "opacity-60 cursor-not-allowed" : "hover:border-amber-300"}`}
-                        >
-                          <div className="absolute inset-y-0 left-0 bg-amber-100/70" style={{ width: `${pct}%` }} />
-                          <div className="relative flex items-center justify-between text-sm">
-                            <span className="font-bold text-stone-800">{o.text} {isMine && "✓"}</span>
-                            <span className="text-[10px] text-stone-500 font-mono">{count} ({pct}%)</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {!isEligible && (
-                    <p className="text-xs text-amber-700 italic flex items-center gap-1.5">
-                      <Utensils size={12} /> Prenez une consommation au menu pour pouvoir voter à ce sondage.
-                    </p>
-                  )}
-                  <p className="text-[10px] text-stone-400">{totalVotes} vote{totalVotes > 1 ? "s" : ""}</p>
-                  {isOwner && (
-                    <button
-                      onClick={() => onCloseTavernPoll && onCloseTavernPoll({ propertyId: prop.id })}
-                      className="text-[10px] text-red-400 hover:text-red-600 underline"
-                    >
-                      Clore le sondage
-                    </button>
-                  )}
-                </div>
-              );
-            })() : (
-              <p className="text-stone-400 text-xs italic">Aucun sondage en cours.</p>
-            )}
-
-            {isOwner && !prop.activePoll && (
-              <div className="mt-3 space-y-2 border-t border-stone-100 pt-3">
-                <input
-                  className="w-full p-1.5 border rounded text-xs"
-                  placeholder="Question du sondage"
-                  value={pollQuestion}
-                  onChange={(e) => setPollQuestion(e.target.value)}
-                />
-                {pollOptions.map((opt, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      className="flex-1 p-1.5 border rounded text-xs"
-                      placeholder={`Option ${i + 1}`}
-                      value={opt}
-                      onChange={(e) => { const next = [...pollOptions]; next[i] = e.target.value; setPollOptions(next); }}
-                    />
-                    {pollOptions.length > 2 && (
-                      <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="text-stone-400 hover:text-red-500">
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button onClick={() => setPollOptions([...pollOptions, ""])} className="text-[10px] text-stone-500 hover:text-stone-700 flex items-center gap-1">
-                  <Plus size={10} /> Ajouter une option
-                </button>
-                <button
-                  onClick={() => {
-                    if (!pollQuestion.trim() || !onCreateTavernPoll) return;
-                    onCreateTavernPoll({ propertyId: prop.id, question: pollQuestion, options: pollOptions });
-                    setPollQuestion(""); setPollOptions(["", ""]);
-                  }}
-                  className="w-full bg-stone-800 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
-                >
-                  <Vote size={12} /> Lancer le sondage
-                </button>
-              </div>
-            )}
           </Card>
         </>
       )}
