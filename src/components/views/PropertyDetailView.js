@@ -170,7 +170,7 @@ const PropertyDetailView = ({
   onSetupRooms, onBookRoom, onCheckoutRoom,
   onPostTavernMessage, onPostRumor, onDeleteRumor,
   onBuyFromMenu, onBuyFromShop,
-  onGrantFreeMenuItem,
+  onGrantFreeMenuItem, onPayRound, gameDate,
   onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
   onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
   onAddPropertyGuest, onRemovePropertyGuest,
@@ -234,6 +234,8 @@ const PropertyDetailView = ({
   // Offrir une consommation gratuite
   const [grantCitizenId, setGrantCitizenId] = useState("");
   const [grantItemKey, setGrantItemKey] = useState("");
+  // Payer sa tournée
+  const [roundItemKey, setRoundItemKey] = useState("");
 
   if (!prop) return null;
 
@@ -243,6 +245,9 @@ const PropertyDetailView = ({
   const isFerme = type === "FERME";
   const isAtelier = type === "ATELIER";
   const isCommerce = type === "COMMERCE";
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
+  const todayKey = `${gd.day}/${gd.month}/${gd.year}`;
+  const todayConsumers = prop.dailyConsumersDay === todayKey ? (prop.dailyConsumers || []) : [];
   const isBateau = type === "BATEAU";
 
   const ownerCompany = prop.ownerType === "COMPANY" ? companies.find((c) => c.id === prop.ownerId) : null;
@@ -736,6 +741,40 @@ const PropertyDetailView = ({
                     className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
                   >
                     <Gift size={12} /> Offrir
+                  </button>
+                </div>
+              )}
+              {isOwner && (prop.menu || []).length > 0 && (
+                <div className="border border-dashed border-amber-300 rounded-lg p-3 space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Payer sa tournée</span>
+                    <span className="text-[10px] text-stone-400 flex items-center gap-1">
+                      <Users size={11} /> {todayConsumers.length} aujourd'hui
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 italic">
+                    Offre l'article choisi à tout le monde ayant pris une consommation aujourd'hui.
+                  </p>
+                  <select
+                    className="w-full p-1.5 border rounded text-xs"
+                    value={roundItemKey}
+                    onChange={(e) => setRoundItemKey(e.target.value)}
+                  >
+                    <option value="">— Choisir un article —</option>
+                    {(prop.menu || []).filter((m) => m.stock === -1 || m.stock > 0).map((m) => (
+                      <option key={m.id || m.itemName} value={m.id || m.itemName}>{m.itemName}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (!roundItemKey || !onPayRound) return;
+                      onPayRound({ propertyId: prop.id, itemKey: roundItemKey });
+                      setRoundItemKey("");
+                    }}
+                    disabled={!roundItemKey || todayConsumers.length === 0}
+                    className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                  >
+                    <Users size={12} /> Payer sa tournée
                   </button>
                 </div>
               )}

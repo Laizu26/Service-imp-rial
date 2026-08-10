@@ -315,6 +315,23 @@ export const useGameActions = (session, state, saveState, notify) => {
       return ["EMPEREUR", "GRAND_FONC_GLOBAL"].includes(session?.role);
     };
 
+    // Clé du jour RP en cours, pour les compteurs "aujourd'hui" (ex: consommateurs d'une auberge
+    // pour la tournée) — évite d'avoir à réinitialiser explicitement un champ dans onPassDay.
+    const todayDateKey = () => {
+      const gd = state.gameDate || {};
+      return `${gd.day}/${gd.month}/${gd.year}`;
+    };
+
+    // Ajoute un citoyen aux consommateurs du jour d'une propriété (repart de zéro si la date a
+    // changé depuis le dernier achat) — utilisé par onBuyFromMenu, onGrantFreeMenuItem et
+    // onPayRound pour savoir qui a droit à la tournée du gérant.
+    const addDailyConsumer = (prop, citizenId) => {
+      const today = todayDateKey();
+      const current = prop.dailyConsumersDay === today ? (prop.dailyConsumers || []) : [];
+      if (current.map(String).includes(String(citizenId))) return { ...prop, dailyConsumersDay: today, dailyConsumers: current };
+      return { ...prop, dailyConsumersDay: today, dailyConsumers: [...current, citizenId] };
+    };
+
     // Autorité sur la carte (Atlas) d'un pays donné : un rôle à portée globale (Empereur/Grand
     // Fonctionnaire) a autorité partout ; un officiel local (niveau ≥ 40, même principe que
     // GeopoliticsView.canEdit) n'a autorité que sur le pays dont il relève.
@@ -6565,6 +6582,8 @@ export const useGameActions = (session, state, saveState, notify) => {
             activePoll: { ...properties[pIdx].activePoll, eligibleVoters: [...(properties[pIdx].activePoll.eligibleVoters || []), session.id] },
           };
         }
+        // Compte comme une consommation du jour — permet au gérant de "payer sa tournée" plus tard.
+        properties[pIdx] = addDailyConsumer(properties[pIdx], session.id);
         let newState = { ...state, citizens: newCitizens, properties };
         if (properties[pIdx].ownerType === "COMPANY") {
           const companies = [...(state.companies || [])];
@@ -6606,12 +6625,65 @@ export const useGameActions = (session, state, saveState, notify) => {
             activePoll: { ...properties[pIdx].activePoll, eligibleVoters: [...(properties[pIdx].activePoll.eligibleVoters || []), citizenId] },
           };
         }
+        properties[pIdx] = addDailyConsumer(properties[pIdx], citizenId);
         const propertyAlerts = [...(state.propertyAlerts || []), {
           id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: citizenId, type: "free_item",
           propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, timestamp: Date.now(),
         }];
         saveState({ ...state, properties, propertyAlerts });
         notify(`${menu[mIdx].itemName} offert(e) à ${recipient.name}.`, "success");
+      },
+
+      // Le gérant offre l'article choisi à TOUS les citoyens ayant pris une consommation dans la
+      // journée RP en cours (voir addDailyConsumer, mis à jour par onBuyFromMenu et
+      // onGrantFreeMenuItem). Le stock est décrémenté d'autant que de bénéficiaires servis ; si le
+      // stock est insuffisant pour tout le monde, seuls les premiers de la liste sont servis et le
+      // gérant en est informé.
+      onPayRound: ({ propertyId, itemKey }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) {
+          notify("Seul le gérant de l'établissement peut payer une tournée.", "error");
+          return;
+        }
+        const today = todayDateKey();
+        const consumers = properties[pIdx].dailyConsumersDay === today ? (properties[pIdx].dailyConsumers || []) : [];
+        if (consumers.length === 0) { notify("Personne n'a encore consommé aujourd'hui.", "info"); return; }
+        const menu = [...(properties[pIdx].menu || [])];
+        const mIdx = menu.findIndex((m) => (m.id || m.itemName) === itemKey);
+        if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
+        const infinite = menu[mIdx].stock === -1;
+        const served = infinite ? consumers : consumers.slice(0, Math.max(0, menu[mIdx].stock));
+        if (served.length === 0) { notify("Article indisponible.", "error"); return; }
+        if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - served.length };
+        properties[pIdx] = { ...properties[pIdx], menu };
+        if (properties[pIdx].activePoll) {
+          const existing = (properties[pIdx].activePoll.eligibleVoters || []).map(String);
+          const newlyEligible = served.filter((id) => !existing.includes(String(id)));
+          if (newlyEligible.length > 0) {
+            properties[pIdx] = {
+              ...properties[pIdx],
+              activePoll: { ...properties[pIdx].activePoll, eligibleVoters: [...(properties[pIdx].activePoll.eligibleVoters || []), ...newlyEligible] },
+            };
+          }
+        }
+        const ts = Date.now();
+        const propertyAlerts = [
+          ...served.map((toId, i) => ({
+            id: `palert_${ts}_${i}`, toId, type: "free_item",
+            propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, timestamp: ts,
+          })),
+          ...(state.propertyAlerts || []),
+        ];
+        saveState({ ...state, properties, propertyAlerts });
+        notify(
+          served.length < consumers.length
+            ? `Tournée offerte à ${served.length}/${consumers.length} personnes (stock insuffisant pour le reste).`
+            : `Tournée offerte à ${served.length} personne${served.length > 1 ? "s" : ""} !`,
+          "success"
+        );
       },
 
       // --- Auberge : sondages de taverne ---
