@@ -519,7 +519,7 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
                     {p.locked ? `Publication verrouillée — ${formatMoney(p.price)}` : "Réservé au cercle privé"}
                   </p>
                 ) : (
-                  <p className="text-xs text-stone-700 leading-relaxed">{p.content || (p.repostOf ? `(Republication de ${p.repostOf.authorName})` : "")}</p>
+                  <p className="text-xs text-stone-700 leading-relaxed break-words">{p.content || (p.repostOf ? `(Republication de ${p.repostOf.authorName})` : "")}</p>
                 )}
                 <div className="flex items-center gap-3 mt-1.5 text-[9px] text-stone-400">
                   <span>❤ {(p.likes||[]).length}</span>
@@ -1065,7 +1065,7 @@ function PostCard({
           {/* Content */}
           {post.content && (
             <div className="px-4 pb-2">
-              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{renderRichText(post.content, citizens, onViewProfile)}</p>
+              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap break-words">{renderRichText(post.content, citizens, onViewProfile)}</p>
             </div>
           )}
 
@@ -1157,7 +1157,7 @@ function PostCard({
                           {cDisplayName}{c.isAnonymous && (String(c.authorId) === myId || isAdmin) ? " 🎭" : ""}
                         </button>
                       )}{" "}
-                      <span className="text-[11px] text-stone-700 whitespace-pre-wrap">{renderRichText(c.content, citizens, onViewProfile)}</span>
+                      <span className="text-[11px] text-stone-700 whitespace-pre-wrap break-words">{renderRichText(c.content, citizens, onViewProfile)}</span>
                     </div>
                     {authorLikedCmt && (
                       <div className="absolute -bottom-2 -right-1 flex items-center bg-white rounded-full shadow-sm border border-stone-100 px-1 py-0.5 gap-0.5">

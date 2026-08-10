@@ -1635,7 +1635,7 @@ const CitizenLayout = (props) => {
           </>
         )}
 
-        <main ref={mainScrollRef} className={`flex-1 min-h-0 ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
+        <main ref={mainScrollRef} className={`flex-1 min-h-0 overflow-x-hidden ${active === "msg" ? "overflow-hidden p-0" : "overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900"}`}>
           <div className={(active === "msg" || active === "mushtagram") ? "h-full w-full" : "max-w-[1400px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10"}>
           <TabErrorBoundary tabKey={active}>
           <Suspense fallback={<TabLoadingFallback />}>
