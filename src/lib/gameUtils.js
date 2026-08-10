@@ -336,3 +336,62 @@ export function driftMagicBond(citizenA, citizenB) {
   }
   return { hueA: newHueA, hueB: newHueB, resonance: false };
 }
+
+// ===== MALADIES (voir illnessConfig, configurable dans l'espace GM) =====
+// Chaque maladie est une fiche définie par le GM (nom, description, icône, poids de tirage,
+// durée min/max, pénalité de production, éventuels statuts physique/magique qu'elle inflige).
+// Regroupé ici pour être partagé sans duplication entre le tirage quotidien (onPassDay,
+// useGameActions.js) et le déclenchement manuel d'épidémie (GameMasterView.js).
+
+export function pickWeightedIllness(illnessDefs) {
+  const defs = (illnessDefs || []).filter((d) => d.weight > 0);
+  const totalWeight = defs.reduce((s, d) => s + d.weight, 0);
+  if (totalWeight <= 0) return null;
+  let roll = Math.random() * totalWeight;
+  let chosen = defs[0];
+  for (const d of defs) {
+    if (roll < d.weight) { chosen = d; break; }
+    roll -= d.weight;
+  }
+  return chosen;
+}
+
+export function rollIllnessInstance(illnessDef, dayCycle) {
+  if (!illnessDef) return null;
+  const minD = illnessDef.minDurationDays || 1;
+  const maxD = illnessDef.maxDurationDays || minD;
+  const span = Math.max(0, maxD - minD);
+  const durationDays = Math.max(1, Math.round(minD + Math.random() * span));
+  return {
+    illnessId: illnessDef.id, name: illnessDef.name, description: illnessDef.description || "",
+    icon: illnessDef.icon || "🤒", productionPenaltyPercent: illnessDef.productionPenaltyPercent || 0,
+    statusEffectIds: illnessDef.statusEffectIds || [],
+    startedDayCycle: dayCycle, durationDays, daysElapsed: 0,
+  };
+}
+
+// Applique une maladie à un citoyen : ajoute les statuts physique/magique qu'elle inflige (sans
+// dupliquer ceux déjà présents), en mémorisant lesquels elle a réellement ajoutés pour ne retirer
+// que ceux-là à la guérison — un statut déjà présent pour une autre raison (GM, sort...) n'est
+// jamais touché.
+export function applyIllnessToCitizen(citizen, illnessInstance) {
+  const existingEffects = citizen.statusEffects || [];
+  const statusToAdd = (illnessInstance.statusEffectIds || []).filter((id) => !existingEffects.includes(id));
+  return {
+    ...citizen,
+    illness: { ...illnessInstance, grantedStatusEffects: statusToAdd },
+    statusEffects: [...existingEffects, ...statusToAdd],
+    status: (!citizen.status || citizen.status === "Actif") ? "Malade" : citizen.status,
+  };
+}
+
+export function clearIllnessFromCitizen(citizen) {
+  const granted = citizen.illness?.grantedStatusEffects || [];
+  const remainingEffects = (citizen.statusEffects || []).filter((id) => !granted.includes(id));
+  return {
+    ...citizen,
+    illness: null,
+    statusEffects: remainingEffects,
+    status: citizen.status === "Malade" ? "Actif" : citizen.status,
+  };
+}

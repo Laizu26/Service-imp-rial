@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -488,25 +488,7 @@ export const useGameActions = (session, state, saveState, notify) => {
               minDurationDays: illnessCfg?.minDurationDays, maxDurationDays: illnessCfg?.maxDurationDays,
             }))
         ).filter((d) => d.weight > 0);
-        const rollIllness = (cfg) => {
-          const totalWeight = illnessDefs.reduce((s, d) => s + d.weight, 0);
-          if (totalWeight <= 0) return null;
-          let roll = Math.random() * totalWeight;
-          let chosen = illnessDefs[0];
-          for (const d of illnessDefs) {
-            if (roll < d.weight) { chosen = d; break; }
-            roll -= d.weight;
-          }
-          const minD = chosen.minDurationDays || cfg.minDurationDays || 1;
-          const maxD = chosen.maxDurationDays || cfg.maxDurationDays || minD;
-          const span = Math.max(0, maxD - minD);
-          const durationDays = Math.max(1, Math.round(minD + Math.random() * span));
-          return {
-            illnessId: chosen.id, name: chosen.name, description: chosen.description || "", icon: chosen.icon || "🤒",
-            productionPenaltyPercent: chosen.productionPenaltyPercent || 0,
-            startedDayCycle: ns.dayCycle, durationDays, daysElapsed: 0,
-          };
-        };
+        const rollIllness = () => rollIllnessInstance(pickWeightedIllness(illnessDefs), ns.dayCycle);
         if (illnessCfg?.enabled) {
           ns.citizens = (ns.citizens || []).map((c) => {
             if (c.status === "Décédé") return c;
@@ -514,15 +496,15 @@ export const useGameActions = (session, state, saveState, notify) => {
               const daysElapsed = (c.illness.daysElapsed || 0) + 1;
               if (daysElapsed >= c.illness.durationDays) {
                 healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_recovered", name: c.illness.name, timestamp: Date.now() });
-                return { ...c, illness: null, status: c.status === "Malade" ? "Actif" : c.status };
+                return clearIllnessFromCitizen(c);
               }
               return { ...c, illness: { ...c.illness, daysElapsed } };
             }
             if (Math.random() * 100 < (illnessCfg.dailyChancePercent || 0)) {
-              const illness = rollIllness(illnessCfg);
+              const illness = rollIllness();
               if (!illness) return c;
               healthAlerts.push({ id: `health_${c.id}_${Date.now()}`, toId: c.id, type: "illness_started", name: illness.name, description: illness.description, timestamp: Date.now() });
-              return { ...c, illness, status: (!c.status || c.status === "Actif") ? "Malade" : c.status };
+              return applyIllnessToCitizen(c, illness);
             }
             return c;
           });
@@ -627,10 +609,9 @@ export const useGameActions = (session, state, saveState, notify) => {
               const targetId = staff[Math.floor(Math.random() * staff.length)];
               const targetIdx = (ns.citizens || []).findIndex((c) => c.id === targetId);
               if (targetIdx !== -1 && !ns.citizens[targetIdx].illness) {
-                const illness = rollIllness(illnessCfg);
+                const illness = rollIllness();
                 if (illness) {
-                  const target = ns.citizens[targetIdx];
-                  ns.citizens[targetIdx] = { ...target, illness, status: (!target.status || target.status === "Actif") ? "Malade" : target.status };
+                  ns.citizens[targetIdx] = applyIllnessToCitizen(ns.citizens[targetIdx], illness);
                   healthAlerts.push({ id: `health_${targetId}_${Date.now()}`, toId: targetId, type: "illness_started", name: illness.name, description: illness.description, timestamp: Date.now() });
                   description = `${ns.citizens[targetIdx].name} est tombé(e) malade (${illness.name}) suite à une épidémie dans l'entreprise.`;
                 }

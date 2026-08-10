@@ -45,7 +45,7 @@ import {
   Activity,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
-import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort } from "../../lib/gameUtils";
+import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort, rollIllnessInstance, applyIllnessToCitizen } from "../../lib/gameUtils";
 
 /* ================================================
    HELPERS
@@ -2305,18 +2305,18 @@ const DEFAULT_ILLNESS_CONFIG = {
   enabled: false,
   dailyChancePercent: 2,
   illnesses: [
-    { id: "rhume", name: "Rhume", description: "Un simple refroidissement, gênant mais sans gravité.", icon: "🤧", weight: 40, minDurationDays: 2, maxDurationDays: 4, productionPenaltyPercent: 10 },
-    { id: "grippe", name: "Grippe", description: "Fièvre et courbatures qui clouent au lit plusieurs jours.", icon: "🤒", weight: 30, minDurationDays: 3, maxDurationDays: 7, productionPenaltyPercent: 30 },
-    { id: "dysenterie", name: "Dysenterie", description: "Infection intestinale sévère, très affaiblissante.", icon: "🤢", weight: 15, minDurationDays: 5, maxDurationDays: 10, productionPenaltyPercent: 50 },
-    { id: "fievre_maligne", name: "Fièvre maligne", description: "Fièvre violente aux origines incertaines, potentiellement grave si négligée.", icon: "🥵", weight: 10, minDurationDays: 7, maxDurationDays: 14, productionPenaltyPercent: 70 },
-    { id: "peste", name: "Peste", description: "Le fléau redouté de tous les âges. Rare, mais dévastateur.", icon: "☠️", weight: 5, minDurationDays: 10, maxDurationDays: 21, productionPenaltyPercent: 90 },
+    { id: "rhume", name: "Rhume", description: "Un simple refroidissement, gênant mais sans gravité.", icon: "🤧", weight: 40, minDurationDays: 2, maxDurationDays: 4, productionPenaltyPercent: 10, statusEffectIds: ["enrhume"] },
+    { id: "grippe", name: "Grippe", description: "Fièvre et courbatures qui clouent au lit plusieurs jours.", icon: "🤒", weight: 30, minDurationDays: 3, maxDurationDays: 7, productionPenaltyPercent: 30, statusEffectIds: ["fievre", "enrhume"] },
+    { id: "dysenterie", name: "Dysenterie", description: "Infection intestinale sévère, très affaiblissante.", icon: "🤢", weight: 15, minDurationDays: 5, maxDurationDays: 10, productionPenaltyPercent: 50, statusEffectIds: ["affaibli"] },
+    { id: "fievre_maligne", name: "Fièvre maligne", description: "Fièvre violente aux origines incertaines, potentiellement grave si négligée.", icon: "🥵", weight: 10, minDurationDays: 7, maxDurationDays: 14, productionPenaltyPercent: 70, statusEffectIds: ["fievre", "affaibli"] },
+    { id: "peste", name: "Peste", description: "Le fléau redouté de tous les âges. Rare, mais dévastateur.", icon: "☠️", weight: 5, minDurationDays: 10, maxDurationDays: 21, productionPenaltyPercent: 90, statusEffectIds: ["fievre", "affaibli", "blessure_cachee"] },
   ],
 };
 
 const blankIllness = () => ({
   id: `maladie_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
   name: "Nouvelle maladie", description: "", icon: "🤒",
-  weight: 10, minDurationDays: 2, maxDurationDays: 5, productionPenaltyPercent: 20,
+  weight: 10, minDurationDays: 2, maxDurationDays: 5, productionPenaltyPercent: 20, statusEffectIds: [],
 });
 
 const GMIllness = ({ state, onUpdateState, notify }) => {
@@ -2333,6 +2333,14 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
     save({ illnesses: next });
   };
 
+  const toggleIllnessStatus = (id, statusId) => {
+    const ill = illnesses.find((i) => i.id === id);
+    if (!ill) return;
+    const current = ill.statusEffectIds || [];
+    const next = current.includes(statusId) ? current.filter((s) => s !== statusId) : [...current, statusId];
+    updateIllness(id, "statusEffectIds", next);
+  };
+
   const addIllness = () => {
     save({ illnesses: [...illnesses, blankIllness()] }, "Maladie ajoutée.");
   };
@@ -2342,6 +2350,81 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
   };
 
   const sickCount = (state.citizens || []).filter((c) => c.illness).length;
+
+  // --- Déclenchement manuel d'une épidémie (portée : monde / pays / entreprise) ---
+  const [epiIllnessId, setEpiIllnessId] = useState("");
+  const [epiScope, setEpiScope] = useState("ALL");
+  const [epiScopeId, setEpiScopeId] = useState("");
+  const [epiRate, setEpiRate] = useState(30);
+
+  const triggerEpidemic = () => {
+    const illnessDef = illnesses.find((i) => i.id === epiIllnessId);
+    if (!illnessDef) { notify("Choisissez une maladie à propager.", "error"); return; }
+    if ((epiScope === "COUNTRY" || epiScope === "COMPANY") && !epiScopeId) {
+      notify("Choisissez une cible.", "error");
+      return;
+    }
+
+    let company = null;
+    let targetIds;
+    if (epiScope === "ALL") {
+      targetIds = null; // tout le monde
+    } else if (epiScope === "COUNTRY") {
+      targetIds = new Set(
+        (state.citizens || [])
+          .filter((c) => String(c.locationCountryId || c.countryId) === String(epiScopeId))
+          .map((c) => String(c.id))
+      );
+    } else {
+      company = (state.companies || []).find((c) => c.id === epiScopeId);
+      if (!company) { notify("Entreprise introuvable.", "error"); return; }
+      targetIds = new Set(
+        [...(company.employees || []), ...(company.slaves || []), company.ownerId, company.ceoId]
+          .filter(Boolean).map(String)
+      );
+    }
+
+    const rate = Math.max(0, Math.min(100, epiRate));
+    const newHealthAlerts = [];
+    let infectedCount = 0;
+    const newCitizens = (state.citizens || []).map((c) => {
+      if (c.status === "Décédé" || c.illness) return c;
+      if (targetIds && !targetIds.has(String(c.id))) return c;
+      if (Math.random() * 100 >= rate) return c;
+      const illness = rollIllnessInstance(illnessDef, state.dayCycle || 0);
+      if (!illness) return c;
+      infectedCount++;
+      newHealthAlerts.push({
+        id: `health_${c.id}_${Date.now()}_${infectedCount}`, toId: c.id, type: "illness_started",
+        name: illness.name, description: illness.description, timestamp: Date.now(),
+      });
+      return applyIllnessToCitizen(c, illness);
+    });
+
+    if (infectedCount === 0) {
+      notify("Aucun citoyen infecté (cible vide ou coup de chance).", "info");
+      return;
+    }
+
+    const patch = {
+      citizens: newCitizens,
+      healthAlerts: [...newHealthAlerts, ...(state.healthAlerts || [])].slice(0, 300),
+    };
+    if (company) {
+      const notifyIds = [...new Set([company.ownerId, company.ceoId].filter(Boolean))];
+      const newCompanyAlerts = notifyIds.map((toId) => ({
+        id: `epidemic_${company.id}_${Date.now()}_${toId}`, toId, type: "auto_event",
+        companyId: company.id, companyName: company.name,
+        title: `${illnessDef.icon || "🤒"} Épidémie de ${illnessDef.name}`,
+        description: `Une épidémie de ${illnessDef.name} s'est déclarée dans l'entreprise (${infectedCount} touché${infectedCount > 1 ? "s" : ""}).`,
+        timestamp: Date.now(),
+      }));
+      patch.companyAlerts = [...newCompanyAlerts, ...(state.companyAlerts || [])].slice(0, 300);
+    }
+
+    onUpdateState({ ...state, ...patch });
+    notify(`Épidémie déclenchée : ${infectedCount} citoyen${infectedCount > 1 ? "s" : ""} infecté${infectedCount > 1 ? "s" : ""} (${illnessDef.name}).`, "success");
+  };
 
   return (
     <div className="space-y-6">
@@ -2457,6 +2540,33 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                 />
               </div>
             </div>
+
+            <div className="mt-3 pt-3 border-t border-stone-800">
+              <Label>Statuts infligés (visibles sur la fiche Physique & Magie, retirés à la guérison)</Label>
+              {["physique", "magique"].map((key) => (
+                <div key={key} className="flex flex-wrap gap-1.5 mt-1.5">
+                  {STATUS_EFFECTS_CONFIG[key].map((eff) => {
+                    const active = (ill.statusEffectIds || []).includes(eff.id);
+                    return (
+                      <button
+                        key={eff.id}
+                        type="button"
+                        title={eff.desc}
+                        onClick={() => toggleIllnessStatus(ill.id, eff.id)}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-bold transition-all ${
+                          active
+                            ? "bg-red-900/60 border-red-700 text-red-300 ring-1 ring-red-600"
+                            : "bg-stone-800 border-stone-700 text-stone-500 hover:text-stone-200 hover:border-stone-500"
+                        }`}
+                      >
+                        <span>{eff.icon}</span>
+                        <span>{eff.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </Card>
         ))}
         {illnesses.length === 0 && (
@@ -2465,6 +2575,72 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
           </div>
         )}
       </div>
+
+      <Card className="p-6">
+        <SectionTitle icon={ShieldAlert}>Déclencher une épidémie</SectionTitle>
+        <div className="text-xs text-stone-500 mt-2 mb-4 max-w-2xl">
+          Propage immédiatement une maladie définie ci-dessus à une partie de la population, pour
+          un événement narratif ponctuel — indépendamment du tirage quotidien passif.
+        </div>
+        {illnesses.length === 0 ? (
+          <div className="text-xs text-stone-600 italic">Définissez au moins une maladie ci-dessus avant de pouvoir déclencher une épidémie.</div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <Label>Maladie</Label>
+                <Select value={epiIllnessId} onChange={(e) => setEpiIllnessId(e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {illnesses.map((i) => (
+                    <option key={i.id} value={i.id}>{i.icon} {i.name}</option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label>Portée</Label>
+                <Select value={epiScope} onChange={(e) => { setEpiScope(e.target.value); setEpiScopeId(""); }}>
+                  <option value="ALL">Tout le monde</option>
+                  <option value="COUNTRY">Un pays</option>
+                  <option value="COMPANY">Une entreprise</option>
+                </Select>
+              </div>
+              <div>
+                <Label>Taux d'infection (%)</Label>
+                <Input
+                  type="number" min="0" max="100"
+                  value={epiRate}
+                  onChange={(e) => setEpiRate(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                />
+              </div>
+            </div>
+            {epiScope === "COUNTRY" && (
+              <div>
+                <Label>Pays ciblé</Label>
+                <Select value={epiScopeId} onChange={(e) => setEpiScopeId(e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {(state.countries || []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            {epiScope === "COMPANY" && (
+              <div>
+                <Label>Entreprise ciblée</Label>
+                <Select value={epiScopeId} onChange={(e) => setEpiScopeId(e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {(state.companies || []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            <BtnPrimary onClick={triggerEpidemic} className="w-full sm:w-auto px-6">
+              <ShieldAlert size={14} /> Déclencher l'épidémie
+            </BtnPrimary>
+          </div>
+        )}
+      </Card>
     </div>
   );
 };
