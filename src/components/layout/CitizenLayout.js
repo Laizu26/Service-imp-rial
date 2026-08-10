@@ -4234,6 +4234,33 @@ const CitizenLayout = (props) => {
                     <div className="text-sm text-stone-400 italic">Aucun traitement n'a été défini par l'administration.</div>
                   ) : (
                     <>
+                      {/* Le catalogue reste toujours visible, avant même de choisir un patient —
+                          un apothicaire doit pouvoir voir ce qu'il propose sans dépendre d'un
+                          malade présent pour l'instant. */}
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-2">
+                          Traitement {apoTreatmentId && "— sélectionné"}
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {treatments.map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => setApoTreatmentId(t.id)}
+                              className={`text-left p-3 rounded-xl border-2 transition-colors ${
+                                apoTreatmentId === t.id ? "border-emerald-400 bg-emerald-50" : "border-stone-200 hover:border-stone-300"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{t.icon}</span>
+                                <span className="font-bold text-sm text-stone-800">{t.name}</span>
+                              </div>
+                              {t.description && <p className="text-[11px] text-stone-500 italic mt-1">{t.description}</p>}
+                              <div className="text-[10px] text-emerald-700 font-bold mt-1">{formatMoney(t.price)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div>
                         <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Patient</label>
                         <input
@@ -4260,42 +4287,17 @@ const CitizenLayout = (props) => {
                         )}
                       </div>
 
-                      {selectedPatient && (
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-2">Traitement</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {treatments.map((t) => (
-                                <button
-                                  key={t.id}
-                                  onClick={() => setApoTreatmentId(t.id)}
-                                  className={`text-left p-3 rounded-xl border-2 transition-colors ${
-                                    apoTreatmentId === t.id ? "border-emerald-400 bg-emerald-50" : "border-stone-200 hover:border-stone-300"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">{t.icon}</span>
-                                    <span className="font-bold text-sm text-stone-800">{t.name}</span>
-                                  </div>
-                                  {t.description && <p className="text-[11px] text-stone-500 italic mt-1">{t.description}</p>}
-                                  <div className="text-[10px] text-emerald-700 font-bold mt-1">{formatMoney(t.price)}</div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (!apoTreatmentId || !onAdministerTreatment) return;
-                              onAdministerTreatment({ patientId: selectedPatient.id, treatmentId: apoTreatmentId });
-                              setApoPatientId(""); setApoTreatmentId(""); setApoSearch("");
-                            }}
-                            disabled={!apoTreatmentId}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-3 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2"
-                          >
-                            <FlaskConical size={16} /> Administrer le traitement
-                          </button>
-                        </div>
-                      )}
+                      <button
+                        onClick={() => {
+                          if (!apoTreatmentId || !selectedPatient || !onAdministerTreatment) return;
+                          onAdministerTreatment({ patientId: selectedPatient.id, treatmentId: apoTreatmentId });
+                          setApoPatientId(""); setApoTreatmentId(""); setApoSearch("");
+                        }}
+                        disabled={!apoTreatmentId || !selectedPatient}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-3 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2"
+                      >
+                        <FlaskConical size={16} /> Administrer le traitement
+                      </button>
                     </>
                   )}
                 </div>
