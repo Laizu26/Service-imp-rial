@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -6573,10 +6573,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!hasFreePass && (user.balance || 0) < menu[mIdx].price) { notify("Fonds insuffisants.", "error"); return; }
         const price = hasFreePass ? 0 : menu[mIdx].price;
         const itemName = menu[mIdx].itemName;
+        const isAlcoholic = !!menu[mIdx].isAlcoholic;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         const newCitizens = [...state.citizens];
         const uIdx = newCitizens.findIndex((c) => c.id === session.id);
         newCitizens[uIdx] = { ...newCitizens[uIdx], balance: newCitizens[uIdx].balance - price };
+        // Article alcoolisé : jet d'ivresse purement informationnel (voir gameUtils.js) — le
+        // citoyen roleplay lui-même les indications affichées, le jeu ne décide rien à sa place.
+        if (isAlcoholic) {
+          newCitizens[uIdx] = addDrunkenness(newCitizens[uIdx], rollDrunkenGain(), todayDateKey());
+        }
         properties[pIdx] = { ...properties[pIdx], menu };
         // Un sondage de taverne en cours exige d'avoir pris une consommation pour voter — chaque
         // achat au menu débloque le droit de vote pour le sondage actuellement actif.
@@ -6623,6 +6629,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
         const infinite = menu[mIdx].stock === -1;
         if (!infinite && menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
+        const isAlcoholic = !!menu[mIdx].isAlcoholic;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
         properties[pIdx] = { ...properties[pIdx], menu };
         if (properties[pIdx].activePoll && !(properties[pIdx].activePoll.eligibleVoters || []).map(String).includes(String(citizenId))) {
@@ -6632,11 +6639,19 @@ export const useGameActions = (session, state, saveState, notify) => {
           };
         }
         properties[pIdx] = addDailyConsumer(properties[pIdx], citizenId);
+        let newCitizens = state.citizens;
+        if (isAlcoholic) {
+          const rIdx = (state.citizens || []).findIndex((c) => c.id === citizenId);
+          if (rIdx !== -1) {
+            newCitizens = [...state.citizens];
+            newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(), todayDateKey());
+          }
+        }
         const propertyAlerts = [...(state.propertyAlerts || []), {
           id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: citizenId, type: "free_item",
           propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, timestamp: Date.now(),
         }];
-        saveState({ ...state, properties, propertyAlerts });
+        saveState({ ...state, citizens: newCitizens, properties, propertyAlerts });
         notify(`${menu[mIdx].itemName} offert(e) à ${recipient.name}.`, "success");
       },
 
@@ -6702,8 +6717,16 @@ export const useGameActions = (session, state, saveState, notify) => {
         const infinite = menu[mIdx].stock === -1;
         const served = infinite ? consumers : consumers.slice(0, Math.max(0, menu[mIdx].stock));
         if (served.length === 0) { notify("Article indisponible.", "error"); return; }
+        const isAlcoholic = !!menu[mIdx].isAlcoholic;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - served.length };
         properties[pIdx] = { ...properties[pIdx], menu };
+        // Chaque personne servie jette son propre d20 d'ivresse si l'article est alcoolisé.
+        let newCitizens = state.citizens;
+        if (isAlcoholic) {
+          newCitizens = (state.citizens || []).map((c) =>
+            served.map(String).includes(String(c.id)) ? addDrunkenness(c, rollDrunkenGain(), today) : c
+          );
+        }
         if (properties[pIdx].activePoll) {
           const existing = (properties[pIdx].activePoll.eligibleVoters || []).map(String);
           const newlyEligible = served.filter((id) => !existing.includes(String(id)));
@@ -6722,7 +6745,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           })),
           ...(state.propertyAlerts || []),
         ];
-        saveState({ ...state, properties, propertyAlerts });
+        saveState({ ...state, citizens: newCitizens, properties, propertyAlerts });
         notify(
           served.length < consumers.length
             ? `Tournée offerte à ${served.length}/${consumers.length} personnes (stock insuffisant pour le reste).`

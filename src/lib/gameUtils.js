@@ -395,3 +395,34 @@ export function clearIllnessFromCitizen(citizen) {
     status: citizen.status === "Malade" ? "Actif" : citizen.status,
   };
 }
+
+// ===== IVRESSE (consommation d'articles alcoolisés en auberge) =====
+// Purement informationnel : le jeu ne décide jamais des actions du citoyen à sa place — il
+// affiche un taux et des indications de jeu de rôle que le joueur incarne lui-même.
+
+// Jet d20 : plus le jet est bas, plus le gain de % est élevé.
+// 19-20→+0% · 17-18→+5% · 15-16→+10% · 13-14→+15% · 11-12→+20% · 9-10→+25% ·
+// 7-8→+30% · 5-6→+35% · 3-4→+40% · 1-2→+45%
+export function rollDrunkenGain() {
+  const roll = 1 + Math.floor(Math.random() * 20);
+  return Math.floor((20 - roll) / 2) * 5;
+}
+
+// Repart de zéro dès que la date RP a changé depuis la dernière consommation — même logique que
+// les consommateurs du jour (addDailyConsumer, useGameActions.js).
+export function addDrunkenness(citizen, gain, todayKey) {
+  const current = citizen.drunkenness?.day === todayKey ? (citizen.drunkenness.percent || 0) : 0;
+  return { ...citizen, drunkenness: { percent: current + gain, day: todayKey } };
+}
+
+// Paliers cumulatifs : à 200%, tous s'appliquent en même temps ("tout réuni").
+export const DRUNK_TIERS = [
+  { threshold: 110, label: "Langue bien pendue", desc: "Tu parles beaucoup, tu révèles plein de choses sur toi." },
+  { threshold: 130, label: "Étourdi(e)", desc: "Tu fais des bêtises." },
+  { threshold: 150, label: "Entreprenant(e)", desc: "Tu fais des avances à tout le monde." },
+  { threshold: 170, label: "Sans retenue", desc: "Tu te jettes sur tout le monde." },
+];
+
+export function getActiveDrunkTiers(percent) {
+  return DRUNK_TIERS.filter((t) => percent >= t.threshold);
+}

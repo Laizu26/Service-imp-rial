@@ -221,6 +221,7 @@ const PropertyDetailView = ({
   const [menuItemImage, setMenuItemImage] = useState("");
   const [menuItemPrice, setMenuItemPrice] = useState("");
   const [menuItemStock, setMenuItemStock] = useState("");
+  const [menuItemAlcoholic, setMenuItemAlcoholic] = useState(false);
   const [editingMenuIdx, setEditingMenuIdx] = useState(null);
   const [editMenuName, setEditMenuName] = useState("");
   const [editMenuDesc, setEditMenuDesc] = useState("");
@@ -228,6 +229,7 @@ const PropertyDetailView = ({
   const [editMenuImage, setEditMenuImage] = useState("");
   const [editMenuPrice, setEditMenuPrice] = useState("");
   const [editMenuStock, setEditMenuStock] = useState("");
+  const [editMenuAlcoholic, setEditMenuAlcoholic] = useState(false);
   // Sondage de taverne
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -606,13 +608,17 @@ const PropertyDetailView = ({
                           <input className="flex-1 p-1.5 border rounded text-xs" placeholder="URL de l'image (optionnel)" value={editMenuImage} onChange={(e) => setEditMenuImage(e.target.value)} />
                         </div>
                         <textarea className="w-full p-1.5 border rounded text-xs resize-none" rows={2} placeholder="Description (optionnel)" value={editMenuDesc} onChange={(e) => setEditMenuDesc(e.target.value)} />
+                        <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                          <input type="checkbox" checked={editMenuAlcoholic} onChange={(e) => setEditMenuAlcoholic(e.target.checked)} />
+                          🍺 Alcoolisé
+                        </label>
                         <div className="flex justify-end gap-2">
                           <button onClick={() => setEditingMenuIdx(null)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
                           <button onClick={() => {
                             const newMenu = (prop.menu || []).map((item, idx) => idx === editingMenuIdx ? {
                               ...item, itemName: editMenuName.trim() || item.itemName, description: editMenuDesc.trim(),
                               category: editMenuCategory.trim() || "Autres", imageUrl: editMenuImage.trim(),
-                              price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock),
+                              price: parseFloat(editMenuPrice) || 0, stock: parseInt(editMenuStock), isAlcoholic: editMenuAlcoholic,
                             } : item);
                             onUpdatePropertyFeature(prop.id, "menu", newMenu);
                             setEditingMenuIdx(null);
@@ -646,7 +652,7 @@ const PropertyDetailView = ({
                                   <button onClick={() => {
                                     setEditingMenuIdx(i); setEditMenuName(m.itemName); setEditMenuDesc(m.description || "");
                                     setEditMenuCategory(m.category || ""); setEditMenuImage(m.imageUrl || "");
-                                    setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock));
+                                    setEditMenuPrice(String(m.price)); setEditMenuStock(String(m.stock)); setEditMenuAlcoholic(!!m.isAlcoholic);
                                   }} className="bg-white/90 rounded-full p-1 text-stone-500 hover:text-stone-800 shadow" title="Modifier"><Pencil size={11} /></button>
                                   <button onClick={() => { onUpdatePropertyFeature(prop.id, "menu", (prop.menu || []).filter((_, idx) => idx !== i)); }} className="bg-white/90 rounded-full p-1 text-red-400 hover:text-red-600 shadow" title="Supprimer"><Trash2 size={11} /></button>
                                 </div>
@@ -656,7 +662,9 @@ const PropertyDetailView = ({
                               )}
                             </div>
                             <div className="p-2.5 flex flex-col flex-1">
-                              <div className="font-bold text-stone-800 text-sm leading-tight break-words">{m.itemName}</div>
+                              <div className="font-bold text-stone-800 text-sm leading-tight break-words">
+                                {m.itemName} {m.isAlcoholic && <span title="Alcoolisé">🍺</span>}
+                              </div>
                               {m.description && <p className="text-[10px] text-stone-500 italic mt-0.5 break-words">{m.description}</p>}
                               <div className="mt-auto pt-2 flex items-center justify-between">
                                 {myFreePass ? (
@@ -711,15 +719,19 @@ const PropertyDetailView = ({
                       <img src={menuItemImage} alt="" className="w-8 h-8 rounded object-cover border border-stone-200" onError={(e) => { e.target.style.display = "none"; }} />
                     </div>
                   )}
+                  <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                    <input type="checkbox" checked={menuItemAlcoholic} onChange={(e) => setMenuItemAlcoholic(e.target.checked)} />
+                    🍺 Alcoolisé
+                  </label>
                   <button
                     onClick={() => {
                       if (!menuItemName.trim()) return;
                       onUpdatePropertyFeature(prop.id, "menu", [...(prop.menu || []), {
                         id: `menu_${Date.now()}`, itemName: menuItemName.trim(), description: menuItemDesc.trim(),
                         category: menuItemCategory.trim() || "Autres", imageUrl: menuItemImage.trim(),
-                        price: parseFloat(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0,
+                        price: parseFloat(menuItemPrice) || 0, stock: parseInt(menuItemStock) ?? 0, isAlcoholic: menuItemAlcoholic,
                       }]);
-                      setMenuItemName(""); setMenuItemDesc(""); setMenuItemCategory(""); setMenuItemImage(""); setMenuItemPrice(""); setMenuItemStock("");
+                      setMenuItemName(""); setMenuItemDesc(""); setMenuItemCategory(""); setMenuItemImage(""); setMenuItemPrice(""); setMenuItemStock(""); setMenuItemAlcoholic(false);
                     }}
                     className="w-full bg-stone-800 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
                   >

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Sparkles, Star, HeartPulse, Info, Lock, AlertTriangle, Link2 } from "lucide-react";
-import { hashCode, getEffectiveMagicHue } from "../../lib/gameUtils";
+import { hashCode, getEffectiveMagicHue, getActiveDrunkTiers } from "../../lib/gameUtils";
 
 // ===== CONDITIONS LIÉES À LA BAGUE (source cachée) =====
 const BAGUE_CONDITIONS = [
@@ -331,7 +331,7 @@ const getUserAura = (user) => {
 };
 
 // ===== COMPOSANT PRINCIPAL =====
-const CitizenPhysicsMagicView = ({ user }) => {
+const CitizenPhysicsMagicView = ({ user, gameDate }) => {
   const [activeSection, setActiveSection] = useState("physique");
   const [selectedZone,  setSelectedZone]  = useState(null);
   const [hoveredZone,   setHoveredZone]   = useState(null);
@@ -341,6 +341,13 @@ const CitizenPhysicsMagicView = ({ user }) => {
   const selectedMeta  = BODY_ZONES.find((z) => z.id === selectedZone);
   const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
   const injuredCount  = BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").length;
+
+  // Ivresse du jour (consommations d'alcool en auberge) — purement informationnel, remis à zéro
+  // dès que la date RP change (voir addDrunkenness, gameUtils.js).
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
+  const todayKey = `${gd.day}/${gd.month}/${gd.year}`;
+  const drunkPercent = user?.drunkenness?.day === todayKey ? (user.drunkenness.percent || 0) : 0;
+  const activeDrunkTiers = getActiveDrunkTiers(drunkPercent);
 
   const activeStatusIds   = user?.statusEffects || [];
   const activePhysical    = STATUS_EFFECTS.physique.filter((e) => activeStatusIds.includes(e.id));
@@ -415,6 +422,34 @@ const CitizenPhysicsMagicView = ({ user }) => {
                     {Math.max(0, (user.illness.durationDays || 0) - (user.illness.daysElapsed || 0)) > 1 ? "s" : ""} avant guérison estimée
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Ivresse du jour (consommations d'alcool en auberge) — purement informationnel :
+                le jeu ne roleplay jamais à la place du joueur, il affiche juste le taux et les
+                indications de jeu de rôle correspondantes, à incarner soi-même. */}
+            {drunkPercent > 0 && (
+              <div className="rounded-xl border-2 border-purple-300 bg-purple-50 px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl shrink-0">🍺</span>
+                  <div className="flex-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-purple-700 block">
+                      Ivresse — {drunkPercent}% {drunkPercent >= 100 ? "(bourré(e))" : ""}
+                    </span>
+                    <div className="w-full h-1.5 bg-purple-100 rounded-full overflow-hidden mt-1">
+                      <div className="h-full bg-purple-500" style={{ width: `${Math.min(100, drunkPercent)}%` }} />
+                    </div>
+                  </div>
+                </div>
+                {activeDrunkTiers.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {activeDrunkTiers.map((t) => (
+                      <li key={t.threshold} className="text-xs text-purple-800 italic flex items-start gap-1.5">
+                        <span className="shrink-0">•</span> {t.desc}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 

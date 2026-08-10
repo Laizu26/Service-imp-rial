@@ -4186,6 +4186,7 @@ const CitizenLayout = (props) => {
               <CitizenPhysicsMagicView
                 user={user}
                 onUpdateUser={onUpdateUser}
+                gameDate={gd}
               />
             )}
 
