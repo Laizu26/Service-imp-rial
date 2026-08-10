@@ -5085,7 +5085,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         const isBorrowedIn = (state.staffLoans || []).some(
           (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId) && String(l.employeeId) === String(citizenId)
         );
-        if (!(company.employees || []).map(String).includes(String(citizenId)) && !isBorrowedIn) return;
+        // Le dirigeant/PDG lui-même peut s'auto-autoriser (déjà couvert de fait par
+        // isCompanyManager dans onPostMushtagram, ce toggle rend juste son propre statut visible
+        // et modifiable), sans avoir besoin d'être dans employees/slaves comme un salarié.
+        const isSelfManager = String(company.ownerId) === String(citizenId) || String(company.ceoId) === String(citizenId);
+        if (!(company.employees || []).map(String).includes(String(citizenId)) && !isBorrowedIn && !isSelfManager) return;
         const current = (company.mushtagramAuthorizedIds || []).map(String);
         const next = authorized
           ? (current.includes(String(citizenId)) ? current : [...current, String(citizenId)])

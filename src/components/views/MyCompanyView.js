@@ -296,8 +296,6 @@ function EmployeeManagementModal({
             // onglet Restrictions pertinent (pas de grade/contrat/salaire/licenciement pour soi-même).
   selfRights,
   onSetSelfRights,
-  citizens, // uniquement pour le mode self : liste du personnel pour gérer l'accès au compte
-  staffLoans, // Mushtagram de l'entreprise depuis un seul endroit centralisé.
   onClose,
   onSetEmployeeSerfRights,
   onSetEmployeeRank,
@@ -465,51 +463,6 @@ function EmployeeManagementModal({
                   </button>
                 </div>
               )}
-
-              {/* En mode self : vous et le PDG avez déjà un accès automatique (isCompanyManager),
-                  donc rien à toggler pour vous-même — mais vous pouvez ici gérer, en un seul
-                  endroit, qui parmi le personnel a accès au compte de l'entreprise. */}
-              {isSelf && onSetCompanyMushtagramAccess && (() => {
-                const authorizedIds = (myCompany.mushtagramAuthorizedIds || []).map(String);
-                const personnel = [
-                  ...(myCompany.employees || []).filter((id) => String(id) !== String(myCompany.ceoId)).map((id) => ({
-                    id, name: citizens?.find((c) => c.id === id)?.name || id, loaned: false,
-                  })),
-                  ...(staffLoans || [])
-                    .filter((l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(myCompany.id))
-                    .map((l) => ({ id: l.employeeId, name: l.employeeName, loaned: true })),
-                ];
-                return (
-                  <div className="mt-4 space-y-2">
-                    <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
-                      Accès au compte Mushtagram de l'entreprise
-                    </div>
-                    {personnel.length === 0 ? (
-                      <div className="text-[10px] text-stone-400 italic bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                        Aucun salarié ou détaché à qui accorder cet accès pour l'instant.
-                      </div>
-                    ) : (
-                      personnel.map((p) => {
-                        const authorized = authorizedIds.includes(String(p.id));
-                        return (
-                          <div key={p.id} className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                              {p.name}
-                              {p.loaned && <span className="text-[8px] font-black uppercase text-blue-600">(détaché)</span>}
-                            </div>
-                            <button
-                              onClick={() => onSetCompanyMushtagramAccess({ companyId: myCompany.id, citizenId: p.id, authorized: !authorized })}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${authorized ? "bg-emerald-600" : "bg-stone-300"}`}
-                            >
-                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${authorized ? "translate-x-6" : "translate-x-1"}`} />
-                            </button>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           )}
 
@@ -3535,6 +3488,27 @@ const MyCompanyView = ({
             </div>
           </Card>
 
+          {/* Auto-autorisation à publier au nom de l'entreprise sur Mushtagram — le
+              dirigeant/PDG y a déjà accès de fait (isCompanyManager), ce toggle rend ce statut
+              explicite et permet de s'en retirer soi-même si voulu, sans avoir à passer par
+              quelqu'un d'autre pour gérer ce droit. */}
+          {onSetCompanyMushtagramAccess && (
+            <Card title="Mon accès Mushtagram" icon={Users}>
+              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                <div>
+                  <div className="text-xs font-bold text-emerald-800">🏢 Publier au nom de {myCompany.name}</div>
+                  <div className="text-[10px] text-emerald-600">Vous autoriser (ou non) à publier sur Mushtagram au nom de l'entreprise</div>
+                </div>
+                <button
+                  onClick={() => onSetCompanyMushtagramAccess({ companyId: myCompany.id, citizenId: user.id, authorized: !(myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(user.id)) })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${(myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(user.id)) ? "bg-emerald-600" : "bg-stone-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${(myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(user.id)) ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+            </Card>
+          )}
+
           {/* Grades personnalisés */}
           <Card title="Grades & Rangs" icon={Shield}>
             <div className="space-y-4">
@@ -4494,9 +4468,6 @@ const MyCompanyView = ({
           selfMode
           selfRights={user.selfLockedRights}
           onSetSelfRights={onSetSelfRights}
-          citizens={citizens}
-          staffLoans={staffLoans}
-          onSetCompanyMushtagramAccess={onSetCompanyMushtagramAccess}
           onClose={() => setManagingSelf(false)}
           formatMoney={formatMoney}
         />
