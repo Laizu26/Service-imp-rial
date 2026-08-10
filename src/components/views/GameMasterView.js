@@ -45,7 +45,7 @@ import {
   Activity,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES } from "../../lib/constants";
-import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort, rollIllnessInstance, applyIllnessToCitizen } from "../../lib/gameUtils";
+import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen } from "../../lib/gameUtils";
 
 /* ================================================
    HELPERS
@@ -2349,7 +2349,48 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
     save({ illnesses: illnesses.filter((i) => i.id !== id) }, "Maladie supprimée.");
   };
 
-  const sickCount = (state.citizens || []).filter((c) => c.illness).length;
+  const sickCitizens = (state.citizens || []).filter((c) => c.illness);
+  const sickCount = sickCitizens.length;
+
+  const cureCitizen = (citizenId) => {
+    const citizen = (state.citizens || []).find((c) => c.id === citizenId);
+    if (!citizen || !citizen.illness) return;
+    const illnessName = citizen.illness.name;
+    const newCitizens = (state.citizens || []).map((c) => (c.id === citizenId ? clearIllnessFromCitizen(c) : c));
+    const healthAlerts = [
+      { id: `health_${citizenId}_${Date.now()}`, toId: citizenId, type: "illness_recovered", name: illnessName, timestamp: Date.now() },
+      ...(state.healthAlerts || []),
+    ].slice(0, 300);
+    onUpdateState({ ...state, citizens: newCitizens, healthAlerts });
+    notify(`${citizen.name} est guéri(e).`, "success");
+  };
+
+  // --- Infliger manuellement une maladie à un citoyen précis ---
+  const [inflictSearch, setInflictSearch] = useState("");
+  const [inflictCitizenId, setInflictCitizenId] = useState("");
+  const [inflictIllnessId, setInflictIllnessId] = useState("");
+
+  const inflictMatches = inflictSearch.trim()
+    ? (state.citizens || []).filter((c) => c.name?.toLowerCase().includes(inflictSearch.trim().toLowerCase())).slice(0, 30)
+    : [];
+
+  const inflictIllness = () => {
+    const illnessDef = illnesses.find((i) => i.id === inflictIllnessId);
+    if (!illnessDef) { notify("Choisissez une maladie.", "error"); return; }
+    const citizen = (state.citizens || []).find((c) => c.id === inflictCitizenId);
+    if (!citizen) { notify("Choisissez un citoyen.", "error"); return; }
+    if (citizen.illness) { notify(`${citizen.name} est déjà malade.`, "error"); return; }
+    const illness = rollIllnessInstance(illnessDef, state.dayCycle || 0);
+    if (!illness) return;
+    const newCitizens = (state.citizens || []).map((c) => (c.id === citizen.id ? applyIllnessToCitizen(c, illness) : c));
+    const healthAlerts = [
+      { id: `health_${citizen.id}_${Date.now()}`, toId: citizen.id, type: "illness_started", name: illness.name, description: illness.description, timestamp: Date.now() },
+      ...(state.healthAlerts || []),
+    ].slice(0, 300);
+    onUpdateState({ ...state, citizens: newCitizens, healthAlerts });
+    notify(`${citizen.name} est désormais malade (${illness.name}).`, "success");
+    setInflictCitizenId(""); setInflictSearch("");
+  };
 
   // --- Déclenchement manuel d'une épidémie (portée : monde / pays / région / entreprise) ---
   const [epiIllnessId, setEpiIllnessId] = useState("");
@@ -2591,6 +2632,87 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
           </div>
         )}
       </div>
+
+      <Card className="p-6">
+        <SectionTitle icon={Users}>Citoyens malades ({sickCount})</SectionTitle>
+        {sickCitizens.length === 0 ? (
+          <div className="text-xs text-stone-600 italic mt-2">Personne n'est malade actuellement.</div>
+        ) : (
+          <div className="space-y-2 mt-4 max-h-96 overflow-y-auto pr-1">
+            {sickCitizens.map((c) => {
+              const remaining = Math.max(0, (c.illness.durationDays || 0) - (c.illness.daysElapsed || 0));
+              return (
+                <div key={c.id} className="flex items-center justify-between gap-3 bg-stone-800/50 border border-stone-700/50 rounded-lg p-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xl shrink-0">{c.illness.icon || "🤒"}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-stone-200 truncate">{c.name}</div>
+                      <div className="text-[10px] text-stone-500">
+                        {c.illness.name || c.illness.severityLabel || "Maladie"} — {remaining} jour{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => cureCitizen(c.id)}
+                    className="shrink-0 px-3 py-1.5 rounded-lg bg-green-900/40 border border-green-800/50 text-green-300 text-[10px] font-black uppercase tracking-widest hover:bg-green-900/60"
+                  >
+                    Guérir
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-6">
+        <SectionTitle icon={Activity}>Infliger une maladie</SectionTitle>
+        <div className="text-xs text-stone-500 mt-2 mb-4 max-w-2xl">
+          Rend immédiatement malade un citoyen précis, avec la maladie de votre choix parmi celles définies ci-dessus.
+        </div>
+        {illnesses.length === 0 ? (
+          <div className="text-xs text-stone-600 italic">Définissez au moins une maladie ci-dessus avant de pouvoir en infliger une.</div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="relative">
+                <Label>Citoyen</Label>
+                <Input
+                  value={inflictCitizenId ? (state.citizens || []).find((c) => c.id === inflictCitizenId)?.name || inflictSearch : inflictSearch}
+                  onChange={(e) => { setInflictSearch(e.target.value); setInflictCitizenId(""); }}
+                  placeholder="Chercher un citoyen…"
+                />
+                {inflictSearch && !inflictCitizenId && inflictMatches.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full max-h-40 overflow-y-auto bg-stone-800 border border-stone-700 rounded-lg shadow-xl">
+                    {inflictMatches.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setInflictCitizenId(c.id); setInflictSearch(c.name); }}
+                        className="w-full text-left px-3 py-2 text-xs text-stone-200 hover:bg-stone-700 flex items-center justify-between"
+                      >
+                        {c.name}
+                        {c.illness && <span className="text-[9px] text-yellow-500">déjà malade</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label>Maladie</Label>
+                <Select value={inflictIllnessId} onChange={(e) => setInflictIllnessId(e.target.value)}>
+                  <option value="">— Choisir —</option>
+                  {illnesses.map((i) => (
+                    <option key={i.id} value={i.id}>{i.icon} {i.name}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <BtnPrimary onClick={inflictIllness} className="w-full sm:w-auto px-6">
+              <ShieldAlert size={14} /> Infliger
+            </BtnPrimary>
+          </div>
+        )}
+      </Card>
 
       <Card className="p-6">
         <SectionTitle icon={ShieldAlert}>Déclencher une épidémie</SectionTitle>
