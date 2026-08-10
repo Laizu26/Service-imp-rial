@@ -567,6 +567,7 @@ const PropertyDetailView = ({
 
               {(() => {
                 const menuWithIdx = (prop.menu || []).map((m, i) => ({ ...m, _idx: i }));
+                const myFreePass = (prop.freePassIds || []).map(String).includes(String(user?.id));
                 const presentCategories = [...new Set(menuWithIdx.map((m) => m.category || "Autres"))];
                 const filtered = menuFilterCategory ? menuWithIdx.filter((m) => (m.category || "Autres") === menuFilterCategory) : menuWithIdx;
                 const editingItem = editingMenuIdx !== null ? menuWithIdx.find((m) => m._idx === editingMenuIdx) : null;
@@ -658,14 +659,18 @@ const PropertyDetailView = ({
                               <div className="font-bold text-stone-800 text-sm leading-tight break-words">{m.itemName}</div>
                               {m.description && <p className="text-[10px] text-stone-500 italic mt-0.5 break-words">{m.description}</p>}
                               <div className="mt-auto pt-2 flex items-center justify-between">
-                                <span className="font-mono text-yellow-700 text-xs font-bold">{formatMoney(m.price)}</span>
+                                {myFreePass ? (
+                                  <span className="font-mono text-purple-700 text-xs font-bold flex items-center gap-1"><Ticket size={11} /> Gratuit</span>
+                                ) : (
+                                  <span className="font-mono text-yellow-700 text-xs font-bold">{formatMoney(m.price)}</span>
+                                )}
                                 {infinite && <span className="text-[9px] text-stone-400">∞</span>}
                               </div>
                               <button
                                 onClick={() => onBuyFromMenu(prop.id, m.id || m.itemName)}
-                                disabled={!available || (user?.balance || 0) < m.price}
+                                disabled={!available || (!myFreePass && (user?.balance || 0) < m.price)}
                                 className="mt-2 w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
-                                title={isOwner ? "Payer votre propre consommation, comme n'importe quel client." : "Consommé sur place — n'entre pas dans l'inventaire"}
+                                title={myFreePass ? "Pass gratuit illimité — aucun paiement." : isOwner ? "Payer votre propre consommation, comme n'importe quel client." : "Consommé sur place — n'entre pas dans l'inventaire"}
                               >
                                 <Utensils size={10} /> {available ? "Commander" : "Indisponible"}
                               </button>
