@@ -3,7 +3,7 @@ import {
   MapPin, Shield, Users, MessageSquare, Lock, Home, Utensils, Eye,
   Package, Hammer, ShoppingBag, Calendar, Plus, Trash2, X, ArrowLeft,
   Coins, Crown, UserPlus, Pencil, Save, Building2, Tag, Key, Banknote,
-  Image as ImageIcon, Sparkles, Vote,
+  Image as ImageIcon, Sparkles, Vote, Gift,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -170,6 +170,7 @@ const PropertyDetailView = ({
   onSetupRooms, onBookRoom, onCheckoutRoom,
   onPostTavernMessage, onPostRumor, onDeleteRumor,
   onBuyFromMenu, onBuyFromShop,
+  onGrantFreeMenuItem,
   onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
   onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
   onAddPropertyGuest, onRemovePropertyGuest,
@@ -230,6 +231,9 @@ const PropertyDetailView = ({
   // Sondage de taverne
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
+  // Offrir une consommation gratuite
+  const [grantCitizenId, setGrantCitizenId] = useState("");
+  const [grantItemKey, setGrantItemKey] = useState("");
 
   if (!prop) return null;
 
@@ -705,6 +709,33 @@ const PropertyDetailView = ({
                     className="w-full bg-stone-800 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
                   >
                     <Plus size={12} /> Ajouter au menu
+                  </button>
+                </div>
+              )}
+              {isOwner && (prop.menu || []).length > 0 && (
+                <div className="border border-dashed border-emerald-300 rounded-lg p-3 space-y-2 mt-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-500">Offrir une consommation gratuite</span>
+                  <UserSearchSelect users={citizens} onSelect={setGrantCitizenId} value={grantCitizenId} placeholder="Choisir un citoyen..." />
+                  <select
+                    className="w-full p-1.5 border rounded text-xs"
+                    value={grantItemKey}
+                    onChange={(e) => setGrantItemKey(e.target.value)}
+                  >
+                    <option value="">— Choisir un article —</option>
+                    {(prop.menu || []).filter((m) => m.stock === -1 || m.stock > 0).map((m) => (
+                      <option key={m.id || m.itemName} value={m.id || m.itemName}>{m.itemName}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (!grantCitizenId || !grantItemKey || !onGrantFreeMenuItem) return;
+                      onGrantFreeMenuItem({ propertyId: prop.id, citizenId: grantCitizenId, itemKey: grantItemKey });
+                      setGrantCitizenId(""); setGrantItemKey("");
+                    }}
+                    disabled={!grantCitizenId || !grantItemKey}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-1.5 rounded text-[10px] font-bold uppercase flex items-center justify-center gap-1"
+                  >
+                    <Gift size={12} /> Offrir
                   </button>
                 </div>
               )}

@@ -6579,6 +6579,41 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Vous dégustez ${itemName}. Bon appétit !`, "success");
       },
 
+      // Auberge : le gérant offre une consommation gratuite à un citoyen de son choix — même
+      // article de menu, mais sans paiement des deux côtés. Compte comme une consommation prise
+      // pour le sondage de taverne en cours, au même titre qu'un achat classique.
+      onGrantFreeMenuItem: ({ propertyId, citizenId, itemKey }) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        if (!isPropertyManager(properties[pIdx], session.id)) {
+          notify("Seul le gérant de l'établissement peut offrir une consommation.", "error");
+          return;
+        }
+        const recipient = (state.citizens || []).find((c) => c.id === citizenId);
+        if (!recipient) { notify("Citoyen introuvable.", "error"); return; }
+        const menu = [...(properties[pIdx].menu || [])];
+        const mIdx = menu.findIndex((m) => (m.id || m.itemName) === itemKey);
+        if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
+        const infinite = menu[mIdx].stock === -1;
+        if (!infinite && menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
+        if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
+        properties[pIdx] = { ...properties[pIdx], menu };
+        if (properties[pIdx].activePoll && !(properties[pIdx].activePoll.eligibleVoters || []).map(String).includes(String(citizenId))) {
+          properties[pIdx] = {
+            ...properties[pIdx],
+            activePoll: { ...properties[pIdx].activePoll, eligibleVoters: [...(properties[pIdx].activePoll.eligibleVoters || []), citizenId] },
+          };
+        }
+        const propertyAlerts = [...(state.propertyAlerts || []), {
+          id: `palert_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, toId: citizenId, type: "free_item",
+          propertyId, propertyName: properties[pIdx].name, itemName: menu[mIdx].itemName, timestamp: Date.now(),
+        }];
+        saveState({ ...state, properties, propertyAlerts });
+        notify(`${menu[mIdx].itemName} offert(e) à ${recipient.name}.`, "success");
+      },
+
       // --- Auberge : sondages de taverne ---
       // Lancer un nouveau sondage remplace intégralement l'ancien (nouvel objet activePoll,
       // eligibleVoters vide) : c'est ce qui réinitialise naturellement le droit de vote à chaque
