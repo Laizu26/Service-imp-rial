@@ -41,7 +41,7 @@ import {
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
-import { OrderBookDepth, PriceHistoryChart } from "../ui/BourseWidgets";
+import { OrderBookDepth, PriceHistoryChart, BoardVotingPanel } from "../ui/BourseWidgets";
 import { formatMoney, getActiveStaffLoan } from "../../lib/gameUtils";
 
 // ── Sous-composant ESPP — config patron (state propre pour éviter la synchro inter-entreprises) ──
@@ -779,6 +779,11 @@ const MyCompanyView = ({
   onBourseCompanyOffer,
   onBourseDirectOffer,
   onBourseCancelOrder,
+  boardProposals = [],
+  dayCycle = 0,
+  onCreateBoardProposal,
+  onCastBoardVote,
+  onCancelBoardProposal,
   onUpdateCompanyESPP,
   onEmployeeBuyShares,
   onPayBuyout,
@@ -4112,6 +4117,19 @@ const MyCompanyView = ({
                 </div>
               </Card>
             </div>
+
+            {/* Conseil d'administration — mêmes propositions/votes que côté actionnaire (Bourse) */}
+            <BoardVotingPanel
+              listing={myListing}
+              company={myCompany}
+              citizens={citizens}
+              myId={user.id}
+              dayCycle={dayCycle}
+              proposals={boardProposals}
+              onCreateBoardProposal={onCreateBoardProposal}
+              onCastBoardVote={onCastBoardVote}
+              onCancelBoardProposal={onCancelBoardProposal}
+            />
 
             {/* ── Plan d'Actionnariat Salarié (ESPP) — config patron ── */}
             {myListing && onUpdateCompanyESPP && (
