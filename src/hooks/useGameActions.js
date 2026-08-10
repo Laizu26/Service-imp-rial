@@ -1466,8 +1466,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Seul le dirigeant peut affecter le personnel.", "error");
           return;
         }
+        const isLoanedIn = (state.staffLoans || []).some(
+          (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId) && String(l.employeeId) === String(employeeId)
+        );
         const isWorker = (company.employees || []).map(String).includes(String(employeeId))
-          || (company.slaves || []).map(String).includes(String(employeeId));
+          || (company.slaves || []).map(String).includes(String(employeeId))
+          || isLoanedIn;
         if (!isWorker) { notify("Ce citoyen ne fait pas partie du personnel de l'entreprise.", "error"); return; }
 
         const assignments = { ...(company.employeeAssignments || {}) };
@@ -5676,7 +5680,17 @@ export const useGameActions = (session, state, saveState, notify) => {
           id: `sla_${Date.now()}`, toId: loan.employeeId, type: reason === "RECALLED" ? "recalled" : "ended",
           fromCompanyName: loan.fromCompanyName, toCompanyName: loan.toCompanyName, timestamp: Date.now(),
         }];
-        saveState({ ...state, staffLoans: newLoans, staffLoanAlerts: alerts });
+        // Retire son éventuelle affectation à un bien de l'entreprise emprunteuse — un
+        // détaché reparti ne doit plus compter dans le bonus de revenu du bien.
+        let newCompanies = state.companies || [];
+        const toCompIdx = (state.companies || []).findIndex((c) => c.id === loan.toCompanyId);
+        if (toCompIdx !== -1 && (state.companies[toCompIdx].employeeAssignments || {})[loan.employeeId]) {
+          const assignments = { ...state.companies[toCompIdx].employeeAssignments };
+          delete assignments[loan.employeeId];
+          newCompanies = [...state.companies];
+          newCompanies[toCompIdx] = { ...newCompanies[toCompIdx], employeeAssignments: assignments };
+        }
+        saveState({ ...state, companies: newCompanies, staffLoans: newLoans, staffLoanAlerts: alerts });
         notify("Détachement terminé.", "info");
       },
 

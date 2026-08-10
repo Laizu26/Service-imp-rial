@@ -2415,13 +2415,15 @@ const MyCompanyView = ({
             );
             if (myProperties.length === 0) return null;
             const isManager = isTrueOwner || isCeoView;
-            const allWorkerIds = [...(myCompany.employees || []), ...(myCompany.slaves || [])];
+            const allWorkerIds = [...(myCompany.employees || []), ...(myCompany.slaves || []), ...borrowedInLoans.map((l) => l.employeeId)];
+            const loanedIds = new Set(borrowedInLoans.map((l) => String(l.employeeId)));
             const assignments = myCompany.employeeAssignments || {};
             return (
               <Card title="Biens de l'entreprise" icon={Building2}>
                 <div className="text-xs text-stone-500 italic bg-stone-50 p-3 rounded mb-3">
-                  Affectez du personnel (salarié ou esclave) à un bien pour augmenter son revenu quotidien :
-                  chaque membre affecté ajoute +8% (jusqu'à 4 affectés, soit +32% maximum).
+                  Affectez du personnel (salarié, esclave ou détaché reçu d'une autre entreprise) à un bien
+                  pour augmenter son revenu quotidien : chaque membre affecté ajoute +8% (jusqu'à 4 affectés,
+                  soit +32% maximum).
                 </div>
                 <div className="space-y-3">
                   {myProperties.map((prop) => {
@@ -2454,6 +2456,9 @@ const MyCompanyView = ({
                             return (
                               <span key={id} className="flex items-center gap-1 bg-stone-100 border border-stone-200 rounded-full pl-2 pr-1 py-0.5 text-[10px] font-bold text-stone-600">
                                 {worker?.name || id}
+                                {loanedIds.has(String(id)) && (
+                                  <span className="bg-blue-100 text-blue-700 px-1 py-0.5 rounded-full text-[8px] font-black uppercase border border-blue-200">Détaché</span>
+                                )}
                                 {isManager && onAssignEmployeeToProperty && (
                                   <button
                                     onClick={() => onAssignEmployeeToProperty({ companyId: myCompany.id, employeeId: id, propertyId: null })}
@@ -2485,7 +2490,7 @@ const MyCompanyView = ({
                                 : null;
                               return (
                                 <option key={id} value={id}>
-                                  {worker?.name || id}{elsewhere ? ` (actuellement à ${elsewhere.name})` : ""}
+                                  {worker?.name || id}{loanedIds.has(String(id)) ? " (détaché)" : ""}{elsewhere ? ` (actuellement à ${elsewhere.name})` : ""}
                                 </option>
                               );
                             })}
