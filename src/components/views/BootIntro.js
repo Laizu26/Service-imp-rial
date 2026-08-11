@@ -1,39 +1,67 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Crown, User } from "lucide-react";
 
-// Défilement des comptes reconnus : chaque compte apparaît au centre, puis glisse vers une
-// pile sur le côté pendant que le suivant prend sa place ; une fois tous passés, la pile
-// entière converge et « fusionne » en un point avant de céder la place à l'écran "ready".
-const ACCOUNT_HOLD = 650; // ms passés au centre avant de rejoindre la pile
-const DOCK_SETTLE = 350; // ms de pause une fois tous les comptes alignés sur le côté
-const FUSE_DURATION = 650; // ms de l'animation de fusion
-const DOCK_SIDE_X = 96; // px, décalage horizontal de la pile
-const DOCK_STEP_Y = 32; // px, espacement vertical entre comptes empilés
+// Défilement des comptes reconnus : les premiers (INTRO_ACCOUNTS_MAX) défilent un par un au
+// centre, puis tous les comptes connectés (même au-delà de ce nombre) se rangent en cercle ;
+// une fois le cercle formé, ils convergent et « fusionnent » en un éclat de confettis avant de
+// céder la place à l'écran "ready".
+const INTRO_ACCOUNTS_MAX = 6; // nombre de comptes présentés individuellement au centre
+const ACCOUNT_HOLD = 650; // ms passés au centre avant de rejoindre le cercle
+const DOCK_SETTLE = 400; // ms de pause une fois tous les comptes alignés en cercle
+const FUSE_DURATION = 750; // ms de l'animation de fusion (confettis inclus)
+const DOCK_RADIUS_BASE = 68; // px, rayon du cercle pour peu de comptes
+const DOCK_RADIUS_STEP = 4; // px, rayon additionnel par compte au-delà de 6
+const DOCK_RADIUS_MAX = 130; // px, rayon maximum du cercle
+const CONFETTI_COLORS = ["#eab308", "#f59e0b", "#fde68a", "#fbbf24", "#fff7ed", "#d97706"];
+
+const circleSlot = (i, total) => {
+  const radius = Math.min(DOCK_RADIUS_MAX, DOCK_RADIUS_BASE + Math.max(0, total - 6) * DOCK_RADIUS_STEP);
+  const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+  return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+};
 
 const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }) => {
-  const accounts = useMemo(() => connectedAccounts.slice(0, 6), [connectedAccounts]);
+  const introAccounts = useMemo(() => connectedAccounts.slice(0, INTRO_ACCOUNTS_MAX), [connectedAccounts]);
 
   const stages = useMemo(() => {
     const s = [
       { type: "welcome", duration: 1600 },
       { type: "loading", duration: 1600 },
     ];
-    if (accounts.length > 0) {
+    if (connectedAccounts.length > 0) {
       s.push({
         type: "accounts",
-        accounts,
-        duration: accounts.length * ACCOUNT_HOLD + DOCK_SETTLE + FUSE_DURATION,
+        introAccounts,
+        allAccounts: connectedAccounts,
+        duration: introAccounts.length * ACCOUNT_HOLD + DOCK_SETTLE + FUSE_DURATION,
       });
     }
     s.push({ type: "ready", duration: null }); // dernière étape : attend le clic (ou une touche)
     return s;
-  }, [accounts]);
+  }, [connectedAccounts, introAccounts]);
 
   const [stageIndex, setStageIndex] = useState(0);
   const [phase, setPhase] = useState("playing"); // playing | flash | fading
   const [activeAccountIdx, setActiveAccountIdx] = useState(0);
+  const [accountsSettled, setAccountsSettled] = useState(false);
   const [fusingAccounts, setFusingAccounts] = useState(false);
   const finishedRef = useRef(false);
+
+  // Confettis générés une seule fois par montage : la fusion ne joue qu'une fois par écran.
+  const confettiPieces = useMemo(() => Array.from({ length: 24 }, (_, i) => {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 70 + Math.random() * 100;
+    return {
+      id: i,
+      dx: Math.cos(angle) * dist,
+      dy: Math.sin(angle) * dist - 15,
+      rot: (Math.random() - 0.5) * 720,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      delay: Math.random() * 90,
+      w: 3 + Math.random() * 3,
+      h: 6 + Math.random() * 5,
+    };
+  }), []);
 
   // stages/onFinished sont recréés à chaque re-render du parent (sync Firestore en continu) —
   // on les lit depuis des refs pour que ça n'interfère jamais avec les minuteurs ci-dessous
@@ -44,20 +72,25 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
   useEffect(() => { onFinishedRef.current = onFinished; }, [onFinished]);
 
   // Pilote le défilé des comptes reconnus à l'entrée de l'étape "accounts" : chaque compte
-  // devient actif à son tour, puis une fois tous passés ils sont figés côte à côte sur le
-  // côté (DOCK_SETTLE) avant de déclencher la fusion finale.
+  // présenté individuellement devient actif à son tour, puis une fois tous passés, le cercle se
+  // forme avec l'ensemble des comptes connectés (accountsSettled) et se fige un instant
+  // (DOCK_SETTLE) avant de déclencher la fusion finale.
   useEffect(() => {
     const currentStage = stagesRef.current[stageIndex];
     if (!currentStage || currentStage.type !== "accounts") return;
-    const accs = currentStage.accounts;
+    const intro = currentStage.introAccounts;
     setActiveAccountIdx(0);
+    setAccountsSettled(false);
     setFusingAccounts(false);
-    const timers = accs.slice(1).map((_, idx) => {
+    const timers = intro.slice(1).map((_, idx) => {
       const i = idx + 1;
       return setTimeout(() => setActiveAccountIdx(i), i * ACCOUNT_HOLD);
     });
-    timers.push(setTimeout(() => setActiveAccountIdx(accs.length), accs.length * ACCOUNT_HOLD));
-    timers.push(setTimeout(() => setFusingAccounts(true), accs.length * ACCOUNT_HOLD + DOCK_SETTLE));
+    timers.push(setTimeout(() => {
+      setActiveAccountIdx(intro.length);
+      setAccountsSettled(true);
+    }, intro.length * ACCOUNT_HOLD));
+    timers.push(setTimeout(() => setFusingAccounts(true), intro.length * ACCOUNT_HOLD + DOCK_SETTLE));
     return () => timers.forEach(clearTimeout);
   }, [stageIndex]);
 
@@ -138,15 +171,42 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-500">
               Personnages reconnus sur cet appareil
             </p>
-            <div className="relative w-full flex items-center justify-center" style={{ height: 200 }}>
+            <div className="relative w-full flex items-center justify-center" style={{ height: 220 }}>
               {fusingAccounts && (
-                <div className="absolute w-20 h-20 rounded-full bg-yellow-400/30 blur-2xl animate-[bootFuseGlow_0.65s_ease-out_forwards]" />
+                <>
+                  <div className="absolute w-20 h-20 rounded-full bg-yellow-400/30 blur-2xl animate-[bootFuseGlow_0.7s_ease-out_forwards]" />
+                  {confettiPieces.map((p) => (
+                    <div
+                      key={p.id}
+                      className="absolute rounded-sm"
+                      style={{
+                        width: p.w,
+                        height: p.h,
+                        backgroundColor: p.color,
+                        left: "50%",
+                        top: "50%",
+                        marginLeft: -p.w / 2,
+                        marginTop: -p.h / 2,
+                        "--dx": `${p.dx}px`,
+                        "--dy": `${p.dy}px`,
+                        "--rot": `${p.rot}deg`,
+                        animation: "bootConfetti 850ms cubic-bezier(0.16,1,0.3,1) forwards",
+                        animationDelay: `${p.delay}ms`,
+                      }}
+                    />
+                  ))}
+                </>
               )}
-              {stage.accounts.map((acc, i) => {
-                if (i > activeAccountIdx) return null; // pas encore présenté
-                const isActive = i === activeAccountIdx && !fusingAccounts;
-                const dockY = (i - (stage.accounts.length - 1) / 2) * DOCK_STEP_Y;
-                let transform = `translate(${DOCK_SIDE_X}px, ${dockY}px) scale(0.55)`;
+              {stage.allAccounts.map((acc, i) => {
+                const isIntro = i < stage.introAccounts.length;
+                if (isIntro) {
+                  if (i > activeAccountIdx) return null; // pas encore présenté
+                } else if (!accountsSettled && !fusingAccounts) {
+                  return null; // au-delà des comptes présentés : n'apparaît qu'une fois le cercle formé
+                }
+                const isActive = isIntro && i === activeAccountIdx && !accountsSettled && !fusingAccounts;
+                const { x, y } = circleSlot(i, stage.allAccounts.length);
+                let transform = `translate(${x}px, ${y}px) scale(0.55)`;
                 let opacity = 0.9;
                 if (isActive) { transform = "translate(0px, 0px) scale(1)"; opacity = 1; }
                 if (fusingAccounts) { transform = "translate(0px, 0px) scale(0)"; opacity = 0; }
@@ -155,7 +215,7 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
                   <div
                     key={acc.id}
                     className="absolute flex flex-col items-center gap-1.5 animate-[bootFadeIn_0.4s_ease-out] transition-all ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    style={{ transform, opacity, transitionDuration: fusingAccounts ? "650ms" : "450ms" }}
+                    style={{ transform, opacity, transitionDuration: fusingAccounts ? "700ms" : "450ms" }}
                   >
                     {acc.avatarUrl ? (
                       <img
@@ -242,6 +302,10 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
           0% { opacity: 0; transform: scale(0.3); }
           40% { opacity: 1; transform: scale(1); }
           100% { opacity: 0; transform: scale(1.6); }
+        }
+        @keyframes bootConfetti {
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+          100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
         }
       `}</style>
     </div>
