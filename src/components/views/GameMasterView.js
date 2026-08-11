@@ -43,8 +43,9 @@ import {
   HeartPulse,
   Sparkles,
   Activity,
+  Dna,
 } from "lucide-react";
-import { ROLES, BASE_STATUSES } from "../../lib/constants";
+import { ROLES, BASE_STATUSES, DEFAULT_RACE_CONFIG } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen } from "../../lib/gameUtils";
 
 /* ================================================
@@ -2907,6 +2908,103 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
 };
 
 /* ================================================
+   RACES
+   ================================================ */
+const blankRace = () => ({
+  id: `race_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+  name: "Nouvelle race", description: "", icon: "❓",
+});
+
+const GMRaces = ({ state, onUpdateState, notify }) => {
+  const cfg = { ...DEFAULT_RACE_CONFIG, ...(state.raceConfig || {}) };
+  const races = cfg.races?.length ? cfg.races : DEFAULT_RACE_CONFIG.races;
+
+  const save = (patch, msg) => {
+    onUpdateState({ ...state, raceConfig: { ...cfg, ...patch } });
+    if (msg) notify(msg, "success");
+  };
+
+  const updateRace = (id, field, value) => {
+    const next = races.map((r) => (r.id === id ? { ...r, [field]: value } : r));
+    save({ races: next });
+  };
+
+  const addRace = () => {
+    save({ races: [...races, blankRace()] }, "Race ajoutée.");
+  };
+
+  const removeRace = (id) => {
+    save({ races: races.filter((r) => r.id !== id) }, "Race supprimée.");
+  };
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <SectionTitle icon={Dna}>Races & Espèces</SectionTitle>
+      <p className="text-xs text-stone-500 max-w-2xl">
+        Cette liste alimente le menu déroulant « Race / Espèce » du Registre de Population. Ajoute, modifie
+        ou supprime des entrées librement — chaque citoyen déjà enregistré garde la race qui lui a été assignée
+        même si tu la retires ensuite de la liste.
+      </p>
+
+      <div className="flex items-center justify-between">
+        <div className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+          Races définies ({races.length})
+        </div>
+        <button
+          onClick={addRace}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/60"
+        >
+          <Plus size={12} /> Ajouter une race
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {races.map((r) => (
+          <Card key={r.id} className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-14 shrink-0">
+                <Label>Icône</Label>
+                <Input
+                  value={r.icon}
+                  onChange={(e) => updateRace(r.id, "icon", e.target.value)}
+                  className="text-center text-lg"
+                  maxLength={4}
+                />
+              </div>
+              <div className="flex-1">
+                <Label>Nom</Label>
+                <Input
+                  value={r.name}
+                  onChange={(e) => updateRace(r.id, "name", e.target.value)}
+                  placeholder="Ex: Orque"
+                />
+              </div>
+              <button
+                onClick={() => removeRace(r.id)}
+                className="mt-5 text-stone-500 hover:text-red-400 p-2 shrink-0"
+                title="Supprimer cette race"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <div className="mt-3">
+              <Label>Description (lore)</Label>
+              <textarea
+                value={r.description}
+                onChange={(e) => updateRace(r.id, "description", e.target.value)}
+                placeholder="Particularités anatomiques, magiques, culturelles..."
+                rows={2}
+                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
+              />
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ================================================
    MAIN LAYOUT
    ================================================ */
 const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
@@ -2922,6 +3020,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
     { id: "quests",      label: "Quêtes",           icon: ScrollText, badge: questCount || null },
     { id: "physique",    label: "Physique & Magie", icon: HeartPulse },
     { id: "maladies",    label: "Maladies",         icon: Activity },
+    { id: "races",       label: "Races & Espèces",  icon: Dna },
     { id: "lore",        label: "Lore & Univers",   icon: BookOpen },
     { id: "lois",        label: "Lois & Nations",   icon: Gavel },
     { id: "calendrier",  label: "Calendrier",        icon: Calendar },
@@ -3090,6 +3189,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
             {activeSection === "quests" && <GMQuests state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "physique" && <GMPhysicsMagic state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "maladies" && <GMIllness state={state} onUpdateState={onUpdateState} notify={notify} />}
+            {activeSection === "races" && <GMRaces state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lore" && <GMLore state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "lois" && <GMLois state={state} onUpdateState={onUpdateState} notify={notify} />}
             {activeSection === "calendrier" && <GMCalendrier state={state} onUpdateState={onUpdateState} notify={notify} />}

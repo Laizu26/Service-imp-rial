@@ -39,7 +39,7 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
-import { ROLES } from "./lib/constants";
+import { ROLES, DEFAULT_RACE_CONFIG } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { useSettings } from "./hooks/useSettings";
 import { useVersionCheck } from "./hooks/useVersionCheck";
@@ -1272,6 +1272,7 @@ export default function App() {
                       session={session}
                       roleInfo={roleInfo}
                       gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
+                      races={state.raceConfig?.races?.length ? state.raceConfig.races : DEFAULT_RACE_CONFIG.races}
                       onSave={actions.onUpdateCitizen}
                       onDelete={(c) => {
                         saveState({

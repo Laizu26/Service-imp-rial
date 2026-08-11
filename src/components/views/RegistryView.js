@@ -43,6 +43,7 @@ const RegistryView = ({
   onDelete,
   roleInfo,
   gameDate,
+  races = [],
 }) => {
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
   const [selectedId, setSelectedId] = useState(null);
@@ -674,12 +675,21 @@ const RegistryView = ({
                       <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
                         Race / Espèce
                       </label>
-                      <input
+                      <select
                         className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
                         value={editForm.race || ""}
                         onChange={(e) => setEditForm({ ...editForm, race: e.target.value })}
-                        placeholder="Ex : Humain, Elfe, Nain, Orc…"
-                      />
+                      >
+                        <option value="">-- Non défini --</option>
+                        {races.map((r) => (
+                          <option key={r.id} value={r.name}>
+                            {r.icon ? `${r.icon} ` : ""}{r.name}
+                          </option>
+                        ))}
+                        {editForm.race && !races.some((r) => r.name === editForm.race) && (
+                          <option value={editForm.race}>{editForm.race} (retirée de la liste)</option>
+                        )}
+                      </select>
                     </div>
 
                     <div className="space-y-1">
