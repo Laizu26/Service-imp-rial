@@ -83,6 +83,7 @@ const GameMasterView = lazy(() => import("./components/views/GameMasterView"));
 const CitizenLayout = lazy(() => import("./components/layout/CitizenLayout"));
 const PostalCheckModal = lazy(() => import("./components/views/PostalCheckModal"));
 const CharacterCreationView = lazy(() => import("./components/views/CharacterCreationView"));
+const LinkStartIntro = lazy(() => import("./components/views/LinkStartIntro"));
 
 // Affiché pendant le téléchargement du chunk JS d'une vue chargée à la demande (voir les
 // imports lazy() ci-dessus) — le temps que ça dure est négligeable une fois la vue en cache.
@@ -148,6 +149,7 @@ export default function App() {
 
   // --- Création de personnage (auto-inscription depuis l'écran de connexion) ---
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
+  const [linkStartActive, setLinkStartActive] = useState(false);
 
   const handleCreateCharacter = async (data) => {
     const safeCitizens = state.citizens || [];
@@ -177,7 +179,7 @@ export default function App() {
     const ok = await loginGame({ u: newId, p: data.password }, newCitizens);
     if (ok) {
       setShowCharacterCreation(false);
-      notify(`Bienvenue, ${fullName} !`, "success");
+      setLinkStartActive(true);
     }
   };
 
@@ -595,6 +597,8 @@ export default function App() {
             onClose={() => setGmMode(false)}
             session={currentUser}
           />
+        ) : linkStartActive ? (
+          <LinkStartIntro onFinished={() => setLinkStartActive(false)} />
         ) : !session && showCharacterCreation ? (
           <CharacterCreationView
             state={state}
