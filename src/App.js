@@ -56,7 +56,8 @@ import { useNotifications } from "./hooks/useNotifications";
 
 // Views — chargées à la demande (code splitting) : chaque vue admin/citoyenne devient son
 // propre chunk JS, téléchargé seulement quand l'onglet correspondant s'affiche. Seuls
-// LoginScreen/DeathScreen restent en import statique (nécessaires dès le premier rendu).
+// BootIntro/LoginScreen/DeathScreen restent en import statique (nécessaires dès le premier rendu).
+import BootIntro from "./components/views/BootIntro";
 import LoginScreen from "./components/views/LoginScreen";
 import DeathScreen from "./components/views/DeathScreen";
 const DashboardView = lazy(() => import("./components/views/DashboardView"));
@@ -146,6 +147,9 @@ export default function App() {
   const [adminAccountMenuOpen, setAdminAccountMenuOpen] = useState(false);
   // Suivi du check postal : stocke l'id du citoyen ayant confirmé sa position dans cette session
   const [postalCheckUserId, setPostalCheckUserId] = useState(null);
+
+  // --- Cinématique de démarrage (jouée une fois à chaque rechargement de page) ---
+  const [showBootIntro, setShowBootIntro] = useState(true);
 
   // --- Création de personnage (auto-inscription depuis l'écran de connexion) ---
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
@@ -585,6 +589,14 @@ export default function App() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* --- Cinématique de démarrage (au-dessus de tout, révèle l'écran de connexion en fondu) --- */}
+        {showBootIntro && (
+          <BootIntro
+            connectedAccounts={connectedAccounts}
+            onFinished={() => setShowBootIntro(false)}
+          />
         )}
 
         {/* --- Game Master View (plein écran) --- */}
