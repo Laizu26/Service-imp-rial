@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Crown } from "lucide-react";
 
 const STAGES = [
@@ -14,14 +14,20 @@ const STAGES = [
 const LinkStartIntro = ({ worldName = "Addunya", onFinished }) => {
   const [stageIndex, setStageIndex] = useState(0);
 
+  // onFinished est recréé à chaque rendu du parent (App.js re-render sur chaque sync Firestore) —
+  // le stocker dans une ref évite que ce changement de référence ne fasse dépendre le minuteur
+  // ci-dessous, qui sinon se réinitialiserait en boucle avant d'atteindre son délai.
+  const onFinishedRef = useRef(onFinished);
+  useEffect(() => { onFinishedRef.current = onFinished; }, [onFinished]);
+
   useEffect(() => {
     if (stageIndex >= STAGES.length) {
-      onFinished && onFinished();
+      onFinishedRef.current && onFinishedRef.current();
       return;
     }
     const t = setTimeout(() => setStageIndex((i) => i + 1), STAGES[stageIndex].duration);
     return () => clearTimeout(t);
-  }, [stageIndex, onFinished]);
+  }, [stageIndex]);
 
   const stage = STAGES[Math.min(stageIndex, STAGES.length - 1)];
 
