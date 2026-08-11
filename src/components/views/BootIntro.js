@@ -73,7 +73,11 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
       <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-yellow-600/10 blur-3xl rounded-full"></div>
 
-      <div className="relative z-10 flex flex-col items-center gap-5 px-6 text-center">
+      <div
+        className={`relative z-10 flex flex-col items-center gap-5 px-6 text-center transition-opacity duration-150 ${
+          phase === "playing" ? "opacity-100" : "opacity-0"
+        }`}
+      >
         {stage.type === "welcome" && (
           <div className="animate-[bootFadeIn_0.6s_ease-out]">
             <Crown size={26} className="text-yellow-500 mx-auto mb-3" />
@@ -139,9 +143,22 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
         <div className="absolute inset-0 bg-white animate-[bootFlashIn_0.15s_ease-out_forwards]" />
       )}
 
-      <p className="absolute bottom-6 text-[9px] text-stone-600 uppercase tracking-widest font-bold">
-        Appuyez sur une touche pour passer
-      </p>
+      {/* Retour en couleur façon SAO : un halo prismatique éclate au moment où le blanc se dissipe */}
+      {phase === "fading" && (
+        <div
+          className="absolute inset-0 animate-[bootColorBurst_0.6s_ease-out_forwards]"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(56,189,248,0.9) 0%, rgba(250,204,21,0.85) 35%, rgba(244,63,94,0.6) 60%, transparent 78%)",
+          }}
+        />
+      )}
+
+      {phase === "playing" && (
+        <p className="absolute bottom-6 text-[9px] text-stone-600 uppercase tracking-widest font-bold">
+          Appuyez sur une touche pour passer
+        </p>
+      )}
 
       <style>{`
         @keyframes bootFadeIn {
@@ -155,6 +172,11 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
         @keyframes bootFlashIn {
           0% { opacity: 0; }
           100% { opacity: 1; }
+        }
+        @keyframes bootColorBurst {
+          0% { opacity: 0; transform: scale(0.4); }
+          35% { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 0; transform: scale(1.7); }
         }
       `}</style>
     </div>
