@@ -808,9 +808,16 @@ export const useGameActions = (session, state, saveState, notify) => {
           (ns.companies || []).forEach((company, compIdx) => {
             if (company.frozen) return;
             const currentLevel = company.level || 1;
+            // Le personnel détaché vers cette entreprise compte pour le passage de niveau au
+            // même titre que les salariés/esclaves propres — il ne reste pas dans employees/
+            // slaves de l'entreprise emprunteuse, il faut donc l'ajouter explicitement.
+            const loanedInCount = (ns.staffLoans || []).filter(
+              (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(company.id)
+            ).length;
             const totalWorkers =
               (company.employees || []).length +
-              (company.slaves || []).length;
+              (company.slaves || []).length +
+              loanedInCount;
             const requiredWorkers = currentLevel * 2;
             const requiredFunds = currentLevel * 500;
             if (

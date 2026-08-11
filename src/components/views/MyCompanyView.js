@@ -2710,7 +2710,9 @@ const MyCompanyView = ({
                 </div>
               </div>
               {(() => {
-                const totalWorkers = empCount + slaveCount;
+                // Le personnel détaché reçu (borrowedInLoans) compte pour le passage de niveau au
+                // même titre que les salariés/esclaves propres — cohérent avec onPassDay (useGameActions.js).
+                const totalWorkers = empCount + slaveCount + borrowedInLoans.length;
                 const requiredWorkers = level * 2;
                 const requiredFunds = level * 500;
                 const workerPct = Math.min(100, Math.round((totalWorkers / requiredWorkers) * 100));
