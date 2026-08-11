@@ -6,7 +6,7 @@ import { Crown, User } from "lucide-react";
 // une fois le cercle formé, ils convergent et « fusionnent » en un éclat de confettis avant de
 // céder la place à l'écran "ready".
 const INTRO_ACCOUNTS_MAX = 6; // nombre de comptes présentés individuellement au centre
-const ACCOUNT_HOLD = 650; // ms passés au centre avant de rejoindre le cercle
+const ACCOUNT_HOLD = 520; // ms passés au centre avant de rejoindre le cercle
 const DOCK_SETTLE = 400; // ms de pause une fois tous les comptes alignés en cercle
 const FUSE_DURATION = 750; // ms de l'animation de fusion (confettis inclus)
 const DOCK_RADIUS_BASE = 68; // px, rayon du cercle pour peu de comptes
@@ -94,11 +94,37 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
     return () => timers.forEach(clearTimeout);
   }, [stageIndex]);
 
+  // Si on saute pendant le défilé des comptes, on ne saute pas la fusion elle-même : on la
+  // déclenche immédiatement (avec tous les comptes connectés) plutôt que de la couper court,
+  // sinon un utilisateur impatient qui passe vite ne voit jamais ses autres comptes rejoindre
+  // le cercle. Un second appui pendant la fusion, lui, saute directement à la fin.
   const dismiss = () => {
     if (finishedRef.current) return;
+    const currentStage = stagesRef.current[stageIndex];
+    if (currentStage?.type === "accounts" && !fusingAccounts) {
+      // On règle d'abord le cercle (accountsSettled) SANS fusionner dans le même rendu :
+      // les comptes au-delà de l'intro ne sont montés qu'à ce moment-là, il leur faut un
+      // rendu "posés dans le cercle" avant de passer à l'état fusionné, sinon ils apparaissent
+      // et disparaissent d'un coup sans jamais être visibles dans la fusion.
+      setActiveAccountIdx(currentStage.introAccounts.length);
+      setAccountsSettled(true);
+      const FAST_FORWARD_SETTLE = 200;
+      setTimeout(() => setFusingAccounts(true), FAST_FORWARD_SETTLE);
+      setTimeout(
+        () => setStageIndex((i) => Math.min(i + 1, stagesRef.current.length - 1)),
+        FAST_FORWARD_SETTLE + FUSE_DURATION
+      );
+      return;
+    }
     finishedRef.current = true;
     setPhase("flash");
   };
+
+  // dismiss() dépend de stageIndex/fusingAccounts (état frais) — on la lit via une ref pour que
+  // le listener clavier ci-dessous (monté une seule fois) appelle toujours la version à jour
+  // plutôt qu'une fermeture figée sur l'état du tout premier rendu.
+  const dismissRef = useRef(dismiss);
+  useEffect(() => { dismissRef.current = dismiss; });
 
   // Avance automatiquement d'étape en étape, sauf la dernière ("ready") qui attend une action.
   useEffect(() => {
@@ -113,7 +139,7 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
 
   // Skippable à tout moment en appuyant sur n'importe quelle touche.
   useEffect(() => {
-    const handler = () => dismiss();
+    const handler = () => dismissRef.current();
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
