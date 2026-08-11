@@ -2090,7 +2090,6 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
   const safeCitizens = Array.isArray(state.citizens) ? state.citizens : [];
   const [search, setSearch]       = useState("");
   const [selectedId, setSelectedId] = useState(null);
-  const [activeTab, setActiveTab]   = useState("physique");
 
   const filtered = safeCitizens.filter(
     (c) => c.name?.toLowerCase().includes(search.toLowerCase())
@@ -2182,31 +2181,10 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                 </div>
               </div>
 
-              {/* Onglets internes */}
-              <div className="flex border-b border-stone-700">
-                {[
-                  { id: "physique", label: "Corps & Blessures", icon: HeartPulse },
-                  { id: "magie",    label: "Magie & États",     icon: Sparkles   },
-                ].map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    onClick={() => setActiveTab(id)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 ${
-                      activeTab === id
-                        ? "border-red-600 text-red-300 bg-red-900/10"
-                        : "border-transparent text-stone-500 hover:text-stone-300"
-                    }`}
-                  >
-                    <Icon size={12} /> {label}
-                  </button>
-                ))}
-              </div>
-
               <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
 
-                {/* ── TAB PHYSIQUE ── */}
-                {activeTab === "physique" && (
-                  <>
+                {/* ── CORPS & BLESSURES ── */}
+                <>
                     <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">
                       Cliquez sur une zone puis choisissez son état
                     </div>
@@ -2241,12 +2219,9 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                     >
                       Réinitialiser toutes les blessures
                     </button>
-                  </>
-                )}
 
-                {/* ── TAB MAGIE & ÉTATS ── */}
-                {activeTab === "magie" && (
-                  <div className="space-y-4">
+                  {/* ── MAGIE & ÉTATS ── */}
+                  <div className="space-y-4 pt-4 border-t border-stone-700">
                     {[
                       { key: "physique", label: "États physiques", icon: "💪" },
                       { key: "magique",  label: "États magiques",  icon: "✨" },
@@ -2293,7 +2268,7 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                       </div>
                     )}
                   </div>
-                )}
+                </>
               </div>
             </div>
           )}

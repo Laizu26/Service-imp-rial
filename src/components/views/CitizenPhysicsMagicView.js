@@ -379,7 +379,6 @@ const getUserAura = (user) => {
 
 // ===== COMPOSANT PRINCIPAL =====
 const CitizenPhysicsMagicView = ({ user, gameDate, raceConfig }) => {
-  const [activeSection, setActiveSection] = useState("physique");
   const [selectedZone,  setSelectedZone]  = useState(null);
   const [hoveredZone,   setHoveredZone]   = useState(null);
 
@@ -432,34 +431,12 @@ const CitizenPhysicsMagicView = ({ user, gameDate, raceConfig }) => {
         </div>
       </div>
 
-      {/* ── ONGLETS INTERNES ── */}
-      <div className="flex border-b border-stone-200 bg-stone-50">
-        {[
-          { id: "physique", label: "Corps & Blessures", icon: HeartPulse },
-          { id: "magie",    label: "Système Magique",   icon: Sparkles   },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveSection(id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${
-              activeSection === id
-                ? "border-stone-700 text-stone-900 bg-[#fdf6e3]"
-                : "border-transparent text-stone-400 hover:text-stone-700 hover:bg-stone-100"
-            }`}
-          >
-            <Icon size={14} />
-            {label}
-          </button>
-        ))}
-      </div>
-
       <div className="p-5 md:p-7 space-y-5">
 
         {/* ══════════════════════════════
             SECTION PHYSIQUE
             ══════════════════════════════ */}
-        {activeSection === "physique" && (
-          <>
+        <>
             {/* Maladie en cours (système de maladies aléatoires, configuré par les GM) */}
             {user?.illness && (
               <div className="rounded-xl border-2 border-yellow-300 bg-yellow-50 px-5 py-3 flex items-start gap-3">
@@ -688,14 +665,12 @@ const CitizenPhysicsMagicView = ({ user, gameDate, raceConfig }) => {
               <Lock size={10} className="shrink-0" />
               Les blessures sont enregistrées par les administrateurs. Contactez un responsable pour toute mise à jour.
             </div>
-          </>
-        )}
 
-        {/* ══════════════════════
-            SECTION MAGIE
-            ══════════════════════ */}
-        {activeSection === "magie" && (
-          <div className="flex flex-col items-center justify-center py-16 gap-8">
+            {/* ══════════════════════
+                SECTION MAGIE
+                ══════════════════════ */}
+            <div className="border-t border-stone-200 pt-5 mt-1" />
+            <div className="flex flex-col items-center justify-center gap-8">
             {/* Orbe lumineux — éteint si flux bloqué */}
             <div className="relative flex items-center justify-center">
               {/* Halo extérieur flou */}
@@ -775,11 +750,6 @@ const CitizenPhysicsMagicView = ({ user, gameDate, raceConfig }) => {
                   Circuit magique {citizenRace?.icon ? `— ${citizenRace.icon} ${citizenRace.name}` : ""}
                 </p>
                 <MagicCircuitSVG circuit={circuit} color={aura.color} glowColor={aura.colorGlow} />
-                {citizenRace?.description && (
-                  <p className="text-[10px] text-stone-400 italic text-center mt-2 leading-relaxed">
-                    {citizenRace.description}
-                  </p>
-                )}
               </div>
             )}
 
@@ -800,7 +770,7 @@ const CitizenPhysicsMagicView = ({ user, gameDate, raceConfig }) => {
               </div>
             )}
           </div>
-        )}
+        </>
       </div>
     </div>
   );
