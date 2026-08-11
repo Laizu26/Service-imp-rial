@@ -9219,11 +9219,32 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Pourboire de ${formatMoney(amt)} envoyé.`, "success");
       },
 
+      // Classe les signalements sans suite — archivés dans reportsHistory (jamais effacés) pour
+      // garder une trace de ce qui a déjà été examiné, plutôt que de les faire disparaître.
       onDismissMushtagramReport: (postId) => {
         if (!session) return;
-        const posts = (state.mushtagramPosts || []).map(p => p.id === postId ? { ...p, reports: [] } : p);
+        const posts = (state.mushtagramPosts || []).map(p => {
+          if (p.id !== postId) return p;
+          const archived = (p.reports || []).map(r => ({ ...r, resolution: "dismissed", resolvedAt: Date.now(), resolvedBy: session.name }));
+          return { ...p, reports: [], reportsHistory: [...(p.reportsHistory || []), ...archived] };
+        });
         saveState({ ...state, mushtagramPosts: posts });
-        notify("Signalements ignorés.", "info");
+        notify("Signalements classés sans suite.", "info");
+      },
+
+      onDismissMushtagramCommentReport: ({ postId, commentId }) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts || []).map(p => {
+          if (p.id !== postId) return p;
+          const comments = (p.comments || []).map(c => {
+            if (c.id !== commentId) return c;
+            const archived = (c.reports || []).map(r => ({ ...r, resolution: "dismissed", resolvedAt: Date.now(), resolvedBy: session.name }));
+            return { ...c, reports: [], reportsHistory: [...(c.reportsHistory || []), ...archived] };
+          });
+          return { ...p, comments };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+        notify("Signalements classés sans suite.", "info");
       },
 
       onReactMushtagram: (postId, emoji) => {
@@ -9310,14 +9331,44 @@ export const useGameActions = (session, state, saveState, notify) => {
         saveState({ ...state, citizens: updated });
       },
 
-      onReportMushtagramPost: (postId) => {
+      // Signalement structuré (motif + précision libre) — voir MUSHTAGRAM_REPORT_REASONS,
+      // constants.js. Un citoyen ne peut signaler qu'une fois le même contenu.
+      onReportMushtagramPost: ({ postId, reason, note }) => {
         if (!session) return;
-        const posts = (state.mushtagramPosts||[]).map(p =>
-          p.id === postId && !(p.reports||[]).includes(session.id)
-            ? { ...p, reports: [...(p.reports||[]), session.id] }
-            : p
-        );
+        const posts = (state.mushtagramPosts || []).map(p => {
+          if (p.id !== postId) return p;
+          if ((p.reports || []).some(r => String(r.citizenId) === String(session.id))) return p;
+          const report = {
+            id: `mrep_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            citizenId: session.id, citizenName: session.name,
+            reason: reason || "autre", note: (note || "").trim().slice(0, 200),
+            timestamp: Date.now(),
+          };
+          return { ...p, reports: [...(p.reports || []), report] };
+        });
         saveState({ ...state, mushtagramPosts: posts });
+        notify("Signalement envoyé — merci de contribuer à la modération.", "success");
+      },
+
+      onReportMushtagramComment: ({ postId, commentId, reason, note }) => {
+        if (!session) return;
+        const posts = (state.mushtagramPosts || []).map(p => {
+          if (p.id !== postId) return p;
+          const comments = (p.comments || []).map(c => {
+            if (c.id !== commentId) return c;
+            if ((c.reports || []).some(r => String(r.citizenId) === String(session.id))) return c;
+            const report = {
+              id: `mrep_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+              citizenId: session.id, citizenName: session.name,
+              reason: reason || "autre", note: (note || "").trim().slice(0, 200),
+              timestamp: Date.now(),
+            };
+            return { ...c, reports: [...(c.reports || []), report] };
+          });
+          return { ...p, comments };
+        });
+        saveState({ ...state, mushtagramPosts: posts });
+        notify("Signalement envoyé — merci de contribuer à la modération.", "success");
       },
 
       onPostMushtagramStory: ({ content, imageUrl }) => {

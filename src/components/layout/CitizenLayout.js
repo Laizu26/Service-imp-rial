@@ -746,6 +746,7 @@ const CitizenLayout = (props) => {
     onVoteMushtagramPoll,
     onPinMushtagramPost,
     onReportMushtagramPost,
+    onReportMushtagramComment,
     onPostMushtagramStory,
     onDeleteMushtagramStory,
     onLikeMushtagramStory,
@@ -1855,6 +1856,7 @@ const CitizenLayout = (props) => {
                 onVoteMushtagramPoll={onVoteMushtagramPoll}
                 onPinMushtagramPost={onPinMushtagramPost}
                 onReportMushtagramPost={onReportMushtagramPost}
+                onReportMushtagramComment={onReportMushtagramComment}
                 onPostMushtagramStory={onPostMushtagramStory}
                 onDeleteMushtagramStory={onDeleteMushtagramStory}
                 onLikeMushtagramStory={onLikeMushtagramStory}

@@ -39,7 +39,7 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
-import { ROLES, DEFAULT_RACE_CONFIG } from "./lib/constants";
+import { ROLES, DEFAULT_RACE_CONFIG, MUSHTAGRAM_REPORT_REASONS } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { ageToBirthDate } from "./lib/gameUtils";
 import { useSettings } from "./hooks/useSettings";
@@ -940,6 +940,7 @@ export default function App() {
             onVoteMushtagramPoll={actions.onVoteMushtagramPoll}
             onPinMushtagramPost={actions.onPinMushtagramPost}
             onReportMushtagramPost={actions.onReportMushtagramPost}
+            onReportMushtagramComment={actions.onReportMushtagramComment}
             onPostMushtagramStory={actions.onPostMushtagramStory}
             onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
             onLikeMushtagramStory={actions.onLikeMushtagramStory}
@@ -1425,41 +1426,81 @@ export default function App() {
                           </div>
                         );
                       })()}
-                      {/* Admin panel: reported posts moderation queue */}
+                      {/* Admin panel: reported content moderation queue (posts + comments) */}
                       {(() => {
-                        const reported = (state.mushtagramPosts || []).filter(p => (p.reports || []).length > 0);
-                        if (reported.length === 0) return null;
+                        const reasonLabel = id => MUSHTAGRAM_REPORT_REASONS.find(r => r.id === id)?.label || id || "Non précisé";
+                        const reportedPosts = (state.mushtagramPosts || [])
+                          .filter(p => (p.reports || []).length > 0)
+                          .map(p => ({ type: "post", key: `post-${p.id}`, post: p, reports: p.reports || [] }));
+                        const reportedComments = (state.mushtagramPosts || []).flatMap(p =>
+                          (p.comments || [])
+                            .filter(c => (c.reports || []).length > 0)
+                            .map(c => ({ type: "comment", key: `comment-${p.id}-${c.id}`, post: p, comment: c, reports: c.reports || [] }))
+                        );
+                        const allReported = [...reportedPosts, ...reportedComments].sort((a, b) => b.reports.length - a.reports.length);
+                        if (allReported.length === 0) return null;
                         return (
                           <div className="bg-[#fdf6e3] rounded-2xl border border-red-300 shadow p-5">
                             <div className="flex items-center gap-2 mb-4">
                               <Flag size={18} className="text-red-500" />
-                              <h3 className="text-sm font-black uppercase tracking-widest text-stone-800">Publications signalées</h3>
-                              <span className="text-[10px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{reported.length}</span>
+                              <h3 className="text-sm font-black uppercase tracking-widest text-stone-800">Contenu signalé</h3>
+                              <span className="text-[10px] font-black bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{allReported.length}</span>
                             </div>
                             <div className="space-y-2">
-                              {reported.map(p => (
-                                <div key={p.id} className="bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
-                                  <div className="flex items-center justify-between gap-2 mb-1">
-                                    <div className="font-bold text-stone-800 text-sm">{p.authorName}</div>
-                                    <span className="text-[9px] font-black bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
-                                      {(p.reports || []).length} signalement{(p.reports || []).length > 1 ? "s" : ""}
-                                    </span>
+                              {allReported.map(item => {
+                                const { type, post, comment, reports } = item;
+                                const reasonCounts = {};
+                                reports.forEach(r => { reasonCounts[r.reason] = (reasonCounts[r.reason] || 0) + 1; });
+                                return (
+                                  <div key={item.key} className="bg-white border border-stone-200 rounded-xl px-4 py-3 shadow-sm">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[8px] font-black uppercase bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">
+                                          {type === "post" ? "Publication" : "Commentaire"}
+                                        </span>
+                                        <div className="font-bold text-stone-800 text-sm">{type === "post" ? post.authorName : comment.authorName}</div>
+                                      </div>
+                                      <span className="text-[9px] font-black bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
+                                        {reports.length} signalement{reports.length > 1 ? "s" : ""}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-stone-500 italic line-clamp-2 mb-2">
+                                      {(type === "post" ? post.content : comment.content) || "(sans texte)"}
+                                    </p>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                      {Object.entries(reasonCounts).map(([reason, count]) => (
+                                        <span key={reason} className="text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                                          {reasonLabel(reason)} × {count}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <div className="text-[9px] text-stone-400 mb-2 space-y-0.5">
+                                      {reports.map(r => (
+                                        <div key={r.id}>
+                                          <strong className="text-stone-500">{r.citizenName || "Anonyme"}</strong> — {reasonLabel(r.reason)}
+                                          {r.note && <span className="italic"> : « {r.note} »</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                      <button
+                                        onClick={() => type === "post"
+                                          ? actions.onDismissMushtagramReport(post.id)
+                                          : actions.onDismissMushtagramCommentReport({ postId: post.id, commentId: comment.id })}
+                                        className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black uppercase rounded-lg transition-colors">
+                                        Ignorer
+                                      </button>
+                                      <button
+                                        onClick={() => type === "post"
+                                          ? actions.onDeleteMushtagramPost(post.id)
+                                          : actions.onDeleteMushtagramComment({ postId: post.id, commentId: comment.id })}
+                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase rounded-lg transition-colors">
+                                        Supprimer
+                                      </button>
+                                    </div>
                                   </div>
-                                  <p className="text-xs text-stone-500 italic line-clamp-2 mb-2">{p.content || "(publication sans texte)"}</p>
-                                  <div className="flex gap-2 justify-end">
-                                    <button
-                                      onClick={() => actions.onDismissMushtagramReport(p.id)}
-                                      className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black uppercase rounded-lg transition-colors">
-                                      Ignorer
-                                    </button>
-                                    <button
-                                      onClick={() => actions.onDeleteMushtagramPost(p.id)}
-                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase rounded-lg transition-colors">
-                                      Supprimer
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -1494,6 +1535,7 @@ export default function App() {
                         onVoteMushtagramPoll={actions.onVoteMushtagramPoll}
                         onPinMushtagramPost={actions.onPinMushtagramPost}
                         onReportMushtagramPost={actions.onReportMushtagramPost}
+                        onReportMushtagramComment={actions.onReportMushtagramComment}
                         onPostMushtagramStory={actions.onPostMushtagramStory}
                         onDeleteMushtagramStory={actions.onDeleteMushtagramStory}
                         onLikeMushtagramStory={actions.onLikeMushtagramStory}

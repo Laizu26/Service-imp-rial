@@ -257,3 +257,14 @@ export const DEFAULT_RACE_CONFIG = {
       magicCircuit: { points: [{ id: "a1", x: 50, y: 39, size: "m" }], linked: false } },
   ],
 };
+
+// Motifs de signalement Mushtagram (voir onReportMushtagramPost/onReportMushtagramComment,
+// useGameActions.js) — proposés au citoyen qui signale, affichés à la modération.
+export const MUSHTAGRAM_REPORT_REASONS = [
+  { id: "spam", label: "Spam / publicité" },
+  { id: "harcelement", label: "Harcèlement / intimidation" },
+  { id: "choquant", label: "Contenu choquant ou violent" },
+  { id: "arnaque", label: "Arnaque / fraude" },
+  { id: "desinformation", label: "Désinformation" },
+  { id: "autre", label: "Autre" },
+];

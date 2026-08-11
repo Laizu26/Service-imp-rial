@@ -4,7 +4,7 @@ import {
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
   UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell, Coins, Sparkles, Type,
 } from "lucide-react";
-import { ROLES } from "../../lib/constants";
+import { ROLES, MUSHTAGRAM_REPORT_REASONS } from "../../lib/constants";
 import { formatMoney, formatRPDate } from "../../lib/gameUtils";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -843,6 +843,47 @@ function PollDisplay({ poll, postId, myId, onVote }) {
   );
 }
 
+/* ── ReportModal : motif + précision libre, réutilisée pour posts et commentaires ────────── */
+
+function ReportModal({ onCancel, onSubmit }) {
+  const [reason, setReason] = useState(MUSHTAGRAM_REPORT_REASONS[0].id);
+  const [note, setNote] = useState("");
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+      <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Flag size={16} className="text-red-500" />
+          <h3 className="text-sm font-black text-stone-800">Signaler ce contenu</h3>
+        </div>
+        <div className="space-y-1.5">
+          {MUSHTAGRAM_REPORT_REASONS.map(r => (
+            <label key={r.id} className="flex items-center gap-2 text-xs text-stone-700 cursor-pointer">
+              <input type="radio" name="reportReason" value={r.id} checked={reason === r.id}
+                onChange={() => setReason(r.id)} className="accent-red-500" />
+              {r.label}
+            </label>
+          ))}
+        </div>
+        <textarea
+          value={note}
+          onChange={e => setNote(e.target.value.slice(0, 200))}
+          placeholder="Précisions (optionnel)"
+          rows={2}
+          className="w-full text-xs border border-stone-200 rounded-lg p-2 outline-none focus:border-red-300 resize-none"
+        />
+        <div className="flex gap-2 justify-end">
+          <button onClick={onCancel} className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-black uppercase rounded-lg transition-colors">
+            Annuler
+          </button>
+          <button onClick={() => onSubmit({ reason, note })} className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase rounded-lg transition-colors">
+            Envoyer le signalement
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── PostCard ───────────────────────────────────────────────────────────── */
 
 function PostCard({
@@ -851,7 +892,7 @@ function PostCard({
   expandedComments, commentInput,
   onDelete, onEdit, onToggleLike, onAddComment, onDeleteComment, onLikeComment,
   onPinComment,
-  onReact, onRepost, onVotePoll, onPin, onReport, onMute,
+  onReact, onRepost, onVotePoll, onPin, onReport, onReportComment, onMute,
   onFollow, onUnfollow,
   onViewProfile,
   myRepostedIds,
@@ -861,6 +902,17 @@ function PostCard({
   myEntityAuthorIds,
 }) {
   const [replyingTo, setReplyingTo] = React.useState(null); // { commentId, authorName }
+  // null | { type: "post" } | { type: "comment", commentId }
+  const [reportTarget, setReportTarget] = React.useState(null);
+  const myReportedPost = (post.reports || []).some(r => String(r.citizenId) === myId);
+  const submitReport = ({ reason, note }) => {
+    if (reportTarget?.type === "post") {
+      onReport({ postId: post.id, reason, note });
+    } else if (reportTarget?.type === "comment") {
+      onReportComment({ postId: post.id, commentId: reportTarget.commentId, reason, note });
+    }
+    setReportTarget(null);
+  };
   const author = citizens.find(c => String(c.id) === String(post.authorId));
   const authorId = String(post.authorId);
   const isMe = authorId === myId;
@@ -1016,10 +1068,11 @@ function PostCard({
           )}
           {!isMe && (
             <>
-              <button onClick={() => onReport(post.id)}
-                className="p-1 rounded hover:bg-red-50 text-stone-300 hover:text-red-400 transition-all"
-                title="Signaler">
-                <Flag size={13} />
+              <button onClick={() => !myReportedPost && setReportTarget({ type: "post" })}
+                disabled={myReportedPost}
+                className={`p-1 rounded transition-all ${myReportedPost ? "text-red-400 cursor-default" : "hover:bg-red-50 text-stone-300 hover:text-red-400"}`}
+                title={myReportedPost ? "Déjà signalé" : "Signaler"}>
+                <Flag size={13} fill={myReportedPost ? "currentColor" : "none"} />
               </button>
               <button onClick={() => onMute(authorId)}
                 className="p-1 rounded hover:bg-stone-100 text-stone-300 hover:text-stone-500 transition-all"
@@ -1132,6 +1185,7 @@ function PostCard({
             const cShowAnon = c.isAnonymous && String(c.authorId) !== myId && !isAdmin;
             const cDisplayAuthor = cShowAnon ? { name: "Citoyen Anonyme" } : (cAuthor || { name: c.authorName });
             const cDisplayName = cShowAnon ? "Citoyen Anonyme" : (c.isAnonymous ? (cAuthor?.name || c.authorName) : c.authorName);
+            const myReportedThisComment = (c.reports || []).some(r => String(r.citizenId) === myId);
             return (
               <div key={c.id} className={`flex items-start gap-2 pt-1.5 ${isPinnedCmt ? "bg-amber-50 -mx-1 px-1 rounded-xl" : ""}`}>
                 <Ava citizen={cDisplayAuthor} size="xs" className="mt-0.5"
@@ -1189,6 +1243,14 @@ function PostCard({
                       <button onClick={() => onDeleteComment({ postId: post.id, commentId: c.id })}
                         className="text-[9px] text-stone-300 hover:text-red-400 transition-colors">
                         Supprimer
+                      </button>
+                    )}
+                    {onReportComment && String(c.authorId) !== myId && (
+                      <button
+                        onClick={() => !myReportedThisComment && setReportTarget({ type: "comment", commentId: c.id })}
+                        disabled={myReportedThisComment}
+                        className={`text-[9px] font-bold transition-colors ${myReportedThisComment ? "text-red-400 cursor-default" : "text-stone-300 hover:text-red-400"}`}>
+                        {myReportedThisComment ? "Signalé" : "Signaler"}
                       </button>
                     )}
                     {isMe && myCitizen?.mushtagramPublicPersonality === "approved" && !canDelCmt && (
@@ -1259,6 +1321,9 @@ function PostCard({
           </div>
         </div>
       )}
+      {reportTarget && (
+        <ReportModal onCancel={() => setReportTarget(null)} onSubmit={submitReport} />
+      )}
     </div>
   );
 }
@@ -1275,7 +1340,7 @@ export default function MushtagramView({
   onFollowMushtagram, onUnfollowMushtagram,
   onReactMushtagram, onRepostMushtagram,
   onVoteMushtagramPoll, onPinMushtagramPost,
-  onReportMushtagramPost,
+  onReportMushtagramPost, onReportMushtagramComment,
   onPostMushtagramStory, onDeleteMushtagramStory, onLikeMushtagramStory,
   onUpdateMushtagramSettings, onRequestPublicPersonality,
   onMarkMushtagramNotifsRead,
@@ -1616,6 +1681,7 @@ export default function MushtagramView({
       onVotePoll={onVoteMushtagramPoll}
       onPin={onPinMushtagramPost}
       onReport={onReportMushtagramPost}
+      onReportComment={onReportMushtagramComment}
       onMute={handleMute}
       onFollow={onFollowMushtagram}
       onUnfollow={onUnfollowMushtagram}
@@ -2557,6 +2623,7 @@ export default function MushtagramView({
                     onVotePoll={onVoteMushtagramPoll}
                     onPin={onPinMushtagramPost}
                     onReport={onReportMushtagramPost}
+                    onReportComment={onReportMushtagramComment}
                     onMute={handleMute}
                     onFollow={onFollowMushtagram}
                     onUnfollow={onUnfollowMushtagram}
