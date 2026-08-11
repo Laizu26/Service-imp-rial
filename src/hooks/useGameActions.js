@@ -296,6 +296,20 @@ export const useGameActions = (session, state, saveState, notify) => {
     const isCompanyManager = (company, sessionId) =>
       !!company && String(company.ceoId ? company.ceoId : company.ownerId) === String(sessionId);
 
+    // Autorisation Mushtagram d'une entreprise (voir onPostMushtagram) : le dirigeant/PDG a accès
+    // par défaut, sauf s'il s'en est explicitement retiré via "Mon accès Mushtagram"
+    // (mushtagramManagerRevokedIds — un simple isCompanyManager le laisserait toujours autorisé,
+    // rendant ce toggle inopérant). Un salarié/détaché doit à l'inverse être explicitement
+    // autorisé (mushtagramAuthorizedIds). Quiconque a le droit de publier au nom de l'entreprise a
+    // aussi le droit d'en modifier le profil (onUpdateEntityMushtagramProfile) — même logique.
+    const canManageCompanyMushtagram = (company, sessionId) => {
+      if (!company) return false;
+      const isOwnerOrCeo = String(company.ownerId) === String(sessionId) || String(company.ceoId) === String(sessionId);
+      return isOwnerOrCeo
+        ? !(company.mushtagramManagerRevokedIds || []).map(String).includes(String(sessionId))
+        : (company.mushtagramAuthorizedIds || []).map(String).includes(String(sessionId));
+    };
+
     // Bonus de revenu d'un bien d'entreprise selon le personnel affecté (voir
     // onAssignEmployeeToProperty) : +8% par employé/esclave affecté, plafonné à 4 (soit +32%
     // max), pour éviter qu'un seul bâtiment n'absorbe tout l'effectif sans limite.
@@ -8641,15 +8655,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           entityAuthor = { authorId: `guild_${guild.id}`, authorName: guild.name, authorType: "guild" };
         } else if (postAsEntity?.type === "company") {
           const company = (state.companies || []).find(c => String(c.id) === String(postAsEntity.id));
-          // Le dirigeant/PDG a accès par défaut, sauf s'il s'en est explicitement retiré via
-          // "Mon accès Mushtagram" (mushtagramManagerRevokedIds) — un simple OR avec
-          // isCompanyManager rendrait ce toggle inopérant, puisqu'il resterait toujours
-          // manager. Un salarié/détaché doit à l'inverse être explicitement autorisé.
-          const isOwnerOrCeo = String(company?.ownerId) === String(session.id) || String(company?.ceoId) === String(session.id);
-          const isAuthorized = isOwnerOrCeo
-            ? !(company?.mushtagramManagerRevokedIds || []).map(String).includes(String(session.id))
-            : (company?.mushtagramAuthorizedIds || []).map(String).includes(String(session.id));
-          if (!isAuthorized) { notify("Vous n'êtes pas autorisé à publier au nom de l'entreprise.", "error"); return; }
+          if (!canManageCompanyMushtagram(company, session.id)) { notify("Vous n'êtes pas autorisé à publier au nom de l'entreprise.", "error"); return; }
           entityAuthor = { authorId: `company_${company.id}`, authorName: company.name, authorType: "company" };
         }
 
@@ -8935,8 +8941,8 @@ export const useGameActions = (session, state, saveState, notify) => {
           const companies = [...(state.companies || [])];
           const idx = companies.findIndex((c) => c.id === entityId);
           if (idx === -1) { notify("Entreprise introuvable.", "error"); return; }
-          const isOwner = isCompanyManager(companies[idx], session.id) || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
-          if (!isOwner) { notify("Seul le propriétaire peut modifier le compte Mushtagram de l'entreprise.", "error"); return; }
+          const isOwner = canManageCompanyMushtagram(companies[idx], session.id) || ["EMPEREUR","GRAND_FONC_GLOBAL"].includes(session.role);
+          if (!isOwner) { notify("Vous n'êtes pas autorisé à modifier le compte Mushtagram de l'entreprise.", "error"); return; }
           companies[idx] = applyFields(companies[idx]);
           saveState({ ...state, companies });
           notify("Profil de l'entreprise mis à jour.", "success");
