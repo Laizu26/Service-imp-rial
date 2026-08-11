@@ -46,6 +46,7 @@ import {
   Dna,
 } from "lucide-react";
 import { ROLES, BASE_STATUSES, DEFAULT_RACE_CONFIG } from "../../lib/constants";
+import MagicCircuitEditor from "../ui/MagicCircuitEditor";
 import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneyShort, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen } from "../../lib/gameUtils";
 
 /* ================================================
@@ -2913,11 +2914,13 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
 const blankRace = () => ({
   id: `race_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
   name: "Nouvelle race", description: "", icon: "❓", alcoholTolerance: 1,
+  magicCircuit: { points: [], linked: false },
 });
 
 const GMRaces = ({ state, onUpdateState, notify }) => {
   const cfg = { ...DEFAULT_RACE_CONFIG, ...(state.raceConfig || {}) };
   const races = cfg.races?.length ? cfg.races : DEFAULT_RACE_CONFIG.races;
+  const [expandedCircuitId, setExpandedCircuitId] = useState(null);
 
   const save = (patch, msg) => {
     onUpdateState({ ...state, raceConfig: { ...cfg, ...patch } });
@@ -3007,6 +3010,27 @@ const GMRaces = ({ state, onUpdateState, notify }) => {
               <p className="text-[9px] text-stone-500 mt-1">
                 1 = neutre · &lt; 1 encaisse mieux (ex : 0.6) · &gt; 1 encaisse moins bien (ex : 1.3)
               </p>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-stone-800">
+              <button
+                type="button"
+                onClick={() => setExpandedCircuitId(expandedCircuitId === r.id ? null : r.id)}
+                className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-purple-300 hover:text-purple-200"
+              >
+                <Sparkles size={12} />
+                Circuit magique ({(r.magicCircuit?.points || []).length} point{(r.magicCircuit?.points || []).length > 1 ? "s" : ""})
+                {expandedCircuitId === r.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+              {expandedCircuitId === r.id && (
+                <div className="mt-3">
+                  <MagicCircuitEditor
+                    circuit={r.magicCircuit || { points: [], linked: false }}
+                    onChange={(circuit) => updateRace(r.id, "magicCircuit", circuit)}
+                    accentColor="#c084fc"
+                  />
+                </div>
+              )}
             </div>
           </Card>
         ))}

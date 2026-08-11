@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Sparkles, Star, HeartPulse, Info, Lock, AlertTriangle, Link2 } from "lucide-react";
 import { hashCode, getEffectiveMagicHue, getActiveDrunkTiers, HANGOVER_INFO } from "../../lib/gameUtils";
+import { DEFAULT_RACE_CONFIG } from "../../lib/constants";
+import { BODY_OUTLINE_PATHS, BODY_OUTLINE_VIEWBOX } from "../../lib/bodyOutline";
 
 // ===== CONDITIONS LIÉES À LA BAGUE (source cachée) =====
 const BAGUE_CONDITIONS = [
@@ -310,6 +312,52 @@ const BodySVG = ({ injuries, selectedZone, hoveredZone, onSelect, onHover }) => 
   );
 };
 
+// ===== CIRCUIT MAGIQUE — silhouette + points/réseau propres à la race du citoyen =====
+// Le circuit lui-même (points, tailles, réseau relié ou non) est défini par le GM par race — voir
+// MagicCircuitEditor.js et DEFAULT_RACE_CONFIG (constants.js) — seule la couleur (aura du citoyen)
+// varie ici pour rester cohérente avec l'orbe magique affiché juste au-dessus.
+const CIRCUIT_SIZE_RADIUS = { s: 3.2, m: 4.8, l: 7 };
+const pctToSvg = (x, y) => [x * 2, y * 4.96];
+
+const MagicCircuitSVG = ({ circuit, color, glowColor }) => {
+  const points = circuit?.points || [];
+  const linked = !!circuit?.linked;
+
+  return (
+    <svg viewBox={BODY_OUTLINE_VIEWBOX} className="w-full h-full" style={{ maxHeight: 340 }}>
+      <defs>
+        <filter id="circuitGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {BODY_OUTLINE_PATHS.map((d, i) => (
+        <path key={i} d={d} fill="none" stroke="#d6d3d1" strokeWidth="1.2" opacity="0.6" />
+      ))}
+
+      {linked && points.length > 1 && points.slice(1).map((pt, i) => {
+        const [x1, y1] = pctToSvg(points[i].x, points[i].y);
+        const [x2, y2] = pctToSvg(pt.x, pt.y);
+        return (
+          <line key={`l_${pt.id}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="1.4" opacity="0.7" />
+        );
+      })}
+
+      {points.map((pt) => {
+        const [cx, cy] = pctToSvg(pt.x, pt.y);
+        const r = CIRCUIT_SIZE_RADIUS[pt.size] || CIRCUIT_SIZE_RADIUS.m;
+        return (
+          <circle key={pt.id} cx={cx} cy={cy} r={r} fill={glowColor} stroke={color} strokeWidth="1" filter="url(#circuitGlow)" />
+        );
+      })}
+    </svg>
+  );
+};
+
 // ===== COULEUR D'AURA — déterministe par utilisateur =====
 // La teinte (hue) est la seule composante affectée par un pacte arcanique (voir
 // bondMagicTraces dans gameUtils.js) : saturation et luminosité restent propres à chaque
@@ -330,7 +378,7 @@ const getUserAura = (user) => {
 };
 
 // ===== COMPOSANT PRINCIPAL =====
-const CitizenPhysicsMagicView = ({ user, gameDate }) => {
+const CitizenPhysicsMagicView = ({ user, gameDate, raceConfig }) => {
   const [activeSection, setActiveSection] = useState("physique");
   const [selectedZone,  setSelectedZone]  = useState(null);
   const [hoveredZone,   setHoveredZone]   = useState(null);
@@ -340,6 +388,12 @@ const CitizenPhysicsMagicView = ({ user, gameDate }) => {
   const selectedMeta  = BODY_ZONES.find((z) => z.id === selectedZone);
   const selectedState = selectedZone ? getInjuryState(injuries[selectedZone] || "sain") : null;
   const injuredCount  = BODY_ZONES.filter((z) => injuries[z.id] && injuries[z.id] !== "sain").length;
+
+  // Circuit magique propre à la race du citoyen (voir MagicCircuitEditor.js, GM-configurable).
+  const races = raceConfig?.races?.length ? raceConfig.races : DEFAULT_RACE_CONFIG.races;
+  const citizenRace = races.find((r) => r.name === user?.race);
+  const circuit = citizenRace?.magicCircuit;
+  const hasCircuit = (circuit?.points || []).length > 0;
 
   // Ivresse du jour (consommations d'alcool en auberge) — purement informationnel, remis à zéro
   // dès que la date RP change (voir addDrunkenness, gameUtils.js).
@@ -713,6 +767,21 @@ const CitizenPhysicsMagicView = ({ user, gameDate }) => {
                 </>
               )}
             </div>
+
+            {/* Circuit magique — propre à la race du citoyen (voir GMRaces, GameMasterView.js) */}
+            {hasCircuit && (
+              <div className="w-full max-w-[220px] flex flex-col items-center">
+                <p className="text-[10px] text-stone-400 uppercase tracking-widest font-bold mb-2 text-center">
+                  Circuit magique {citizenRace?.icon ? `— ${citizenRace.icon} ${citizenRace.name}` : ""}
+                </p>
+                <MagicCircuitSVG circuit={circuit} color={aura.color} glowColor={aura.colorGlow} />
+                {citizenRace?.description && (
+                  <p className="text-[10px] text-stone-400 italic text-center mt-2 leading-relaxed">
+                    {citizenRace.description}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* États magiques actifs */}
             {activeMagical.length > 0 && (

@@ -666,6 +666,7 @@ export default function App() {
             onSetRegionPosition={actions.onSetRegionPosition}
             onSetBuildingPosition={actions.onSetBuildingPosition}
             catalog={state.inventoryCatalog || []}
+            raceConfig={state.raceConfig}
             globalLedger={state.globalLedger || []}
             debtRegistry={state.debtRegistry || []}
             gazette={state.gazette || []}

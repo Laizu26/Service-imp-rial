@@ -473,6 +473,7 @@ const CitizenLayout = (props) => {
     user,
     users,
     countries,
+    raceConfig,
     globalLedger,
     debtRegistry,
     catalog,
@@ -4190,6 +4191,7 @@ const CitizenLayout = (props) => {
                 user={user}
                 onUpdateUser={onUpdateUser}
                 gameDate={gd}
+                raceConfig={raceConfig}
               />
             )}
 
