@@ -2912,7 +2912,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
    ================================================ */
 const blankRace = () => ({
   id: `race_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-  name: "Nouvelle race", description: "", icon: "❓",
+  name: "Nouvelle race", description: "", icon: "❓", alcoholTolerance: 1,
 });
 
 const GMRaces = ({ state, onUpdateState, notify }) => {
@@ -2996,6 +2996,17 @@ const GMRaces = ({ state, onUpdateState, notify }) => {
                 rows={2}
                 className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
               />
+            </div>
+            <div className="mt-3 max-w-xs">
+              <Label>Tolérance à l'alcool (multiplicateur)</Label>
+              <Input
+                type="number" min="0.1" step="0.1"
+                value={r.alcoholTolerance ?? 1}
+                onChange={(e) => updateRace(r.id, "alcoholTolerance", Math.max(0.1, parseFloat(e.target.value) || 1))}
+              />
+              <p className="text-[9px] text-stone-500 mt-1">
+                1 = neutre · &lt; 1 encaisse mieux (ex : 0.6) · &gt; 1 encaisse moins bien (ex : 1.3)
+              </p>
             </div>
           </Card>
         ))}

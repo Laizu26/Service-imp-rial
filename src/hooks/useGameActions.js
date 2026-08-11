@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness } from "../lib/gameUtils";
-import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES } from "../lib/constants";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD } from "../lib/gameUtils";
+import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -332,6 +332,13 @@ export const useGameActions = (session, state, saveState, notify) => {
       return { ...prop, dailyConsumersDay: today, dailyConsumers: [...current, citizenId] };
     };
 
+    // Multiplicateur de tolérance à l'alcool selon la race du citoyen (voir rollDrunkenGain,
+    // gameUtils.js) — lit le catalogue GM-configurable, avec repli sur la liste par défaut.
+    const raceTolerance = (citizen) => {
+      const races = state.raceConfig?.races?.length ? state.raceConfig.races : DEFAULT_RACE_CONFIG.races;
+      return getRaceToleranceMultiplier(citizen?.race, races);
+    };
+
     // Autorité sur la carte (Atlas) d'un pays donné : un rôle à portée globale (Empereur/Grand
     // Fonctionnaire) a autorité partout ; un officiel local (niveau ≥ 40, même principe que
     // GeopoliticsView.canEdit) n'a autorité que sur le pays dont il relève.
@@ -525,6 +532,20 @@ export const useGameActions = (session, state, saveState, notify) => {
             }
             return c;
           });
+        }
+
+        // --- Gueule de bois : si le pic d'ivresse de la veille a dépassé le seuil, indication
+        // RP pour le nouveau jour — purement informationnel, même principe que l'ivresse elle-
+        // même (jamais d'action jouée à la place du citoyen).
+        {
+          const prevGd = state.gameDate;
+          const prevDayKey = prevGd ? `${prevGd.day}/${prevGd.month}/${prevGd.year}` : null;
+          const newDayKey = `${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year}`;
+          ns.citizens = (ns.citizens || []).map((c) =>
+            c.drunkenness?.day === prevDayKey && (c.drunkenness.percent || 0) >= HANGOVER_THRESHOLD
+              ? { ...c, hangover: { day: newDayKey } }
+              : c
+          );
         }
 
         // --- Production journalière des entreprises ---
@@ -6593,7 +6614,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         // Article alcoolisé : jet d'ivresse purement informationnel (voir gameUtils.js) — le
         // citoyen roleplay lui-même les indications affichées, le jeu ne décide rien à sa place.
         if (isAlcoholic) {
-          newCitizens[uIdx] = addDrunkenness(newCitizens[uIdx], rollDrunkenGain(), todayDateKey());
+          newCitizens[uIdx] = addDrunkenness(newCitizens[uIdx], rollDrunkenGain(raceTolerance(newCitizens[uIdx])), todayDateKey());
         }
         properties[pIdx] = { ...properties[pIdx], menu };
         // Un sondage de taverne en cours exige d'avoir pris une consommation pour voter — chaque
@@ -6659,7 +6680,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         if (isAlcoholic) {
           const rIdx = newCitizens.findIndex((c) => c.id === citizenId);
-          if (rIdx !== -1) newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(), todayDateKey());
+          if (rIdx !== -1) newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(raceTolerance(newCitizens[rIdx])), todayDateKey());
         }
 
         let newState = { ...state, citizens: newCitizens, properties };
@@ -6757,7 +6778,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCitizens = [...state.citizens];
         served.forEach((cid) => {
           const idx = newCitizens.findIndex((c) => c.id === cid);
-          if (idx !== -1 && isAlcoholic) newCitizens[idx] = addDrunkenness(newCitizens[idx], rollDrunkenGain(), today);
+          if (idx !== -1 && isAlcoholic) newCitizens[idx] = addDrunkenness(newCitizens[idx], rollDrunkenGain(raceTolerance(newCitizens[idx])), today);
         });
         const payerIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (totalCost > 0 && payerIdx !== -1) {

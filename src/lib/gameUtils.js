@@ -400,12 +400,23 @@ export function clearIllnessFromCitizen(citizen) {
 // Purement informationnel : le jeu ne décide jamais des actions du citoyen à sa place — il
 // affiche un taux et des indications de jeu de rôle que le joueur incarne lui-même.
 
-// Jet d20 : plus le jet est bas, plus le gain de % est élevé.
+// Jet d20 : plus le jet est bas, plus le gain de % est élevé. toleranceMultiplier vient de la
+// race du citoyen (voir getRaceToleranceMultiplier) : < 1 encaisse mieux, > 1 encaisse moins bien.
 // 19-20→+0% · 17-18→+5% · 15-16→+10% · 13-14→+15% · 11-12→+20% · 9-10→+25% ·
 // 7-8→+30% · 5-6→+35% · 3-4→+40% · 1-2→+45%
-export function rollDrunkenGain() {
+export function rollDrunkenGain(toleranceMultiplier = 1) {
   const roll = 1 + Math.floor(Math.random() * 20);
-  return Math.floor((20 - roll) / 2) * 5;
+  const base = Math.floor((20 - roll) / 2) * 5;
+  return Math.max(0, Math.round(base * (toleranceMultiplier || 1)));
+}
+
+// Multiplicateur de tolérance à l'alcool associé à la race du citoyen — champ GM-configurable
+// (state.raceConfig.races[].alcoholTolerance, voir GMRaces dans GameMasterView.js). 1 = neutre.
+export function getRaceToleranceMultiplier(raceName, races) {
+  if (!raceName) return 1;
+  const race = (races || []).find((r) => r.name === raceName);
+  const m = race?.alcoholTolerance;
+  return typeof m === "number" && m > 0 ? m : 1;
 }
 
 // Repart de zéro dès que la date RP a changé depuis la dernière consommation — même logique que
@@ -426,3 +437,12 @@ export const DRUNK_TIERS = [
 export function getActiveDrunkTiers(percent) {
   return DRUNK_TIERS.filter((t) => percent >= t.threshold);
 }
+
+// Gueule de bois : si le pic d'ivresse de la veille a atteint ce seuil, le lendemain porte une
+// indication RP (voir onPassDay, useGameActions.js) — toujours purement informationnel.
+export const HANGOVER_THRESHOLD = 150;
+
+export const HANGOVER_INFO = {
+  label: "Gueule de bois",
+  desc: "Migraine carabinée, bouche pâteuse, lumière insupportable — la soirée d'hier se paie cash aujourd'hui.",
+};

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Sparkles, Star, HeartPulse, Info, Lock, AlertTriangle, Link2 } from "lucide-react";
-import { hashCode, getEffectiveMagicHue, getActiveDrunkTiers } from "../../lib/gameUtils";
+import { hashCode, getEffectiveMagicHue, getActiveDrunkTiers, HANGOVER_INFO } from "../../lib/gameUtils";
 
 // ===== CONDITIONS LIÉES À LA BAGUE (source cachée) =====
 const BAGUE_CONDITIONS = [
@@ -348,6 +348,7 @@ const CitizenPhysicsMagicView = ({ user, gameDate }) => {
   const todayKey = `${gd.day}/${gd.month}/${gd.year}`;
   const drunkPercent = user?.drunkenness?.day === todayKey ? (user.drunkenness.percent || 0) : 0;
   const activeDrunkTiers = getActiveDrunkTiers(drunkPercent);
+  const hasHangover = user?.hangover?.day === todayKey;
 
   const activeStatusIds   = user?.statusEffects || [];
   const activePhysical    = STATUS_EFFECTS.physique.filter((e) => activeStatusIds.includes(e.id));
@@ -450,6 +451,20 @@ const CitizenPhysicsMagicView = ({ user, gameDate }) => {
                     ))}
                   </ul>
                 )}
+              </div>
+            )}
+
+            {/* Gueule de bois (voir onPassDay, useGameActions.js) — purement informationnel :
+                indication RP pour la journée, à incarner soi-même. */}
+            {hasHangover && (
+              <div className="rounded-xl border-2 border-stone-300 bg-stone-100 px-5 py-3 flex items-start gap-3">
+                <span className="text-xl shrink-0">🤕</span>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 block">
+                    {HANGOVER_INFO.label}
+                  </span>
+                  <p className="text-xs text-stone-600 italic mt-0.5">{HANGOVER_INFO.desc}</p>
+                </div>
               </div>
             )}
 

@@ -228,14 +228,16 @@ export const CHILD_RIGHTS_LIST = [
 // Races/espèces jouables — liste par défaut, modifiable par le Maître du Jeu (voir GMRaces dans
 // GameMasterView.js, sauvegardée dans state.raceConfig.races) et utilisée par le menu déroulant
 // "Race / Espèce" du Registre de Population.
+// alcoholTolerance : multiplicateur appliqué au gain d'ivresse (voir rollDrunkenGain,
+// gameUtils.js) — 1 = neutre, < 1 encaisse mieux, > 1 encaisse moins bien.
 export const DEFAULT_RACE_CONFIG = {
   races: [
-    { id: "humain", name: "Humain", icon: "🧑", description: "Race commune, réputée faible en apparence. Renferme pourtant la plus grande réserve d'énergie latente derrière l'estomac — mais des connexions magiques souvent faibles, voire inexistantes." },
-    { id: "elfe", name: "Elfe", icon: "🧝", description: "Race millénaire aux connexions magiques nombreuses et intriquées, indissociables de leur source de pouvoir. Peu de magie avant 50 ans." },
-    { id: "nain", name: "Nain", icon: "⛏️", description: "Fonctionnement décentralisé : des récepteurs indépendants répartis dans tout le corps communiquent directement avec le centre de pouvoir, sans réseau filaire classique." },
-    { id: "succube", name: "Succube", icon: "😈", description: "Source de pouvoir divisée en deux : une petite partie près du cerveau, la plus grande près des organes génitaux. Jamais de connexions inexistantes à la naissance." },
-    { id: "vampire", name: "Vampire", icon: "🧛", description: "Noyau unique et volumineux au niveau du cerveau, connexions vers le cortex et les yeux. Les transformés récents conservent brièvement des traces de leur ancien noyau racial." },
-    { id: "fee", name: "Fée", icon: "🧚", description: "Pas de noyau interne : toute l'architecture magique se concentre à la base des ailes. Sans ailes, plus aucune capacité magique." },
-    { id: "animagus", name: "Animagus", icon: "🐾", description: "Anatomie semblable à celle d'un humain, mais forcément magique." },
+    { id: "humain", name: "Humain", icon: "🧑", description: "Race commune, réputée faible en apparence. Renferme pourtant la plus grande réserve d'énergie latente derrière l'estomac — mais des connexions magiques souvent faibles, voire inexistantes.", alcoholTolerance: 1 },
+    { id: "elfe", name: "Elfe", icon: "🧝", description: "Race millénaire aux connexions magiques nombreuses et intriquées, indissociables de leur source de pouvoir. Peu de magie avant 50 ans.", alcoholTolerance: 1 },
+    { id: "nain", name: "Nain", icon: "⛏️", description: "Fonctionnement décentralisé : des récepteurs indépendants répartis dans tout le corps communiquent directement avec le centre de pouvoir, sans réseau filaire classique.", alcoholTolerance: 0.6 },
+    { id: "succube", name: "Succube", icon: "😈", description: "Source de pouvoir divisée en deux : une petite partie près du cerveau, la plus grande près des organes génitaux. Jamais de connexions inexistantes à la naissance.", alcoholTolerance: 1 },
+    { id: "vampire", name: "Vampire", icon: "🧛", description: "Noyau unique et volumineux au niveau du cerveau, connexions vers le cortex et les yeux. Les transformés récents conservent brièvement des traces de leur ancien noyau racial.", alcoholTolerance: 1 },
+    { id: "fee", name: "Fée", icon: "🧚", description: "Pas de noyau interne : toute l'architecture magique se concentre à la base des ailes. Sans ailes, plus aucune capacité magique.", alcoholTolerance: 1.3 },
+    { id: "animagus", name: "Animagus", icon: "🐾", description: "Anatomie semblable à celle d'un humain, mais forcément magique.", alcoholTolerance: 1 },
   ],
 };
