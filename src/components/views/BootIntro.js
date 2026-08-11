@@ -78,7 +78,7 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
           <div className="animate-[bootFadeIn_0.6s_ease-out]">
             <Crown size={26} className="text-yellow-500 mx-auto mb-3" />
             <p className="text-xl sm:text-2xl font-black uppercase tracking-[0.15em] text-yellow-400">
-              Bon retour sur les parties
+              Bon retour parmis nous
             </p>
           </div>
         )}
