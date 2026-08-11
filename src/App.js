@@ -41,6 +41,7 @@ import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES, DEFAULT_RACE_CONFIG } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
+import { ageToBirthDate } from "./lib/gameUtils";
 import { useSettings } from "./hooks/useSettings";
 import { useVersionCheck } from "./hooks/useVersionCheck";
 import { usePushNotifications } from "./hooks/usePushNotifications";
@@ -81,6 +82,7 @@ const TribunalAdminView = lazy(() => import("./components/views/TribunalAdminVie
 const GameMasterView = lazy(() => import("./components/views/GameMasterView"));
 const CitizenLayout = lazy(() => import("./components/layout/CitizenLayout"));
 const PostalCheckModal = lazy(() => import("./components/views/PostalCheckModal"));
+const CharacterCreationView = lazy(() => import("./components/views/CharacterCreationView"));
 
 // Affiché pendant le téléchargement du chunk JS d'une vue chargée à la demande (voir les
 // imports lazy() ci-dessus) — le temps que ça dure est négligeable une fois la vue en cache.
@@ -143,6 +145,41 @@ export default function App() {
   const [adminAccountMenuOpen, setAdminAccountMenuOpen] = useState(false);
   // Suivi du check postal : stocke l'id du citoyen ayant confirmé sa position dans cette session
   const [postalCheckUserId, setPostalCheckUserId] = useState(null);
+
+  // --- Création de personnage (auto-inscription depuis l'écran de connexion) ---
+  const [showCharacterCreation, setShowCharacterCreation] = useState(false);
+
+  const handleCreateCharacter = async (data) => {
+    const safeCitizens = state.citizens || [];
+    const fullName = `${data.firstName} ${data.lastName}`.trim();
+    if (safeCitizens.find((c) => c.name?.toLowerCase() === fullName.toLowerCase())) {
+      notify("Ce nom de personnage existe déjà, choisis-en un autre.", "error");
+      return;
+    }
+    const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+    const birthDate = ageToBirthDate(data.age, gd);
+    const num = String(safeCitizens.length + 1).padStart(3, "0");
+    const rand = Math.random().toString(36).slice(2, 5).toUpperCase();
+    const newId = `EMP-${num}-${rand}`;
+    const newCitizen = {
+      id: newId, firstName: data.firstName, lastName: data.lastName, name: fullName,
+      birthDate, role: "CITOYEN", countryId: data.countryId, locationCountryId: data.countryId,
+      password: data.password, balance: 100,
+      occupation: "Citoyen", status: "Actif",
+      sexe: data.sexe, race: data.race,
+      power: data.power, physicalDescription: data.physicalDescription,
+      bio: data.story, avatarUrl: data.avatarUrl,
+      inventory: [], messages: [],
+      currentPosition: "", motto: "", title: "", religion: "", origin: "",
+    };
+    const newCitizens = [...safeCitizens, newCitizen];
+    saveState({ ...state, citizens: newCitizens });
+    const ok = await loginGame({ u: newId, p: data.password }, newCitizens);
+    if (ok) {
+      setShowCharacterCreation(false);
+      notify(`Bienvenue, ${fullName} !`, "success");
+    }
+  };
 
   // --- Game Master ---
   const [gmStep, setGmStep] = useState(null); // null | 'choice' | 'password'
@@ -558,6 +595,13 @@ export default function App() {
             onClose={() => setGmMode(false)}
             session={currentUser}
           />
+        ) : !session && showCharacterCreation ? (
+          <CharacterCreationView
+            state={state}
+            onCreateCharacter={handleCreateCharacter}
+            notify={notify}
+            onBack={() => setShowCharacterCreation(false)}
+          />
         ) : !session ? (
           <LoginScreen
             onLogin={loginGame}
@@ -567,6 +611,7 @@ export default function App() {
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onLogoutAccount={logoutAccount}
+            onCreateCharacter={() => setShowCharacterCreation(true)}
           />
         ) : (currentUser && postalCheckUserId !== currentUser.id) ? (
           <PostalCheckModal

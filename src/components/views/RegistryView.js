@@ -187,6 +187,8 @@ const RegistryView = ({
                   origin: "",
                   sexe: "",
                   race: "",
+                  power: "",
+                  physicalDescription: "",
                 })
               }
               className="bg-stone-800 text-white w-7 h-7 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md transition-all active:scale-90"
@@ -690,6 +692,32 @@ const RegistryView = ({
                           <option value={editForm.race}>{editForm.race} (retirée de la liste)</option>
                         )}
                       </select>
+                    </div>
+
+                    {/* Pouvoir */}
+                    <div className="col-span-1 md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Pouvoir
+                      </label>
+                      <textarea
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold min-h-[70px]"
+                        value={editForm.power || ""}
+                        onChange={(e) => setEditForm({ ...editForm, power: e.target.value })}
+                        placeholder="Nature et manifestations du pouvoir du personnage..."
+                      />
+                    </div>
+
+                    {/* Description physique */}
+                    <div className="col-span-1 md:col-span-2 space-y-1">
+                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
+                        Description Physique
+                      </label>
+                      <textarea
+                        className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold min-h-[70px]"
+                        value={editForm.physicalDescription || ""}
+                        onChange={(e) => setEditForm({ ...editForm, physicalDescription: e.target.value })}
+                        placeholder="Silhouette, traits, tenue habituelle..."
+                      />
                     </div>
 
                     <div className="space-y-1">
@@ -1212,6 +1240,18 @@ const RegistryView = ({
                               <span className="text-stone-900 font-bold uppercase font-sans">{selected.race}</span>
                             </div>
                           )}
+                        </div>
+                      )}
+                      {selected.power && (
+                        <div className="pt-1">
+                          <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">Pouvoir</span>
+                          <span className="text-stone-700 text-sm whitespace-pre-wrap font-sans">{selected.power}</span>
+                        </div>
+                      )}
+                      {selected.physicalDescription && (
+                        <div className="pt-1">
+                          <span className="text-stone-400 uppercase text-[9px] font-black block mb-1 tracking-widest font-sans">Description Physique</span>
+                          <span className="text-stone-700 text-sm whitespace-pre-wrap font-sans">{selected.physicalDescription}</span>
                         </div>
                       )}
                       {(() => {

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Shield, Key, User, ArrowRight, LogIn, X } from "lucide-react";
+import { Shield, Key, User, ArrowRight, LogIn, X, Wand2 } from "lucide-react";
 
-const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], onSwitchAccount, onLogoutAccount }) => {
+const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], onSwitchAccount, onLogoutAccount, onCreateCharacter }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -194,6 +194,16 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
               </p>
             </div>
           </div>
+        )}
+
+        {/* ── Créer un personnage ── */}
+        {onCreateCharacter && (
+          <button
+            onClick={onCreateCharacter}
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-stone-900/80 backdrop-blur border-2 border-dashed border-yellow-700/50 hover:border-yellow-600 text-yellow-500 font-black uppercase text-[11px] tracking-[0.2em] rounded-xl shadow-lg transition-all active:scale-[0.98] hover:bg-stone-900"
+          >
+            <Wand2 size={16} /> Crée ton personnage
+          </button>
         )}
 
         {/* Pied de page */}
