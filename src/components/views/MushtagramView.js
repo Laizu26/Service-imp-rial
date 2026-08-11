@@ -1907,7 +1907,7 @@ export default function MushtagramView({
                     )}
 
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5">
                         <button onClick={() => setShowImgInput(v => !v)}
                           className={`flex items-center gap-1 text-xs font-bold transition-all ${showImgInput ? "text-rose-500" : "text-stone-400 hover:text-rose-400"}`}>
                           <ImageIcon size={13} /> Image

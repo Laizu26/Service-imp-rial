@@ -2125,13 +2125,24 @@ const MyCompanyView = ({
       {(() => {
         const myLoanAsOwner = getActiveStaffLoan(user.id, staffLoans);
         if (!myLoanAsOwner) return null;
+        const isSameCompany = String(myLoanAsOwner.toCompanyId) === String(myCompany.id);
         return (
           <div className="bg-purple-50 border-l-8 border-purple-400 p-4 rounded-r-xl flex items-center gap-3">
             <ArrowLeftRight size={20} className="text-purple-600 shrink-0" />
             <div className="text-sm text-purple-800">
-              <span className="font-black">Vous êtes actuellement détaché</span> chez{" "}
-              <span className="font-bold">{myLoanAsOwner.toCompanyName}</span>
-              {myLoanAsOwner.exclusive ? " (exclusif)" : ""} en tant que dirigeant, en plus de la gestion de {myCompany.name}.
+              {isSameCompany ? (
+                <>
+                  <span className="font-black">Vous êtes actuellement détaché ici</span>{" "}
+                  depuis <span className="font-bold">{(myLoanAsOwner.fromCompanyName || "").trim()}</span>
+                  {myLoanAsOwner.exclusive ? " (exclusif)" : ""} en tant que dirigeant.
+                </>
+              ) : (
+                <>
+                  <span className="font-black">Vous êtes actuellement détaché</span> chez{" "}
+                  <span className="font-bold">{(myLoanAsOwner.toCompanyName || "").trim()}</span>
+                  {myLoanAsOwner.exclusive ? " (exclusif)" : ""} en tant que dirigeant, en plus de la gestion de {(myCompany.name || "").trim()}.
+                </>
+              )}
             </div>
           </div>
         );
