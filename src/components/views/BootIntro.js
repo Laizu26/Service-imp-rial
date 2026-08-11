@@ -53,7 +53,7 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
   // Flash blanc puis fondu de disparition avant de révéler l'écran de connexion en dessous.
   useEffect(() => {
     if (phase === "flash") {
-      const t = setTimeout(() => setPhase("fading"), 400);
+      const t = setTimeout(() => setPhase("fading"), 1000);
       return () => clearTimeout(t);
     }
     if (phase === "fading") {
@@ -135,7 +135,9 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
         )}
       </div>
 
-      {phase === "flash" && <div className="absolute inset-0 bg-white animate-[bootFlash_0.4s_ease-out]" />}
+      {(phase === "flash" || phase === "fading") && (
+        <div className="absolute inset-0 bg-white animate-[bootFlashIn_0.15s_ease-out_forwards]" />
+      )}
 
       <p className="absolute bottom-6 text-[9px] text-stone-600 uppercase tracking-widest font-bold">
         Appuyez sur une touche pour passer
@@ -150,10 +152,9 @@ const BootIntro = ({ connectedAccounts = [], worldName = "Addunya", onFinished }
           0% { transform: translateX(-100%); }
           100% { transform: translateX(400%); }
         }
-        @keyframes bootFlash {
+        @keyframes bootFlashIn {
           0% { opacity: 0; }
-          15% { opacity: 1; }
-          100% { opacity: 0; }
+          100% { opacity: 1; }
         }
       `}</style>
     </div>
