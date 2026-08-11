@@ -3613,26 +3613,30 @@ const MyCompanyView = ({
             </div>
           </Card>
 
-          {/* Auto-autorisation à publier au nom de l'entreprise sur Mushtagram — le
-              dirigeant/PDG y a déjà accès de fait (isCompanyManager), ce toggle rend ce statut
-              explicite et permet de s'en retirer soi-même si voulu, sans avoir à passer par
-              quelqu'un d'autre pour gérer ce droit. */}
-          {onSetCompanyMushtagramAccess && (
-            <Card title="Mon accès Mushtagram" icon={Users}>
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                <div>
-                  <div className="text-xs font-bold text-emerald-800">🏢 Publier au nom de {myCompany.name}</div>
-                  <div className="text-[10px] text-emerald-600">Vous autoriser (ou non) à publier sur Mushtagram au nom de l'entreprise</div>
+          {/* Auto-autorisation à publier au nom de l'entreprise sur Mushtagram — le dirigeant/PDG
+              y a accès par défaut ; ce toggle sert à s'en retirer soi-même si voulu, sans avoir à
+              passer par quelqu'un d'autre. Liste dédiée (mushtagramManagerRevokedIds) car "absent
+              de la liste" doit signifier "autorisé" pour un dirigeant/PDG, contrairement à un
+              salarié classique (mushtagramAuthorizedIds, opt-in). */}
+          {onSetCompanyMushtagramAccess && (() => {
+            const isRevoked = (myCompany.mushtagramManagerRevokedIds || []).map(String).includes(String(user.id));
+            return (
+              <Card title="Mon accès Mushtagram" icon={Users}>
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                  <div>
+                    <div className="text-xs font-bold text-emerald-800">🏢 Publier au nom de {myCompany.name}</div>
+                    <div className="text-[10px] text-emerald-600">Vous autoriser (ou non) à publier sur Mushtagram au nom de l'entreprise</div>
+                  </div>
+                  <button
+                    onClick={() => onSetCompanyMushtagramAccess({ companyId: myCompany.id, citizenId: user.id, authorized: isRevoked })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${!isRevoked ? "bg-emerald-600" : "bg-stone-300"}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${!isRevoked ? "translate-x-6" : "translate-x-1"}`} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => onSetCompanyMushtagramAccess({ companyId: myCompany.id, citizenId: user.id, authorized: !(myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(user.id)) })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-3 ${(myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(user.id)) ? "bg-emerald-600" : "bg-stone-300"}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${(myCompany.mushtagramAuthorizedIds || []).map(String).includes(String(user.id)) ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
-              </div>
-            </Card>
-          )}
+              </Card>
+            );
+          })()}
 
           {/* Grades personnalisés */}
           <Card title="Grades & Rangs" icon={Shield}>

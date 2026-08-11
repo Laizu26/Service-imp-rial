@@ -5449,18 +5449,30 @@ export const useGameActions = (session, state, saveState, notify) => {
         const isBorrowedIn = (state.staffLoans || []).some(
           (l) => l.status === "ACTIVE" && String(l.toCompanyId) === String(companyId) && String(l.employeeId) === String(citizenId)
         );
-        // Le dirigeant/PDG lui-même peut s'auto-autoriser (déjà couvert de fait par
-        // isCompanyManager dans onPostMushtagram, ce toggle rend juste son propre statut visible
-        // et modifiable), sans avoir besoin d'être dans employees/slaves comme un salarié.
         const isSelfManager = String(company.ownerId) === String(citizenId) || String(company.ceoId) === String(citizenId);
         if (!(company.employees || []).map(String).includes(String(citizenId)) && !isBorrowedIn && !isSelfManager) return;
-        const current = (company.mushtagramAuthorizedIds || []).map(String);
-        const next = authorized
-          ? (current.includes(String(citizenId)) ? current : [...current, String(citizenId)])
-          : current.filter((id) => id !== String(citizenId));
-        const updatedCompanies = (state.companies || []).map(c =>
-          c.id === companyId ? { ...c, mushtagramAuthorizedIds: next } : c
-        );
+
+        let updatedCompanies;
+        if (isSelfManager) {
+          // Le dirigeant/PDG a accès par défaut (voir isOwnerOrCeo dans onPostMushtagram) — ce
+          // toggle sert donc à s'en RETIRER explicitement, pas à s'y ajouter comme un salarié.
+          // Liste distincte (mushtagramManagerRevokedIds) : absent de la liste = autorisé.
+          const revoked = (company.mushtagramManagerRevokedIds || []).map(String);
+          const nextRevoked = authorized
+            ? revoked.filter((id) => id !== String(citizenId))
+            : (revoked.includes(String(citizenId)) ? revoked : [...revoked, String(citizenId)]);
+          updatedCompanies = (state.companies || []).map(c =>
+            c.id === companyId ? { ...c, mushtagramManagerRevokedIds: nextRevoked } : c
+          );
+        } else {
+          const current = (company.mushtagramAuthorizedIds || []).map(String);
+          const next = authorized
+            ? (current.includes(String(citizenId)) ? current : [...current, String(citizenId)])
+            : current.filter((id) => id !== String(citizenId));
+          updatedCompanies = (state.companies || []).map(c =>
+            c.id === companyId ? { ...c, mushtagramAuthorizedIds: next } : c
+          );
+        }
         saveState({ ...state, companies: updatedCompanies });
         notify(authorized ? "Accès Mushtagram accordé." : "Accès Mushtagram retiré.", "success");
       },
@@ -8608,8 +8620,14 @@ export const useGameActions = (session, state, saveState, notify) => {
           entityAuthor = { authorId: `guild_${guild.id}`, authorName: guild.name, authorType: "guild" };
         } else if (postAsEntity?.type === "company") {
           const company = (state.companies || []).find(c => String(c.id) === String(postAsEntity.id));
-          const isAuthorized = isCompanyManager(company, session.id) ||
-            (company?.mushtagramAuthorizedIds || []).map(String).includes(String(session.id));
+          // Le dirigeant/PDG a accès par défaut, sauf s'il s'en est explicitement retiré via
+          // "Mon accès Mushtagram" (mushtagramManagerRevokedIds) — un simple OR avec
+          // isCompanyManager rendrait ce toggle inopérant, puisqu'il resterait toujours
+          // manager. Un salarié/détaché doit à l'inverse être explicitement autorisé.
+          const isOwnerOrCeo = String(company?.ownerId) === String(session.id) || String(company?.ceoId) === String(session.id);
+          const isAuthorized = isOwnerOrCeo
+            ? !(company?.mushtagramManagerRevokedIds || []).map(String).includes(String(session.id))
+            : (company?.mushtagramAuthorizedIds || []).map(String).includes(String(session.id));
           if (!isAuthorized) { notify("Vous n'êtes pas autorisé à publier au nom de l'entreprise.", "error"); return; }
           entityAuthor = { authorId: `company_${company.id}`, authorName: company.name, authorType: "company" };
         }

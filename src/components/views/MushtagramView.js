@@ -1385,11 +1385,15 @@ export default function MushtagramView({
   ], [guilds, companies]);
   const authorResolutionCitizens = useMemo(() => [...citizens, ...entityProfiles], [citizens, entityProfiles]);
   const myLeaderGuilds = useMemo(() => guilds.filter(g => String(g.leaderId) === myId), [guilds, myId]);
-  // Compagnies au nom desquelles je peux publier : propriétaire, PDG délégué, ou employé auquel l'accès a été délégué
-  // — doit rester aligné avec l'autorisation réelle du backend (isCompanyManager) dans onPostMushtagram.
-  const myOwnerCompanies = useMemo(() => companies.filter(c =>
-    String(c.ownerId) === myId || String(c.ceoId) === myId || (c.mushtagramAuthorizedIds || []).map(String).includes(myId)
-  ), [companies, myId]);
+  // Compagnies au nom desquelles je peux publier : propriétaire/PDG (sauf s'ils s'en sont
+  // explicitement retirés via "Mon accès Mushtagram"), ou employé auquel l'accès a été délégué —
+  // doit rester aligné avec l'autorisation réelle du backend (isAuthorized) dans onPostMushtagram.
+  const myOwnerCompanies = useMemo(() => companies.filter(c => {
+    const isOwnerOrCeo = String(c.ownerId) === myId || String(c.ceoId) === myId;
+    return isOwnerOrCeo
+      ? !(c.mushtagramManagerRevokedIds || []).map(String).includes(myId)
+      : (c.mushtagramAuthorizedIds || []).map(String).includes(myId);
+  }), [companies, myId]);
   // Comptes d'entité sur lesquels j'ai un contrôle total (édition du profil, modération de tout post
   // publié par un employé délégué) — contrairement à myOwnerCompanies, ne couvre pas les employés délégués.
   const myEntityAuthorIds = useMemo(() => new Set([
