@@ -4,6 +4,8 @@ import {
   Eye, EyeOff, Calendar, Search, Pin,
 } from "lucide-react";
 import { GAZETTE_CATEGORY_LABELS } from "../../lib/gazetteConstants";
+import { isHtml, sanitizeHtml, stripHtml } from "../../lib/richText";
+import RichTextEditor from "../ui/RichTextEditor";
 
 /* ── Catégories ── */
 export const GAZETTE_CATEGORIES = [
@@ -43,8 +45,14 @@ const PreviewCard = ({ form, author, authorRole, date, isGlobal }) => {
       </div>
       <h3 className="text-xl font-black font-serif text-stone-900 leading-tight">{form.title || "Titre de l'article"}</h3>
       {form.subtitle && <p className="text-sm italic text-stone-500 font-serif">{form.subtitle}</p>}
-      <div className="text-sm leading-relaxed text-stone-700 font-serif text-justify whitespace-pre-line border-l-2 border-stone-200 pl-4">
-        {form.content || "Corps de l'article…"}
+      <div className="border-l-2 border-stone-200 pl-4">
+        {form.content && isHtml(form.content) ? (
+          <div className="erudit-reading text-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.content) }} />
+        ) : (
+          <div className="text-sm leading-relaxed text-stone-700 font-serif text-justify whitespace-pre-line">
+            {form.content || "Corps de l'article…"}
+          </div>
+        )}
       </div>
       <div className="flex justify-end border-t border-stone-200 pt-3 text-right">
         <div>
@@ -66,6 +74,10 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
+  // Le contenu peut désormais être du HTML (RichTextEditor) — on mesure/valide sur le texte
+  // brut affiché, pas sur la longueur des balises.
+  const contentText = isHtml(form.content) ? stripHtml(form.content) : (form.content || "");
+  const contentTextLength = contentText.length;
   const [filterCat, setFilterCat] = useState("ALL");
   const [showPreview, setShowPreview] = useState(false);
 
@@ -102,7 +114,7 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
   const cancelEdit = () => { setForm(EMPTY_FORM); setEditingId(null); setShowPreview(false); };
 
   const handlePublish = () => {
-    if (!form.title.trim() || !form.content.trim()) { notify("Titre et contenu obligatoires.", "error"); return; }
+    if (!form.title.trim() || !contentText.trim()) { notify("Titre et contenu obligatoires.", "error"); return; }
     const dateStr = `Le ${currentDate.day}/${currentDate.month}/${currentDate.year}`;
     if (editingId) {
       onUpdateState({
@@ -248,16 +260,15 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
 
               {/* Contenu */}
               <div>
-                <textarea
-                  className="w-full bg-stone-50 border border-stone-200 rounded-lg p-3 text-sm text-stone-800 outline-none focus:border-amber-400 resize-none font-serif placeholder:text-stone-400"
-                  placeholder={"Corps de l'article…\n\nUtilisez des sauts de ligne pour créer des paragraphes.\n\nVous pouvez rédiger un texte long et détaillé."}
-                  rows={10}
+                <RichTextEditor
                   value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
+                  onChange={(val) => setForm({ ...form, content: val })}
+                  placeholder="Corps de l'article… Gras, italique, police, images…"
+                  minHeight={220}
                 />
                 <div className="flex items-center justify-between mt-0.5">
-                  <div className="text-[9px] text-stone-400 italic">Sauts de ligne préservés à l'affichage</div>
-                  <div className={`text-[9px] font-mono ${form.content.length > 2000 ? "text-orange-500" : "text-stone-400"}`}>{form.content.length} car.</div>
+                  <div className="text-[9px] text-stone-400 italic">Mise en forme, police et images disponibles dans la barre d'outils</div>
+                  <div className={`text-[9px] font-mono ${contentTextLength > 2000 ? "text-orange-500" : "text-stone-400"}`}>{contentTextLength} car.</div>
                 </div>
               </div>
 
@@ -275,7 +286,7 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
 
               <button
                 onClick={handlePublish}
-                disabled={!form.title.trim() || !form.content.trim()}
+                disabled={!form.title.trim() || !contentText.trim()}
                 className="w-full py-2.5 bg-amber-500 text-stone-900 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-400 transition-all disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2"
               >
                 {editingId ? <><Save size={13} /> Mettre à jour</> : <><Newspaper size={13} /> Publier l'article</>}

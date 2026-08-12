@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Newspaper, Calendar, Search } from "lucide-react";
 import { GAZETTE_CATEGORY_LABELS } from "../../lib/gazetteConstants";
 import { formatRPDate } from "../../lib/gameUtils";
+import { isHtml, sanitizeHtml, stripHtml } from "../../lib/richText";
 
 /* ── Styles par catégorie ── */
 const CAT_META = {
@@ -86,10 +87,16 @@ const GazetteView = ({ gazette, gameDate, userCountryId }) => {
     const cat = getCat(article.category);
     const isExpanded = expanded.has(article.id);
     const MAX_CHARS = featured ? 500 : 300;
-    const isLong = article.content && article.content.length > MAX_CHARS;
+    const rawContent = article.content || "";
+    const contentIsHtml = isHtml(rawContent);
+    // Un contenu HTML ne peut pas être tronqué au caractère près sans casser des balises —
+    // on mesure/tronque sur le texte brut, et on n'affiche le HTML qu'une fois déplié en entier.
+    const plainContent = contentIsHtml ? stripHtml(rawContent) : rawContent;
+    const isLong = plainContent.length > MAX_CHARS;
+    const showFullHtml = contentIsHtml && (!isLong || isExpanded);
     const displayContent = isLong && !isExpanded
-      ? article.content.slice(0, MAX_CHARS) + "…"
-      : (article.content || "");
+      ? plainContent.slice(0, MAX_CHARS) + "…"
+      : plainContent;
 
     return (
       <div
@@ -139,9 +146,13 @@ const GazetteView = ({ gazette, gameDate, userCountryId }) => {
           </div>
 
           {/* Contenu */}
-          <div className="text-stone-700 leading-relaxed font-serif text-sm text-justify whitespace-pre-line mb-3">
-            {displayContent}
-          </div>
+          {showFullHtml ? (
+            <div className="erudit-reading text-sm mb-3" dangerouslySetInnerHTML={{ __html: sanitizeHtml(rawContent) }} />
+          ) : (
+            <div className="text-stone-700 leading-relaxed font-serif text-sm text-justify whitespace-pre-line mb-3">
+              {displayContent}
+            </div>
+          )}
 
           {isLong && (
             <button
