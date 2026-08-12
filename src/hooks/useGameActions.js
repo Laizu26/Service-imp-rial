@@ -7058,7 +7058,10 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
         const infinite = menu[mIdx].stock === -1;
         if (!infinite && menu[mIdx].stock <= 0) { notify("Article indisponible.", "error"); return; }
-        const price = menu[mIdx].price || 0;
+        // Le pass gratuit illimité du payeur (voir onGrantFreePass) couvre aussi ce qu'il offre à
+        // quelqu'un d'autre ici, pas seulement sa propre consommation (voir hasFreePass, onBuyFromMenu).
+        const payerHasFreePass = (properties[pIdx].freePassIds || []).map(String).includes(String(session.id));
+        const price = payerHasFreePass ? 0 : (menu[mIdx].price || 0);
         if ((payer.balance || 0) < price) { notify("Fonds insuffisants.", "error"); return; }
         const isAlcoholic = !!menu[mIdx].isAlcoholic;
         if (!infinite) menu[mIdx] = { ...menu[mIdx], stock: menu[mIdx].stock - 1 };
@@ -7159,7 +7162,10 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         const mIdx = menu.findIndex((m) => (m.id || m.itemName) === itemKey);
         if (mIdx === -1) { notify("Article introuvable.", "error"); return; }
         const infinite = menu[mIdx].stock === -1;
-        const price = menu[mIdx].price || 0;
+        // Le pass gratuit illimité du payeur couvre aussi la tournée qu'il offre à tout le
+        // monde ici, pas seulement sa propre consommation (voir hasFreePass, onBuyFromMenu).
+        const payerHasFreePass = (properties[pIdx].freePassIds || []).map(String).includes(String(session.id));
+        const price = payerHasFreePass ? 0 : (menu[mIdx].price || 0);
         const stockCap = infinite ? consumers.length : Math.max(0, menu[mIdx].stock);
         const affordableCap = price > 0 ? Math.floor((payer.balance || 0) / price) : consumers.length;
         const servedCount = Math.min(consumers.length, stockCap, affordableCap);
