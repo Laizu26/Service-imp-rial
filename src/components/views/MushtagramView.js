@@ -1421,7 +1421,7 @@ export default function MushtagramView({
   const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [groupSearch, setGroupSearch]       = useState("");
   const [editingGroupSettings, setEditingGroupSettings] = useState(false);
-  const [groupSettingsDraft, setGroupSettingsDraft]     = useState({ name: "", avatar: "" });
+  const [groupSettingsDraft, setGroupSettingsDraft]     = useState({ name: "", avatar: "", photo: "" });
   const [showGroupMembers, setShowGroupMembers]         = useState(false);
   const [addMemberSearch, setAddMemberSearch]           = useState("");
 
@@ -1715,12 +1715,18 @@ export default function MushtagramView({
   );
 
   /* ── messages ────────────────────────────────────────────────────── */
-  const myDMs = useMemo(() =>
-    mushtagramDMs.filter(d =>
-      (String(d.fromId) === myId || String(d.toId) === myId) &&
+  // Un message de groupe ne porte pas toId (voir onSendMushtagramGroupDM) — le filtre
+  // fromId/toId ne suffit donc pas pour lui, sans quoi seuls mes propres messages de groupe
+  // me resteraient visibles : il faut vérifier l'appartenance au groupe via memberIds.
+  const myDMs = useMemo(() => {
+    const myGroupIds = new Set(
+      (mushtagramGroups || []).filter(g => (g.memberIds || []).map(String).includes(myId)).map(g => g.id)
+    );
+    return mushtagramDMs.filter(d =>
+      (d.groupId ? myGroupIds.has(d.groupId) : (String(d.fromId) === myId || String(d.toId) === myId)) &&
       !(d.hiddenFor || []).map(String).includes(myId)
-    ),
-  [mushtagramDMs, myId]);
+    );
+  }, [mushtagramDMs, myId, mushtagramGroups]);
 
   // Surnom d'ami (voir onSetMushtagramNickname) — privé, propre à moi : remplace le nom
   // affiché dans la liste et l'en-tête, sans rien changer côté personne visée.
@@ -1748,7 +1754,7 @@ export default function MushtagramView({
     myGroups.forEach(g => {
       const msgs = myDMs.filter(d => d.groupId === g.id);
       const unread = msgs.filter(d => String(d.fromId) !== myId && !(d.readBy || []).map(String).includes(myId)).length;
-      map[`group_${g.id}`] = { id: g.id, kind: "group", name: g.name, avatar: g.avatar, memberIds: g.memberIds, messages: msgs, unread };
+      map[`group_${g.id}`] = { id: g.id, kind: "group", name: g.name, avatar: g.avatar, photo: g.photo, memberIds: g.memberIds, messages: msgs, unread };
     });
     return Object.values(map).sort((a, b) => {
       const la = a.messages.at(-1)?.timestamp ?? a.messages.at(-1)?.createdAt ?? 0;
@@ -1838,7 +1844,7 @@ export default function MushtagramView({
 
   const saveGroupSettings = () => {
     if (!selGroup || !onUpdateMushtagramGroup) return;
-    onUpdateMushtagramGroup({ groupId: selGroup, name: groupSettingsDraft.name, avatar: groupSettingsDraft.avatar });
+    onUpdateMushtagramGroup({ groupId: selGroup, name: groupSettingsDraft.name, avatar: groupSettingsDraft.avatar, photo: groupSettingsDraft.photo });
     setEditingGroupSettings(false);
   };
 
@@ -2333,12 +2339,13 @@ export default function MushtagramView({
                       className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all">
                       <ArrowLeft size={16} />
                     </button>
-                    <Ava citizen={{ name: activeGroup?.name, mushtagramAvatar: activeGroup?.avatar }} size="sm" />
+                    <Ava citizen={{ name: activeGroup?.name, mushtagramAvatar: activeGroup?.avatar, mushtagramPhoto: activeGroup?.photo }} size="sm" />
                     <div className="flex-1 min-w-0">
                       {editingGroupSettings ? (
                         <div className="flex items-center gap-1">
                           <input value={groupSettingsDraft.avatar} maxLength={2}
                             onChange={e => setGroupSettingsDraft({ ...groupSettingsDraft, avatar: e.target.value })}
+                            title="Emblème (emoji)"
                             className="w-8 px-1 py-1 border border-stone-200 rounded text-center text-sm" />
                           <input value={groupSettingsDraft.name}
                             onChange={e => setGroupSettingsDraft({ ...groupSettingsDraft, name: e.target.value })}
@@ -2347,8 +2354,18 @@ export default function MushtagramView({
                           <button onClick={saveGroupSettings} className="text-green-600 hover:text-green-700 p-1"><Check size={14} /></button>
                           <button onClick={() => setEditingGroupSettings(false)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
                         </div>
-                      ) : (
-                        <button onClick={() => { setGroupSettingsDraft({ name: activeGroup?.name || "", avatar: activeGroup?.avatar || "" }); setEditingGroupSettings(true); }}
+                      ) : null}
+                      {editingGroupSettings && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <ImageIcon size={10} className="text-stone-300 shrink-0" />
+                          <input value={groupSettingsDraft.photo}
+                            onChange={e => setGroupSettingsDraft({ ...groupSettingsDraft, photo: e.target.value })}
+                            placeholder="URL d'une image en photo de groupe (optionnel)…"
+                            className="flex-1 px-2 py-1 border border-stone-200 rounded text-[10px] text-stone-600 placeholder:text-stone-400" />
+                        </div>
+                      )}
+                      {!editingGroupSettings && (
+                        <button onClick={() => { setGroupSettingsDraft({ name: activeGroup?.name || "", avatar: activeGroup?.avatar || "", photo: activeGroup?.photo || "" }); setEditingGroupSettings(true); }}
                           className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors flex items-center gap-1.5">
                           {activeGroup?.name} <Edit3 size={11} className="text-stone-300" />
                         </button>
@@ -2614,7 +2631,7 @@ export default function MushtagramView({
                 return (
                   <button key={isGroup ? `group_${conv.id}` : conv.id} onClick={() => openConversation(conv)}
                     className="w-full flex items-center gap-3 px-4 py-3 border-b border-stone-50 hover:bg-stone-50 transition-colors text-left">
-                    <Ava citizen={isGroup ? { name: conv.name, mushtagramAvatar: conv.avatar } : (other || { name: conv.name })} size="md" />
+                    <Ava citizen={isGroup ? { name: conv.name, mushtagramAvatar: conv.avatar, mushtagramPhoto: conv.photo } : (other || { name: conv.name })} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className={`text-sm truncate flex items-center gap-1 ${conv.unread > 0 ? "font-black text-stone-900" : "font-semibold text-stone-700"}`}>

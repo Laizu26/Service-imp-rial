@@ -9654,7 +9654,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`Groupe "${trimmedName}" créé.`, "success");
       },
 
-      onUpdateMushtagramGroup: ({ groupId, name, avatar }) => {
+      onUpdateMushtagramGroup: ({ groupId, name, avatar, photo }) => {
         if (!session) return;
         const groups = [...(state.mushtagramGroups || [])];
         const idx = groups.findIndex((g) => g.id === groupId);
@@ -9667,6 +9667,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           ...groups[idx],
           name: name !== undefined ? String(name).trim().slice(0, 60) || groups[idx].name : groups[idx].name,
           avatar: avatar !== undefined ? avatar : groups[idx].avatar,
+          photo: photo !== undefined ? photo : groups[idx].photo,
         };
         saveState({ ...state, mushtagramGroups: groups });
         notify("Groupe mis à jour.", "success");
