@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, isDescendantOf } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -2479,12 +2479,30 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
 
           // Héritage : le trésor personnel du défunt est réparti à parts égales entre les
-          // conjoints survivants et les enfants reconnus comme citoyens ; à défaut d'héritier,
-          // il revient au Trésor Impérial.
+          // conjoints survivants et les enfants reconnus comme citoyens, sous réserve de leur
+          // filiation (voir FILIATION_TYPES) — un enfant patrilinéaire n'hérite que de son père,
+          // un matrilinéaire que de sa mère, bilinéaire/au choix hérite des deux ; à défaut
+          // d'héritier éligible, l'héritage revient au Trésor Impérial.
           const estate = previous.balance || 0;
           if (estate > 0) {
             const spouseIds = (previous.spouses || []).map((s) => s.id).filter((sid) => freshCitizens.some((c) => c.id === sid));
-            const childIds = (previous.children || []).map((ch) => ch.citizenId).filter((cid) => cid && freshCitizens.some((c) => c.id === cid));
+            const excludedByFiliation = [];
+            const childIds = (previous.children || [])
+              .filter((ch) => ch.citizenId && freshCitizens.some((c) => c.id === ch.citizenId))
+              .filter((ch) => {
+                const fil = ch.filiation || "patrilineaire";
+                if (fil === "bilineaire" || fil === "cognatique") return true;
+                const linkedChild = freshCitizens.find((c) => c.id === ch.citizenId);
+                const previousIsFather = String(linkedChild?.fatherId) === String(previous.id);
+                const previousIsMother = String(linkedChild?.motherId) === String(previous.id);
+                const eligible = fil === "patrilineaire" ? previousIsFather : previousIsMother;
+                if (!eligible) excludedByFiliation.push(linkedChild?.name || ch.name);
+                return eligible;
+              })
+              .map((ch) => ch.citizenId);
+            if (excludedByFiliation.length > 0) {
+              notify(`Filiation — ${excludedByFiliation.join(", ")} exclu(e)(s) de la succession de ${previous.name} (lignée non reconnue).`, "info");
+            }
             const beneficiaryIds = [...new Set([...spouseIds, ...childIds])];
             if (beneficiaryIds.length > 0) {
               const share = Math.floor(estate / beneficiaryIds.length);
@@ -2502,6 +2520,25 @@ export const useGameActions = (session, state, saveState, notify) => {
             }
             freshCitizens[index] = { ...freshCitizens[index], balance: 0 };
           }
+
+          // Tutelle : si le défunt exerçait la tutelle sur un enfant, elle passe à l'autre parent
+          // s'il est vivant, sinon elle est levée — sans quoi les droits verrouillés de l'enfant
+          // (voyage, banque, marché, mariage...) resteraient bloqués à vie, orphelins de tuteur.
+          freshCitizens.forEach((child, cIdx) => {
+            if (!child.guardianship?.active || String(child.guardianship.guardianId) !== String(previous.id)) return;
+            const otherParentId = String(child.fatherId) === String(previous.id) ? child.motherId : child.fatherId;
+            const otherParent = otherParentId ? freshCitizens.find((c) => String(c.id) === String(otherParentId)) : null;
+            if (otherParent && otherParent.status !== "Décédé") {
+              freshCitizens[cIdx] = {
+                ...child,
+                guardianship: { ...child.guardianship, guardianId: otherParent.id, guardianName: otherParent.name, since: Date.now() },
+              };
+              notify(`Tutelle de ${child.name} transférée à ${otherParent.name} (${previous.name} est décédé(e)).`, "info");
+            } else {
+              freshCitizens[cIdx] = { ...child, guardianship: null };
+              notify(`Tutelle sur ${child.name} levée : ${previous.name}, son tuteur, est décédé(e) sans parent survivant pour la reprendre.`, "info");
+            }
+          });
         }
 
         // Succession automatique si le citoyen décède en étant chef de famille
@@ -3387,6 +3424,22 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         saveState({ ...state, citizens: newCitizens });
         notify("La proposition d'union a été déclinée.", "info");
+      },
+
+      // Annulation par l'expéditeur d'une proposition qu'il a lui-même envoyée (et qui n'a pas
+      // encore été acceptée/refusée) — retire son entrée de marriageProposals chez la cible.
+      onCancelMarriageProposal: (targetId) => {
+        if (!session) return;
+        const targetIdx = state.citizens.findIndex((c) => c.id === targetId);
+        if (targetIdx === -1) return;
+        const target = state.citizens[targetIdx];
+        const newCitizens = [...state.citizens];
+        newCitizens[targetIdx] = {
+          ...target,
+          marriageProposals: (target.marriageProposals || []).filter((p) => String(p.fromId) !== String(session.id)),
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Votre proposition d'union a été retirée.", "info");
       },
 
       // --- MARIAGE DES ESCLAVES (tutelle du propriétaire) ---
@@ -4814,6 +4867,11 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Votre tuteur a interdit la souscription d'emprunts.", "error");
           return;
         }
+        const spouseCreditLock = (me?.spouses || []).find((s) => s.dominantId && String(s.dominantId) !== String(session.id) && s.spouseRights?.creditLocked);
+        if (spouseCreditLock) {
+          notify("Votre conjoint dominant a interdit la souscription d'emprunts.", "error");
+          return;
+        }
         if (debt.status !== "PENDING") {
           notify("Ce contrat n'est plus en attente.", "error");
           return;
@@ -5401,36 +5459,173 @@ export const useGameActions = (session, state, saveState, notify) => {
       // Un citoyen ne peut définir que sa propre filiation. Chaque parent peut être un
       // citoyen existant (fatherId/motherId résolu) ou un personnage NPC (id null, nom
       // libre) — même principe que le mode NPC déjà disponible pour les enfants.
+      // Se retirer un parent (fatherId/motherId = null) ou saisir un nom libre (personne hors jeu)
+      // reste immédiat — ça ne touche que mon propre lien. Mais se rattacher à un citoyen RÉEL
+      // demande désormais son accord (onAcceptParentRequest) : sans quoi n'importe qui pouvait se
+      // déclarer enfant de n'importe qui, sans son consentement et sans que ça apparaisse dans
+      // ses propres "Enfants & Descendance". onSetParents ne fait donc plus qu'envoyer la demande
+      // (ou traiter le retrait) ; l'écriture de fatherId/motherId se fait à l'acceptation.
       onSetParents: (citizenId, { fatherId, fatherName, motherId, motherName }) => {
         if (!session) return;
         if (String(session.id) !== String(citizenId)) { notify("Vous ne pouvez modifier que votre propre filiation.", "error"); return; }
+        const isFather = fatherId !== undefined || fatherName !== undefined;
+        const slotIdKey = isFather ? "fatherId" : "motherId";
+        const slotNameKey = isFather ? "fatherName" : "motherName";
+        const newId = isFather ? fatherId : motherId;
+        const newName = isFather ? fatherName : motherName;
+
         const newCitizens = [...(state.citizens || [])];
         const idx = newCitizens.findIndex((c) => c.id === citizenId);
         if (idx === -1) return;
-        const updates = {};
-        if (fatherId !== undefined) {
-          if (fatherId) {
-            const father = newCitizens.find((c) => c.id === fatherId);
-            updates.fatherId = fatherId;
-            updates.fatherName = father ? father.name : (fatherName || null);
-          } else {
-            updates.fatherId = null;
-            updates.fatherName = fatherName ? String(fatherName).trim().slice(0, 80) : null;
+        const me = newCitizens[idx];
+
+        if (!newId) {
+          // Retrait du lien (ou simple nom libre, hors jeu) : n'affecte que mon propre lien, pas
+          // besoin de consentement — mais si un vrai citoyen était lié, on le retire aussi de sa
+          // propre liste d'enfants pour rester cohérent des deux côtés.
+          const prevId = me[slotIdKey];
+          if (prevId) {
+            const oldParentIdx = newCitizens.findIndex((c) => String(c.id) === String(prevId));
+            if (oldParentIdx !== -1) {
+              newCitizens[oldParentIdx] = {
+                ...newCitizens[oldParentIdx],
+                children: (newCitizens[oldParentIdx].children || []).filter((ch) => String(ch.citizenId) !== String(citizenId)),
+              };
+            }
           }
+          newCitizens[idx] = { ...me, [slotIdKey]: null, [slotNameKey]: newName ? String(newName).trim().slice(0, 80) : null };
+          saveState({ ...state, citizens: newCitizens });
+          notify("Filiation mise à jour.", "success");
+          return;
         }
-        if (motherId !== undefined) {
-          if (motherId) {
-            const mother = newCitizens.find((c) => c.id === motherId);
-            updates.motherId = motherId;
-            updates.motherName = mother ? mother.name : (motherName || null);
-          } else {
-            updates.motherId = null;
-            updates.motherName = motherName ? String(motherName).trim().slice(0, 80) : null;
-          }
+
+        if (String(newId) === String(citizenId)) { notify("Vous ne pouvez pas être votre propre parent.", "error"); return; }
+        const target = newCitizens.find((c) => c.id === newId);
+        if (!target) { notify("Citoyen introuvable.", "error"); return; }
+        if (target.status === "Décédé") { notify(`${target.name} est décédé(e).`, "error"); return; }
+        if (isDescendantOf(newId, citizenId, newCitizens)) {
+          notify(`Lien impossible : ${target.name} est déjà un descendant de ${me.name} dans l'arbre familial.`, "error");
+          return;
         }
-        newCitizens[idx] = { ...newCitizens[idx], ...updates };
+        if ((target.parentRequests || []).some((r) => String(r.fromId) === String(citizenId) && r.kind === (isFather ? "father" : "mother"))) {
+          notify("Une demande de reconnaissance est déjà en attente pour cette personne.", "error");
+          return;
+        }
+
+        const targetIdx = newCitizens.findIndex((c) => c.id === newId);
+        newCitizens[targetIdx] = {
+          ...target,
+          parentRequests: [...(target.parentRequests || []), {
+            fromId: citizenId,
+            fromName: me.name,
+            kind: isFather ? "father" : "mother",
+            timestamp: Date.now(),
+          }],
+        };
         saveState({ ...state, citizens: newCitizens });
-        notify("Filiation mise à jour.", "success");
+        notify(`Demande de reconnaissance de filiation envoyée à ${target.name}.`, "success");
+      },
+
+      // Adoption / beau-parent : même mécanique de demande que onSetParents (consentement requis),
+      // mais sans toucher fatherId/motherId — s'ajoute à une liste adoptiveParents distincte, qui
+      // peut compter plusieurs entrées (beaux-parents successifs, tuteurs adoptifs, etc.).
+      onProposeAdoption: (targetId) => {
+        if (!session) return;
+        const newCitizens = [...(state.citizens || [])];
+        const meIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const targetIdx = newCitizens.findIndex((c) => c.id === targetId);
+        if (meIdx === -1 || targetIdx === -1) return;
+        const me = newCitizens[meIdx];
+        const target = newCitizens[targetIdx];
+
+        if (String(targetId) === String(session.id)) { notify("Vous ne pouvez pas vous adopter vous-même.", "error"); return; }
+        if (target.status === "Décédé") { notify(`${target.name} est décédé(e).`, "error"); return; }
+        if ((target.adoptiveParents || []).some((p) => String(p.id) === String(session.id))) {
+          notify(`${target.name} est déjà sous votre tutelle adoptive.`, "error");
+          return;
+        }
+        if (isDescendantOf(session.id, targetId, newCitizens)) {
+          notify(`Lien impossible : vous êtes déjà un descendant de ${target.name}.`, "error");
+          return;
+        }
+        if ((target.parentRequests || []).some((r) => String(r.fromId) === String(session.id) && r.kind === "adoptive")) {
+          notify("Une demande d'adoption est déjà en attente pour cette personne.", "error");
+          return;
+        }
+
+        newCitizens[targetIdx] = {
+          ...target,
+          parentRequests: [...(target.parentRequests || []), {
+            fromId: session.id,
+            fromName: me.name,
+            kind: "adoptive",
+            timestamp: Date.now(),
+          }],
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Demande d'adoption envoyée à ${target.name}.`, "success");
+      },
+
+      onAcceptParentRequest: (fromId) => {
+        if (!session) return;
+        const newCitizens = [...(state.citizens || [])];
+        const meIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (meIdx === -1) return;
+        const me = newCitizens[meIdx];
+        const req = (me.parentRequests || []).find((r) => String(r.fromId) === String(fromId));
+        if (!req) return;
+        const parentIdx = newCitizens.findIndex((c) => c.id === fromId);
+        if (parentIdx === -1) return;
+        const parent = newCitizens[parentIdx];
+
+        // Revalider le cycle au moment de l'acceptation : l'arbre a pu bouger depuis l'envoi.
+        if (isDescendantOf(fromId, session.id, newCitizens)) {
+          newCitizens[meIdx] = { ...me, parentRequests: (me.parentRequests || []).filter((r) => String(r.fromId) !== String(fromId)) };
+          saveState({ ...state, citizens: newCitizens });
+          notify("Ce lien créerait une boucle dans l'arbre familial — demande annulée.", "error");
+          return;
+        }
+
+        const remainingRequests = (me.parentRequests || []).filter((r) => String(r.fromId) !== String(fromId));
+        const childEntry = { id: `${Date.now()}_${session.id}`, citizenId: session.id, name: me.name, otherParentId: null, filiation: null, declaredAt: Date.now() };
+
+        if (req.kind === "adoptive") {
+          newCitizens[meIdx] = {
+            ...me,
+            parentRequests: remainingRequests,
+            adoptiveParents: [...(me.adoptiveParents || []), { id: parent.id, name: parent.name, since: Date.now() }],
+          };
+          newCitizens[parentIdx] = {
+            ...parent,
+            children: [...(parent.children || []), { ...childEntry, relation: "adoptive" }],
+          };
+          saveState({ ...state, citizens: newCitizens });
+          notify(`Adoption acceptée : ${parent.name} devient votre parent adoptif.`, "success");
+          return;
+        }
+
+        const slotIdKey = req.kind === "father" ? "fatherId" : "motherId";
+        const slotNameKey = req.kind === "father" ? "fatherName" : "motherName";
+        newCitizens[meIdx] = { ...me, [slotIdKey]: parent.id, [slotNameKey]: parent.name, parentRequests: remainingRequests };
+        newCitizens[parentIdx] = {
+          ...parent,
+          children: [...(parent.children || []), { ...childEntry, otherParentId: req.kind === "father" ? me.motherId : me.fatherId }],
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Filiation reconnue : ${me.name} est désormais listé(e) parmi vos enfants.`, "success");
+      },
+
+      onRejectParentRequest: (fromId) => {
+        if (!session) return;
+        const newCitizens = [...(state.citizens || [])];
+        const meIdx = newCitizens.findIndex((c) => c.id === session.id);
+        if (meIdx === -1) return;
+        newCitizens[meIdx] = {
+          ...newCitizens[meIdx],
+          parentRequests: (newCitizens[meIdx].parentRequests || []).filter((r) => String(r.fromId) !== String(fromId)),
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Demande refusée.", "info");
       },
 
       // --- BABILLARD D'ENTREPRISE ---

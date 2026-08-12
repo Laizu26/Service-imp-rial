@@ -605,12 +605,16 @@ const CitizenLayout = (props) => {
     onProposeMarriage,
     onAcceptMarriage,
     onRejectMarriage,
+    onCancelMarriageProposal,
     onDivorce,
     onDeclareChild,
     onRemoveChild,
     onConvertChildToCitizen,
     onUpdateChildInfo,
     onSetParents,
+    onProposeAdoption,
+    onAcceptParentRequest,
+    onRejectParentRequest,
     sharedAccounts = {},
     onSharedAccountDeposit,
     onSharedAccountWithdraw,
@@ -953,6 +957,7 @@ const CitizenLayout = (props) => {
     marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked || loanRestriction.marketLocked || selfRestriction.marketLocked),
     postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked || loanRestriction.postLocked || selfRestriction.postLocked),
     maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked || loanRestriction.maisonLocked || selfRestriction.maisonLocked),
+    creditLocked: !!(spouseRestriction.creditLocked || guardianRights.creditLocked),
     // Interdiction de travailler / travail sous condition — exclusivement porté par le
     // conjoint dominant (démission forcée / gestion transférée, voir onSetSpouseRights).
     workLocked: !!spouseRestriction.workLocked,
@@ -1717,6 +1722,8 @@ const CitizenLayout = (props) => {
                 isBanned={isBanned}
                 onProposeDebt={onProposeDebt}
                 onSignDebt={onSignDebt}
+                creditLocked={combinedRestriction.creditLocked}
+                creditLockedSource={restrictionSource("creditLocked")}
               />
             )}
 
@@ -2911,6 +2918,7 @@ const CitizenLayout = (props) => {
                 onProposeMarriage={onProposeMarriage}
                 onAcceptMarriage={onAcceptMarriage}
                 onRejectMarriage={onRejectMarriage}
+                onCancelMarriageProposal={onCancelMarriageProposal}
                 onDivorce={onDivorce}
                 onDeclareChild={onDeclareChild}
                 onRemoveChild={onRemoveChild}
@@ -2922,6 +2930,9 @@ const CitizenLayout = (props) => {
                 onGuardianAcceptMarriage={onGuardianAcceptMarriage}
                 onGuardianRejectMarriage={onGuardianRejectMarriage}
                 onSetParents={onSetParents}
+                onProposeAdoption={onProposeAdoption}
+                onAcceptParentRequest={onAcceptParentRequest}
+                onRejectParentRequest={onRejectParentRequest}
                 onSharedAccountDeposit={onSharedAccountDeposit}
                 onSharedAccountWithdraw={onSharedAccountWithdraw}
                 onSetSpouseRights={onSetSpouseRights}

@@ -103,6 +103,8 @@ const CitizenBankView = ({
   onCancelDebt,
   canUseBank,
   isBanned,
+  creditLocked,
+  creditLockedSource,
 }) => {
   const [activeTab, setActiveTab] = useState("operations");
 
@@ -850,10 +852,16 @@ const CitizenBankView = ({
                       </div>
                     )}
 
+                    {creditLocked && (
+                      <div className="text-[10px] text-red-600 font-bold mb-2">
+                        🔒 Emprunts bloqués par votre {creditLockedSource || "tuteur/conjoint"} — vous ne pouvez pas signer.
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button
                         onClick={() => onSignDebt(contract.id)}
-                        className="flex-1 bg-stone-900 text-white py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98]"
+                        disabled={creditLocked}
+                        className="flex-1 bg-stone-900 text-white py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-stone-900"
                       >
                         <Stamp size={12} /> Accepter & Signer
                       </button>

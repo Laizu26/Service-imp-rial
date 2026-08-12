@@ -35,6 +35,7 @@ const SPOUSE_RIGHTS_LIST = [
   { key: "mushtagramLocked", icon: "📵", label: "Bloquer Mushtagram",            desc: "Interdit l'accès au réseau social" },
   { key: "bankLocked",       icon: "🏦", label: "Bloquer le compte bancaire",    desc: "Interdit les opérations bancaires" },
   { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",             desc: "Interdit les échanges commerciaux (Bourse)" },
+  { key: "creditLocked",     icon: "📄", label: "Bloquer les emprunts",          desc: "Interdit de signer un contrat de dette en tant que débiteur" },
   { key: "postLocked",       icon: "✉️", label: "Bloquer la Poste Impériale",    desc: "Interdit l'envoi et la réception de courrier" },
   { key: "maisonLocked",     icon: "💋", label: "Bloquer la Maison de Asia",     desc: "Interdit l'accès à la maison de plaisir" },
   { key: "workLocked",       icon: "⛔", label: "Interdiction de travailler",    desc: "Démission forcée de son emploi actuel et blocage de l'onglet Mon Entreprise" },
@@ -1038,11 +1039,80 @@ function EditParentModal({ type, userId, currentId, currentName, safeUsers, onCl
   );
 }
 
+// ── Modale de proposition d'adoption (recherche d'un citoyen, consentement requis) ──
+function ProposeAdoptionModal({ userId, safeUsers, existingIds, onClose, onSave }) {
+  const [search, setSearch] = useState("");
+  const results = search.trim()
+    ? safeUsers.filter((u) => u.id !== userId && !existingIds.has(u.id) && u.status !== "Décédé" && u.name?.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    : [];
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-stone-100 bg-stone-50">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-100 border-2 border-amber-200">
+            <Baby size={16} className="text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-base text-stone-900 truncate">Proposer une adoption</div>
+            <div className="text-[10px] text-stone-500">La personne devra accepter votre demande.</div>
+          </div>
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 flex-shrink-0 p-1 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          <div className="relative">
+            <div className="flex items-center gap-2 border-2 border-stone-200 rounded-xl bg-white px-3 focus-within:border-stone-400">
+              <Search size={14} className="text-stone-300 shrink-0" />
+              <input
+                className="flex-1 p-2.5 outline-none text-sm font-bold bg-transparent"
+                placeholder="Nom du citoyen à adopter…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoFocus
+              />
+            </div>
+            {search && (
+              <div className="relative z-50 left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto border border-stone-200 rounded-xl bg-white shadow-xl p-2 space-y-1">
+                {results.map((u) => (
+                  <button key={u.id} onClick={() => { onSave(u.id); onClose(); }}
+                    className="w-full text-left p-2 rounded-lg hover:bg-stone-50 flex items-center gap-2 transition-colors">
+                    <span className="font-bold text-sm text-stone-800 truncate">{u.name}</span>
+                  </button>
+                ))}
+                {results.length === 0 && (
+                  <div className="text-xs text-stone-400 italic text-center py-2">Aucun citoyen trouvé.</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Section Parents & Fratrie ──────────────────────────────────────────────
-function ParentsSection({ user, safeUsers, onSetParents }) {
+function ParentsSection({ user, safeUsers, onSetParents, onProposeAdoption, onAcceptParentRequest, onRejectParentRequest }) {
   const [editingParentType, setEditingParentType] = useState(null); // "father" | "mother" | null
+  const [proposingAdoption, setProposingAdoption] = useState(false);
   const father = user.fatherId ? safeUsers.find((c) => c.id === user.fatherId) : null;
   const mother = user.motherId ? safeUsers.find((c) => c.id === user.motherId) : null;
+  const adoptiveParents = user.adoptiveParents || [];
+  const parentRequests = user.parentRequests || [];
+
+  // Grands-parents — remonte un cran de plus via fatherId/motherId, déjà disponibles sur les
+  // citoyens résolus comme père/mère.
+  const grandparents = [
+    father?.fatherId ? { ...safeUsers.find((c) => c.id === father.fatherId), via: "Père de " + father.name } : null,
+    father?.motherId ? { ...safeUsers.find((c) => c.id === father.motherId), via: "Mère de " + father.name } : null,
+    mother?.fatherId ? { ...safeUsers.find((c) => c.id === mother.fatherId), via: "Père de " + mother.name } : null,
+    mother?.motherId ? { ...safeUsers.find((c) => c.id === mother.motherId), via: "Mère de " + mother.name } : null,
+  ].filter((g) => g && g.id);
 
   // Trouver les frères et sœurs (même père ou même mère)
   const siblings = safeUsers.filter((c) => {
@@ -1093,6 +1163,84 @@ function ParentsSection({ user, safeUsers, onSetParents }) {
         <ParentCard label="Mère" parent={mother} parentName={user.motherName} type="mother" />
       </div>
 
+      {/* Grands-parents */}
+      {grandparents.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
+            Grands-Parents ({grandparents.length})
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {grandparents.map((g) => (
+              <div key={g.id} className="flex items-center gap-2 bg-white rounded-lg border border-stone-100 px-3 py-2">
+                <div className="w-7 h-7 bg-stone-200 rounded-full flex items-center justify-center text-xs font-bold text-stone-500 shrink-0" style={{ width: 28, height: 28, minWidth: 28, minHeight: 28 }}>
+                  {(g.name || "?")[0].toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-stone-700 text-xs truncate">{g.name}</div>
+                  <div className="text-[8px] text-stone-400 italic">{g.via}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Demandes de filiation/adoption reçues — nécessitent mon accord */}
+      {parentRequests.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[9px] font-black uppercase text-amber-600 tracking-widest">
+            Demandes en attente de votre accord
+          </div>
+          {parentRequests.map((req) => (
+            <div key={`${req.fromId}_${req.kind}`} className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <div className="flex-1 min-w-0 text-xs">
+                <span className="font-bold text-stone-800">{req.fromName}</span>{" "}
+                <span className="text-stone-500">
+                  {req.kind === "adoptive" ? "souhaite vous adopter" : `se déclare votre ${req.kind === "father" ? "père" : "mère"}`}
+                </span>
+              </div>
+              <button
+                onClick={() => onAcceptParentRequest && onAcceptParentRequest(req.fromId)}
+                className="px-3 py-1.5 bg-stone-800 text-white text-[10px] font-black uppercase rounded-lg hover:bg-stone-700 shrink-0"
+              >
+                Accepter
+              </button>
+              <button
+                onClick={() => onRejectParentRequest && onRejectParentRequest(req.fromId)}
+                className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500 shrink-0"
+              >
+                Refuser
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Parents adoptifs / beaux-parents */}
+      {(adoptiveParents.length > 0 || onProposeAdoption) && (
+        <div className="space-y-2">
+          <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
+            Parents adoptifs {adoptiveParents.length > 0 ? `(${adoptiveParents.length})` : ""}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {adoptiveParents.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 bg-white rounded-lg border border-amber-200 px-3 py-2">
+                <Baby size={13} className="text-amber-600 shrink-0" />
+                <span className="font-bold text-stone-700 text-xs truncate">{p.name}</span>
+              </div>
+            ))}
+          </div>
+          {onProposeAdoption && (
+            <button
+              onClick={() => setProposingAdoption(true)}
+              className="text-[10px] font-black uppercase tracking-wide text-stone-500 hover:text-stone-800 flex items-center gap-1"
+            >
+              <UserPlus size={12} /> Proposer une adoption
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Fratrie */}
       {siblings.length > 0 && (
         <div className="space-y-2">
@@ -1142,6 +1290,16 @@ function ParentsSection({ user, safeUsers, onSetParents }) {
           }}
         />
       )}
+
+      {proposingAdoption && (
+        <ProposeAdoptionModal
+          userId={user.id}
+          safeUsers={safeUsers}
+          existingIds={new Set(adoptiveParents.map((p) => p.id))}
+          onClose={() => setProposingAdoption(false)}
+          onSave={(targetId) => onProposeAdoption && onProposeAdoption(targetId)}
+        />
+      )}
     </div>
   );
 }
@@ -1155,6 +1313,7 @@ const MarriageView = ({
   onProposeMarriage,
   onAcceptMarriage,
   onRejectMarriage,
+  onCancelMarriageProposal,
   onDivorce,
   onDeclareChild,
   onRemoveChild,
@@ -1166,6 +1325,9 @@ const MarriageView = ({
   onGuardianAcceptMarriage,
   onGuardianRejectMarriage,
   onSetParents,
+  onProposeAdoption,
+  onAcceptParentRequest,
+  onRejectParentRequest,
   onSharedAccountDeposit,
   onSharedAccountWithdraw,
   onSetSpouseRights,
@@ -1292,6 +1454,23 @@ const MarriageView = ({
   const marriageDefaultFiliation = userCountry?.laws?.marriageDefaultFiliation || "patrilineaire";
   const currentSpouses = user?.spouses || (user?.spouseId ? [{ id: user.spouseId, name: safeUsers.find((u) => u.id === user.spouseId)?.name || "…" }] : []);
   const currentSpouseIds = new Set(currentSpouses.map((s) => s.id));
+  // Petits-enfants — un cran plus loin que "Enfants & Descendance" : les enfants de mes
+  // enfants déjà liés à un citoyen réel (child.citizenId), eux-mêmes potentiellement liés.
+  const grandchildren = (user?.children || [])
+    .map((ch) => (ch.citizenId ? safeUsers.find((u) => u.id === ch.citizenId) : null))
+    .filter(Boolean)
+    .flatMap((childCitizen) =>
+      (childCitizen.children || []).map((gc) => ({
+        ...gc,
+        linkedCitizen: gc.citizenId ? safeUsers.find((u) => u.id === gc.citizenId) : null,
+        throughName: childCitizen.name,
+      }))
+    );
+  // Propositions que j'ai moi-même envoyées et qui attendent encore une réponse — stockées
+  // côté cible (marriageProposals), pas chez moi, il faut donc les retrouver en parcourant tout le monde.
+  const sentMarriageProposals = safeUsers
+    .filter((u) => u.id !== user?.id)
+    .flatMap((u) => (u.marriageProposals || []).filter((p) => String(p.fromId) === String(user?.id)).map((p) => ({ ...p, targetId: u.id, targetName: u.name })));
   const canProposeNewMarriage = marriageStructure !== "monogamie" || currentSpouses.length === 0;
   const marriageCandidates = safeUsers.filter(
     (u) =>
@@ -1432,6 +1611,35 @@ const MarriageView = ({
                     </div>
                   )}
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── PROPOSITIONS ENVOYÉES (en attente) ── */}
+      {!readOnly && sentMarriageProposals.length > 0 && (
+        <div className="border-b border-stone-200 bg-stone-50/60 p-5 space-y-3">
+          <div className="text-[10px] font-black uppercase tracking-widest text-stone-500 flex items-center gap-2">
+            <Heart size={12} /> Propositions d'Union Envoyées
+          </div>
+          {sentMarriageProposals.map((proposal) => {
+            const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === proposal.contractType);
+            return (
+              <div key={proposal.targetId} className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-black text-stone-800 text-base">{proposal.targetName}</div>
+                  <div className="text-sm font-bold text-stone-500 mt-1">
+                    {ct?.emoji || "💍"} {ct?.label || "Mariage Sacré"}
+                  </div>
+                  <div className="text-[10px] text-stone-400">En attente de sa réponse</div>
+                </div>
+                <button
+                  onClick={() => onCancelMarriageProposal && onCancelMarriageProposal(proposal.targetId)}
+                  className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500 shrink-0"
+                >
+                  Retirer
+                </button>
               </div>
             );
           })}
@@ -1583,9 +1791,17 @@ const MarriageView = ({
                     <div className="mx-4 mt-4 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 space-y-2">
                       {spouse.pendingDominance ? (
                         String(spouse.pendingDominance.proposedBy) === String(user.id) ? (
-                          <p className="text-[10px] text-purple-600 font-bold flex items-center gap-1.5">
-                            ⏳ Proposition de domination envoyée — en attente de l'accord de {spouseUser?.name || spouse.name}.
-                          </p>
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-purple-600 font-bold flex items-center gap-1.5">
+                              ⏳ Proposition de domination envoyée — en attente de l'accord de {spouseUser?.name || spouse.name}.
+                            </p>
+                            <button
+                              onClick={() => onRejectMarriageDominance && onRejectMarriageDominance({ spouseId: spouse.id })}
+                              className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500"
+                            >
+                              Annuler ma proposition
+                            </button>
+                          </div>
                         ) : (
                           <div className="space-y-2">
                             <p className="text-[10px] text-purple-700 font-bold">
@@ -1987,7 +2203,14 @@ const MarriageView = ({
       </div>
 
       {/* ── MES PARENTS & FRATRIE ── */}
-      <ParentsSection user={user} safeUsers={safeUsers} onSetParents={onSetParents} />
+      <ParentsSection
+        user={user}
+        safeUsers={safeUsers}
+        onSetParents={onSetParents}
+        onProposeAdoption={onProposeAdoption}
+        onAcceptParentRequest={onAcceptParentRequest}
+        onRejectParentRequest={onRejectParentRequest}
+      />
 
       {/* ── ENFANTS & DESCENDANCE ── */}
       <div className="border-t-4 border-amber-200 bg-amber-50/40 p-5 space-y-4">
@@ -2181,6 +2404,26 @@ const MarriageView = ({
           <div className="text-center py-6 text-stone-400 italic text-xs">
             <Baby size={28} className="mx-auto mb-2 opacity-20" />
             Aucun enfant déclaré.
+          </div>
+        )}
+
+        {/* Petits-enfants */}
+        {grandchildren.length > 0 && (
+          <div className="space-y-2 pt-2 border-t border-amber-200">
+            <div className="text-[9px] font-black uppercase text-amber-600 tracking-widest">
+              Petits-Enfants ({grandchildren.length})
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {grandchildren.map((gc) => (
+                <div key={gc.id} className="flex items-center gap-2 bg-white rounded-lg border border-amber-100 px-3 py-2">
+                  <Baby size={14} className="text-amber-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-stone-700 text-xs truncate">{gc.linkedCitizen?.name || gc.name}</div>
+                    <div className="text-[8px] text-stone-400 italic">Via {gc.throughName}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

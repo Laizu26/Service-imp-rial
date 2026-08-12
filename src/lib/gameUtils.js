@@ -199,6 +199,20 @@ export function getStaffLoanRestriction(citizenId, staffLoans) {
   return getActiveStaffLoan(citizenId, staffLoans)?.permissions || {};
 }
 
+// ===== FILIATION =====
+// Remonte la chaîne fatherId/motherId de candidateId et dit si ancestorId s'y trouve —
+// sert à interdire les boucles de filiation (ex: se déclarer le parent de son propre ascendant).
+export function isDescendantOf(candidateId, ancestorId, citizens, depth = 0) {
+  if (depth > 25 || !candidateId) return false;
+  const candidate = (citizens || []).find((c) => String(c.id) === String(candidateId));
+  if (!candidate) return false;
+  if (String(candidate.fatherId) === String(ancestorId) || String(candidate.motherId) === String(ancestorId)) return true;
+  return (
+    (candidate.fatherId && isDescendantOf(candidate.fatherId, ancestorId, citizens, depth + 1)) ||
+    (candidate.motherId && isDescendantOf(candidate.motherId, ancestorId, citizens, depth + 1))
+  );
+}
+
 // ===== TRACE MAGIQUE (aura) =====
 // Hash déterministe — sert à dériver la teinte de base d'un citoyen (sa "signature"
 // avant tout pacte magique). Partagé entre l'affichage (CitizenPhysicsMagicView) et
