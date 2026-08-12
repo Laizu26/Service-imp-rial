@@ -590,6 +590,7 @@ const CitizenLayout = (props) => {
     onGrantFreeMenuItem,
     onGrantFreePass, onRevokeFreePass,
     onPayRound,
+    onLeaveDailyRound,
     onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
     onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
     onAddPropertyGuest, onRemovePropertyGuest,
@@ -1572,6 +1573,7 @@ const CitizenLayout = (props) => {
                   onGrantFreePass={onGrantFreePass}
                   onRevokeFreePass={onRevokeFreePass}
                   onPayRound={onPayRound}
+                  onLeaveDailyRound={onLeaveDailyRound}
                   gameDate={gd}
                   onCreateTavernPoll={onCreateTavernPoll}
                   onVoteTavernPoll={onVoteTavernPoll}

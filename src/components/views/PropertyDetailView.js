@@ -170,7 +170,7 @@ const PropertyDetailView = ({
   onSetupRooms, onBookRoom, onCheckoutRoom,
   onPostTavernMessage, onPostRumor, onDeleteRumor,
   onBuyFromMenu, onBuyFromShop,
-  onGrantFreeMenuItem, onGrantFreePass, onRevokeFreePass, onPayRound, gameDate,
+  onGrantFreeMenuItem, onGrantFreePass, onRevokeFreePass, onPayRound, onLeaveDailyRound, gameDate,
   onCreateTavernPoll, onVoteTavernPoll, onCloseTavernPoll,
   onAddPropertyStaff, onRemovePropertyStaff, onUpdatePropertyStaff,
   onAddPropertyGuest, onRemovePropertyGuest,
@@ -565,6 +565,20 @@ const PropertyDetailView = ({
               {(prop.freePassIds || []).map(String).includes(String(user?.id)) && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 flex items-center gap-2 text-xs font-bold text-purple-700">
                   <Ticket size={14} /> Vous avez un pass gratuit illimité ici — tout est offert.
+                </div>
+              )}
+              {todayConsumers.map(String).includes(String(user?.id)) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-amber-700 flex items-center gap-2">
+                    <Users size={14} className="shrink-0" /> Inscrit(e) à la tournée du jour — le gérant peut payer pour vous.
+                  </span>
+                  <button
+                    onClick={() => onLeaveDailyRound && onLeaveDailyRound(prop.id)}
+                    className="shrink-0 text-[10px] font-black uppercase tracking-wide text-amber-700 border border-amber-300 rounded-lg px-2 py-1 hover:bg-amber-100 transition-colors"
+                    title="Reprendre une consommation vous réinscrit automatiquement."
+                  >
+                    Se retirer
+                  </button>
                 </div>
               )}
               {myDrunkPercent > 0 && (

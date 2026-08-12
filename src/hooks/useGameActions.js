@@ -7198,6 +7198,27 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
       },
 
+      // Se retirer de la liste des consommateurs du jour (voir addDailyConsumer) — sans ça, une
+      // fois inscrit on ne pouvait plus se soustraire à une tournée payée par le gérant tant que
+      // la journée RP n'avait pas changé. Reprendre une consommation réinscrit normalement (même
+      // logique qu'avant, addDailyConsumer), ce n'est qu'une sortie volontaire et temporaire.
+      onLeaveDailyRound: (propertyId) => {
+        if (!session) return;
+        const properties = [...(state.properties || [])];
+        const pIdx = properties.findIndex((p) => p.id === propertyId);
+        if (pIdx === -1) return;
+        const today = todayDateKey();
+        const consumers = properties[pIdx].dailyConsumersDay === today ? (properties[pIdx].dailyConsumers || []) : [];
+        if (!consumers.map(String).includes(String(session.id))) return;
+        properties[pIdx] = {
+          ...properties[pIdx],
+          dailyConsumersDay: today,
+          dailyConsumers: consumers.filter((cid) => String(cid) !== String(session.id)),
+        };
+        saveState({ ...state, properties });
+        notify("Vous vous êtes retiré(e) de la tournée du jour.", "info");
+      },
+
       // --- Auberge : sondages de taverne ---
       // Lancer un nouveau sondage remplace intégralement l'ancien (nouvel objet activePoll,
       // eligibleVoters vide) : c'est ce qui réinitialise naturellement le droit de vote à chaque

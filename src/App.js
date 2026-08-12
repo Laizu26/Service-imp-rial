@@ -815,6 +815,7 @@ export default function App() {
             onGrantFreePass={actions.onGrantFreePass}
             onRevokeFreePass={actions.onRevokeFreePass}
             onPayRound={actions.onPayRound}
+            onLeaveDailyRound={actions.onLeaveDailyRound}
             onCreateTavernPoll={actions.onCreateTavernPoll}
             onVoteTavernPoll={actions.onVoteTavernPoll}
             onCloseTavernPoll={actions.onCloseTavernPoll}
