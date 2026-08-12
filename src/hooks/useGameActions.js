@@ -3716,22 +3716,23 @@ export const useGameActions = (session, state, saveState, notify) => {
           }
         }
 
-        // ── Travail sous condition : gestion de l'entreprise transférée au dominant ──
-        // Que le conjoint soumis soit propriétaire OU simple employé, l'entreprise
-        // concernée passe sous la gestion (PDG) du dominant dans son propre onglet.
-        const isWorkConditionalTarget = (c) =>
-          String(c.ownerId) === String(spouseId) || (c.employees || []).map(String).includes(String(spouseId));
+        // ── Travail sous condition ──────────────────────────────────────────────────
+        // Si le conjoint soumis est PROPRIÉTAIRE d'une entreprise, sa gestion (PDG) est
+        // transférée au dominant, qui la retrouve dans son propre onglet Mon Entreprise.
+        // S'il est simple EMPLOYÉ ailleurs, on ne touche pas à l'entreprise d'un tiers —
+        // seule la gestion de son propre compte employé (solde, retrait de salaire) passe
+        // au dominant, via onManageSpouseEmployeeAccount depuis son onglet.
         if (newRights.workConditional && !oldRights.workConditional) {
           let transferred = 0;
           newCompanies = newCompanies.map((c) => {
-            if (!isWorkConditionalTarget(c)) return c;
+            if (String(c.ownerId) !== String(spouseId)) return c;
             transferred += 1;
             return { ...c, ceoId: session.id };
           });
           if (transferred > 0) extraMsgs.push(`gestion de ${transferred} entreprise${transferred > 1 ? "s" : ""} transférée`);
         } else if (!newRights.workConditional && oldRights.workConditional) {
           newCompanies = newCompanies.map((c) =>
-            isWorkConditionalTarget(c) && String(c.ceoId) === String(session.id)
+            String(c.ownerId) === String(spouseId) && String(c.ceoId) === String(session.id)
               ? { ...c, ceoId: null }
               : c
           );
@@ -3739,6 +3740,59 @@ export const useGameActions = (session, state, saveState, notify) => {
 
         saveState({ ...state, citizens: newCitizens, companies: newCompanies });
         notify(extraMsgs.length > 0 ? `Droits mis à jour — ${extraMsgs.join(", ")}.` : "Droits mis à jour.", "success");
+      },
+
+      // Sous "travail sous condition", quand le conjoint soumis est simple employé (pas
+      // propriétaire) ailleurs, le dominant ne prend pas la main sur l'entreprise d'un tiers —
+      // il gère seulement le compte employé de son conjoint : retirer le salaire accumulé vers
+      // son solde personnel, à sa place, puisque son onglet Mon Entreprise lui reste fermé.
+      onWithdrawSpouseSalary: ({ spouseId, amount }) => {
+        if (!session) return;
+        const me = (state.citizens || []).find((c) => String(c.id) === String(session.id));
+        const mySpouseEntry = (me?.spouses || []).find((s) => String(s.id) === String(spouseId));
+        if (!mySpouseEntry || String(mySpouseEntry.dominantId) !== String(session.id) || !mySpouseEntry.spouseRights?.workConditional) {
+          notify("Vous ne gérez pas le compte employé de ce conjoint.", "error");
+          return;
+        }
+        const compIdx = (state.companies || []).findIndex((c) => (c.employees || []).map(String).includes(String(spouseId)));
+        if (compIdx === -1) { notify("Ce conjoint n'est employé nulle part.", "error"); return; }
+        const company = state.companies[compIdx];
+        const spouseIdx = (state.citizens || []).findIndex((c) => c.id === spouseId);
+        if (spouseIdx === -1) return;
+        const spouse = state.citizens[spouseIdx];
+
+        const val = parseFloat(amount);
+        const wb = { ...(company.workerBalances || {}) };
+        const available = wb[spouseId] || 0;
+        if (!val || val <= 0 || val > available) {
+          notify(`Montant invalide. Disponible : ${available} écus.`, "error");
+          return;
+        }
+        wb[spouseId] = available - val;
+        if (wb[spouseId] <= 0) delete wb[spouseId];
+
+        const newCompanies = [...state.companies];
+        newCompanies[compIdx] = { ...company, workerBalances: wb };
+        const newCitizens = [...state.citizens];
+        newCitizens[spouseIdx] = { ...spouse, balance: (spouse.balance || 0) + val };
+
+        const ledgerEntry = {
+          id: Date.now(),
+          fromName: company.name,
+          toName: spouse.name,
+          amount: val,
+          timestamp: Date.now(),
+          reason: `Retrait de salaire (géré par ${me.name})`,
+          type: "SALARY_WITHDRAW",
+        };
+
+        saveState({
+          ...state,
+          companies: newCompanies,
+          citizens: newCitizens,
+          globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
+        });
+        notify(`${val.toLocaleString()} écus retirés vers le compte personnel de ${spouse.name}.`, "success");
       },
 
       // Renégociation de la domination sur une union déjà existante (ex: contractée

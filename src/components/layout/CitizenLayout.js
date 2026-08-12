@@ -615,6 +615,7 @@ const CitizenLayout = (props) => {
     onSharedAccountDeposit,
     onSharedAccountWithdraw,
     onSetSpouseRights,
+    onWithdrawSpouseSalary,
     onSetChildGuardianship,
     onSetChildRights,
     onGuardianProposeMarriage,
@@ -1762,6 +1763,7 @@ const CitizenLayout = (props) => {
                 citizens={safeUsers}
                 onCompanyTreasury={onCompanyTreasury}
                 onWithdrawCompanySalary={onWithdrawCompanySalary}
+                onWithdrawSpouseSalary={onWithdrawSpouseSalary}
                 onSendJobOffer={onSendJobOffer}
                 onRespondJobOffer={onRespondJobOffer}
                 onPaySalaries={onPaySalaries}

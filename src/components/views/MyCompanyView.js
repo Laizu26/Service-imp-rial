@@ -786,6 +786,7 @@ const MyCompanyView = ({
   onAssignEmployeeToProperty,
   onSetSelfRights,
   onSetMyMorale,
+  onWithdrawSpouseSalary,
 }) => {
   // Une personne peut être liée à plusieurs entreprises à la fois : dirigeante de l'une, et PDG
   // d'une autre (typiquement après avoir été détachée puis nommée PDG chez l'emprunteuse, cf.
@@ -815,6 +816,60 @@ const MyCompanyView = ({
         )
       : null;
   const myJobOffers = user.jobOffers || [];
+
+  // "Travail sous condition" : compte(s) employé de conjoint(s) soumis dont la gestion nous
+  // est confiée (voir onSetSpouseRights) — uniquement les conjoints simples EMPLOYÉS ailleurs
+  // (les conjoints propriétaires d'entreprise passent par le mécanisme PDG classique, ceoId,
+  // et apparaissent déjà dans myCompanies plus haut).
+  const spouseEmployeeAccounts = (user.spouses || [])
+    .filter((s) => String(s.dominantId) === String(user.id) && s.spouseRights?.workConditional)
+    .map((s) => {
+      const employer = (companies || []).find((c) => (c.employees || []).map(String).includes(String(s.id)));
+      if (!employer) return null;
+      return { spouseId: s.id, spouseName: s.name, company: employer, balance: employer.workerBalances?.[s.id] || 0 };
+    })
+    .filter(Boolean);
+  const [spouseWithdrawAmounts, setSpouseWithdrawAmounts] = useState({});
+
+  const spouseEmployeeAccountsCard = spouseEmployeeAccounts.length > 0 && (
+    <Card title="Comptes employé de vos conjoints soumis" icon={Lock}>
+      <div className="space-y-3">
+        <p className="text-[10px] text-stone-400">
+          "Travail sous condition" — vous gérez le compte employé de ces conjoints à leur place, leur onglet Mon Entreprise leur étant fermé.
+        </p>
+        {spouseEmployeeAccounts.map((acc) => (
+          <div key={acc.spouseId} className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-black text-stone-800">{acc.spouseName}</div>
+              <div className="text-[10px] text-stone-400">Employé(e) chez {acc.company.name}</div>
+              <div className="text-xs font-mono font-bold text-stone-600 mt-1">Solde disponible : {formatMoney(acc.balance)}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                max={acc.balance}
+                placeholder="Montant"
+                value={spouseWithdrawAmounts[acc.spouseId] || ""}
+                onChange={(e) => setSpouseWithdrawAmounts({ ...spouseWithdrawAmounts, [acc.spouseId]: e.target.value })}
+                className="w-28 px-2 py-1.5 border border-stone-300 rounded-lg text-xs"
+              />
+              <button
+                onClick={() => {
+                  onWithdrawSpouseSalary && onWithdrawSpouseSalary({ spouseId: acc.spouseId, amount: spouseWithdrawAmounts[acc.spouseId] });
+                  setSpouseWithdrawAmounts({ ...spouseWithdrawAmounts, [acc.spouseId]: "" });
+                }}
+                disabled={acc.balance <= 0}
+                className="text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-lg bg-stone-800 text-white hover:bg-stone-900 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Retirer
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
 
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
@@ -954,6 +1009,7 @@ const MyCompanyView = ({
 
     return (
       <div className="space-y-6 animate-fadeIn">
+        {spouseEmployeeAccountsCard}
         {workplaceSwitcher}
         {/* FICHE EMPLOYÉ / ESCLAVE */}
         {workerCompany && (() => {
@@ -1947,6 +2003,7 @@ const MyCompanyView = ({
   if (isDelegatedOwner) {
     return (
       <div className="space-y-6 animate-fadeIn pb-10">
+        {spouseEmployeeAccountsCard}
         {companySwitcher}
         <div
           className="bg-white border-l-8 p-6 rounded-r-xl shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
@@ -2028,6 +2085,7 @@ const MyCompanyView = ({
 
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
+      {spouseEmployeeAccountsCard}
       {companySwitcher}
       {/* HEADER */}
       <div

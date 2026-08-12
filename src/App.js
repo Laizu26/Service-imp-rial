@@ -852,6 +852,7 @@ export default function App() {
             onSharedAccountDeposit={actions.onSharedAccountDeposit}
             onSharedAccountWithdraw={actions.onSharedAccountWithdraw}
             onSetSpouseRights={actions.onSetSpouseRights}
+            onWithdrawSpouseSalary={actions.onWithdrawSpouseSalary}
             onProposeMarriageDominance={actions.onProposeMarriageDominance}
             onAcceptMarriageDominance={actions.onAcceptMarriageDominance}
             onRejectMarriageDominance={actions.onRejectMarriageDominance}
