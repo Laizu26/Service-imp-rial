@@ -767,6 +767,7 @@ const CitizenLayout = (props) => {
   const [journalEditMood, setJournalEditMood] = useState("neutre");
   const [journalExpanded, setJournalExpanded] = useState(new Set());
   const [selectedPropertyId, setSelectedPropertyId] = useState(null);
+  const [selectedLieuId, setSelectedLieuId] = useState(null);
   const [annuaireTab, setAnnuaireTab] = useState("citoyens");
   const [annuaireSearch, setAnnuaireSearch] = useState("");
   const [annuaireFilter, setAnnuaireFilter] = useState("ALL");
@@ -911,6 +912,7 @@ const CitizenLayout = (props) => {
       id: "monde",
       label: "Information & Monde",
       items: [
+        { id: "lieux",    label: "Lieux",          icon: MapPin },
         { id: "gazette",  label: "Gazette",       icon: Scroll },
         { id: "library",  label: "Bibliothèque",  icon: Book },
         { id: "annuaire", label: "Annuaire",       icon: Eye },
@@ -3151,6 +3153,190 @@ const CitizenLayout = (props) => {
                 )}
               </div>
             )}
+
+            {/* === LIEUX (position actuelle) === */}
+            {active === "lieux" && (() => {
+              const userCountryId = user.locationCountryId || user.countryId;
+              const userPosition  = user.currentPosition || "";
+              const locCountry    = safeCountries.find((c) => c.id === userCountryId);
+              const locRegion     = locCountry ? (locCountry.regions || []).find((r) => r.name === userPosition || r.id === userPosition) : null;
+
+              const lieuProps = (properties || []).filter((p) => {
+                if (p.countryId !== userCountryId) return false;
+                if (!locRegion) return !p.regionId;
+                return p.regionId === locRegion.id || p.location === userPosition;
+              });
+
+              const TYPE_LIEU = {
+                MAISON:  { label: "Maison",    emoji: "🏠", bg: "bg-stone-50",  border: "border-stone-200", text: "text-stone-700" },
+                DOMAINE: { label: "Domaine",   emoji: "🏰", bg: "bg-purple-50", border: "border-purple-200",text: "text-purple-700" },
+                TERRAIN: { label: "Terrain",   emoji: "🌿", bg: "bg-green-50",  border: "border-green-200", text: "text-green-700" },
+                COMMERCE:{ label: "Commerce",  emoji: "🛒", bg: "bg-cyan-50",   border: "border-cyan-200",  text: "text-cyan-700" },
+                FERME:   { label: "Ferme",     emoji: "🌾", bg: "bg-amber-50",  border: "border-amber-200", text: "text-amber-700" },
+                MANOIR:  { label: "Château",   emoji: "🏯", bg: "bg-yellow-50", border: "border-yellow-300",text: "text-yellow-700" },
+                ATELIER: { label: "Atelier",   emoji: "⚒️", bg: "bg-orange-50", border: "border-orange-200",text: "text-orange-700" },
+                AUBERGE: { label: "Auberge",   emoji: "🍺", bg: "bg-rose-50",   border: "border-rose-200",  text: "text-rose-700" },
+              };
+
+              if (selectedLieuId) {
+                const selLieu = lieuProps.find((p) => p.id === selectedLieuId);
+                if (!selLieu) { setSelectedLieuId(null); return null; }
+                const isPropertyOwner = selLieu.ownerId === user.id || (selLieu.ownerType === "COMPANY" && (companies || []).some((c) => c.id === selLieu.ownerId && c.ownerId === user.id));
+                return (
+                  <PropertyDetailView
+                    key={selLieu.id}
+                    property={selLieu}
+                    citizens={safeUsers}
+                    user={user}
+                    session={user}
+                    isOwner={isPropertyOwner}
+                    onUpdatePropertyFeature={onUpdatePropertyFeature}
+                    onAddGarrison={onAddGarrison}
+                    onRemoveGarrison={onRemoveGarrison}
+                    onImprison={onImprison}
+                    onReleasePrisoner={onReleasePrisoner}
+                    onRequestAudience={onRequestAudience}
+                    onRespondAudience={onRespondAudience}
+                    onSetupRooms={onSetupRooms}
+                    onBookRoom={onBookRoom}
+                    onCheckoutRoom={onCheckoutRoom}
+                    onPostTavernMessage={onPostTavernMessage}
+                    onPostRumor={onPostRumor}
+                    onDeleteRumor={onDeleteRumor}
+                    onBuyFromMenu={onBuyFromMenu}
+                    onBuyFromShop={onBuyFromShop}
+                    onAddPropertyStaff={onAddPropertyStaff}
+                    onRemovePropertyStaff={onRemovePropertyStaff}
+                    onAddPropertyEvent={onAddPropertyEvent}
+                    onRemovePropertyEvent={onRemovePropertyEvent}
+                    onBack={() => setSelectedLieuId(null)}
+                  />
+                );
+              }
+
+              return (
+                <div className="space-y-6 animate-fadeIn">
+                  {/* En-tête position */}
+                  <div className="bg-gradient-to-br from-stone-800 to-stone-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+                    <div className="absolute inset-0 opacity-5 pointer-events-none">
+                      <MapPin size={240} className="absolute -right-10 -bottom-10 text-white" />
+                    </div>
+                    <div className="relative z-10">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2">Votre position actuelle</div>
+                      <div className="text-3xl font-black font-serif text-white mb-1">
+                        {userPosition || "Position inconnue"}
+                      </div>
+                      <div className="text-stone-400 text-sm flex items-center gap-2">
+                        <MapPin size={13} />
+                        {locCountry ? locCountry.name : "Pays inconnu"}
+                      </div>
+                      {!userPosition && (
+                        <div className="mt-3 text-amber-300 text-xs font-bold bg-amber-900/30 border border-amber-700/30 rounded-lg px-3 py-2">
+                          Vous n'avez pas de position définie. Utilisez le système de voyage pour vous déplacer.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Liste des lieux */}
+                  {lieuProps.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-stone-200 p-10 text-center shadow-sm">
+                      <MapPin size={40} className="text-stone-200 mx-auto mb-3" />
+                      <p className="text-stone-500 font-serif italic text-sm">Aucun lieu répertorié à cet endroit.</p>
+                      <p className="text-stone-400 text-xs mt-1">Les auberges, commerces et ateliers apparaîtront ici.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
+                        {lieuProps.length} lieu{lieuProps.length > 1 ? "x" : ""} accessible{lieuProps.length > 1 ? "s" : ""}
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {lieuProps.map((lieu) => {
+                          const tm = TYPE_LIEU[lieu.type] || { label: lieu.type, emoji: "📍", bg: "bg-stone-50", border: "border-stone-200", text: "text-stone-700" };
+                          const hasInteraction = ["AUBERGE","COMMERCE","ATELIER","FERME","MANOIR"].includes(lieu.type) || (lieu.staff || []).length > 0 || (lieu.propertyEvents || []).length > 0;
+                          const itemCount = (lieu.type === "AUBERGE" ? (lieu.rooms || []).length : lieu.type === "COMMERCE" ? (lieu.shopStock || []).length : lieu.type === "AUBERGE" ? (lieu.menu || []).length : 0);
+                          const openRooms = lieu.type === "AUBERGE" ? (lieu.rooms || []).filter((r) => !r.tenantId).length : null;
+                          return (
+                            <div key={lieu.id} className={`${tm.bg} border-2 ${tm.border} rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all`}>
+                              {/* Header */}
+                              <div className="px-5 py-4 border-b border-stone-100 bg-white/60">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-3xl">{tm.emoji}</div>
+                                    <div>
+                                      <div className="font-black text-stone-900 text-base">{lieu.name}</div>
+                                      <div className={`text-[10px] font-black uppercase tracking-widest ${tm.text} mt-0.5`}>{tm.label}</div>
+                                    </div>
+                                  </div>
+                                  {lieu.ownerName && (
+                                    <div className="text-right shrink-0">
+                                      <div className="text-[9px] text-stone-400 uppercase font-bold">Propriétaire</div>
+                                      <div className="text-xs font-bold text-stone-600">{lieu.ownerName}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="px-5 py-4 space-y-3">
+                                {lieu.description && (
+                                  <p className="text-sm text-stone-600 font-serif italic leading-relaxed">{lieu.description}</p>
+                                )}
+
+                                {/* Indicateurs rapides */}
+                                <div className="flex flex-wrap gap-2">
+                                  {lieu.type === "AUBERGE" && (lieu.rooms || []).length > 0 && (
+                                    <span className={`text-[10px] font-black px-2 py-1 rounded-full ${openRooms > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
+                                      🛏 {openRooms > 0 ? `${openRooms} chambre${openRooms > 1 ? "s" : ""} libre${openRooms > 1 ? "s" : ""}` : "Complet"}
+                                    </span>
+                                  )}
+                                  {lieu.type === "AUBERGE" && (lieu.menu || []).length > 0 && (
+                                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                                      🍽 {(lieu.menu || []).length} plat{(lieu.menu || []).length > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                  {lieu.type === "COMMERCE" && (lieu.shopStock || []).length > 0 && (
+                                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-cyan-100 text-cyan-700">
+                                      🛒 {(lieu.shopStock || []).filter((s) => s.qty > 0).length} article{(lieu.shopStock || []).filter((s) => s.qty > 0).length > 1 ? "s" : ""} disponible{(lieu.shopStock || []).filter((s) => s.qty > 0).length > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                  {lieu.type === "FERME" && lieu.production?.itemName && (
+                                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                                      🌾 Produit : {lieu.production.itemName}
+                                    </span>
+                                  )}
+                                  {lieu.type === "ATELIER" && (lieu.craftRecipes || []).length > 0 && (
+                                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+                                      ⚒️ {(lieu.craftRecipes || []).length} recette{(lieu.craftRecipes || []).length > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                  {(lieu.propertyEvents || []).length > 0 && (
+                                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-stone-100 text-stone-600">
+                                      📅 {(lieu.propertyEvents || []).length} événement{(lieu.propertyEvents || []).length > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                  {(lieu.staff || []).length > 0 && (
+                                    <span className="text-[10px] font-black px-2 py-1 rounded-full bg-stone-100 text-stone-600">
+                                      👥 {(lieu.staff || []).length} employé{(lieu.staff || []).length > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {hasInteraction && (
+                                  <button onClick={() => setSelectedLieuId(lieu.id)}
+                                    className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${tm.border} ${tm.text} bg-white/80 hover:bg-white hover:shadow-sm`}>
+                                    Entrer dans ce lieu →
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* --- PROPRIÉTÉS --- */}
             {active === "properties" && selectedPropertyId && (() => {
