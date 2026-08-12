@@ -2400,6 +2400,43 @@ export const useGameActions = (session, state, saveState, notify) => {
         let sharedAccounts = { ...(state.sharedAccounts || {}) };
         const ledgerEntries = [];
 
+        // ── Allégeance forcée du conjoint soumis ──────────────────────────────────────
+        // Dans une union à dominance, l'allégeance de pays n'est pas un choix individuel :
+        // si le conjoint dominant change de pays, le(s) conjoint(s) soumis sont contraints
+        // de le suivre, sans possibilité de refuser.
+        const allegianceCascadedTo = [];
+        if (
+          index !== -1 && previous &&
+          formData.countryId !== undefined &&
+          String(formData.countryId || "") !== String(previous.countryId || "")
+        ) {
+          const newCountryId = formData.countryId;
+          (previous.spouses || []).forEach((s) => {
+            if (!s.dominantId || String(s.dominantId) !== String(previous.id)) return; // previous doit dominer cette union
+            const spouseIdx = freshCitizens.findIndex((c) => c.id === s.id);
+            if (spouseIdx === -1) return;
+            const spouse = freshCitizens[spouseIdx];
+            if (String(spouse.countryId || "") === String(newCountryId || "")) return; // déjà aligné
+            const hist = {
+              id: `alleg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              fromCountryId: spouse.countryId || null,
+              toCountryId: newCountryId,
+              dominantName: previous.name,
+              timestamp: Date.now(),
+            };
+            freshCitizens[spouseIdx] = {
+              ...spouse,
+              countryId: newCountryId,
+              spouses: (spouse.spouses || []).map((x) =>
+                String(x.id) === String(previous.id)
+                  ? { ...x, allegianceForcedHistory: [hist, ...(x.allegianceForcedHistory || [])].slice(0, 20) }
+                  : x
+              ),
+            };
+            allegianceCascadedTo.push(spouse.name);
+          });
+        }
+
         // ── Veuvage + succession + héritage, uniquement au moment du décès (transition vivant → mort) ──
         if (justDied && previous) {
           const endedAt = Date.now();
@@ -2493,7 +2530,12 @@ export const useGameActions = (session, state, saveState, notify) => {
           sharedAccounts,
           ...(ledgerEntries.length ? { globalLedger: [...ledgerEntries, ...(state.globalLedger || [])].slice(0, 1000) } : {}),
         });
-        notify("Registres mis à jour.", "success");
+        notify(
+          allegianceCascadedTo.length > 0
+            ? `Registres mis à jour — allégeance imposée à ${allegianceCascadedTo.join(", ")}.`
+            : "Registres mis à jour.",
+          "success"
+        );
       },
       onBuyItem: (itemId, quantity) => {
         if (!session) return;

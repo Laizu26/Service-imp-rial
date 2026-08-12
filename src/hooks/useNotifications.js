@@ -229,6 +229,23 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
       });
 
+      // Allégeance de pays imposée par un conjoint dominant qui a changé d'allégeance
+      (user.spouses || []).forEach((s) => {
+        (s.allegianceForcedHistory || []).slice(0, 5).forEach((h) => {
+          notifs.push({
+            id: `alleg_${h.id}`,
+            type: "marriage_allegiance_forced",
+            category: "Liens & Unions",
+            title: "Allégeance imposée par votre conjoint",
+            description: `${h.dominantName || s.name || "Votre conjoint"} a changé d'allégeance — vous êtes contraint(e) de le suivre`,
+            timestamp: h.timestamp,
+            rpDate: rpDateStr,
+            route: "mariage",
+            icon: "MapPin",
+          });
+        });
+      });
+
       // Droits restreints par un conjoint dominant — refait surface si l'ensemble des
       // restrictions actives change (l'id embarque les clés actives).
       (user.spouses || []).forEach((s) => {
