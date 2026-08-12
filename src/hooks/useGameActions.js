@@ -9317,12 +9317,16 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           ];
         }
 
-        saveState({
+        // mushtagramPosts part en écriture atomique (arrayUnion) — même risque de course que
+        // les DM (voir onSendMushtagramDM) : deux publications proches dans le temps ne
+        // doivent pas s'écraser l'une l'autre via un saveState classique parti d'une copie
+        // locale périmée.
+        appendState({
           ...state,
           mushtagramPosts: [...(state.mushtagramPosts || []), newPost],
           mushtagramNotifs: newNotifs,
           ...(citizensPatch ? { citizens: citizensPatch } : {}),
-        });
+        }, { mushtagramPosts: newPost });
       },
 
       onDeleteMushtagramPost: (id) => {
@@ -10024,7 +10028,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         const repostNotif = String(original.authorId) !== String(session.id)
           ? [{ id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: resolveNotifRecipient(original.authorId, state), type: "repost", fromId: String(session.id), fromName: session.name, postId, ...(original.authorType ? { entityName: original.authorName } : {}), timestamp: Date.now(), read: false, priority: "low" }]
           : [];
-        saveState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost], mushtagramNotifs: [...existingNotifs, ...repostNotif] });
+        appendState({ ...state, mushtagramPosts: [...(state.mushtagramPosts||[]), newPost], mushtagramNotifs: [...existingNotifs, ...repostNotif] }, { mushtagramPosts: newPost });
         notify("Publication republiée.", "success");
       },
 
