@@ -3,7 +3,7 @@ import ReactDOM from "react-dom";
 import {
   Gem, Heart, LogOut, Star, Clock, Users, X, History,
   MessageCircle, Timer, User, ChevronRight, ChevronLeft, Images,
-  Crown, Percent, ShieldOff, Wrench,
+  Crown, Percent, ShieldOff, Wrench, Briefcase, MessageSquareText,
 } from "lucide-react";
 import { formatMoney } from "../../lib/gameUtils";
 import {
@@ -39,6 +39,7 @@ const MaisonDeAsiaCitizen = ({
   const [reviewComment, setReviewComment] = useState("");
   const [servicePickerWorker, setServicePickerWorker] = useState(null);
   const [selectedServiceId, setSelectedServiceId] = useState(null);
+  const [bookingNote, setBookingNote] = useState("");
   const [, setTick] = useState(0);
   const onBookRef = useRef(onBook);
   onBookRef.current = onBook;
@@ -100,6 +101,23 @@ const MaisonDeAsiaCitizen = ({
     (h) => h.citizenId === user?.id && !h.reviewed
   );
 
+  // === CÔTÉ PENSIONNAIRE : si ce citoyen est lui-même du personnel, il/elle voit son propre
+  // client actuel (avec le mot laissé), sa file d'attente et l'historique de ses visites reçues —
+  // auparavant totalement invisible pour la personne concernée.
+  const myStaffEntry = staff.find((s) => s.id === user?.id) || null;
+  const myCurrentClientBooking = myStaffEntry ? houseRegistry.find((r) => r.staffId === myStaffEntry.id) : null;
+  const myCurrentClient = myCurrentClientBooking ? citizens.find((c) => c.id === myCurrentClientBooking.citizenId) : null;
+  const myStaffQueue = myStaffEntry
+    ? maisonQueue.filter((q) => q.staffId === myStaffEntry.id).sort((a, b) => a.position - b.position)
+    : [];
+  const myClientsHistory = myStaffEntry
+    ? (maisonHistory || []).filter((h) => h.staffId === myStaffEntry.id).sort((a, b) => b.endTime - a.endTime)
+    : [];
+  const myReceivedReviews = myStaffEntry
+    ? (maisonReviews || []).filter((r) => r.staffId === myStaffEntry.id).sort((a, b) => b.timestamp - a.timestamp)
+    : [];
+  const myReceivedRating = getStaffRating(myStaffEntry?.id);
+
   const StarRating = ({ rating, size = 14, interactive, onChange }) => (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
@@ -117,6 +135,9 @@ const MaisonDeAsiaCitizen = ({
     </div>
   );
 
+  // La confirmation (avec mot optionnel) se fait désormais dans la modale de réservation
+  // elle-même plutôt que via un window.confirm() sec — un temps RP avant de valider, plutôt
+  // qu'un simple clic sur un prix.
   const handleBooking = (worker, serviceId = null) => {
     const svc = serviceId ? (worker.services || []).find((s) => s.id === serviceId) : null;
     const basePrice = svc ? (svc.price || 0) : (worker.price || 0);
@@ -124,25 +145,19 @@ const MaisonDeAsiaCitizen = ({
     const finalPrice = Math.max(0, Math.round(basePrice * (1 - discountPct / 100)));
     if (userBalance < finalPrice) return;
     if (houseRegistry.find((r) => r.staffId === worker.id)) return;
-    const svcLabel = svc ? ` — ${svc.name}` : "";
-    const discountLabel = discountPct > 0 ? ` (remise ${discountPct}%)` : "";
-    if (window.confirm(`Passer un moment avec ${worker.name}${svcLabel} pour ${formatMoney(finalPrice)}${discountLabel} ?`)) {
-      onBook(worker.id, serviceId || null);
-      setSelectedStaff(null);
-      setServicePickerWorker(null);
-      setSelectedServiceId(null);
-    }
+    onBook(worker.id, serviceId || null, bookingNote);
+    setSelectedStaff(null);
+    setServicePickerWorker(null);
+    setSelectedServiceId(null);
+    setBookingNote("");
   };
 
   const handleOpenBooking = (worker, e) => {
     if (e) e.stopPropagation();
     if (worker.isAvailable === false) return;
-    if ((worker.services || []).length > 0) {
-      setServicePickerWorker(worker);
-      setSelectedServiceId(null);
-    } else {
-      handleBooking(worker, null);
-    }
+    setServicePickerWorker(worker);
+    setSelectedServiceId(null);
+    setBookingNote("");
   };
 
   const handleLeave = () => {
@@ -298,8 +313,9 @@ const MaisonDeAsiaCitizen = ({
                     <button
                       onClick={() => {
                         onClose();
-                        if (hasWorkerSvcs) { setServicePickerWorker(worker); setSelectedServiceId(null); }
-                        else handleBooking(worker, null);
+                        setServicePickerWorker(worker);
+                        setSelectedServiceId(null);
+                        setBookingNote("");
                       }}
                       disabled={userBalance < fp || myBooking}
                       className={`w-full py-3 rounded-lg font-black uppercase text-[10px] tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
@@ -481,6 +497,23 @@ const MaisonDeAsiaCitizen = ({
                   </span>
                 )}
               </button>
+              {myStaffEntry && (
+                <button
+                  onClick={() => setActiveSection("myWork")}
+                  className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                    activeSection === "myWork"
+                      ? "bg-fuchsia-800 text-white border border-fuchsia-600"
+                      : "bg-stone-800/50 text-stone-400 border border-stone-700 hover:text-stone-200"
+                  }`}
+                >
+                  <Briefcase size={12} /> Mon activité
+                  {myCurrentClient && (
+                    <span className="bg-green-500 text-black px-1.5 py-0.5 rounded-full text-[8px] font-black">
+                      1
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
 
             {/* Bannière avis en attente */}
@@ -808,6 +841,114 @@ const MaisonDeAsiaCitizen = ({
                 )}
               </div>
             )}
+
+            {/* === MON ACTIVITÉ (personnel) === */}
+            {activeSection === "myWork" && myStaffEntry && (
+              <div className="space-y-5">
+                {/* Client·e actuel·le */}
+                <div>
+                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-2 flex items-center gap-2">
+                    <Heart size={12} /> Client·e actuel·le
+                  </h3>
+                  {myCurrentClientBooking ? (
+                    <div className="bg-fuchsia-900/20 border border-fuchsia-700/30 rounded-xl p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-12 h-12 rounded-full border-2 border-fuchsia-700 overflow-hidden shrink-0" style={{ width: 48, height: 48, minWidth: 48, minHeight: 48 }}>
+                          {myCurrentClient?.avatarUrl ? (
+                            <img src={myCurrentClient.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-fuchsia-950 flex items-center justify-center">
+                              <User size={20} className="text-fuchsia-800" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-white text-sm truncate">{myCurrentClient?.name || myCurrentClientBooking.citizenId}</div>
+                          <div className="text-[10px] text-stone-400">
+                            {getTimeRemaining(myCurrentClientBooking, myStaffEntry) || "Séance terminée"} restant
+                          </div>
+                        </div>
+                      </div>
+                      {myCurrentClientBooking.note && (
+                        <div className="mt-2 p-2.5 bg-stone-900/50 border border-stone-700 rounded-lg text-xs text-stone-300 italic flex items-start gap-2">
+                          <MessageSquareText size={12} className="shrink-0 mt-0.5 text-fuchsia-400" />
+                          « {myCurrentClientBooking.note} »
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-fuchsia-800/50 italic text-sm">Personne pour le moment.</div>
+                  )}
+                </div>
+
+                {/* File d'attente */}
+                {myStaffQueue.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-2 flex items-center gap-2">
+                      <Users size={12} /> En attente ({myStaffQueue.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {myStaffQueue.map((q) => {
+                        const c = citizens.find((ci) => ci.id === q.citizenId);
+                        return (
+                          <div key={`${q.citizenId}_${q.staffId}`} className="flex items-center gap-3 bg-stone-900/60 border border-stone-700 rounded-lg p-2.5">
+                            <span className="text-fuchsia-400 font-black text-xs w-5 text-center shrink-0">{q.position}</span>
+                            <span className="text-sm text-white font-bold flex-1 truncate">{c?.name || q.citizenId}</span>
+                            {q.note && <span className="text-[10px] text-stone-500 italic truncate max-w-[40%]">« {q.note} »</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Note reçue */}
+                <div className="flex items-center gap-3 bg-stone-900/60 border border-stone-700 rounded-lg p-3">
+                  <Star size={16} className="text-yellow-400 fill-yellow-400 shrink-0" />
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-white">
+                      {myReceivedRating.count > 0 ? `${myReceivedRating.avg} / 5` : "Pas encore d'avis"}
+                    </div>
+                    <div className="text-[10px] text-stone-500">
+                      {myReceivedRating.count} avis reçu{myReceivedRating.count > 1 ? "s" : ""}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Historique des visites reçues */}
+                <div>
+                  <h3 className="text-xs font-black uppercase text-stone-500 tracking-widest mb-2 flex items-center gap-2">
+                    <History size={12} /> Visites reçues
+                  </h3>
+                  {myClientsHistory.length === 0 ? (
+                    <div className="text-center py-6 text-fuchsia-800/50 italic text-sm">Aucune visite pour l'instant.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {myClientsHistory.slice(0, 20).map((visit) => {
+                        const rev = myReceivedReviews.find((r) => r.historyId === visit.id);
+                        return (
+                          <div key={visit.id} className="bg-stone-900/60 border border-stone-700 rounded-lg p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-bold text-white truncate">{visit.citizenName}</span>
+                              <span className="text-[10px] text-stone-500 shrink-0">{new Date(visit.endTime).toLocaleDateString("fr-FR")}</span>
+                            </div>
+                            {visit.note && (
+                              <p className="text-[10px] text-stone-500 italic mt-1">« {visit.note} »</p>
+                            )}
+                            {rev && (
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <StarRating rating={rev.rating} size={10} />
+                                {rev.comment && <span className="text-[10px] text-stone-400 italic">"{rev.comment}"</span>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -817,17 +958,25 @@ const MaisonDeAsiaCitizen = ({
 
       {/* Service picker modal */}
       {servicePickerWorker && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={() => { setServicePickerWorker(null); setSelectedServiceId(null); }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" onClick={() => { setServicePickerWorker(null); setSelectedServiceId(null); setBookingNote(""); }}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <div className="relative bg-stone-900 border border-fuchsia-800 rounded-2xl max-w-md w-full shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => { setServicePickerWorker(null); setSelectedServiceId(null); }} className="absolute top-4 right-4 text-stone-500 hover:text-white">
+            <button onClick={() => { setServicePickerWorker(null); setSelectedServiceId(null); setBookingNote(""); }} className="absolute top-4 right-4 text-stone-500 hover:text-white">
               <X size={20} />
             </button>
             <h3 className="text-lg font-black text-white mb-1">{servicePickerWorker.name}</h3>
-            <p className="text-fuchsia-400 text-xs italic mb-4">Choisissez un service</p>
+            <p className="text-fuchsia-400 text-xs italic mb-4">
+              {(servicePickerWorker.services || []).length > 0 ? "Choisissez un service" : "Confirmez votre réservation"}
+            </p>
 
             {(() => {
+              const hasSvcs = (servicePickerWorker.services || []).length > 0;
               const discountPct = computeMaisonDiscount(user?.id, servicePickerWorker.id, maisonHistory, maisonSubscriptions);
+              const basePrice = hasSvcs
+                ? (servicePickerWorker.services.find((s) => s.id === selectedServiceId)?.price || 0)
+                : (servicePickerWorker.price || 0);
+              const finalPrice = Math.max(0, Math.round(basePrice * (1 - discountPct / 100)));
+              const canConfirm = (!hasSvcs || !!selectedServiceId) && userBalance >= finalPrice;
               return (
                 <>
                   {discountPct > 0 && (
@@ -835,44 +984,74 @@ const MaisonDeAsiaCitizen = ({
                       <Percent size={11} /> Remise totale de {discountPct}% appliquée à vos prix
                     </div>
                   )}
-                  <div className="space-y-2 mb-4">
-                    {servicePickerWorker.services.map((svc) => {
-                      const fp = Math.max(0, Math.round((svc.price || 0) * (1 - discountPct / 100)));
-                      const cat = maisonServiceCategories.find((c) => c.id === svc.categoryId);
-                      const isSelected = selectedServiceId === svc.id;
-                      return (
-                        <button
-                          key={svc.id}
-                          onClick={() => setSelectedServiceId(svc.id)}
-                          className={`w-full text-left p-3 rounded-xl border transition-all ${isSelected ? "border-fuchsia-500 bg-fuchsia-900/40" : "border-stone-700 bg-stone-800/50 hover:border-fuchsia-700"}`}
-                        >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-white">{svc.name}</span>
-                            {cat && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: cat.color }}>{cat.name}</span>}
-                          </div>
-                          <div className="flex items-center gap-3 mt-1">
-                            {discountPct > 0 ? (
-                              <>
-                                <span className="text-xs text-stone-500 line-through">{formatMoney(svc.price)}</span>
-                                <span className="text-xs text-green-300 font-bold">{formatMoney(fp)}</span>
-                              </>
-                            ) : (
-                              <span className="text-xs text-fuchsia-300 font-bold">{formatMoney(svc.price)}</span>
-                            )}
-                            {(svc.duration || servicePickerWorker.sessionDuration || maisonDefaultDuration) && (
-                              <span className="text-[10px] text-stone-500 flex items-center gap-0.5">
-                                <Clock size={9} /> {svc.duration || servicePickerWorker.sessionDuration || maisonDefaultDuration} min
-                              </span>
-                            )}
-                          </div>
-                          {svc.description && <p className="text-[10px] text-stone-500 italic mt-1">{svc.description}</p>}
-                        </button>
-                      );
-                    })}
+                  {hasSvcs ? (
+                    <div className="space-y-2 mb-4">
+                      {servicePickerWorker.services.map((svc) => {
+                        const fp = Math.max(0, Math.round((svc.price || 0) * (1 - discountPct / 100)));
+                        const cat = maisonServiceCategories.find((c) => c.id === svc.categoryId);
+                        const isSelected = selectedServiceId === svc.id;
+                        return (
+                          <button
+                            key={svc.id}
+                            onClick={() => setSelectedServiceId(svc.id)}
+                            className={`w-full text-left p-3 rounded-xl border transition-all ${isSelected ? "border-fuchsia-500 bg-fuchsia-900/40" : "border-stone-700 bg-stone-800/50 hover:border-fuchsia-700"}`}
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white">{svc.name}</span>
+                              {cat && <span className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white" style={{ backgroundColor: cat.color }}>{cat.name}</span>}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              {discountPct > 0 ? (
+                                <>
+                                  <span className="text-xs text-stone-500 line-through">{formatMoney(svc.price)}</span>
+                                  <span className="text-xs text-green-300 font-bold">{formatMoney(fp)}</span>
+                                </>
+                              ) : (
+                                <span className="text-xs text-fuchsia-300 font-bold">{formatMoney(svc.price)}</span>
+                              )}
+                              {(svc.duration || servicePickerWorker.sessionDuration || maisonDefaultDuration) && (
+                                <span className="text-[10px] text-stone-500 flex items-center gap-0.5">
+                                  <Clock size={9} /> {svc.duration || servicePickerWorker.sessionDuration || maisonDefaultDuration} min
+                                </span>
+                              )}
+                            </div>
+                            {svc.description && <p className="text-[10px] text-stone-500 italic mt-1">{svc.description}</p>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 mb-4 p-3 rounded-xl border border-stone-700 bg-stone-800/50">
+                      {discountPct > 0 ? (
+                        <>
+                          <span className="text-sm text-stone-500 line-through">{formatMoney(servicePickerWorker.price)}</span>
+                          <span className="text-sm text-green-300 font-bold">{formatMoney(finalPrice)}</span>
+                        </>
+                      ) : (
+                        <span className="text-sm text-fuchsia-300 font-bold">{formatMoney(servicePickerWorker.price)}</span>
+                      )}
+                      <span className="text-[10px] text-stone-500 flex items-center gap-0.5 ml-auto">
+                        <Clock size={9} /> {servicePickerWorker.sessionDuration || maisonDefaultDuration} min
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Mot pour le/la pensionnaire — RP, optionnel */}
+                  <div className="mb-4">
+                    <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-stone-500 mb-1.5">
+                      <MessageSquareText size={11} /> Un mot pour {servicePickerWorker.name} (optionnel)
+                    </label>
+                    <textarea
+                      value={bookingNote}
+                      onChange={(e) => setBookingNote(e.target.value.slice(0, 200))}
+                      placeholder="Comment vous présenter, ce que vous recherchez ce soir..."
+                      className="w-full bg-stone-800 border border-stone-600 rounded-lg p-3 text-sm text-stone-200 outline-none resize-none h-16 focus:border-fuchsia-600 transition-colors"
+                    />
                   </div>
+
                   <button
-                    onClick={() => selectedServiceId && handleBooking(servicePickerWorker, selectedServiceId)}
-                    disabled={!selectedServiceId || userBalance < Math.max(0, Math.round(((servicePickerWorker.services.find((s) => s.id === selectedServiceId)?.price || 0)) * (1 - discountPct / 100)))}
+                    onClick={() => handleBooking(servicePickerWorker, selectedServiceId)}
+                    disabled={!canConfirm}
                     className="w-full py-3 bg-fuchsia-800 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-700 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Heart size={14} fill="currentColor" /> Confirmer la réservation

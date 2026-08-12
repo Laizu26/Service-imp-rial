@@ -102,6 +102,76 @@ const applyMaisonPayment = (worker, price, citizens, companies, countries, treas
   return { newCitizens, updatedCompanies, updatedCountries, newTreasury, toName };
 };
 
+// Helper : avance automatiquement le/la prochain·e client·e en file d'attente pour un membre du
+// personnel qui vient de se libérer (départ volontaire ou expulsion) — même logique de paiement,
+// de création d'alerte et de ré-indexation utilisée aux deux endroits, auparavant dupliquée
+// intégralement dans onBookMaison (branche départ) et onEvictMaison.
+const advanceMaisonQueue = (worker, queue, citizens, companies, countries, treasury, jobContracts, maisonCompanyId, defaultDur) => {
+  let newCitizens = citizens;
+  let updatedCompanies = companies;
+  let updatedCountries = countries || [];
+  let newTreasury = treasury;
+  let newRegistryEntry = null;
+  let ledgerEntry = null;
+  let alertEntry = null;
+
+  const staffQueue = queue.filter((q) => q.staffId === worker.id).sort((a, b) => a.joinedAt - b.joinedAt);
+  let newQueue = queue;
+
+  if (staffQueue.length > 0) {
+    const next = staffQueue[0];
+    const nextIdx = newCitizens.findIndex((c) => c.id === next.citizenId);
+
+    if (nextIdx !== -1 && newCitizens[nextIdx].balance >= (worker.price || 0)) {
+      const price = worker.price || 0;
+      newCitizens = newCitizens.map((c, i) => (i === nextIdx ? { ...c, balance: c.balance - price } : c));
+      const payment = applyMaisonPayment(worker, price, newCitizens, updatedCompanies, updatedCountries, newTreasury, jobContracts, maisonCompanyId);
+      newCitizens = payment.newCitizens;
+      updatedCompanies = payment.updatedCompanies;
+      updatedCountries = payment.updatedCountries;
+      newTreasury = payment.newTreasury;
+
+      newRegistryEntry = {
+        citizenId: next.citizenId,
+        staffId: worker.id,
+        startTime: Date.now(),
+        duration: worker.sessionDuration || defaultDur,
+        pricePaid: price,
+        note: next.note || "",
+      };
+      ledgerEntry = {
+        id: Date.now() + 1,
+        fromName: newCitizens[nextIdx].name,
+        toName: payment.toName,
+        amount: price,
+        timestamp: Date.now(),
+        reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
+        type: "MAISON",
+      };
+      alertEntry = {
+        id: `masal_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        type: "new_client",
+        toId: worker.id,
+        staffId: worker.id,
+        clientId: next.citizenId,
+        clientName: newCitizens[nextIdx].name,
+        note: next.note || "",
+        price,
+        timestamp: Date.now(),
+      };
+    }
+
+    // Retirer le/la suivant·e de la file, que le paiement ait réussi ou non (solde insuffisant =
+    // perd sa place plutôt que de bloquer indéfiniment la file pour tout le monde derrière).
+    let pos = 0;
+    newQueue = queue
+      .filter((q) => !(q.citizenId === next.citizenId && q.staffId === next.staffId))
+      .map((q) => (q.staffId === worker.id ? { ...q, position: ++pos } : q));
+  }
+
+  return { newQueue, newRegistryEntry, newCitizens, updatedCompanies, updatedCountries, newTreasury, ledgerEntry, alertEntry };
+};
+
 // ─── FONCTIONS PURES VIP / FIDÉLITÉ / ABONNEMENT ──────────────────────────────
 
 export function getMaisonVipRank(citizenId, maisonHistory) {
@@ -4056,7 +4126,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- FILE D'ATTENTE ---
-      onJoinMaisonQueue: (staffId) => {
+      onJoinMaisonQueue: (staffId, note = "") => {
         if (!session) return;
         if (isMaisonLocked(session.id)) { notify("Votre accès à la Maison de Asia est restreint.", "error"); return; }
         const queue = state.maisonQueue || [];
@@ -4072,7 +4142,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Vous êtes déjà dans une autre file.", "error");
           return;
         }
-        const newEntry = { citizenId: session.id, staffId, joinedAt: Date.now(), position: 0 };
+        const newEntry = { citizenId: session.id, staffId, joinedAt: Date.now(), position: 0, note: (note || "").trim().slice(0, 200) };
         const staffQueue = queue.filter((q) => q.staffId === staffId);
         const otherQueue = queue.filter((q) => q.staffId !== staffId);
         const isVip = getMaisonVipRank(session.id, state.maisonHistory || []) !== null;
@@ -4183,7 +4253,7 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // --- RÉSERVATION MAISON D'ASIA ---
-      onBookMaison: (staffId, serviceId = null) => {
+      onBookMaison: (staffId, serviceId = null, note = "") => {
         if (!session) return;
         const registry = state.maisonRegistry || [];
         const queue = state.maisonQueue || [];
@@ -4213,81 +4283,33 @@ export const useGameActions = (session, state, saveState, notify) => {
             serviceId: myBooking.serviceId || null,
             serviceName: svc?.name || null,
             discountApplied: myBooking.discountApplied || 0,
+            note: myBooking.note || "",
             reviewed: false,
           };
 
-          // Retirer du registre
-          let newRegistry = registry.filter((r) => r.citizenId !== session.id);
-          let newQueue = [...queue];
-          let newCitizens = [...state.citizens];
-          let newCompanies = [...(state.companies || [])];
-          let newCountries = [...(state.countries || [])];
-          let newLedger = [...(state.globalLedger || [])];
+          // Retirer du registre, puis avancer la file (le/la suivant·e prend la place libérée)
+          const newRegistry = registry.filter((r) => r.citizenId !== session.id);
+          let newQueue = queue;
+          let newCitizens = state.citizens;
+          let newCompanies = state.companies || [];
+          let newCountries = state.countries || [];
+          let newLedger = state.globalLedger || [];
           let newTreasury = state.treasury || 0;
+          let newAlerts = state.maisonAlerts || [];
 
-          // Auto-réserver le prochain dans la queue
           if (worker) {
-            const staffQueue = newQueue
-              .filter((q) => q.staffId === myBooking.staffId)
-              .sort((a, b) => a.joinedAt - b.joinedAt);
-
-            if (staffQueue.length > 0) {
-              const next = staffQueue[0];
-              const nextIdx = newCitizens.findIndex((c) => c.id === next.citizenId);
-
-              if (nextIdx !== -1 && newCitizens[nextIdx].balance >= (worker.price || 0)) {
-                const price = worker.price || 0;
-                // Déduire du client d'abord
-                newCitizens[nextIdx] = {
-                  ...newCitizens[nextIdx],
-                  balance: newCitizens[nextIdx].balance - price,
-                };
-                // Distribuer aux bénéficiaires via le helper
-                const qP = applyMaisonPayment(
-                  worker, price,
-                  newCitizens, newCompanies, state.countries || [],
-                  newTreasury, state.jobContracts, state.maisonCompanyId
-                );
-                newCitizens.splice(0, newCitizens.length, ...qP.newCitizens);
-                newCompanies.splice(0, newCompanies.length, ...qP.updatedCompanies);
-                newCountries.splice(0, newCountries.length, ...qP.updatedCountries);
-                newTreasury = qP.newTreasury;
-
-                newRegistry.push({
-                  citizenId: next.citizenId,
-                  staffId: worker.id,
-                  startTime: Date.now(),
-                  duration: worker.sessionDuration || defaultDur,
-                  pricePaid: price,
-                });
-
-                newLedger = [
-                  {
-                    id: Date.now() + 1,
-                    fromName: newCitizens[nextIdx].name,
-                    toName: qP.toName,
-                    amount: price,
-                    timestamp: Date.now(),
-                    reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
-                    type: "MAISON",
-                  },
-                  ...newLedger,
-                ];
-              }
-              // Retirer de la queue
-              newQueue = newQueue.filter(
-                (q) => !(q.citizenId === next.citizenId && q.staffId === next.staffId)
-              );
-              // Re-indexer
-              let pos = 0;
-              newQueue = newQueue.map((q) => {
-                if (q.staffId === myBooking.staffId) {
-                  pos++;
-                  return { ...q, position: pos };
-                }
-                return q;
-              });
-            }
+            const adv = advanceMaisonQueue(
+              worker, newQueue, newCitizens, newCompanies, newCountries,
+              newTreasury, state.jobContracts, state.maisonCompanyId, defaultDur
+            );
+            newQueue = adv.newQueue;
+            newCitizens = adv.newCitizens;
+            newCompanies = adv.updatedCompanies;
+            newCountries = adv.updatedCountries;
+            newTreasury = adv.newTreasury;
+            if (adv.newRegistryEntry) newRegistry.push(adv.newRegistryEntry);
+            if (adv.ledgerEntry) newLedger = [adv.ledgerEntry, ...newLedger];
+            if (adv.alertEntry) newAlerts = [adv.alertEntry, ...newAlerts];
           }
 
           saveState({
@@ -4300,6 +4322,7 @@ export const useGameActions = (session, state, saveState, notify) => {
             countries: newCountries,
             treasury: newTreasury,
             globalLedger: newLedger,
+            maisonAlerts: newAlerts,
           });
           notify("Vous avez quitté la Maison.", "info");
           return;
@@ -4348,6 +4371,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           balance: newCitizens[clientIdx].balance - price,
         };
 
+        const trimmedNote = (note || "").trim().slice(0, 200);
         const newEntry = {
           citizenId: session.id,
           staffId,
@@ -4356,6 +4380,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           pricePaid: price,
           serviceId: svcBooked?.id || null,
           discountApplied: discountPct,
+          note: trimmedNote,
         };
 
         const maisonLedger = {
@@ -4368,6 +4393,20 @@ export const useGameActions = (session, state, saveState, notify) => {
           type: "MAISON",
         };
 
+        // Prévient le/la pensionnaire qu'iel a un·e client·e — voir useNotifications.js.
+        const clientAlert = {
+          id: `masal_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          type: "new_client",
+          toId: staffId,
+          staffId,
+          clientId: session.id,
+          clientName: session.name,
+          note: trimmedNote,
+          price,
+          serviceName: svcBooked?.name || null,
+          timestamp: Date.now(),
+        };
+
         saveState({
           ...state,
           citizens: newCitizens,
@@ -4377,6 +4416,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           companies: updatedCompanies,
           countries: updatedCountries,
           globalLedger: [maisonLedger, ...(state.globalLedger || [])],
+          maisonAlerts: [clientAlert, ...(state.maisonAlerts || [])],
         });
         notify("Réservé.", "success");
       },
@@ -4400,73 +4440,32 @@ export const useGameActions = (session, state, saveState, notify) => {
           endTime: Date.now(),
           duration: booking.duration || worker?.sessionDuration || defaultDur,
           pricePaid: booking.pricePaid || worker?.price || 0,
+          note: booking.note || "",
           reviewed: false,
         };
 
-        let newRegistry = registry.filter((r) => r.citizenId !== citizenId);
-        let newQueue = [...queue];
-        let newCitizens = [...state.citizens];
-        let newCompanies = [...(state.companies || [])];
-        let newCountries = [...(state.countries || [])];
-        let newLedger = [...(state.globalLedger || [])];
+        const newRegistry = registry.filter((r) => r.citizenId !== citizenId);
+        let newQueue = queue;
+        let newCitizens = state.citizens;
+        let newCompanies = state.companies || [];
+        let newCountries = state.countries || [];
+        let newLedger = state.globalLedger || [];
         let newTreasury = state.treasury || 0;
+        let newAlerts = state.maisonAlerts || [];
 
         if (worker) {
-          const staffQueue = newQueue
-            .filter((q) => q.staffId === booking.staffId)
-            .sort((a, b) => a.joinedAt - b.joinedAt);
-
-          if (staffQueue.length > 0) {
-            const next = staffQueue[0];
-            const nextIdx = newCitizens.findIndex((c) => c.id === next.citizenId);
-
-            if (nextIdx !== -1 && newCitizens[nextIdx].balance >= (worker.price || 0)) {
-              const price = worker.price || 0;
-              newCitizens[nextIdx] = {
-                ...newCitizens[nextIdx],
-                balance: newCitizens[nextIdx].balance - price,
-              };
-              const evictQP = applyMaisonPayment(
-                worker, price,
-                newCitizens, newCompanies, newCountries,
-                newTreasury, state.jobContracts, state.maisonCompanyId
-              );
-              newCitizens.splice(0, newCitizens.length, ...evictQP.newCitizens);
-              newCompanies.splice(0, newCompanies.length, ...evictQP.updatedCompanies);
-              newCountries.splice(0, newCountries.length, ...evictQP.updatedCountries);
-              newTreasury = evictQP.newTreasury;
-              newRegistry.push({
-                citizenId: next.citizenId,
-                staffId: worker.id,
-                startTime: Date.now(),
-                duration: worker.sessionDuration || defaultDur,
-                pricePaid: price,
-              });
-              newLedger = [
-                {
-                  id: Date.now() + 1,
-                  fromName: newCitizens[nextIdx].name,
-                  toName: evictQP.toName,
-                  amount: price,
-                  timestamp: Date.now(),
-                  reason: `Réservation Maison d'Asia — ${worker.name} (file d'attente)`,
-                  type: "MAISON",
-                },
-                ...newLedger,
-              ];
-            }
-            newQueue = newQueue.filter(
-              (q) => !(q.citizenId === next.citizenId && q.staffId === next.staffId)
-            );
-            let pos = 0;
-            newQueue = newQueue.map((q) => {
-              if (q.staffId === booking.staffId) {
-                pos++;
-                return { ...q, position: pos };
-              }
-              return q;
-            });
-          }
+          const adv = advanceMaisonQueue(
+            worker, newQueue, newCitizens, newCompanies, newCountries,
+            newTreasury, state.jobContracts, state.maisonCompanyId, defaultDur
+          );
+          newQueue = adv.newQueue;
+          newCitizens = adv.newCitizens;
+          newCompanies = adv.updatedCompanies;
+          newCountries = adv.updatedCountries;
+          newTreasury = adv.newTreasury;
+          if (adv.newRegistryEntry) newRegistry.push(adv.newRegistryEntry);
+          if (adv.ledgerEntry) newLedger = [adv.ledgerEntry, ...newLedger];
+          if (adv.alertEntry) newAlerts = [adv.alertEntry, ...newAlerts];
         }
 
         saveState({
@@ -4479,6 +4478,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           countries: newCountries,
           treasury: newTreasury,
           globalLedger: newLedger,
+          maisonAlerts: newAlerts,
         });
         notify("Client retiré (historique créé).", "info");
       },

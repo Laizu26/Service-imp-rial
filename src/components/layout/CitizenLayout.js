@@ -951,7 +951,7 @@ const CitizenLayout = (props) => {
     bankLocked: !!(employerSerfRights.bankLocked || spouseRestriction.bankLocked || guardianRights.bankLocked || loanRestriction.bankLocked || selfRestriction.bankLocked),
     marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked || loanRestriction.marketLocked || selfRestriction.marketLocked),
     postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked || loanRestriction.postLocked || selfRestriction.postLocked),
-    maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked),
+    maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked || loanRestriction.maisonLocked || selfRestriction.maisonLocked),
   };
   const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : (loanRestriction[key] ? "entreprise emprunteuse" : (selfRestriction[key] ? "vous-même" : "conjoint")));
 

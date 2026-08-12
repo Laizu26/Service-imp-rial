@@ -304,6 +304,27 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
       });
     }
 
+    // --- Maison d'Asia : un·e pensionnaire est prévenu·e dès qu'un·e client·e le/la réserve ---
+    if (prefs.esclaves !== false) {
+      (state?.maisonAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          notifs.push({
+            id: `masal_${a.id}`,
+            type: "maison_new_client",
+            category: "Main d'Oeuvre",
+            title: "Nouveau·elle client·e",
+            description: a.note
+              ? `${a.clientName} vous attend${a.serviceName ? ` (${a.serviceName})` : ""} — « ${a.note} »`
+              : `${a.clientName} vous attend${a.serviceName ? ` (${a.serviceName})` : ""}`,
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "asia",
+            icon: "Gem",
+          });
+        });
+    }
+
     // --- Dettes en attente (où l'user est débiteur) ---
     if (prefs.finances !== false) {
       (state?.debtRegistry || [])

@@ -435,7 +435,7 @@ export default function App() {
     if (effectiveLevel >= 30)
       tabs.push({ id: "tribunal_admin", label: "Tribunal", icon: Scale });
 
-    if (effectiveLevel >= 50 || (session && session.role === "TENANCIER")) {
+    if (effectiveLevel >= 50) {
       tabs.push({ id: "asia_admin", label: "Maison Asia", icon: Gem });
     }
 
@@ -443,7 +443,7 @@ export default function App() {
       tabs.push({ id: "erudit_admin", label: "Érudits", icon: Library });
 
     return tabs;
-  }, [roleInfo, session, effectiveLevel, effectiveScope]);
+  }, [roleInfo, effectiveLevel, effectiveScope]);
 
   if (session && isDead)
     return <DeathScreen onLogout={() => logoutAccount(session.id)} />;

@@ -91,8 +91,76 @@ const Stars = ({ rating, size = 12 }) => (
 );
 
 /* ───────────── Panneau galerie dépliable ───────────── */
-const GalleryPanel = ({ member, onAdd, onRemove, onClose }) => {
+// Éditeur de galerie générique (ajout/suppression d'images par URL) — réutilisé aussi bien
+// pour la création d'un membre du personnel que pour l'édition de sa galerie existante,
+// auparavant deux implémentations quasi identiques dupliquées côte à côte.
+const GalleryEditor = ({ gallery = [], onAdd, onRemove, variant = "flex" }) => {
   const [url, setUrl] = useState("");
+  const submit = () => {
+    if (!url.trim()) return;
+    onAdd(url.trim());
+    setUrl("");
+  };
+
+  return (
+    <>
+      {gallery.length > 0 && (
+        variant === "grid" ? (
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mb-3">
+            {gallery.map((img, idx) => (
+              <div key={idx} className="relative group/img aspect-square rounded-lg overflow-hidden border border-stone-200">
+                <img src={img} alt="" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => onRemove(idx)}
+                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                  title="Supprimer"
+                >
+                  <X size={10} />
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] text-center py-0.5">
+                  #{idx + 1}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {gallery.map((img, i) => (
+              <div key={i} className="relative group/img">
+                <img src={img} alt="" className="w-14 h-14 rounded-lg object-cover border border-stone-200" />
+                <button
+                  onClick={() => onRemove(i)}
+                  className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                >
+                  <X size={8} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+      <div className="flex gap-2">
+        <input
+          className="flex-1 p-2 border rounded-lg text-xs bg-white outline-none focus:border-fuchsia-500"
+          placeholder="URL de l'image..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!url.trim()}
+          className="px-3 py-2 bg-fuchsia-900 text-white rounded-lg text-[10px] font-bold uppercase hover:bg-fuchsia-800 disabled:opacity-50 flex items-center gap-1"
+        >
+          <ImagePlus size={12} /> Ajouter
+        </button>
+      </div>
+    </>
+  );
+};
+
+const GalleryPanel = ({ member, onAdd, onRemove, onClose }) => {
   const gallery = member.gallery || [];
 
   return (
@@ -105,57 +173,10 @@ const GalleryPanel = ({ member, onAdd, onRemove, onClose }) => {
           <X size={16} />
         </button>
       </div>
-
-      {/* Images existantes */}
-      {gallery.length > 0 ? (
-        <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mb-3">
-          {gallery.map((img, idx) => (
-            <div key={idx} className="relative group/img aspect-square rounded-lg overflow-hidden border border-stone-200">
-              <img src={img} alt="" className="w-full h-full object-cover" />
-              <button
-                onClick={() => onRemove(idx)}
-                className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                title="Supprimer"
-              >
-                <X size={10} />
-              </button>
-              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[8px] text-center py-0.5">
-                #{idx + 1}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
+      {gallery.length === 0 && (
         <p className="text-xs text-stone-400 italic mb-3">Aucune photo dans la galerie.</p>
       )}
-
-      {/* Ajout d'image */}
-      <div className="flex gap-2">
-        <input
-          className="flex-1 p-2 border rounded-lg text-xs bg-white outline-none focus:border-fuchsia-500"
-          placeholder="URL de l'image..."
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && url.trim()) {
-              onAdd(url.trim());
-              setUrl("");
-            }
-          }}
-        />
-        <button
-          onClick={() => {
-            if (url.trim()) {
-              onAdd(url.trim());
-              setUrl("");
-            }
-          }}
-          disabled={!url.trim()}
-          className="px-3 py-2 bg-fuchsia-900 text-white rounded-lg text-[10px] font-bold uppercase hover:bg-fuchsia-800 disabled:opacity-50 flex items-center gap-1"
-        >
-          <ImagePlus size={12} /> Ajouter
-        </button>
-      </div>
+      <GalleryEditor gallery={gallery} onAdd={onAdd} onRemove={onRemove} variant="grid" />
     </div>
   );
 };
@@ -206,7 +227,6 @@ const MaisonDeAsiaAdmin = ({
   const [newStaffDuration, setNewStaffDuration] = useState("");
   const [newStaffDescription, setNewStaffDescription] = useState("");
   // Galerie images (ajout)
-  const [newImageUrl, setNewImageUrl] = useState("");
   const [newStaffGallery, setNewStaffGallery] = useState([]);
 
   // Édition d'un membre existant
@@ -345,7 +365,6 @@ const MaisonDeAsiaAdmin = ({
     setNewStaffDuration("");
     setNewStaffDescription("");
     setNewStaffGallery([]);
-    setNewImageUrl("");
   };
 
   const handleRemoveStaff = (id) => {
@@ -652,48 +671,11 @@ const MaisonDeAsiaAdmin = ({
                 <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-2 flex items-center gap-1">
                   <Images size={12} /> Galerie photos ({newStaffGallery.length})
                 </div>
-                {newStaffGallery.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {newStaffGallery.map((img, i) => (
-                      <div key={i} className="relative group/img">
-                        <img src={img} alt="" className="w-14 h-14 rounded-lg object-cover border border-stone-200" />
-                        <button
-                          onClick={() => setNewStaffGallery(newStaffGallery.filter((_, idx) => idx !== i))}
-                          className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                        >
-                          <X size={8} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 p-2 border rounded text-xs bg-white outline-none focus:border-fuchsia-500"
-                    placeholder="URL de l'image..."
-                    value={newImageUrl}
-                    onChange={(e) => setNewImageUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && newImageUrl.trim()) {
-                        setNewStaffGallery([...newStaffGallery, newImageUrl.trim()]);
-                        setNewImageUrl("");
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newImageUrl.trim()) {
-                        setNewStaffGallery([...newStaffGallery, newImageUrl.trim()]);
-                        setNewImageUrl("");
-                      }
-                    }}
-                    disabled={!newImageUrl.trim()}
-                    className="px-3 py-1.5 bg-fuchsia-800 text-white rounded text-[10px] font-bold hover:bg-fuchsia-700 disabled:opacity-50 flex items-center gap-1"
-                  >
-                    <ImagePlus size={12} />
-                  </button>
-                </div>
+                <GalleryEditor
+                  gallery={newStaffGallery}
+                  onAdd={(url) => setNewStaffGallery([...newStaffGallery, url])}
+                  onRemove={(idx) => setNewStaffGallery(newStaffGallery.filter((_, i) => i !== idx))}
+                />
               </div>
 
               <button
@@ -1263,6 +1245,11 @@ const MaisonDeAsiaAdmin = ({
                               {client.name}
                               <VipBadge citizenId={record.citizenId} maisonHistory={maisonHistory} />
                             </div>
+                            {record.note && (
+                              <div className="text-[10px] font-normal text-stone-500 italic mt-0.5 flex items-start gap-1 max-w-xs">
+                                <MessageSquare size={10} className="shrink-0 mt-0.5" /> « {record.note} »
+                              </div>
+                            )}
                           </td>
                           <td className="p-4 text-fuchsia-700 font-medium flex items-center gap-2">
                             <Heart size={12} /> {worker.name}
@@ -1466,6 +1453,11 @@ const MaisonDeAsiaAdmin = ({
                                     {h.citizenName || "Inconnu"}
                                     <VipBadge citizenId={h.citizenId} maisonHistory={maisonHistory} />
                                   </div>
+                                  {h.note && (
+                                    <div className="text-[10px] text-stone-500 italic mt-0.5 flex items-start gap-1 max-w-xs">
+                                      <MessageSquare size={9} className="shrink-0 mt-0.5" /> « {h.note} »
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
