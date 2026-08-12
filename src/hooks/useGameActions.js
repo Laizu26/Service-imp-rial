@@ -3660,12 +3660,15 @@ export const useGameActions = (session, state, saveState, notify) => {
           notify("Seul le conjoint dominant peut définir ces droits.", "error");
           return;
         }
-        const updated = (state.citizens || []).map((c) => {
+        const oldRights = mySpouseEntry.spouseRights || {};
+        const newRights = { ...oldRights, ...rights };
+
+        let newCitizens = (state.citizens || []).map((c) => {
           if (String(c.id) === String(session.id)) {
             return {
               ...c,
               spouses: (c.spouses || []).map((s) =>
-                String(s.id) === String(spouseId) ? { ...s, spouseRights: { ...(s.spouseRights || {}), ...rights } } : s
+                String(s.id) === String(spouseId) ? { ...s, spouseRights: newRights } : s
               ),
             };
           }
@@ -3673,14 +3676,65 @@ export const useGameActions = (session, state, saveState, notify) => {
             return {
               ...c,
               spouses: (c.spouses || []).map((s) =>
-                String(s.id) === String(session.id) ? { ...s, spouseRights: { ...(s.spouseRights || {}), ...rights } } : s
+                String(s.id) === String(session.id) ? { ...s, spouseRights: newRights } : s
               ),
             };
           }
           return c;
         });
-        saveState({ ...state, citizens: updated });
-        notify("Droits mis à jour.", "success");
+
+        let newCompanies = state.companies || [];
+        const extraMsgs = [];
+
+        // ── Interdiction de travailler : démission forcée de l'emploi en cours ──────
+        if (newRights.workLocked && !oldRights.workLocked) {
+          const employerIdx = newCompanies.findIndex((c) => (c.employees || []).map(String).includes(String(spouseId)));
+          if (employerIdx !== -1) {
+            const company = newCompanies[employerIdx];
+            const newContracts = { ...(company.employmentContracts || {}) };
+            delete newContracts[spouseId];
+            const newAssignments = { ...(company.employeeAssignments || {}) };
+            delete newAssignments[spouseId];
+            const newBalances = { ...(company.workerBalances || {}) };
+            const owed = newBalances[spouseId] || 0;
+            delete newBalances[spouseId];
+            newCompanies = [...newCompanies];
+            newCompanies[employerIdx] = {
+              ...company,
+              employees: (company.employees || []).filter((id) => String(id) !== String(spouseId)),
+              employmentContracts: newContracts,
+              employeeAssignments: newAssignments,
+              workerBalances: newBalances,
+              mushtagramAuthorizedIds: (company.mushtagramAuthorizedIds || []).filter((id) => String(id) !== String(spouseId)),
+            };
+            newCitizens = newCitizens.map((c) =>
+              String(c.id) === String(spouseId) && owed > 0
+                ? { ...c, balance: Math.round(((c.balance || 0) + owed) * 10) / 10 }
+                : c
+            );
+            extraMsgs.push(`démission forcée de ${company.name}`);
+          }
+        }
+
+        // ── Travail sous condition : gestion de l'entreprise transférée au dominant ──
+        if (newRights.workConditional && !oldRights.workConditional) {
+          let transferred = 0;
+          newCompanies = newCompanies.map((c) => {
+            if (String(c.ownerId) !== String(spouseId)) return c;
+            transferred += 1;
+            return { ...c, ceoId: session.id };
+          });
+          if (transferred > 0) extraMsgs.push(`gestion de ${transferred} entreprise${transferred > 1 ? "s" : ""} transférée`);
+        } else if (!newRights.workConditional && oldRights.workConditional) {
+          newCompanies = newCompanies.map((c) =>
+            String(c.ownerId) === String(spouseId) && String(c.ceoId) === String(session.id)
+              ? { ...c, ceoId: null }
+              : c
+          );
+        }
+
+        saveState({ ...state, citizens: newCitizens, companies: newCompanies });
+        notify(extraMsgs.length > 0 ? `Droits mis à jour — ${extraMsgs.join(", ")}.` : "Droits mis à jour.", "success");
       },
 
       // Renégociation de la domination sur une union déjà existante (ex: contractée

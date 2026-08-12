@@ -37,6 +37,8 @@ const SPOUSE_RIGHTS_LIST = [
   { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",             desc: "Interdit les échanges commerciaux (Bourse)" },
   { key: "postLocked",       icon: "✉️", label: "Bloquer la Poste Impériale",    desc: "Interdit l'envoi et la réception de courrier" },
   { key: "maisonLocked",     icon: "💋", label: "Bloquer la Maison de Asia",     desc: "Interdit l'accès à la maison de plaisir" },
+  { key: "workLocked",       icon: "⛔", label: "Interdiction de travailler",    desc: "Démission forcée de son emploi actuel et blocage de l'onglet Mon Entreprise" },
+  { key: "workConditional",  icon: "🗝️", label: "Travail sous condition",       desc: "Bloque l'onglet Mon Entreprise et transfère la gestion de son entreprise à vous, dans votre propre onglet" },
 ];
 
 // ── Modale de gestion des droits du conjoint dominé ─────────────────────────

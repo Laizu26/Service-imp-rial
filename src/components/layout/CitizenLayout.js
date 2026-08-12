@@ -952,6 +952,10 @@ const CitizenLayout = (props) => {
     marketLocked: !!(employerSerfRights.marketLocked || spouseRestriction.marketLocked || guardianRights.marketLocked || loanRestriction.marketLocked || selfRestriction.marketLocked),
     postLocked: !!(employerSerfRights.postLocked || spouseRestriction.postLocked || guardianRights.postLocked || loanRestriction.postLocked || selfRestriction.postLocked),
     maisonLocked: !!(employerSerfRights.maisonLocked || spouseRestriction.maisonLocked || guardianRights.maisonLocked || loanRestriction.maisonLocked || selfRestriction.maisonLocked),
+    // Interdiction de travailler / travail sous condition — exclusivement porté par le
+    // conjoint dominant (démission forcée / gestion transférée, voir onSetSpouseRights).
+    workLocked: !!spouseRestriction.workLocked,
+    workConditional: !!spouseRestriction.workConditional,
   };
   const restrictionSource = (key) => employerSerfRights[key] ? "employeur" : (guardianRights[key] ? "tuteur" : (loanRestriction[key] ? "entreprise emprunteuse" : (selfRestriction[key] ? "vous-même" : "conjoint")));
 
@@ -967,6 +971,7 @@ const CitizenLayout = (props) => {
   const marketAccessAllowed = canUseMarket && (isSlave || !combinedRestriction.marketLocked);
   const canUseMaison = !isSlave || !!permissions.maison;
   const maisonAccessAllowed = canUseMaison && !combinedRestriction.maisonLocked;
+  const myCompanyAccessAllowed = !combinedRestriction.workLocked && !combinedRestriction.workConditional;
 
   // Déplacement interne rapide depuis la Carte — mêmes conditions que l'onglet Voyage.
   const canTravelNow = !isBanned && !isPrisoner && canUseTravel && !combinedRestriction.travelLocked;
@@ -1737,7 +1742,20 @@ const CitizenLayout = (props) => {
               />
             )}
 
-            {active === "my_company" && (
+            {active === "my_company" && !myCompanyAccessAllowed && (
+              <div className="p-4 md:p-8">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center space-y-2">
+                  <div className="text-3xl">🚫</div>
+                  <p className="font-black text-red-700 text-base">Mon Entreprise — accès restreint</p>
+                  <p className="text-xs text-red-500">
+                    {combinedRestriction.workConditional
+                      ? "Votre conjoint dominant a repris la gestion de votre entreprise depuis son propre onglet."
+                      : "Votre conjoint dominant vous a interdit de travailler."}
+                  </p>
+                </div>
+              </div>
+            )}
+            {active === "my_company" && myCompanyAccessAllowed && (
               <MyCompanyView
                 user={user}
                 companies={companies}
