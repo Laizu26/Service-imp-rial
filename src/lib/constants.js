@@ -132,6 +132,7 @@ export const DEFAULT_GAME_STATE = {
   gazette: [],
   guilds: [],
   guildAlerts: [],
+  mushtagramGroups: [],
   maisonStaff: [],
   maisonQueue: [],
   maisonHistory: [],

@@ -968,6 +968,14 @@ export default function App() {
             onMarkMushtagramFeedSeen={actions.onMarkMushtagramFeedSeen}
             onDeleteMushtagramDM={actions.onDeleteMushtagramDM}
             onHideMushtagramDM={actions.onHideMushtagramDM}
+            mushtagramGroups={state.mushtagramGroups || []}
+            onCreateMushtagramGroup={actions.onCreateMushtagramGroup}
+            onUpdateMushtagramGroup={actions.onUpdateMushtagramGroup}
+            onAddMushtagramGroupMember={actions.onAddMushtagramGroupMember}
+            onLeaveMushtagramGroup={actions.onLeaveMushtagramGroup}
+            onSendMushtagramGroupDM={actions.onSendMushtagramGroupDM}
+            onMarkMushtagramGroupDMsRead={actions.onMarkMushtagramGroupDMsRead}
+            onSetMushtagramNickname={actions.onSetMushtagramNickname}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1563,6 +1571,14 @@ export default function App() {
                         onMarkMushtagramFeedSeen={actions.onMarkMushtagramFeedSeen}
                         onDeleteMushtagramDM={actions.onDeleteMushtagramDM}
                         onHideMushtagramDM={actions.onHideMushtagramDM}
+                        mushtagramGroups={state.mushtagramGroups || []}
+                        onCreateMushtagramGroup={actions.onCreateMushtagramGroup}
+                        onUpdateMushtagramGroup={actions.onUpdateMushtagramGroup}
+                        onAddMushtagramGroupMember={actions.onAddMushtagramGroupMember}
+                        onLeaveMushtagramGroup={actions.onLeaveMushtagramGroup}
+                        onSendMushtagramGroupDM={actions.onSendMushtagramGroupDM}
+                        onMarkMushtagramGroupDMsRead={actions.onMarkMushtagramGroupDMsRead}
+                        onSetMushtagramNickname={actions.onSetMushtagramNickname}
                         notify={notify}
                       />
                     </div>

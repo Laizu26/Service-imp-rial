@@ -774,6 +774,14 @@ const CitizenLayout = (props) => {
     onMarkMushtagramFeedSeen,
     onDeleteMushtagramDM,
     onHideMushtagramDM,
+    mushtagramGroups = [],
+    onCreateMushtagramGroup,
+    onUpdateMushtagramGroup,
+    onAddMushtagramGroupMember,
+    onLeaveMushtagramGroup,
+    onSendMushtagramGroupDM,
+    onMarkMushtagramGroupDMsRead,
+    onSetMushtagramNickname,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1907,6 +1915,14 @@ const CitizenLayout = (props) => {
                 onMarkMushtagramFeedSeen={onMarkMushtagramFeedSeen}
                 onDeleteMushtagramDM={onDeleteMushtagramDM}
                 onHideMushtagramDM={onHideMushtagramDM}
+                mushtagramGroups={mushtagramGroups}
+                onCreateMushtagramGroup={onCreateMushtagramGroup}
+                onUpdateMushtagramGroup={onUpdateMushtagramGroup}
+                onAddMushtagramGroupMember={onAddMushtagramGroupMember}
+                onLeaveMushtagramGroup={onLeaveMushtagramGroup}
+                onSendMushtagramGroupDM={onSendMushtagramGroupDM}
+                onMarkMushtagramGroupDMsRead={onMarkMushtagramGroupDMsRead}
+                onSetMushtagramNickname={onSetMushtagramNickname}
                 notify={notify}
               />
             )}

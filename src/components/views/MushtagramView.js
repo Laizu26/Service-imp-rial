@@ -3,6 +3,7 @@ import {
   Heart, MessageCircle, Send, Search, Trash2, ArrowLeft,
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
   UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell, Coins, Sparkles, Type,
+  Check, LogOut, Users,
 } from "lucide-react";
 import { ROLES, MUSHTAGRAM_REPORT_REASONS } from "../../lib/constants";
 import { formatMoney, formatRPDate } from "../../lib/gameUtils";
@@ -1333,10 +1334,12 @@ function PostCard({
 export default function MushtagramView({
   session, citizens = [], companies = [], guilds = [], eruditRequests = [], gameDate,
   mushtagramPosts = [], mushtagramDMs = [], mushtagramStories = [], mushtagramNotifs = [],
-  mushtagramSubscriptions = [],
+  mushtagramSubscriptions = [], mushtagramGroups = [],
   onPostMushtagram, onDeleteMushtagramPost, onEditMushtagramPost,
   onToggleMushtagramLike, onAddMushtagramComment, onDeleteMushtagramComment, onLikeMushtagramComment, onPinMushtagramComment,
   onUpdateMushtagramProfile, onUpdateEntityMushtagramProfile, onSendMushtagramDM, onMarkMushtagramDMsRead,
+  onCreateMushtagramGroup, onUpdateMushtagramGroup, onAddMushtagramGroupMember, onLeaveMushtagramGroup,
+  onSendMushtagramGroupDM, onMarkMushtagramGroupDMsRead, onSetMushtagramNickname,
   onFollowMushtagram, onUnfollowMushtagram,
   onReactMushtagram, onRepostMushtagram,
   onVoteMushtagramPoll, onPinMushtagramPost,
@@ -1407,9 +1410,24 @@ export default function MushtagramView({
 
   // Messages
   const [selConv, setSelConv]       = useState(null);
+  const [selGroup, setSelGroup]     = useState(null);
   const [dmInput, setDmInput]       = useState("");
   const [dmSearch, setDmSearch]     = useState("");
   const messagesEndRef               = useRef(null);
+
+  // Groupes MP
+  const [creatingGroup, setCreatingGroup]   = useState(false);
+  const [groupName, setGroupName]           = useState("");
+  const [groupMemberIds, setGroupMemberIds] = useState([]);
+  const [groupSearch, setGroupSearch]       = useState("");
+  const [editingGroupSettings, setEditingGroupSettings] = useState(false);
+  const [groupSettingsDraft, setGroupSettingsDraft]     = useState({ name: "", avatar: "" });
+  const [showGroupMembers, setShowGroupMembers]         = useState(false);
+  const [addMemberSearch, setAddMemberSearch]           = useState("");
+
+  // Surnom d'ami
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [nicknameDraft, setNicknameDraft]     = useState("");
 
   // Profil
   const [editingProfile, setEditingProfile] = useState(false);
@@ -1704,22 +1722,40 @@ export default function MushtagramView({
     ),
   [mushtagramDMs, myId]);
 
+  // Surnom d'ami (voir onSetMushtagramNickname) — privé, propre à moi : remplace le nom
+  // affiché dans la liste et l'en-tête, sans rien changer côté personne visée.
+  const nicknameFor = (id) => myCitizen?.mushtagramNicknames?.[String(id)];
+  const displayName = (id, fallback) => nicknameFor(id) || fallback;
+
+  const myGroups = useMemo(
+    () => (mushtagramGroups || []).filter(g => (g.memberIds || []).map(String).includes(myId)),
+    [mushtagramGroups, myId]
+  );
+
+  // Liste unifiée conversations 1-1 + groupes, triée par dernier message — un groupe sans
+  // encore aucun message reste visible (timestamp 0) pour qu'on puisse l'ouvrir juste après
+  // sa création.
   const conversations = useMemo(() => {
     const map = {};
-    myDMs.forEach(dm => {
+    myDMs.filter(d => !d.groupId).forEach(dm => {
       const otherId   = String(dm.fromId) === myId ? String(dm.toId)   : String(dm.fromId);
       const otherName = String(dm.fromId) === myId ? (dm.toName || citizens.find(c => String(c.id) === String(dm.toId))?.name) : dm.fromName;
-      if (!map[otherId]) map[otherId] = { id: otherId, name: otherName, messages: [], unread: 0 };
+      if (!map[otherId]) map[otherId] = { id: otherId, kind: "dm", name: otherName, messages: [], unread: 0 };
       if (!map[otherId].name && otherName) map[otherId].name = otherName;
       map[otherId].messages.push(dm);
       if (!dm.read && !dm.readByRecipient && String(dm.toId) === myId) map[otherId].unread++;
+    });
+    myGroups.forEach(g => {
+      const msgs = myDMs.filter(d => d.groupId === g.id);
+      const unread = msgs.filter(d => String(d.fromId) !== myId && !(d.readBy || []).map(String).includes(myId)).length;
+      map[`group_${g.id}`] = { id: g.id, kind: "group", name: g.name, avatar: g.avatar, memberIds: g.memberIds, messages: msgs, unread };
     });
     return Object.values(map).sort((a, b) => {
       const la = a.messages.at(-1)?.timestamp ?? a.messages.at(-1)?.createdAt ?? 0;
       const lb = b.messages.at(-1)?.timestamp ?? b.messages.at(-1)?.createdAt ?? 0;
       return lb - la;
     });
-  }, [myDMs, myId]);
+  }, [myDMs, myId, myGroups, citizens]);
 
   const convMessages = useMemo(() => {
     if (!selConv) return [];
@@ -1728,30 +1764,82 @@ export default function MushtagramView({
       .sort((a, b) => (a.createdAt || a.timestamp || 0) - (b.createdAt || b.timestamp || 0));
   }, [myDMs, selConv]);
 
+  const activeGroup = useMemo(() => myGroups.find(g => g.id === selGroup) || null, [myGroups, selGroup]);
+  const groupConvMessages = useMemo(() => {
+    if (!selGroup) return [];
+    return myDMs.filter(d => d.groupId === selGroup).sort((a, b) => (a.createdAt || a.timestamp || 0) - (b.createdAt || b.timestamp || 0));
+  }, [myDMs, selGroup]);
+
   const totalUnread = useMemo(() => conversations.reduce((s, c) => s + c.unread, 0), [conversations]);
 
-  const openConversation = (id) => {
-    setSelConv(id);
-    const unreadIds = myDMs.filter(d => String(d.fromId) === id && !d.read && !d.readByRecipient).map(d => d.id);
-    if (unreadIds.length > 0 && onMarkMushtagramDMsRead) onMarkMushtagramDMsRead(id);
+  const openConversation = (conv) => {
+    if (conv.kind === "group") {
+      setSelGroup(conv.id); setSelConv(null);
+      if (onMarkMushtagramGroupDMsRead) onMarkMushtagramGroupDMsRead(conv.id);
+    } else {
+      setSelConv(conv.id); setSelGroup(null);
+      const unreadIds = myDMs.filter(d => String(d.fromId) === conv.id && !d.read && !d.readByRecipient).map(d => d.id);
+      if (unreadIds.length > 0 && onMarkMushtagramDMsRead) onMarkMushtagramDMsRead(conv.id);
+    }
   };
+
+  const closeConversation = () => { setSelConv(null); setSelGroup(null); setEditingGroupSettings(false); setShowGroupMembers(false); setEditingNickname(false); };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [convMessages.length]);
+  }, [convMessages.length, groupConvMessages.length]);
 
-  // Si un message arrive pendant que la conversation est déjà ouverte, sa
-  // notification ne doit pas rester non lue jusqu'à un aller-retour d'onglet.
+  // Si un message arrive pendant que la conversation est déjà ouverte, sa notification ne
+  // doit pas rester non lue jusqu'à un aller-retour d'onglet — et surtout, un ping visible
+  // doit prévenir qu'un nouveau message est arrivé pendant qu'on regarde déjà le fil (sinon
+  // il passe inaperçu, notamment tout en bas d'une conversation qu'on ne relit pas ligne à
+  // ligne).
   useEffect(() => {
     if (!selConv) return;
-    const unreadNotifIds = myNotifs.filter(n => n.type === "dm" && String(n.fromId) === String(selConv) && !n.read).map(n => n.id);
-    if (unreadNotifIds.length > 0 && onMarkMushtagramNotifsRead) onMarkMushtagramNotifsRead(unreadNotifIds);
+    const unread = myNotifs.filter(n => n.type === "dm" && String(n.fromId) === String(selConv) && !n.read);
+    if (unread.length === 0) return;
+    unread.forEach(n => notify && notify(`${displayName(n.fromId, n.fromName)} : ${n.content}`, "info"));
+    if (onMarkMushtagramNotifsRead) onMarkMushtagramNotifsRead(unread.map(n => n.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selConv, myNotifs, onMarkMushtagramNotifsRead]);
 
+  useEffect(() => {
+    if (!selGroup) return;
+    const unread = myNotifs.filter(n => n.type === "group_dm" && String(n.groupId) === String(selGroup) && !n.read);
+    if (unread.length === 0) return;
+    unread.forEach(n => notify && notify(`${n.groupName || "Groupe"} — ${n.fromName} : ${n.content}`, "info"));
+    if (onMarkMushtagramNotifsRead) onMarkMushtagramNotifsRead(unread.map(n => n.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selGroup, myNotifs, onMarkMushtagramNotifsRead]);
+
   const sendDM = () => {
-    if (!dmInput.trim() || !selConv) return;
-    onSendMushtagramDM({ toId: selConv, content: dmInput.trim() });
+    if (!dmInput.trim()) return;
+    if (selGroup) {
+      onSendMushtagramGroupDM({ groupId: selGroup, content: dmInput.trim() });
+    } else if (selConv) {
+      onSendMushtagramDM({ toId: selConv, content: dmInput.trim() });
+    } else {
+      return;
+    }
     setDmInput("");
+  };
+
+  const handleCreateGroup = () => {
+    if (!groupName.trim() || groupMemberIds.length < 2 || !onCreateMushtagramGroup) return;
+    onCreateMushtagramGroup({ name: groupName.trim(), memberIds: groupMemberIds });
+    setGroupName(""); setGroupMemberIds([]); setGroupSearch(""); setCreatingGroup(false);
+  };
+
+  const saveNickname = () => {
+    if (!selConv || !onSetMushtagramNickname) return;
+    onSetMushtagramNickname({ citizenId: selConv, nickname: nicknameDraft.trim() });
+    setEditingNickname(false);
+  };
+
+  const saveGroupSettings = () => {
+    if (!selGroup || !onUpdateMushtagramGroup) return;
+    onUpdateMushtagramGroup({ groupId: selGroup, name: groupSettingsDraft.name, avatar: groupSettingsDraft.avatar });
+    setEditingGroupSettings(false);
   };
 
   /* ── profil ──────────────────────────────────────────────────────── */
@@ -2235,23 +2323,120 @@ export default function MushtagramView({
       {/* ══════════════════════ MESSAGES ══════════════════════ */}
       {tab === "messages" && (
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden" style={{ minHeight: 520 }}>
-          {selConv ? (
+          {(selConv || selGroup) ? (
             <div className="flex flex-col" style={{ minHeight: 520 }}>
               {/* Header conversation */}
-              {(() => {
+              {selGroup ? (
+                <div className="border-b border-stone-100 shrink-0">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <button onClick={closeConversation}
+                      className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all">
+                      <ArrowLeft size={16} />
+                    </button>
+                    <Ava citizen={{ name: activeGroup?.name, mushtagramAvatar: activeGroup?.avatar }} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      {editingGroupSettings ? (
+                        <div className="flex items-center gap-1">
+                          <input value={groupSettingsDraft.avatar} maxLength={2}
+                            onChange={e => setGroupSettingsDraft({ ...groupSettingsDraft, avatar: e.target.value })}
+                            className="w-8 px-1 py-1 border border-stone-200 rounded text-center text-sm" />
+                          <input value={groupSettingsDraft.name}
+                            onChange={e => setGroupSettingsDraft({ ...groupSettingsDraft, name: e.target.value })}
+                            onKeyDown={e => e.key === "Enter" && saveGroupSettings()}
+                            className="flex-1 px-2 py-1 border border-stone-200 rounded text-sm font-bold" autoFocus />
+                          <button onClick={saveGroupSettings} className="text-green-600 hover:text-green-700 p-1"><Check size={14} /></button>
+                          <button onClick={() => setEditingGroupSettings(false)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setGroupSettingsDraft({ name: activeGroup?.name || "", avatar: activeGroup?.avatar || "" }); setEditingGroupSettings(true); }}
+                          className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors flex items-center gap-1.5">
+                          {activeGroup?.name} <Edit3 size={11} className="text-stone-300" />
+                        </button>
+                      )}
+                      <div className="text-[9px] text-stone-400">{(activeGroup?.memberIds || []).length} membres</div>
+                    </div>
+                    <button onClick={() => setShowGroupMembers(v => !v)}
+                      title="Membres" className={`p-2 rounded-lg transition-colors ${showGroupMembers ? "bg-rose-50 text-rose-600" : "text-stone-400 hover:bg-stone-100"}`}>
+                      <Users size={15} />
+                    </button>
+                  </div>
+
+                  {showGroupMembers && (
+                    <div className="px-4 pb-3 space-y-2 bg-stone-50 border-t border-stone-100 pt-3">
+                      <div className="space-y-1 max-h-28 overflow-y-auto">
+                        {(activeGroup?.memberIds || []).map(mid => {
+                          const m = citizens.find(c => String(c.id) === String(mid));
+                          return (
+                            <div key={mid} className="flex items-center gap-2 text-xs text-stone-700">
+                              <Ava citizen={m || { name: "?" }} size="sm" />
+                              <span className="font-semibold">{displayName(mid, m?.name || "?")}{String(mid) === myId ? " (vous)" : ""}</span>
+                              {String(mid) === activeGroup?.creatorId && <Crown size={10} className="text-yellow-500" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" size={11} />
+                        <input value={addMemberSearch} onChange={e => setAddMemberSearch(e.target.value)}
+                          placeholder="Ajouter un membre…"
+                          className="w-full pl-7 pr-2 py-1.5 bg-white border border-stone-200 rounded-lg text-[11px] outline-none focus:ring-2 focus:ring-rose-200/40" />
+                        {addMemberSearch && (
+                          <div className="bg-white border border-stone-200 rounded-lg overflow-hidden shadow-lg max-h-28 overflow-y-auto mt-1 absolute z-10 w-full">
+                            {citizens
+                              .filter(c => !(activeGroup?.memberIds || []).map(String).includes(String(c.id)) && c.name?.toLowerCase().includes(addMemberSearch.toLowerCase()))
+                              .slice(0, 6)
+                              .map(c => (
+                                <button key={c.id}
+                                  onClick={() => { onAddMushtagramGroupMember && onAddMushtagramGroupMember({ groupId: selGroup, citizenId: c.id }); setAddMemberSearch(""); }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-stone-50 text-left text-xs">
+                                  <Ava citizen={c} size="sm" /> {c.name}
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => { if (window.confirm("Quitter ce groupe ?")) { onLeaveMushtagramGroup && onLeaveMushtagramGroup(selGroup); closeConversation(); } }}
+                        className="text-[10px] font-bold uppercase text-red-500 hover:text-red-600 flex items-center gap-1">
+                        <LogOut size={11} /> Quitter le groupe
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (() => {
                 const other = citizens.find(c => String(c.id) === selConv) || { name: conversations.find(c => c.id === selConv)?.name || "?" };
                 return (
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-100 shrink-0">
-                    <button onClick={() => setSelConv(null)}
+                    <button onClick={closeConversation}
                       className="p-1 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all">
                       <ArrowLeft size={16} />
                     </button>
                     <Ava citizen={other} size="sm" onClick={() => other.id && setViewingProfile(other)} />
-                    <div>
-                      <button onClick={() => other.id && setViewingProfile(other)}
-                        className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
-                        {other.name}
-                      </button>
+                    <div className="flex-1 min-w-0">
+                      {editingNickname ? (
+                        <div className="flex items-center gap-1">
+                          <input value={nicknameDraft} onChange={e => setNicknameDraft(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && saveNickname()}
+                            placeholder={other.name}
+                            className="flex-1 px-2 py-1 border border-stone-200 rounded text-sm font-bold" autoFocus maxLength={40} />
+                          <button onClick={saveNickname} className="text-green-600 hover:text-green-700 p-1"><Check size={14} /></button>
+                          <button onClick={() => setEditingNickname(false)} className="text-stone-400 hover:text-stone-600 p-1"><X size={14} /></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => other.id && setViewingProfile(other)}
+                            className="text-sm font-black text-stone-900 hover:text-rose-600 transition-colors">
+                            {displayName(selConv, other.name)}
+                          </button>
+                          {onSetMushtagramNickname && (
+                            <button onClick={() => { setNicknameDraft(nicknameFor(selConv) || ""); setEditingNickname(true); }}
+                              title="Donner un surnom" className="text-stone-300 hover:text-stone-600">
+                              <Edit3 size={11} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {nicknameFor(selConv) && <div className="text-[9px] text-stone-400">{other.name}</div>}
                       {other.mushtagramHandle && <div className="text-[9px] text-stone-400">@{other.mushtagramHandle}</div>}
                     </div>
                   </div>
@@ -2260,57 +2445,58 @@ export default function MushtagramView({
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: 380 }}>
-                {convMessages.length === 0 && (
-                  <div className="text-center text-stone-400 italic text-sm py-8">Commencez la conversation !</div>
-                )}
-                {convMessages.map((dm, i) => {
-                  const isMine = String(dm.fromId) === myId;
-                  const author = isMine
-                    ? (myCitizen || session)
-                    : (citizens.find(c => String(c.id) === String(dm.fromId)) || { name: dm.fromName || "?" });
-                  const prevDm = convMessages[i - 1];
-                  const nextDm = convMessages[i + 1];
-                  const isFirstOfGroup = !prevDm || String(prevDm.fromId) !== String(dm.fromId);
-                  const isLastOfGroup = !nextDm || String(nextDm.fromId) !== String(dm.fromId);
-                  return (
-                    <div key={dm.id} className={`flex items-end gap-2 group ${isMine ? "justify-end" : "justify-start"} ${isFirstOfGroup ? "mt-2" : "mt-0.5"}`}>
-                      {!isMine && (isLastOfGroup
-                        ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
-                        : <div className="w-7 shrink-0" />)}
-                      {isMine && onDeleteMushtagramDM && (
-                        <button onClick={() => onDeleteMushtagramDM(dm.id)}
-                          title="Supprimer le message"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500 shrink-0 mb-1 p-1">
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                      <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[72%]`}>
-                        {isFirstOfGroup && (
-                          <span className="text-[10px] font-bold text-stone-400 px-1 mb-0.5">
-                            {isMine ? "Vous" : author.name}
-                          </span>
+                {(() => {
+                  const msgs = selGroup ? groupConvMessages : convMessages;
+                  if (msgs.length === 0) return <div className="text-center text-stone-400 italic text-sm py-8">Commencez la conversation !</div>;
+                  return msgs.map((dm, i) => {
+                    const isMine = String(dm.fromId) === myId;
+                    const author = isMine
+                      ? (myCitizen || session)
+                      : (citizens.find(c => String(c.id) === String(dm.fromId)) || { name: dm.fromName || "?" });
+                    const prevDm = msgs[i - 1];
+                    const nextDm = msgs[i + 1];
+                    const isFirstOfGroup = !prevDm || String(prevDm.fromId) !== String(dm.fromId);
+                    const isLastOfGroup = !nextDm || String(nextDm.fromId) !== String(dm.fromId);
+                    return (
+                      <div key={dm.id} className={`flex items-end gap-2 group ${isMine ? "justify-end" : "justify-start"} ${isFirstOfGroup ? "mt-2" : "mt-0.5"}`}>
+                        {!isMine && (isLastOfGroup
+                          ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
+                          : <div className="w-7 shrink-0" />)}
+                        {isMine && onDeleteMushtagramDM && (
+                          <button onClick={() => onDeleteMushtagramDM(dm.id)}
+                            title="Supprimer le message"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500 shrink-0 mb-1 p-1">
+                            <Trash2 size={12} />
+                          </button>
                         )}
-                        <div className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                          isMine
-                            ? `bg-gradient-to-r from-rose-500 to-violet-600 text-white ${isLastOfGroup ? "rounded-br-sm" : "rounded-r-md"}`
-                            : `bg-stone-100 text-stone-800 ${isLastOfGroup ? "rounded-bl-sm" : "rounded-l-md"}`
-                        }`}>
-                          {dm.content}
+                        <div className={`flex flex-col ${isMine ? "items-end" : "items-start"} max-w-[72%]`}>
+                          {isFirstOfGroup && (
+                            <span className="text-[10px] font-bold text-stone-400 px-1 mb-0.5">
+                              {isMine ? "Vous" : author.name}
+                            </span>
+                          )}
+                          <div className={`rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                            isMine
+                              ? `bg-gradient-to-r from-rose-500 to-violet-600 text-white ${isLastOfGroup ? "rounded-br-sm" : "rounded-r-md"}`
+                              : `bg-stone-100 text-stone-800 ${isLastOfGroup ? "rounded-bl-sm" : "rounded-l-md"}`
+                          }`}>
+                            {dm.content}
+                          </div>
                         </div>
+                        {!isMine && onHideMushtagramDM && (
+                          <button onClick={() => onHideMushtagramDM(dm.id)}
+                            title="Supprimer de ma conversation"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500 shrink-0 mb-1 p-1">
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                        {isMine && (isLastOfGroup
+                          ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
+                          : <div className="w-7 shrink-0" />)}
                       </div>
-                      {!isMine && onHideMushtagramDM && (
-                        <button onClick={() => onHideMushtagramDM(dm.id)}
-                          title="Supprimer de ma conversation"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-stone-300 hover:text-red-500 shrink-0 mb-1 p-1">
-                          <Trash2 size={12} />
-                        </button>
-                      )}
-                      {isMine && (isLastOfGroup
-                        ? <Ava citizen={author} size="sm" className="shrink-0 mb-0.5" />
-                        : <div className="w-7 shrink-0" />)}
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -2330,7 +2516,15 @@ export default function MushtagramView({
             <div>
               {/* Chercher / Nouvelle conversation */}
               <div className="p-4 border-b border-stone-100 space-y-1">
-                <p className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-2">Nouvelle conversation</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-stone-400">Nouvelle conversation</p>
+                  {onCreateMushtagramGroup && (
+                    <button onClick={() => setCreatingGroup(v => !v)}
+                      className="text-[9px] font-black uppercase text-rose-600 hover:text-rose-700 flex items-center gap-1">
+                      <Plus size={11} /> Nouveau groupe
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={12} />
                   <input value={dmSearch} onChange={e => setDmSearch(e.target.value)}
@@ -2344,15 +2538,67 @@ export default function MushtagramView({
                       .slice(0, 7)
                       .map(c => (
                         <button key={c.id}
-                          onClick={() => { openConversation(String(c.id)); setDmSearch(""); }}
+                          onClick={() => { openConversation({ kind: "dm", id: String(c.id) }); setDmSearch(""); }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-stone-50 text-left transition-colors border-b border-stone-50">
                           <Ava citizen={c} size="sm" />
                           <div>
-                            <div className="text-sm font-semibold text-stone-800">{c.name}</div>
+                            <div className="text-sm font-semibold text-stone-800">{displayName(c.id, c.name)}</div>
                             {c.mushtagramHandle && <div className="text-[9px] text-stone-400">@{c.mushtagramHandle}</div>}
                           </div>
                         </button>
                       ))}
+                  </div>
+                )}
+
+                {creatingGroup && (
+                  <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 mt-2 space-y-2">
+                    <input value={groupName} onChange={e => setGroupName(e.target.value)}
+                      placeholder="Nom du groupe…"
+                      className="w-full px-3 py-2 bg-white border border-stone-200 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-rose-200/40" />
+                    {groupMemberIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {groupMemberIds.map(id => {
+                          const c = citizens.find(x => String(x.id) === String(id));
+                          return (
+                            <span key={id} className="flex items-center gap-1 bg-white border border-stone-200 rounded-full pl-2 pr-1 py-0.5 text-[10px] font-bold text-stone-700">
+                              {c?.name || id}
+                              <button onClick={() => setGroupMemberIds(groupMemberIds.filter(x => x !== id))} className="text-stone-400 hover:text-red-500"><X size={10} /></button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" size={11} />
+                      <input value={groupSearch} onChange={e => setGroupSearch(e.target.value)}
+                        placeholder="Ajouter des membres…"
+                        className="w-full pl-7 pr-2 py-1.5 bg-white border border-stone-200 rounded-lg text-[11px] outline-none focus:ring-2 focus:ring-rose-200/40" />
+                      {groupSearch && (
+                        <div className="bg-white border border-stone-200 rounded-lg overflow-hidden shadow-lg max-h-28 overflow-y-auto mt-1">
+                          {citizens
+                            .filter(c => String(c.id) !== myId && !groupMemberIds.map(String).includes(String(c.id)) && c.name?.toLowerCase().includes(groupSearch.toLowerCase()))
+                            .slice(0, 6)
+                            .map(c => (
+                              <button key={c.id}
+                                onClick={() => { setGroupMemberIds([...groupMemberIds, String(c.id)]); setGroupSearch(""); }}
+                                className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-stone-50 text-left text-xs">
+                                <Ava citizen={c} size="sm" /> {c.name}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleCreateGroup} disabled={!groupName.trim() || groupMemberIds.length < 2}
+                        className="flex-1 bg-gradient-to-r from-rose-500 to-violet-600 text-white py-2 rounded-lg text-[10px] font-black uppercase disabled:opacity-40">
+                        Créer le groupe
+                      </button>
+                      <button onClick={() => { setCreatingGroup(false); setGroupName(""); setGroupMemberIds([]); }}
+                        className="px-3 bg-white border border-stone-200 text-stone-400 rounded-lg text-[10px] font-bold uppercase">
+                        Annuler
+                      </button>
+                    </div>
+                    {groupMemberIds.length < 2 && <p className="text-[9px] text-stone-400 italic">Au moins 2 autres membres requis.</p>}
                   </div>
                 )}
               </div>
@@ -2361,16 +2607,18 @@ export default function MushtagramView({
               {conversations.length === 0 ? (
                 <div className="text-center py-14 text-stone-400 italic text-sm">Aucune conversation — cherchez un citoyen ci-dessus</div>
               ) : conversations.map(conv => {
-                const other = citizens.find(c => String(c.id) === conv.id);
+                const isGroup = conv.kind === "group";
+                const other = isGroup ? null : citizens.find(c => String(c.id) === conv.id);
                 const lastMsg = conv.messages.at(-1);
+                const convName = isGroup ? conv.name : displayName(conv.id, conv.name);
                 return (
-                  <button key={conv.id} onClick={() => openConversation(conv.id)}
+                  <button key={isGroup ? `group_${conv.id}` : conv.id} onClick={() => openConversation(conv)}
                     className="w-full flex items-center gap-3 px-4 py-3 border-b border-stone-50 hover:bg-stone-50 transition-colors text-left">
-                    <Ava citizen={other || { name: conv.name }} size="md" />
+                    <Ava citizen={isGroup ? { name: conv.name, mushtagramAvatar: conv.avatar } : (other || { name: conv.name })} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className={`text-sm truncate ${conv.unread > 0 ? "font-black text-stone-900" : "font-semibold text-stone-700"}`}>
-                          {conv.name}
+                        <span className={`text-sm truncate flex items-center gap-1 ${conv.unread > 0 ? "font-black text-stone-900" : "font-semibold text-stone-700"}`}>
+                          {isGroup && <Users size={11} className="text-stone-400 shrink-0" />} {convName}
                         </span>
                         {conv.unread > 0 && (
                           <span className="ml-2 w-5 h-5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
@@ -2378,7 +2626,9 @@ export default function MushtagramView({
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-stone-400 truncate">{lastMsg?.content || ""}</div>
+                      <div className="text-[10px] text-stone-400 truncate">
+                        {lastMsg ? `${isGroup && String(lastMsg.fromId) !== myId ? `${lastMsg.fromName} : ` : ""}${lastMsg.content}` : (isGroup ? "Aucun message" : "")}
+                      </div>
                     </div>
                   </button>
                 );

@@ -9574,7 +9574,11 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (!session) return;
         const dm = (state.mushtagramDMs || []).find(d => d.id === dmId);
         if (!dm) return;
-        if (String(dm.fromId) !== String(session.id) && String(dm.toId) !== String(session.id)) {
+        const group = dm.groupId ? (state.mushtagramGroups || []).find(g => g.id === dm.groupId) : null;
+        const isParticipant = dm.groupId
+          ? !!group && (group.memberIds || []).map(String).includes(String(session.id))
+          : String(dm.fromId) === String(session.id) || String(dm.toId) === String(session.id);
+        if (!isParticipant) {
           notify("Vous ne participez pas à cette conversation.", "error");
           return;
         }
@@ -9608,6 +9612,154 @@ export const useGameActions = (session, state, saveState, notify) => {
         );
         const mushtagramNotifs = (state.mushtagramNotifs || []).map((n) =>
           n.type === "dm" && String(n.fromId) === String(fromId) && String(n.toId) === String(session.id) ? { ...n, read: true } : n
+        );
+        saveState({ ...state, mushtagramDMs: dms, mushtagramNotifs });
+      },
+
+      // Surnom d'ami — privé, propre à l'appelant : ne modifie ni n'affiche rien pour la
+      // personne visée, uniquement un alias local (même principe qu'un carnet de contacts).
+      onSetMushtagramNickname: ({ citizenId, nickname }) => {
+        if (!session) return;
+        const trimmed = (nickname || "").trim().slice(0, 40);
+        const updated = (state.citizens || []).map((c) => {
+          if (String(c.id) !== String(session.id)) return c;
+          const nicknames = { ...(c.mushtagramNicknames || {}) };
+          if (trimmed) nicknames[citizenId] = trimmed;
+          else delete nicknames[citizenId];
+          return { ...c, mushtagramNicknames: nicknames };
+        });
+        saveState({ ...state, citizens: updated });
+        notify(trimmed ? "Surnom enregistré." : "Surnom retiré.", "success");
+      },
+
+      // ── Messages privés de groupe ────────────────────────────────────────────
+      // Réutilise mushtagramDMs (même tableau que les DM 1-1) : un message de groupe porte
+      // groupId au lieu de toId, et readBy[] (tableau) au lieu de readByRecipient (booléen),
+      // puisqu'il y a plusieurs destinataires à suivre individuellement.
+      onCreateMushtagramGroup: ({ name, memberIds }) => {
+        if (!session) return;
+        const trimmedName = (name || "").trim();
+        if (trimmedName.length < 2) { notify("Le nom du groupe doit compter au moins 2 caractères.", "error"); return; }
+        const others = [...new Set((memberIds || []).map(String))].filter((id) => id !== String(session.id));
+        if (others.length < 2) { notify("Un groupe demande au moins 2 autres membres.", "error"); return; }
+        const group = {
+          id: `mgrp_${Date.now()}`,
+          name: trimmedName,
+          avatar: "👥",
+          memberIds: [String(session.id), ...others],
+          creatorId: session.id,
+          createdAt: Date.now(),
+        };
+        saveState({ ...state, mushtagramGroups: [group, ...(state.mushtagramGroups || [])] });
+        notify(`Groupe "${trimmedName}" créé.`, "success");
+      },
+
+      onUpdateMushtagramGroup: ({ groupId, name, avatar }) => {
+        if (!session) return;
+        const groups = [...(state.mushtagramGroups || [])];
+        const idx = groups.findIndex((g) => g.id === groupId);
+        if (idx === -1) return;
+        if (!(groups[idx].memberIds || []).map(String).includes(String(session.id))) {
+          notify("Vous ne faites pas partie de ce groupe.", "error");
+          return;
+        }
+        groups[idx] = {
+          ...groups[idx],
+          name: name !== undefined ? String(name).trim().slice(0, 60) || groups[idx].name : groups[idx].name,
+          avatar: avatar !== undefined ? avatar : groups[idx].avatar,
+        };
+        saveState({ ...state, mushtagramGroups: groups });
+        notify("Groupe mis à jour.", "success");
+      },
+
+      onAddMushtagramGroupMember: ({ groupId, citizenId }) => {
+        if (!session) return;
+        const groups = [...(state.mushtagramGroups || [])];
+        const idx = groups.findIndex((g) => g.id === groupId);
+        if (idx === -1) return;
+        if (!(groups[idx].memberIds || []).map(String).includes(String(session.id))) {
+          notify("Vous ne faites pas partie de ce groupe.", "error");
+          return;
+        }
+        if ((groups[idx].memberIds || []).map(String).includes(String(citizenId))) return;
+        const added = (state.citizens || []).find((c) => c.id === citizenId);
+        groups[idx] = { ...groups[idx], memberIds: [...(groups[idx].memberIds || []), String(citizenId)] };
+        saveState({ ...state, mushtagramGroups: groups });
+        notify(`${added?.name || "Membre"} ajouté(e) au groupe.`, "success");
+      },
+
+      // Quitter un groupe qui tomberait à moins de 2 membres restants n'a plus de sens — il
+      // est dissous plutôt que laissé exister avec un seul participant.
+      onLeaveMushtagramGroup: (groupId) => {
+        if (!session) return;
+        const groups = [...(state.mushtagramGroups || [])];
+        const idx = groups.findIndex((g) => g.id === groupId);
+        if (idx === -1) return;
+        const remaining = (groups[idx].memberIds || []).filter((id) => String(id) !== String(session.id));
+        if (remaining.length < 2) {
+          saveState({ ...state, mushtagramGroups: groups.filter((g) => g.id !== groupId) });
+          notify("Groupe dissous — plus assez de membres.", "info");
+          return;
+        }
+        groups[idx] = { ...groups[idx], memberIds: remaining };
+        saveState({ ...state, mushtagramGroups: groups });
+        notify("Vous avez quitté le groupe.", "info");
+      },
+
+      onSendMushtagramGroupDM: ({ groupId, content }) => {
+        if (!session || !content?.trim()) return;
+        const group = (state.mushtagramGroups || []).find((g) => g.id === groupId);
+        if (!group) return;
+        if (!(group.memberIds || []).map(String).includes(String(session.id))) {
+          notify("Vous ne faites pas partie de ce groupe.", "error");
+          return;
+        }
+        const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
+        const dm = {
+          id: `mdm_${Date.now()}`,
+          fromId: session.id,
+          fromName: session.name,
+          groupId,
+          content: content.trim(),
+          date: formatRPDate(gd),
+          createdAt: Date.now(),
+          readBy: [String(session.id)],
+        };
+        const recipients = (group.memberIds || []).map(String).filter((id) => id !== String(session.id));
+        const existingNotifs = state.mushtagramNotifs || [];
+        let mushtagramNotifs = [...existingNotifs];
+        recipients.forEach((toId) => {
+          const existingIdx = mushtagramNotifs.findIndex((n) =>
+            n.type === "group_dm" && String(n.groupId) === String(groupId) && String(n.toId) === toId && !n.read
+          );
+          if (existingIdx !== -1) {
+            mushtagramNotifs[existingIdx] = {
+              ...mushtagramNotifs[existingIdx],
+              content: content.trim().slice(0, 60),
+              count: (mushtagramNotifs[existingIdx].count || 1) + 1,
+              timestamp: Date.now(),
+            };
+          } else {
+            mushtagramNotifs.push({
+              id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+              toId, type: "group_dm", fromId: String(session.id), fromName: session.name,
+              groupId, groupName: group.name, content: content.trim().slice(0, 60),
+              timestamp: Date.now(), read: false, priority: "high", count: 1,
+            });
+          }
+        });
+        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs });
+      },
+
+      onMarkMushtagramGroupDMsRead: (groupId) => {
+        if (!session) return;
+        const dms = (state.mushtagramDMs || []).map((dm) =>
+          dm.groupId === groupId && !(dm.readBy || []).map(String).includes(String(session.id))
+            ? { ...dm, readBy: [...(dm.readBy || []), String(session.id)] }
+            : dm
+        );
+        const mushtagramNotifs = (state.mushtagramNotifs || []).map((n) =>
+          n.type === "group_dm" && String(n.groupId) === String(groupId) && String(n.toId) === String(session.id) ? { ...n, read: true } : n
         );
         saveState({ ...state, mushtagramDMs: dms, mushtagramNotifs });
       },
