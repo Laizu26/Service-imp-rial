@@ -19,8 +19,6 @@ import {
   X,
   ToggleLeft,
   ToggleRight,
-  RefreshCw,
-  AlertTriangle,
   ScrollText,
   Megaphone,
   Shield,
@@ -43,6 +41,7 @@ import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
 import { OrderBookDepth, PriceHistoryChart, BoardVotingPanel } from "../ui/BourseWidgets";
+import JobContractEditor, { CONTRACT_FREQUENCIES } from "../ui/JobContractEditor";
 import { formatMoney, getActiveStaffLoan } from "../../lib/gameUtils";
 
 // ── Sous-composant ESPP — config patron (state propre pour éviter la synchro inter-entreprises) ──
@@ -274,24 +273,6 @@ const MORALE_OPTIONS = [
   { id: "difficile", label: "Difficile", emoji: "😞" },
   { id: "epuise", label: "Épuisé(e)", emoji: "😫" },
 ];
-
-const CONTRACT_FREQUENCIES = [
-  { value: "daily", label: "Chaque jour RP" },
-  { value: "weekly", label: "Chaque semaine RP (7 jours)" },
-  { value: "monthly", label: "Chaque mois RP (1er du mois)" },
-  { value: "par_tache", label: "À la tâche (paiement immédiat)" },
-];
-
-const emptyContractForm = (companyId, companyName) => ({
-  id: "JOB-" + Date.now().toString().slice(-6),
-  name: "",
-  active: true,
-  amount: 0,
-  frequency: "monthly",
-  source: { type: "COMPANY", id: companyId },
-  sourceName: companyName,
-  recipients: [],
-});
 
 // ── Modale de gestion d'employé (multi-onglets) ──
 function EmployeeManagementModal({
@@ -839,10 +820,6 @@ const MyCompanyView = ({
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [hireTarget, setHireTarget] = useState("");
   const [activeTab, setActiveTab] = useState("hr");
-
-  // Gestion des contrats (patron)
-  const [contractForm, setContractForm] = useState(null);
-  const [selectedContractId, setSelectedContractId] = useState(null);
 
   // Contrats d'emploi médiévaux
   const [hireContractTerms, setHireContractTerms] = useState(DEFAULT_CONTRACT);
@@ -3018,330 +2995,17 @@ const MyCompanyView = ({
           { id: myCompany.id, type: "COMPANY", name: myCompany.name + " (trésorerie)" },
         ];
 
-        const form = contractForm;
-        const isParTache = form?.frequency === "par_tache";
-        const totalPct = (form?.recipients || []).reduce((s, r) => s + (r.percent || 0), 0);
-        const isValid =
-          form &&
-          form.name.trim() &&
-          (isParTache || form.amount > 0) &&
-          form.recipients.length > 0 &&
-          totalPct === 100;
-
-        const openNew = () => {
-          setContractForm(emptyContractForm(myCompany.id, myCompany.name));
-          setSelectedContractId(null);
-        };
-
-        const openEdit = (contract) => {
-          setContractForm(JSON.parse(JSON.stringify(contract)));
-          setSelectedContractId(contract.id);
-        };
-
-        const handleSave = () => {
-          if (!isValid || !onSaveJobContract) return;
-          onSaveJobContract(form);
-          setContractForm(null);
-          setSelectedContractId(null);
-        };
-
-        const handleDelete = (id) => {
-          if (!window.confirm("Supprimer ce contrat ?")) return;
-          if (onDeleteJobContract) onDeleteJobContract(id);
-          if (selectedContractId === id) { setContractForm(null); setSelectedContractId(null); }
-        };
-
-        const addRecipient = (worker) => {
-          if (!form) return;
-          if (form.recipients.some((r) => r.id === worker.id)) return;
-          const existing = form.recipients.reduce((s, r) => s + (r.percent || 0), 0);
-          setContractForm((f) => ({
-            ...f,
-            recipients: [...f.recipients, { ...worker, percent: Math.max(0, 100 - existing) }],
-          }));
-        };
-
-        const updatePct = (id, val) => {
-          const num = Math.min(100, Math.max(0, parseInt(val) || 0));
-          setContractForm((f) => ({
-            ...f,
-            recipients: f.recipients.map((r) => (r.id === id ? { ...r, percent: num } : r)),
-          }));
-        };
-
-        const removeRecipient = (id) => {
-          setContractForm((f) => ({ ...f, recipients: f.recipients.filter((r) => r.id !== id) }));
-        };
-
         return (
-          <div className="flex flex-col md:flex-row gap-6 min-h-0">
-            {/* Liste des contrats */}
-            <div className="w-full md:w-72 shrink-0 bg-[#fdf6e3] rounded-xl border border-stone-300 flex flex-col overflow-hidden shadow-md">
-              <div className="p-3 bg-stone-100 border-b flex justify-between items-center font-bold uppercase text-[10px] tracking-widest text-stone-500">
-                <span>Contrats ({companyContracts.length})</span>
-                <button
-                  onClick={openNew}
-                  className="bg-stone-800 text-white w-6 h-6 rounded-lg flex items-center justify-center hover:bg-stone-700 shadow-md"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-              <div className="overflow-y-auto flex-1 p-2 space-y-2">
-                {companyContracts.length === 0 && (
-                  <div className="text-center text-stone-400 italic text-xs py-8">
-                    Aucun contrat.<br />
-                    <span className="text-[10px]">Cliquez sur + pour en créer un.</span>
-                  </div>
-                )}
-                {companyContracts.map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => openEdit(c)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                      selectedContractId === c.id
-                        ? "bg-stone-800 text-white border-yellow-600 shadow-xl"
-                        : "bg-white/70 border-stone-200 hover:bg-white hover:shadow-sm"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-black text-sm truncate">{c.name || "Sans nom"}</div>
-                        <div className={`text-[10px] mt-0.5 ${selectedContractId === c.id ? "text-stone-300" : "text-stone-500"}`}>
-                          {c.frequency !== "par_tache" && `${formatMoney(c.amount || 0)} · `}
-                          {CONTRACT_FREQUENCIES.find((f) => f.value === c.frequency)?.label || c.frequency}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); if (onToggleJobContract) onToggleJobContract(c.id); }}
-                          className={`p-1 rounded ${c.active ? "text-green-500" : "text-stone-400"}`}
-                        >
-                          {c.active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }}
-                          className="p-1 text-red-400 hover:text-red-600 rounded"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {(c.recipients || []).map((r) => (
-                        <span key={r.id} className={`px-1 py-0.5 rounded text-[8px] font-bold ${selectedContractId === c.id ? "bg-stone-700 text-stone-200" : "bg-stone-100 text-stone-600"}`}>
-                          {r.name} {r.percent}%
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Formulaire */}
-            <div className="flex-1 min-h-0">
-              {!form ? (
-                <div className="h-full flex flex-col items-center justify-center text-stone-300 gap-4 italic min-h-[200px]">
-                  <ScrollText size={60} className="opacity-10" />
-                  <p className="text-lg tracking-widest opacity-30 uppercase font-serif text-sm">Contrats d'Emploi</p>
-                </div>
-              ) : (
-                <div className="space-y-4 pb-10">
-                  {/* Header */}
-                  <div className="bg-stone-900 text-stone-100 rounded-xl p-4 flex items-center justify-between shadow-lg">
-                    <div>
-                      <div className="text-[9px] uppercase tracking-widest text-stone-400 mb-1">
-                        {selectedContractId ? "Modifier" : "Nouveau contrat"}
-                      </div>
-                      <div className="font-black">{form.name || "Sans nom"}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setContractForm(null); setSelectedContractId(null); }}
-                        className="px-3 py-1.5 bg-stone-700 text-stone-300 rounded-lg text-[10px] font-bold uppercase hover:bg-stone-600"
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        disabled={!isValid}
-                        className="px-3 py-1.5 bg-yellow-500 text-stone-900 rounded-lg text-[10px] font-black uppercase hover:bg-yellow-400 disabled:opacity-40 flex items-center gap-1"
-                      >
-                        <Check size={13} /> Sauvegarder
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Identité */}
-                  <Card title="Identité du Contrat" icon={ScrollText}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="md:col-span-2 space-y-1">
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Nom</label>
-                        <input
-                          className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-800 font-bold"
-                          value={form.name}
-                          onChange={(e) => setContractForm((f) => ({ ...f, name: e.target.value }))}
-                          placeholder="Ex : Salaire mensuel, Prime de production…"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
-                          {isParTache ? "Montant / session (info)" : "Montant total (Écus)"}
-                        </label>
-                        <input
-                          type="number" step="0.1" min={0}
-                          className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none focus:border-stone-800 font-bold font-mono"
-                          value={form.amount || ""}
-                          onChange={(e) => setContractForm((f) => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Fréquence</label>
-                        <select
-                          className="w-full p-2.5 border-2 border-stone-200 rounded-xl bg-white outline-none font-bold"
-                          value={form.frequency}
-                          onChange={(e) => setContractForm((f) => ({ ...f, frequency: e.target.value }))}
-                        >
-                          {CONTRACT_FREQUENCIES.map((f) => (
-                            <option key={f.value} value={f.value}>{f.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="md:col-span-2 flex items-center gap-3 p-3 bg-stone-50 rounded-xl border border-stone-200">
-                        <button
-                          onClick={() => setContractForm((f) => ({ ...f, active: !f.active }))}
-                          className={`text-2xl transition-colors ${form.active ? "text-green-500" : "text-stone-300"}`}
-                        >
-                          {form.active ? <ToggleRight size={26} /> : <ToggleLeft size={26} />}
-                        </button>
-                        <span className="text-sm font-bold text-stone-700">
-                          {form.active ? "Actif — sera exécuté au prochain passage de jour" : "Inactif"}
-                        </span>
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Source */}
-                  <div className="flex items-center gap-2 p-3 bg-stone-100 border border-stone-200 rounded-xl text-xs text-stone-600 font-bold">
-                    <Building2 size={14} /> Source : Trésorerie de <span className="text-stone-800 ml-1">{myCompany.name}</span>
-                  </div>
-
-                  {/* Bénéficiaires */}
-                  <Card title="Répartition entre Bénéficiaires" icon={Users}>
-                    <div className="space-y-4">
-                      {/* Indicateur total % */}
-                      <div className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                        totalPct === 100 ? "bg-green-50 border-green-200" : totalPct > 100 ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          <RefreshCw size={13} className={totalPct === 100 ? "text-green-600" : "text-amber-500"} />
-                          <span className="text-xs font-black uppercase text-stone-600">Total</span>
-                        </div>
-                        <span className={`font-black font-mono ${totalPct === 100 ? "text-green-700" : totalPct > 100 ? "text-red-700" : "text-amber-700"}`}>
-                          {totalPct}%
-                          {totalPct !== 100 && (
-                            <span className="text-[10px] font-bold ml-1">
-                              {totalPct < 100 ? `(manque ${100 - totalPct}%)` : `(excède de ${totalPct - 100}%)`}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-
-                      {totalPct !== 100 && form.recipients.length > 0 && (
-                        <div className="flex items-center gap-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                          <AlertTriangle size={11} /> Le total doit être 100% pour sauvegarder.
-                        </div>
-                      )}
-
-                      {/* Liste des bénéficiaires */}
-                      {form.recipients.length === 0 ? (
-                        <p className="text-xs text-stone-400 italic text-center py-3">Aucun bénéficiaire ajouté.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {form.recipients.map((r) => {
-                            const share = Math.floor((form.amount || 0) * r.percent / 100);
-                            return (
-                              <div key={r.id} className="flex items-center gap-3 p-2.5 bg-stone-50 rounded-lg border border-stone-200">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-bold text-sm text-stone-800 truncate">{r.name}</div>
-                                  {!isParTache && (
-                                    <div className="text-[10px] text-stone-400 font-mono">
-                                      = {formatMoney(share)} / versement
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <input
-                                    type="number" min={0} max={100}
-                                    className="w-14 p-1.5 border-2 border-stone-200 rounded-lg text-center font-black outline-none focus:border-stone-600 font-mono text-sm"
-                                    value={r.percent}
-                                    onChange={(e) => updatePct(r.id, e.target.value)}
-                                  />
-                                  <span className="text-xs font-bold text-stone-500">%</span>
-                                  <button onClick={() => removeRecipient(r.id)} className="p-1 text-red-400 hover:text-red-600">
-                                    <X size={13} />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {/* Ajouter un bénéficiaire */}
-                      <div className="border-t border-stone-200 pt-3">
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-2">
-                          Ajouter un bénéficiaire
-                        </label>
-                        <div className="space-y-1 max-h-48 overflow-y-auto">
-                          {workerPool
-                            .filter((w) => !form.recipients.some((r) => r.id === w.id))
-                            .map((w) => (
-                              <button
-                                key={w.id}
-                                onClick={() => addRecipient(w)}
-                                className="w-full text-left p-2.5 rounded-lg hover:bg-stone-100 flex items-center gap-2 transition-colors border border-stone-100"
-                              >
-                                {w.type === "COMPANY" ? <Building2 size={12} className="text-stone-400 shrink-0" /> : <Users size={12} className="text-stone-400 shrink-0" />}
-                                <span className="font-bold text-sm text-stone-800 truncate">{w.name}</span>
-                                <Plus size={12} className="text-stone-400 ml-auto shrink-0" />
-                              </button>
-                            ))}
-                          {workerPool.filter((w) => !form.recipients.some((r) => r.id === w.id)).length === 0 && (
-                            <p className="text-xs text-stone-400 italic text-center py-2">Tous les travailleurs sont déjà ajoutés.</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Simulation */}
-                      {!isParTache && form.amount > 0 && form.recipients.length > 0 && totalPct === 100 && (
-                        <div className="bg-stone-900 rounded-xl p-3 text-stone-200">
-                          <div className="text-[9px] uppercase tracking-widest text-stone-400 mb-2 font-black">
-                            Simulation — par versement
-                          </div>
-                          <div className="space-y-1">
-                            {form.recipients.map((r) => (
-                              <div key={r.id} className="flex justify-between text-sm">
-                                <span className="text-stone-300 truncate">{r.name}</span>
-                                <span className="font-black font-mono text-yellow-400 shrink-0 ml-2">
-                                  +{formatMoney(Math.floor(form.amount * r.percent / 100))}
-                                </span>
-                              </div>
-                            ))}
-                            <div className="border-t border-stone-700 pt-1.5 mt-1.5 flex justify-between text-xs font-black">
-                              <span className="text-stone-400 uppercase tracking-widest">Total prélevé</span>
-                              <span className="text-white font-mono">{formatMoney(form.amount)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                </div>
-              )}
-            </div>
-          </div>
+          <JobContractEditor
+            contracts={companyContracts}
+            sourceId={myCompany.id}
+            sourceName={myCompany.name}
+            recipientPool={workerPool}
+            onSaveJobContract={onSaveJobContract}
+            onDeleteJobContract={onDeleteJobContract}
+            onToggleJobContract={onToggleJobContract}
+            namePlaceholder="Ex : Salaire mensuel, Prime de production…"
+          />
         );
       })()}
 
