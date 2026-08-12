@@ -62,9 +62,24 @@ const MaisonTrailer = ({ staff, onDone }) => {
     >
       <div className="absolute inset-0">
         {current?.avatarUrl && (
-          <img key={current.id} src={current.avatarUrl} alt="" className="w-full h-full object-cover" />
+          <>
+            {/* Fond flouté en cover : remplit l'écran sans bande vide, purement décoratif */}
+            <img
+              src={current.avatarUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40"
+            />
+            {/* Image complète au premier plan, jamais rognée (contain plutôt que cover) */}
+            <img
+              key={current.id}
+              src={current.avatarUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+          </>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/70" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/60" />
       </div>
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-end p-8 text-center">
