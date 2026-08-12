@@ -453,10 +453,15 @@ export function getActiveDrunkTiers(percent) {
 }
 
 // Gueule de bois : si le pic d'ivresse de la veille a atteint ce seuil, le lendemain porte une
-// indication RP (voir onPassDay, useGameActions.js) — toujours purement informationnel.
+// indication RP (voir onPassDay, useGameActions.js) et un vrai malus : reboire ce jour-là fait
+// monter l'ivresse plus vite (voir HANGOVER_DRINK_MALUS, appliqué dans useGameActions.js).
 export const HANGOVER_THRESHOLD = 150;
+
+// Multiplicateur appliqué au gain d'ivresse (en plus de la tolérance raciale) tant que la
+// gueule de bois de la veille est active — le corps encaisse moins bien un nouveau verre.
+export const HANGOVER_DRINK_MALUS = 1.3;
 
 export const HANGOVER_INFO = {
   label: "Gueule de bois",
-  desc: "Migraine carabinée, bouche pâteuse, lumière insupportable — la soirée d'hier se paie cash aujourd'hui.",
+  desc: "Migraine carabinée, bouche pâteuse, lumière insupportable — la soirée d'hier se paie cash aujourd'hui. Reboire dans cet état enivre 30% plus vite.",
 };

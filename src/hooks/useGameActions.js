@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, isDescendantOf } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -422,6 +422,11 @@ export const useGameActions = (session, state, saveState, notify) => {
       const races = state.raceConfig?.races?.length ? state.raceConfig.races : DEFAULT_RACE_CONFIG.races;
       return getRaceToleranceMultiplier(citizen?.race, races);
     };
+
+    // Malus de gueule de bois (voir HANGOVER_DRINK_MALUS, gameUtils.js) : reboire le jour même
+    // où la gueule de bois de la veille est active fait monter l'ivresse plus vite.
+    const drinkMultiplier = (citizen) =>
+      raceTolerance(citizen) * (citizen?.hangover?.day === todayDateKey() ? HANGOVER_DRINK_MALUS : 1);
 
     // Autorité sur la carte (Atlas) d'un pays donné : un rôle à portée globale (Empereur/Grand
     // Fonctionnaire) a autorité partout ; un officiel local (niveau ≥ 40, même principe que
@@ -6984,7 +6989,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         // Article alcoolisé : jet d'ivresse purement informationnel (voir gameUtils.js) — le
         // citoyen roleplay lui-même les indications affichées, le jeu ne décide rien à sa place.
         if (isAlcoholic) {
-          newCitizens[uIdx] = addDrunkenness(newCitizens[uIdx], rollDrunkenGain(raceTolerance(newCitizens[uIdx])), todayDateKey());
+          newCitizens[uIdx] = addDrunkenness(newCitizens[uIdx], rollDrunkenGain(drinkMultiplier(newCitizens[uIdx])), todayDateKey());
         }
         properties[pIdx] = { ...properties[pIdx], menu };
         // Un sondage de taverne en cours exige d'avoir pris une consommation pour voter — chaque
@@ -7050,7 +7055,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
         if (isAlcoholic) {
           const rIdx = newCitizens.findIndex((c) => c.id === citizenId);
-          if (rIdx !== -1) newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(raceTolerance(newCitizens[rIdx])), todayDateKey());
+          if (rIdx !== -1) newCitizens[rIdx] = addDrunkenness(newCitizens[rIdx], rollDrunkenGain(drinkMultiplier(newCitizens[rIdx])), todayDateKey());
         }
 
         let newState = { ...state, citizens: newCitizens, properties };
@@ -7148,7 +7153,7 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newCitizens = [...state.citizens];
         served.forEach((cid) => {
           const idx = newCitizens.findIndex((c) => c.id === cid);
-          if (idx !== -1 && isAlcoholic) newCitizens[idx] = addDrunkenness(newCitizens[idx], rollDrunkenGain(raceTolerance(newCitizens[idx])), today);
+          if (idx !== -1 && isAlcoholic) newCitizens[idx] = addDrunkenness(newCitizens[idx], rollDrunkenGain(drinkMultiplier(newCitizens[idx])), today);
         });
         const payerIdx = newCitizens.findIndex((c) => c.id === session.id);
         if (totalCost > 0 && payerIdx !== -1) {
