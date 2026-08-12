@@ -13,6 +13,112 @@ import {
   computeMaisonDiscount,
 } from "../../hooks/useGameActions";
 
+// Bande-annonce jouée à l'ouverture de la Maison : défile les pensionnaires (image + mini
+// description) puis se referme sur une phrase d'accroche, avant de révéler le catalogue.
+const MAISON_TRAILER_HOLD = 2200; // ms passés sur chaque pensionnaire
+const MAISON_TRAILER_TAGLINE_HOLD = 2600; // ms passés sur la phrase finale
+const MAISON_TRAILER_MAX = 8; // nombre de pensionnaires mis en avant
+
+const MaisonTrailer = ({ staff, onDone }) => {
+  const shown = staff.slice(0, MAISON_TRAILER_MAX);
+  const [idx, setIdx] = useState(0); // 0..shown.length-1 = pensionnaire, shown.length = phrase finale
+  const doneRef = useRef(false);
+
+  const finish = () => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onDone();
+  };
+
+  useEffect(() => {
+    if (shown.length === 0) { finish(); return; }
+    const timers = [];
+    for (let i = 1; i < shown.length; i++) {
+      timers.push(setTimeout(() => setIdx(i), i * MAISON_TRAILER_HOLD));
+    }
+    timers.push(setTimeout(() => setIdx(shown.length), shown.length * MAISON_TRAILER_HOLD));
+    timers.push(setTimeout(finish, shown.length * MAISON_TRAILER_HOLD + MAISON_TRAILER_TAGLINE_HOLD));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handler = () => finish();
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const isTagline = idx >= shown.length;
+  const current = !isTagline ? shown[idx] : null;
+
+  return (
+    <div
+      className="relative flex flex-col h-full bg-black rounded-xl overflow-hidden border border-fuchsia-900 shadow-2xl cursor-pointer select-none"
+      onClick={finish}
+    >
+      <div className="absolute inset-0">
+        {current?.avatarUrl && (
+          <img key={current.id} src={current.avatarUrl} alt="" className="w-full h-full object-cover" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/70" />
+      </div>
+
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-end p-8 text-center min-h-[260px]">
+        {isTagline ? (
+          <div key="tagline" className="animate-[maisonTrailerFadeIn_0.8s_ease-out] max-w-md mb-6">
+            <Gem size={28} className="mx-auto mb-4 text-fuchsia-400" />
+            <p className="text-2xl sm:text-3xl font-serif italic text-fuchsia-100 drop-shadow-lg leading-snug">
+              « Il y aura toujours la bonne prêtresse pour vous. »
+            </p>
+          </div>
+        ) : current ? (
+          <div key={current.id} className="animate-[maisonTrailerFadeIn_0.6s_ease-out] max-w-md mb-6">
+            <h2 className="text-3xl font-black text-white drop-shadow-lg mb-2">{current.name}</h2>
+            {current.specialty && (
+              <p className="text-fuchsia-300 text-sm italic mb-2">{current.specialty}</p>
+            )}
+            {current.specialtyDescription && (
+              <p className="text-stone-200 text-sm leading-relaxed line-clamp-3">
+                {current.specialtyDescription.length > 140
+                  ? current.specialtyDescription.slice(0, 140) + "…"
+                  : current.specialtyDescription}
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {!isTagline && shown.length > 1 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {shown.map((s, i) => (
+            <div
+              key={s.id}
+              className={`h-0.5 rounded-full transition-all ${
+                i === idx ? "w-8 bg-fuchsia-400" : i < idx ? "w-4 bg-fuchsia-700" : "w-4 bg-white/20"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={(e) => { e.stopPropagation(); finish(); }}
+        className="absolute top-4 right-4 z-10 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
+      >
+        Passer
+      </button>
+
+      <style>{`
+        @keyframes maisonTrailerFadeIn {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const MaisonDeAsiaCitizen = ({
   citizens,
   houseRegistry,
@@ -32,6 +138,8 @@ const MaisonDeAsiaCitizen = ({
   userBalance,
   user,
 }) => {
+  // Bande-annonce jouée une fois à l'ouverture (si au moins un·e pensionnaire à présenter).
+  const [showTrailer, setShowTrailer] = useState(() => staff.length > 0);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [activeSection, setActiveSection] = useState("catalog");
   const [reviewTarget, setReviewTarget] = useState(null);
@@ -384,6 +492,10 @@ const MaisonDeAsiaCitizen = ({
 
     return ReactDOM.createPortal(modalContent, document.body);
   };
+
+  if (showTrailer) {
+    return <MaisonTrailer staff={staff} onDone={() => setShowTrailer(false)} />;
+  }
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-stone-900 to-fuchsia-950 rounded-xl overflow-hidden border border-fuchsia-900 shadow-2xl font-serif text-fuchsia-50">
