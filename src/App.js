@@ -132,10 +132,10 @@ export default function App() {
     logoutAccount,
   } = useAuth(notify);
 
-  const { state, saveState, syncStatus, connection, dbError, forceInit } =
+  const { state, saveState, saveStateAppend, syncStatus, connection, dbError, forceInit } =
     useGameEngine(firebaseUser, notify);
 
-  const actions = useGameActions(session, state, saveState, notify);
+  const actions = useGameActions(session, state, saveState, notify, saveStateAppend);
 
   const { settings, isDark, updateSetting, resetSettings } = useSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);

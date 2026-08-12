@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { doc, setDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, onSnapshot, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { SYSTEM_CONFIG, DEFAULT_GAME_STATE } from "../lib/constants";
 
@@ -107,6 +107,52 @@ export const useGameEngine = (firebaseUser, notify) => {
     [connection, notify]
   );
 
+  // Variante de saveState pour les champs à forte concurrence d'écriture (ex: messages —
+  // plusieurs personnes peuvent écrire dans la même conversation à quelques centaines de ms
+  // d'intervalle). saveState envoie toujours le tableau entier : si deux clients partent de la
+  // même copie locale avant que l'un des deux round-trips Firestore soit revenu, le second
+  // `setDoc` écrase le tableau de l'autre et son message disparaît silencieusement — sans
+  // aucune action de suppression. `unionFields` (ex: { mushtagramDMs: dm }) fait ajouter ces
+  // champs via arrayUnion côté serveur : Firestore fusionne l'élément dans le tableau existant
+  // quel que soit son état au moment de l'écriture, donc plus de perte par écrasement. L'état
+  // local optimiste (newState) doit déjà contenir l'élément ajouté normalement.
+  const saveStateAppend = useCallback(
+    async (newState, unionFields) => {
+      setState(newState); // Mise à jour optimiste
+
+      if (connection === "connected" && db) {
+        setSyncStatus("saving");
+        try {
+          const sanitized = JSON.parse(JSON.stringify(newState));
+          Object.keys(unionFields || {}).forEach((field) => { delete sanitized[field]; });
+          const payload = { ...sanitized, lastUpdate: serverTimestamp() };
+          Object.entries(unionFields || {}).forEach(([field, item]) => {
+            payload[field] = arrayUnion(JSON.parse(JSON.stringify(item)));
+          });
+          await setDoc(
+            doc(db, ...SYSTEM_CONFIG.dbPath),
+            payload,
+            { merge: true }
+          );
+          setSyncStatus("saved");
+          setTimeout(() => setSyncStatus("idle"), 2000);
+        } catch (e) {
+          console.error("Erreur save:", e);
+          setSyncStatus("error");
+          setDbError(e.message);
+          notify(`Erreur d'archivage : ${e.message || "vérifiez votre connexion"}.`, "error");
+        }
+      } else {
+        setSyncStatus("error");
+        notify(
+          "Mode Hors-Ligne : Modifications locales uniquement.",
+          "warning"
+        );
+      }
+    },
+    [connection, notify]
+  );
+
   const forceInit = async () => {
     if (!db) return;
     // Réinitialise la BDD avec les valeurs par défaut (incluant l'Admin)
@@ -117,5 +163,5 @@ export const useGameEngine = (firebaseUser, notify) => {
     );
   };
 
-  return { state, saveState, syncStatus, connection, dbError, forceInit };
+  return { state, saveState, saveStateAppend, syncStatus, connection, dbError, forceInit };
 };

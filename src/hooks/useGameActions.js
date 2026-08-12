@@ -343,8 +343,11 @@ export function checkBourseTakeover(companies, citizens, listing) {
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const useGameActions = (session, state, saveState, notify) => {
+export const useGameActions = (session, state, saveState, notify, saveStateAppend) => {
   return useMemo(() => {
+    // Repli si l'appelant ne fournit pas encore la variante atomique (ex: anciens tests) —
+    // se comporte alors comme l'ancien saveState (réécriture complète), unionFields ignoré.
+    const appendState = saveStateAppend || ((newState) => saveState(newState));
     // Un citoyen restreint (contrat de servage, conjoint dominant ou tutelle active) ne
     // peut pas accéder à la Maison de Asia — même logique que combinedRestriction côté UI.
     const isMaisonLocked = (citizenId) => {
@@ -9555,7 +9558,10 @@ export const useGameActions = (session, state, saveState, notify) => {
           const dmNotif = { id: `mnotif_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, toId: String(toId), type: "dm", fromId: String(session.id), fromName: session.name, content: content.trim().slice(0, 60), timestamp: Date.now(), read: false, priority: "high", count: 1 };
           mushtagramNotifs = [...existingNotifs, dmNotif];
         }
-        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs });
+        // mushtagramDMs part en écriture atomique (arrayUnion) — deux personnes qui s'écrivent
+        // à quelques centaines de ms d'intervalle ne doivent pas s'écraser mutuellement leur
+        // message via un saveState classique parti d'une copie locale légèrement périmée.
+        appendState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs }, { mushtagramDMs: dm });
       },
 
       onDeleteMushtagramDM: (dmId) => {
@@ -9749,7 +9755,9 @@ export const useGameActions = (session, state, saveState, notify) => {
             });
           }
         });
-        saveState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs });
+        // Écriture atomique (arrayUnion) — un groupe multiplie les envoyeurs concurrents,
+        // c'est le cas le plus exposé à l'écrasement d'un saveState classique (voir onSendMushtagramDM).
+        appendState({ ...state, mushtagramDMs: [...(state.mushtagramDMs || []), dm], mushtagramNotifs }, { mushtagramDMs: dm });
       },
 
       onMarkMushtagramGroupDMsRead: (groupId) => {
@@ -10227,5 +10235,5 @@ export const useGameActions = (session, state, saveState, notify) => {
       // ────────────────────────────────────────────────────────────
 
     }, notify);
-  }, [session, state, saveState, notify]);
+  }, [session, state, saveState, notify, saveStateAppend]);
 };
