@@ -52,9 +52,12 @@ const MaisonTrailer = ({ staff, onDone }) => {
   const isTagline = idx >= shown.length;
   const current = !isTagline ? shown[idx] : null;
 
-  return (
+  // Overlay plein écran via portail (comme les autres modales de ce fichier) : la carte Maison
+  // n'a pas forcément de hauteur définie dans le flux de CitizenLayout, donc un simple h-full
+  // interne s'y effondre à la hauteur du contenu au lieu de remplir l'écran.
+  const content = (
     <div
-      className="relative flex flex-col h-full bg-black rounded-xl overflow-hidden border border-fuchsia-900 shadow-2xl cursor-pointer select-none"
+      className="fixed inset-0 z-[500] flex flex-col bg-black cursor-pointer select-none overflow-hidden"
       onClick={finish}
     >
       <div className="absolute inset-0">
@@ -64,17 +67,17 @@ const MaisonTrailer = ({ staff, onDone }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/70" />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-end p-8 text-center min-h-[260px]">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-end p-8 text-center">
         {isTagline ? (
-          <div key="tagline" className="animate-[maisonTrailerFadeIn_0.8s_ease-out] max-w-md mb-6">
+          <div key="tagline" className="animate-[maisonTrailerFadeIn_0.8s_ease-out] max-w-md mb-16">
             <Gem size={28} className="mx-auto mb-4 text-fuchsia-400" />
             <p className="text-2xl sm:text-3xl font-serif italic text-fuchsia-100 drop-shadow-lg leading-snug">
               « Il y aura toujours la bonne prêtresse pour vous. »
             </p>
           </div>
         ) : current ? (
-          <div key={current.id} className="animate-[maisonTrailerFadeIn_0.6s_ease-out] max-w-md mb-6">
-            <h2 className="text-3xl font-black text-white drop-shadow-lg mb-2">{current.name}</h2>
+          <div key={current.id} className="animate-[maisonTrailerFadeIn_0.6s_ease-out] max-w-md mb-16">
+            <h2 className="text-3xl sm:text-4xl font-black text-white drop-shadow-lg mb-2">{current.name}</h2>
             {current.specialty && (
               <p className="text-fuchsia-300 text-sm italic mb-2">{current.specialty}</p>
             )}
@@ -90,7 +93,7 @@ const MaisonTrailer = ({ staff, onDone }) => {
       </div>
 
       {!isTagline && shown.length > 1 && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
           {shown.map((s, i) => (
             <div
               key={s.id}
@@ -104,7 +107,7 @@ const MaisonTrailer = ({ staff, onDone }) => {
 
       <button
         onClick={(e) => { e.stopPropagation(); finish(); }}
-        className="absolute top-4 right-4 z-10 text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
+        className="absolute top-6 right-6 z-10 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-sm transition-colors"
       >
         Passer
       </button>
@@ -117,6 +120,8 @@ const MaisonTrailer = ({ staff, onDone }) => {
       `}</style>
     </div>
   );
+
+  return ReactDOM.createPortal(content, document.body);
 };
 
 const MaisonDeAsiaCitizen = ({
