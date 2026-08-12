@@ -3717,17 +3717,21 @@ export const useGameActions = (session, state, saveState, notify) => {
         }
 
         // ── Travail sous condition : gestion de l'entreprise transférée au dominant ──
+        // Que le conjoint soumis soit propriétaire OU simple employé, l'entreprise
+        // concernée passe sous la gestion (PDG) du dominant dans son propre onglet.
+        const isWorkConditionalTarget = (c) =>
+          String(c.ownerId) === String(spouseId) || (c.employees || []).map(String).includes(String(spouseId));
         if (newRights.workConditional && !oldRights.workConditional) {
           let transferred = 0;
           newCompanies = newCompanies.map((c) => {
-            if (String(c.ownerId) !== String(spouseId)) return c;
+            if (!isWorkConditionalTarget(c)) return c;
             transferred += 1;
             return { ...c, ceoId: session.id };
           });
           if (transferred > 0) extraMsgs.push(`gestion de ${transferred} entreprise${transferred > 1 ? "s" : ""} transférée`);
         } else if (!newRights.workConditional && oldRights.workConditional) {
           newCompanies = newCompanies.map((c) =>
-            String(c.ownerId) === String(spouseId) && String(c.ceoId) === String(session.id)
+            isWorkConditionalTarget(c) && String(c.ceoId) === String(session.id)
               ? { ...c, ceoId: null }
               : c
           );
