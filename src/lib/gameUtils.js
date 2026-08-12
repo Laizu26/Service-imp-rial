@@ -424,6 +424,16 @@ export function rollDrunkenGain(toleranceMultiplier = 1) {
   return Math.max(0, Math.round(base * (toleranceMultiplier || 1)));
 }
 
+// Gain d'ivresse pour un article dont le gérant a configuré un intervalle propre (voir
+// drunkMin/drunkMax sur l'article du menu, PropertyDetailView.js) — tirage uniforme dans cet
+// intervalle plutôt que le jet d20 générique, toujours modulé par la même tolérance/malus.
+export function rollDrunkenGainInRange(min, max, toleranceMultiplier = 1) {
+  const lo = Math.min(min, max);
+  const hi = Math.max(min, max);
+  const base = lo + Math.random() * (hi - lo);
+  return Math.max(0, Math.round(base * (toleranceMultiplier || 1)));
+}
+
 // Multiplicateur de tolérance à l'alcool associé à la race du citoyen — champ GM-configurable
 // (state.raceConfig.races[].alcoholTolerance, voir GMRaces dans GameMasterView.js). 1 = neutre.
 export function getRaceToleranceMultiplier(raceName, races) {
