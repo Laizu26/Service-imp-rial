@@ -541,17 +541,17 @@ const MaisonDeAsiaAdmin = ({
       </div>
 
       {/* KPI BAR */}
-      <div className="bg-fuchsia-950/40 border-b border-fuchsia-800/50 px-6 py-2 flex flex-wrap gap-4 text-[11px]">
+      <div className="bg-fuchsia-950 border-b border-fuchsia-800 px-6 py-2.5 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
         {[
-          { label: "Disponibles", value: staff.filter((s) => s.isAvailable !== false && !houseRegistry.find((r) => r.staffId === s.id)).length, color: "text-green-300" },
-          { label: "Occupés", value: houseRegistry.length, color: "text-red-300" },
-          { label: "En attente", value: maisonQueue.length, color: "text-amber-300" },
+          { label: "Disponibles", value: staff.filter((s) => s.isAvailable !== false && !houseRegistry.find((r) => r.staffId === s.id)).length, color: "text-green-400" },
+          { label: "Occupés", value: houseRegistry.length, color: "text-red-400" },
+          { label: "En attente", value: maisonQueue.length, color: "text-amber-400" },
           { label: "Total visites", value: maisonHistory.length, color: "text-fuchsia-300" },
-          ...(stats.totalReviews > 0 ? [{ label: "Note moy.", value: `★ ${stats.avgRating.toFixed(1)}`, color: "text-yellow-300" }] : []),
-          { label: "Abonnés actifs", value: (maisonSubscriptions || []).filter((s) => s.expiresAt > Date.now()).length, color: "text-sky-300" },
+          ...(stats.totalReviews > 0 ? [{ label: "Note moy.", value: `★ ${stats.avgRating.toFixed(1)}`, color: "text-yellow-400" }] : []),
+          { label: "Abonnés actifs", value: (maisonSubscriptions || []).filter((s) => s.expiresAt > Date.now()).length, color: "text-sky-400" },
         ].map((kpi) => (
-          <div key={kpi.label} className="flex items-center gap-1.5">
-            <span className="text-fuchsia-400/60">{kpi.label}</span>
+          <div key={kpi.label} className="flex items-center gap-1.5 whitespace-nowrap">
+            <span className="text-fuchsia-200/90 font-medium">{kpi.label}</span>
             <span className={`font-black ${kpi.color}`}>{kpi.value}</span>
           </div>
         ))}
@@ -1697,7 +1697,7 @@ const MaisonDeAsiaAdmin = ({
                       <div className="text-2xl font-black text-fuchsia-800">{activeSubsCount}</div>
                     </div>
                     <div className="flex-1 min-w-[200px]">
-                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prix de l'abonnement (Écus / 30 jours)</label>
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Prix de l'abonnement (Écus / 24h)</label>
                       <div className="flex gap-2">
                         <input
                           type="number" step="0.1" min="1"
@@ -1728,7 +1728,7 @@ const MaisonDeAsiaAdmin = ({
                           .map((sub) => {
                             const citizen = citizens.find((c) => c.id === sub.citizenId);
                             const isActive = sub.expiresAt > Date.now();
-                            const expiresDate = new Date(sub.expiresAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+                            const expiresDate = new Date(sub.expiresAt).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
                             return (
                               <div key={sub.citizenId} className={`flex items-center gap-3 p-3 rounded-lg border ${isActive ? "bg-fuchsia-50 border-fuchsia-200" : "bg-stone-50 border-stone-200 opacity-60"}`}>
                                 {citizen?.avatarUrl && <img src={citizen.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-fuchsia-200 shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, objectFit: "cover" }} />}

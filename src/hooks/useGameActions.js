@@ -4570,22 +4570,22 @@ export const useGameActions = (session, state, saveState, notify) => {
           return;
         }
         const now = Date.now();
-        const monthMs = 30 * 24 * 3600 * 1000;
+        const dayMs = 24 * 3600 * 1000;
         const subs = state.maisonSubscriptions || [];
         const existingIdx = subs.findIndex((s) => s.citizenId === session.id);
         let newSubs;
         if (existingIdx !== -1 && subs[existingIdx].expiresAt > now) {
           // Prolonger
           newSubs = subs.map((s, i) =>
-            i === existingIdx ? { ...s, expiresAt: s.expiresAt + monthMs } : s
+            i === existingIdx ? { ...s, expiresAt: s.expiresAt + dayMs } : s
           );
         } else if (existingIdx !== -1) {
           // Renouveler
           newSubs = subs.map((s, i) =>
-            i === existingIdx ? { ...s, purchasedAt: now, expiresAt: now + monthMs } : s
+            i === existingIdx ? { ...s, purchasedAt: now, expiresAt: now + dayMs } : s
           );
         } else {
-          newSubs = [...subs, { citizenId: session.id, purchasedAt: now, expiresAt: now + monthMs }];
+          newSubs = [...subs, { citizenId: session.id, purchasedAt: now, expiresAt: now + dayMs }];
         }
         const newCitizens = [...state.citizens];
         newCitizens[citizenIdx] = { ...newCitizens[citizenIdx], balance: newCitizens[citizenIdx].balance - price };
@@ -4595,7 +4595,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           toName: "Maison de Asia",
           amount: price,
           timestamp: now,
-          reason: "Abonnement mensuel Maison de Asia",
+          reason: "Abonnement journalier Maison de Asia",
           type: "MAISON_SUBSCRIPTION",
         };
         saveState({
@@ -4604,7 +4604,7 @@ export const useGameActions = (session, state, saveState, notify) => {
           maisonSubscriptions: newSubs,
           globalLedger: [ledgerEntry, ...(state.globalLedger || [])],
         });
-        notify("Abonnement activé pour 30 jours.", "success");
+        notify("Abonnement activé pour 24h.", "success");
       },
 
       onSetMaisonSubscriptionPrice: (price) => {

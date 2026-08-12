@@ -540,14 +540,14 @@ const MaisonDeAsiaCitizen = ({
                       <>
                         <div className="text-xs font-black text-fuchsia-300 uppercase tracking-widest">Abonné VIP</div>
                         <div className="text-[10px] text-stone-400 mt-0.5">
-                          -10% sur toutes les réservations · Expire le {new Date(sub.expiresAt).toLocaleDateString("fr-FR")}
+                          -10% sur toutes les réservations · Expire le {new Date(sub.expiresAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                         </div>
                       </>
                     ) : (
                       <>
-                        <div className="text-xs font-black text-stone-300 uppercase tracking-widest">Abonnement Mensuel</div>
+                        <div className="text-xs font-black text-stone-300 uppercase tracking-widest">Abonnement Journalier</div>
                         <div className="text-[10px] text-stone-500 mt-0.5">
-                          {formatMoney(maisonSubscriptionPrice)} / 30 jours · -10% sur toutes les réservations
+                          {formatMoney(maisonSubscriptionPrice)} / 24h · -10% sur toutes les réservations
                         </div>
                       </>
                     )}
