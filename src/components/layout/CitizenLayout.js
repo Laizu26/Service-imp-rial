@@ -655,12 +655,17 @@ const CitizenLayout = (props) => {
     onCreateGuild,
     onEditGuild,
     onJoinGuild,
+    onApplyToGuild,
+    onCancelGuildApplication,
+    onRespondGuildApplication,
     onLeaveGuild,
     onKickGuildMember,
-    onSetGuildMemberRole,
+    onSetGuildMemberRank,
     onTransferGuildLeadership,
     onGuildDeposit,
     onGuildWithdraw,
+    onPostGuildBulletin,
+    onDeleteGuildBulletin,
     onDissolveGuild,
     bourseListings = [],
     onBoursePlaceOrder,
@@ -4195,12 +4200,17 @@ const CitizenLayout = (props) => {
                 onCreateGuild={onCreateGuild}
                 onEditGuild={onEditGuild}
                 onJoinGuild={onJoinGuild}
+                onApplyToGuild={onApplyToGuild}
+                onCancelGuildApplication={onCancelGuildApplication}
+                onRespondGuildApplication={onRespondGuildApplication}
                 onLeaveGuild={onLeaveGuild}
                 onKickGuildMember={onKickGuildMember}
-                onSetGuildMemberRole={onSetGuildMemberRole}
+                onSetGuildMemberRank={onSetGuildMemberRank}
                 onTransferGuildLeadership={onTransferGuildLeadership}
                 onGuildDeposit={onGuildDeposit}
                 onGuildWithdraw={onGuildWithdraw}
+                onPostGuildBulletin={onPostGuildBulletin}
+                onDeleteGuildBulletin={onDeleteGuildBulletin}
                 onDissolveGuild={onDissolveGuild}
               />
             )}

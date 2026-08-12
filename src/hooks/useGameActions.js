@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf } from "../lib/gameUtils";
-import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG } from "../lib/constants";
+import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -365,6 +365,16 @@ export const useGameActions = (session, state, saveState, notify) => {
     // et non isCompanyManager). Sans PDG, le propriétaire opère normalement l'entreprise.
     const isCompanyManager = (company, sessionId) =>
       !!company && String(company.ceoId ? company.ceoId : company.ownerId) === String(sessionId);
+
+    // Rang effectif d'un citoyen dans une guilde (voir GUILD_RANKS, constants.js) — le Chef est
+    // toujours porté par guild.leaderId, jamais par members[].rank, qui ne distingue donc que
+    // Membre/Officier. Sert à dériver les permissions réelles (candidatures, exclusion, retraits).
+    const guildRankLevel = (guild, citizenId) => {
+      if (String(guild?.leaderId) === String(citizenId)) return GUILD_RANKS.find((r) => r.id === "CHEF").level;
+      const m = (guild?.members || []).find((x) => String(x.id) === String(citizenId));
+      const rank = GUILD_RANKS.find((r) => r.id === m?.rank);
+      return rank ? rank.level : GUILD_RANKS.find((r) => r.id === "MEMBRE").level;
+    };
 
     // Autorisation Mushtagram d'une entreprise (voir onPostMushtagram) : le dirigeant/PDG a accès
     // par défaut, sauf s'il s'en est explicitement retiré via "Mon accès Mushtagram"
@@ -7634,25 +7644,44 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
 
       // ========== GUILDES / ASSOCIATIONS ==========
-      onCreateGuild: ({ name, description, type }) => {
+      // Un citoyen n'appartient qu'à une seule guilde à la fois (guildId dénormalisé sur le
+      // citoyen, source de vérité pour "suis-je déjà dans une guilde ?" — plus rapide et plus
+      // sûr que de scanner guilds[].members, et ça permet de bloquer les adhésions multiples,
+      // ce que l'ancienne version ne faisait jamais).
+      onCreateGuild: ({ name, description, type, emblem, color }) => {
         if (!session) return;
-        const user = (state.citizens || []).find((c) => c.id === session.id);
-        if (!user) return;
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = state.citizens[userIdx];
+        if (user.guildId) { notify("Vous êtes déjà membre d'une guilde — quittez-la d'abord.", "error"); return; }
+        const trimmedName = (name || "").trim();
+        if (trimmedName.length < 3) { notify("Le nom de la guilde doit compter au moins 3 caractères.", "error"); return; }
+        if ((state.guilds || []).some((g) => g.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
+          notify("Une guilde porte déjà ce nom.", "error");
+          return;
+        }
         const guild = {
           id: `guild-${Date.now()}`,
-          name: name || "Guilde sans nom",
-          description: description || "",
-          type: type || "GENERAL", // GENERAL, COMMERCE, MILITAIRE, RELIGIEUX, ARTISAN
+          name: trimmedName,
+          description: (description || "").trim(),
+          type: type || "GENERAL",
+          emblem: emblem || "🏛️",
+          color: color || "#8B5CF6",
           leaderId: session.id,
           leaderName: user.name,
-          members: [{ id: session.id, name: user.name, role: "Chef", joinedAt: Date.now() }],
+          members: [{ id: session.id, name: user.name, rank: "OFFICIER", joinedAt: Date.now() }],
+          applications: [],
+          bulletins: [],
           balance: 0,
           createdAt: Date.now(),
           motto: "",
           isRecruiting: true,
+          openJoin: true,
         };
-        saveState({ ...state, guilds: [guild, ...(state.guilds || [])] });
-        notify(`Guilde "${name}" fondée !`, "success");
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...user, guildId: guild.id };
+        saveState({ ...state, guilds: [guild, ...(state.guilds || [])], citizens: newCitizens });
+        notify(`Guilde "${trimmedName}" fondée !`, "success");
       },
 
       onEditGuild: (guildId, updates) => {
@@ -7666,20 +7695,106 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify("Guilde mise à jour.", "success");
       },
 
+      // Adhésion immédiate — réservée aux guildes en recrutement libre (guild.openJoin). Les
+      // autres exigent une candidature (onApplyToGuild) validée par un officier ou le chef.
       onJoinGuild: (guildId) => {
         if (!session) return;
-        const user = (state.citizens || []).find((c) => c.id === session.id);
-        if (!user) return;
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (userIdx === -1) return;
+        const user = state.citizens[userIdx];
+        if (user.guildId) { notify("Vous êtes déjà membre d'une guilde.", "error"); return; }
         const guilds = [...(state.guilds || [])];
         const idx = guilds.findIndex((g) => g.id === guildId);
         if (idx === -1) return;
         if (!guilds[idx].isRecruiting) { notify("Cette guilde ne recrute pas.", "error"); return; }
-        const members = [...(guilds[idx].members || [])];
-        if (members.find((m) => m.id === session.id)) { notify("Vous êtes déjà membre.", "error"); return; }
-        members.push({ id: session.id, name: user.name, role: "Membre", joinedAt: Date.now() });
-        guilds[idx] = { ...guilds[idx], members };
-        saveState({ ...state, guilds });
+        if (guilds[idx].openJoin === false) { notify("Cette guilde exige une candidature — voir Postuler.", "error"); return; }
+        guilds[idx] = {
+          ...guilds[idx],
+          members: [...(guilds[idx].members || []), { id: session.id, name: user.name, rank: "MEMBRE", joinedAt: Date.now() }],
+        };
+        const newCitizens = [...state.citizens];
+        newCitizens[userIdx] = { ...user, guildId };
+        saveState({ ...state, guilds, citizens: newCitizens });
         notify(`Vous avez rejoint "${guilds[idx].name}".`, "success");
+      },
+
+      onApplyToGuild: (guildId, message) => {
+        if (!session) return;
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        if (!user) return;
+        if (user.guildId) { notify("Vous êtes déjà membre d'une guilde.", "error"); return; }
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        if (!guilds[idx].isRecruiting) { notify("Cette guilde ne recrute pas.", "error"); return; }
+        if (guilds[idx].openJoin !== false) { notify("Guilde à recrutement libre — utilisez Rejoindre directement.", "error"); return; }
+        if ((guilds[idx].applications || []).some((a) => String(a.citizenId) === String(session.id))) {
+          notify("Vous avez déjà postulé.", "error");
+          return;
+        }
+        guilds[idx] = {
+          ...guilds[idx],
+          applications: [...(guilds[idx].applications || []), {
+            citizenId: session.id, citizenName: user.name, message: (message || "").trim().slice(0, 300), timestamp: Date.now(),
+          }],
+        };
+        const guildAlerts = [...(state.guildAlerts || []), {
+          id: `galert_${Date.now()}`, toId: guilds[idx].leaderId, type: "application_received",
+          guildId, guildName: guilds[idx].name, applicantName: user.name, timestamp: Date.now(),
+        }];
+        saveState({ ...state, guilds, guildAlerts });
+        notify(`Candidature envoyée à "${guilds[idx].name}".`, "success");
+      },
+
+      onCancelGuildApplication: (guildId) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        guilds[idx] = { ...guilds[idx], applications: (guilds[idx].applications || []).filter((a) => String(a.citizenId) !== String(session.id)) };
+        saveState({ ...state, guilds });
+        notify("Candidature retirée.", "info");
+      },
+
+      onRespondGuildApplication: (guildId, citizenId, accept) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const idx = guilds.findIndex((g) => g.id === guildId);
+        if (idx === -1) return;
+        const guild = guilds[idx];
+        if (guildRankLevel(guild, session.id) < GUILD_RANKS.find((r) => r.id === "OFFICIER").level) {
+          notify("Seuls le chef et les officiers peuvent traiter les candidatures.", "error");
+          return;
+        }
+        const application = (guild.applications || []).find((a) => String(a.citizenId) === String(citizenId));
+        if (!application) return;
+        const applications = (guild.applications || []).filter((a) => String(a.citizenId) !== String(citizenId));
+        const guildAlerts = [...(state.guildAlerts || [])];
+
+        if (accept) {
+          const applicantIdx = (state.citizens || []).findIndex((c) => c.id === citizenId);
+          if (applicantIdx === -1 || state.citizens[applicantIdx].guildId) {
+            guilds[idx] = { ...guild, applications };
+            saveState({ ...state, guilds });
+            notify("Ce citoyen a rejoint une autre guilde entre-temps.", "error");
+            return;
+          }
+          guilds[idx] = {
+            ...guild,
+            applications,
+            members: [...(guild.members || []), { id: citizenId, name: application.citizenName, rank: "MEMBRE", joinedAt: Date.now() }],
+          };
+          const newCitizens = [...state.citizens];
+          newCitizens[applicantIdx] = { ...newCitizens[applicantIdx], guildId };
+          guildAlerts.push({ id: `galert_${Date.now()}`, toId: citizenId, type: "application_accepted", guildId, guildName: guild.name, timestamp: Date.now() });
+          saveState({ ...state, guilds, citizens: newCitizens, guildAlerts });
+          notify(`${application.citizenName} rejoint la guilde.`, "success");
+        } else {
+          guilds[idx] = { ...guild, applications };
+          guildAlerts.push({ id: `galert_${Date.now()}`, toId: citizenId, type: "application_rejected", guildId, guildName: guild.name, timestamp: Date.now() });
+          saveState({ ...state, guilds, guildAlerts });
+          notify("Candidature refusée.", "info");
+        }
       },
 
       onLeaveGuild: (guildId) => {
@@ -7689,7 +7804,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         if (idx === -1) return;
         if (guilds[idx].leaderId === session.id) { notify("Le chef ne peut pas quitter. Transférez d'abord le rôle ou dissolvez la guilde.", "error"); return; }
         guilds[idx] = { ...guilds[idx], members: (guilds[idx].members || []).filter((m) => m.id !== session.id) };
-        saveState({ ...state, guilds });
+        const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        const newCitizens = [...state.citizens];
+        if (userIdx !== -1) newCitizens[userIdx] = { ...newCitizens[userIdx], guildId: null };
+        saveState({ ...state, guilds, citizens: newCitizens });
         notify("Vous avez quitté la guilde.", "info");
       },
 
@@ -7698,24 +7816,38 @@ export const useGameActions = (session, state, saveState, notify) => {
         const guilds = [...(state.guilds || [])];
         const idx = guilds.findIndex((g) => g.id === guildId);
         if (idx === -1) return;
-        if (guilds[idx].leaderId !== session.id) { notify("Seul le chef peut exclure.", "error"); return; }
+        const guild = guilds[idx];
         if (memberId === session.id) return;
-        const kicked = (guilds[idx].members || []).find((m) => m.id === memberId);
-        guilds[idx] = { ...guilds[idx], members: (guilds[idx].members || []).filter((m) => m.id !== memberId) };
-        saveState({ ...state, guilds });
+        const officerLevel = GUILD_RANKS.find((r) => r.id === "OFFICIER").level;
+        const myLevel = guildRankLevel(guild, session.id);
+        if (myLevel < officerLevel) { notify("Seuls le chef et les officiers peuvent exclure un membre.", "error"); return; }
+        if (guildRankLevel(guild, memberId) >= myLevel) { notify("Vous ne pouvez pas exclure un membre de rang égal ou supérieur.", "error"); return; }
+        const kicked = (guild.members || []).find((m) => m.id === memberId);
+        guilds[idx] = { ...guild, members: (guild.members || []).filter((m) => m.id !== memberId) };
+        const kickedIdx = (state.citizens || []).findIndex((c) => c.id === memberId);
+        const newCitizens = [...state.citizens];
+        if (kickedIdx !== -1) newCitizens[kickedIdx] = { ...newCitizens[kickedIdx], guildId: null };
+        const guildAlerts = [...(state.guildAlerts || []), { id: `galert_${Date.now()}`, toId: memberId, type: "kicked", guildId, guildName: guild.name, timestamp: Date.now() }];
+        saveState({ ...state, guilds, citizens: newCitizens, guildAlerts });
         notify(`${kicked?.name || "Membre"} exclu de la guilde.`, "info");
       },
 
-      onSetGuildMemberRole: (guildId, memberId, role) => {
+      onSetGuildMemberRank: (guildId, memberId, rank) => {
         if (!session) return;
+        if (!["MEMBRE", "OFFICIER"].includes(rank)) return;
         const guilds = [...(state.guilds || [])];
         const idx = guilds.findIndex((g) => g.id === guildId);
         if (idx === -1) return;
-        if (guilds[idx].leaderId !== session.id) return;
-        const members = (guilds[idx].members || []).map((m) => m.id === memberId ? { ...m, role } : m);
+        if (guilds[idx].leaderId !== session.id) { notify("Seul le chef peut changer le rang d'un membre.", "error"); return; }
+        if (memberId === session.id) return;
+        const members = (guilds[idx].members || []).map((m) => m.id === memberId ? { ...m, rank } : m);
         guilds[idx] = { ...guilds[idx], members };
-        saveState({ ...state, guilds });
-        notify("Rôle mis à jour.", "success");
+        const guildAlerts = [...(state.guildAlerts || []), {
+          id: `galert_${Date.now()}`, toId: memberId, type: "rank_changed", guildId, guildName: guilds[idx].name,
+          rank, timestamp: Date.now(),
+        }];
+        saveState({ ...state, guilds, guildAlerts });
+        notify("Rang mis à jour.", "success");
       },
 
       onTransferGuildLeadership: (guildId, newLeaderId) => {
@@ -7727,12 +7859,14 @@ export const useGameActions = (session, state, saveState, notify) => {
         const newLeader = (guilds[idx].members || []).find((m) => m.id === newLeaderId);
         if (!newLeader) { notify("Ce citoyen n'est pas membre.", "error"); return; }
         const members = (guilds[idx].members || []).map((m) => {
-          if (m.id === newLeaderId) return { ...m, role: "Chef" };
-          if (m.id === session.id) return { ...m, role: "Membre" };
+          if (m.id === newLeaderId || m.id === session.id) return { ...m, rank: "OFFICIER" };
           return m;
         });
         guilds[idx] = { ...guilds[idx], leaderId: newLeaderId, leaderName: newLeader.name, members };
-        saveState({ ...state, guilds });
+        const guildAlerts = [...(state.guildAlerts || []), {
+          id: `galert_${Date.now()}`, toId: newLeaderId, type: "promoted_leader", guildId, guildName: guilds[idx].name, timestamp: Date.now(),
+        }];
+        saveState({ ...state, guilds, guildAlerts });
         notify(`Direction transférée à ${newLeader.name}.`, "success");
       },
 
@@ -7758,6 +7892,8 @@ export const useGameActions = (session, state, saveState, notify) => {
         notify(`${formatMoney(amt)} déposés dans la caisse de la guilde.`, "success");
       },
 
+      // Retrait ouvert aux officiers en plus du chef — l'ancienne version le réservait
+      // strictement au chef, ce qui rendait le rang d'officier purement cosmétique.
       onGuildWithdraw: (guildId, amount) => {
         if (!session) return;
         const amt = parseFloat(amount);
@@ -7765,7 +7901,10 @@ export const useGameActions = (session, state, saveState, notify) => {
         const guilds = [...(state.guilds || [])];
         const gIdx = guilds.findIndex((g) => g.id === guildId);
         if (gIdx === -1) return;
-        if (guilds[gIdx].leaderId !== session.id) { notify("Seul le chef peut retirer des fonds.", "error"); return; }
+        if (guildRankLevel(guilds[gIdx], session.id) < GUILD_RANKS.find((r) => r.id === "OFFICIER").level) {
+          notify("Seuls le chef et les officiers peuvent retirer des fonds.", "error");
+          return;
+        }
         if ((guilds[gIdx].balance || 0) < amt) { notify("Fonds insuffisants.", "error"); return; }
         const userIdx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (userIdx === -1) return;
@@ -7778,6 +7917,39 @@ export const useGameActions = (session, state, saveState, notify) => {
         };
         saveState({ ...state, citizens: newCitizens, guilds, globalLedger: [ledgerEntry, ...(state.globalLedger || [])] });
         notify(`${formatMoney(amt)} retirés de la caisse.`, "success");
+      },
+
+      onPostGuildBulletin: (guildId, message) => {
+        if (!session) return;
+        const msg = (message || "").trim().slice(0, 500);
+        if (!msg) return;
+        const guilds = [...(state.guilds || [])];
+        const gIdx = guilds.findIndex((g) => g.id === guildId);
+        if (gIdx === -1) return;
+        if (guildRankLevel(guilds[gIdx], session.id) < GUILD_RANKS.find((r) => r.id === "OFFICIER").level) {
+          notify("Seuls le chef et les officiers peuvent publier sur le babillard.", "error");
+          return;
+        }
+        const user = (state.citizens || []).find((c) => c.id === session.id);
+        const bulletin = { id: `gbul_${Date.now()}`, authorId: session.id, authorName: user?.name || "Officier", message: msg, timestamp: Date.now() };
+        guilds[gIdx] = { ...guilds[gIdx], bulletins: [bulletin, ...(guilds[gIdx].bulletins || [])].slice(0, 50) };
+        saveState({ ...state, guilds });
+        notify("Message publié sur le babillard.", "success");
+      },
+
+      onDeleteGuildBulletin: (guildId, bulletinId) => {
+        if (!session) return;
+        const guilds = [...(state.guilds || [])];
+        const gIdx = guilds.findIndex((g) => g.id === guildId);
+        if (gIdx === -1) return;
+        const bulletin = (guilds[gIdx].bulletins || []).find((b) => b.id === bulletinId);
+        if (!bulletin) return;
+        const isAuthor = String(bulletin.authorId) === String(session.id);
+        const isChief = guilds[gIdx].leaderId === session.id;
+        if (!isAuthor && !isChief) { notify("Vous ne pouvez pas supprimer ce message.", "error"); return; }
+        guilds[gIdx] = { ...guilds[gIdx], bulletins: (guilds[gIdx].bulletins || []).filter((b) => b.id !== bulletinId) };
+        saveState({ ...state, guilds });
+        notify("Message supprimé.", "info");
       },
 
       onDissolveGuild: (guildId) => {
@@ -7793,8 +7965,22 @@ export const useGameActions = (session, state, saveState, notify) => {
           const userIdx = newCitizens.findIndex((c) => c.id === session.id);
           if (userIdx !== -1) newCitizens[userIdx] = { ...newCitizens[userIdx], balance: (newCitizens[userIdx].balance || 0) + remaining };
         }
+        // Lever guildId chez tous les membres, pas seulement le chef, sans quoi ils restent
+        // fantomatiquement rattachés à une guilde qui n'existe plus.
+        const memberIds = new Set((guilds[gIdx].members || []).map((m) => String(m.id)));
         const name = guilds[gIdx].name;
-        saveState({ ...state, guilds: guilds.filter((g) => g.id !== guildId), citizens: newCitizens });
+        const guildAlerts = [
+          ...(state.guildAlerts || []),
+          ...(guilds[gIdx].members || [])
+            .filter((m) => String(m.id) !== String(session.id))
+            .map((m) => ({ id: `galert_${Date.now()}_${m.id}`, toId: m.id, type: "dissolved", guildId, guildName: name, timestamp: Date.now() })),
+        ];
+        saveState({
+          ...state,
+          guilds: guilds.filter((g) => g.id !== guildId),
+          citizens: newCitizens.map((c) => (memberIds.has(String(c.id)) ? { ...c, guildId: null } : c)),
+          guildAlerts,
+        });
         notify(`Guilde "${name}" dissoute.${remaining > 0 ? ` ${formatMoney(remaining)} restitués.` : ""}`, "info");
       },
 

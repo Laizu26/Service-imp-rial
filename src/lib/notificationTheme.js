@@ -15,6 +15,7 @@ import {
   Sparkles,
   Landmark,
   HeartHandshake,
+  Users,
 } from "lucide-react";
 
 // Icônes disponibles pour notif.icon (voir useNotifications.js) — table partagée entre
@@ -36,6 +37,7 @@ export const NOTIF_ICON_MAP = {
   Sparkles,
   Landmark,
   HeartHandshake,
+  Users,
 };
 
 // Une couleur par catégorie (voir les valeurs de `category` posées dans useNotifications.js).
@@ -53,6 +55,7 @@ export const NOTIF_CATEGORY_COLORS = {
   Mushtagram:       { hex: "#e1306c", bg: "#e1306c20", border: "#e1306c30", text: "#be185d", textDark: "#f472b6", dot: "#e1306c" },
   Santé:            { hex: "#059669", bg: "#05966920", border: "#05966930", text: "#047857", textDark: "#34d399", dot: "#059669" },
   Entreprise:       { hex: "#6366f1", bg: "#6366f120", border: "#6366f130", text: "#4f46e5", textDark: "#818cf8", dot: "#6366f1" },
+  Guilde:           { hex: "#0d9488", bg: "#0d948820", border: "#0d948830", text: "#0f766e", textDark: "#2dd4bf", dot: "#0d9488" },
 };
 
 export const NOTIF_DEFAULT_COLORS = { hex: "#78716c", bg: "#78716c20", border: "#78716c30", text: "#57534e", textDark: "#a8a29e", dot: "#78716c" };

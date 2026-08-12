@@ -525,6 +525,36 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes guilde (candidature reçue/acceptée/refusée, exclusion, rang, direction, dissolution) ---
+    if (prefs.employment !== false) {
+      const GUILD_ALERT_META = {
+        application_received: { title: "Nouvelle candidature", icon: "Users", desc: (a) => `${a.applicantName} souhaite rejoindre ${a.guildName}` },
+        application_accepted: { title: "Candidature acceptée", icon: "Users", desc: (a) => `Vous rejoignez ${a.guildName}` },
+        application_rejected: { title: "Candidature refusée", icon: "Users", desc: (a) => `${a.guildName} a refusé votre candidature` },
+        kicked:                { title: "Exclusion de guilde", icon: "Users", desc: (a) => `Vous avez été exclu(e) de ${a.guildName}` },
+        rank_changed:          { title: "Rang de guilde modifié", icon: "Users", desc: (a) => `Nouveau rang dans ${a.guildName} : ${a.rank === "OFFICIER" ? "Officier" : "Membre"}` },
+        promoted_leader:       { title: "Direction de guilde", icon: "Crown", desc: (a) => `Vous êtes désormais chef de ${a.guildName}` },
+        dissolved:             { title: "Guilde dissoute", icon: "Users", desc: (a) => `${a.guildName} a été dissoute` },
+      };
+      (state?.guildAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = GUILD_ALERT_META[a.type];
+          if (!meta) return;
+          notifs.push({
+            id: `galert_${a.id}`,
+            type: `guild_${a.type}`,
+            category: "Guilde",
+            title: meta.title,
+            description: meta.desc(a),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "guilds",
+            icon: meta.icon,
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -599,7 +629,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, state?.guildAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

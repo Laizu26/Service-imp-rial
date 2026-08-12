@@ -130,6 +130,8 @@ export const DEFAULT_GAME_STATE = {
   ],
   globalLedger: [],
   gazette: [],
+  guilds: [],
+  guildAlerts: [],
   maisonStaff: [],
   maisonQueue: [],
   maisonHistory: [],
@@ -223,6 +225,24 @@ export const CHILD_RIGHTS_LIST = [
   { key: "marketLocked",     icon: "🛒", label: "Bloquer le marché",              desc: "Interdit les échanges commerciaux (Bourse, Bazar, Échanges)" },
   { key: "postLocked",       icon: "✉️", label: "Bloquer la Poste Impériale",     desc: "Interdit l'envoi et la réception de courrier" },
   { key: "maisonLocked",     icon: "💋", label: "Bloquer la Maison de Asia",      desc: "Interdit l'accès à la maison de plaisir" },
+];
+
+// ── Guildes & Associations ──────────────────────────────────────────────────
+export const GUILD_TYPES = [
+  { id: "GENERAL",    label: "Générale",   emoji: "🏛️", description: "Association généraliste, ouverte à toutes les vocations" },
+  { id: "COMMERCE",   label: "Commerce",   emoji: "⚖️", description: "Marchands, financiers et négociants" },
+  { id: "MILITAIRE",  label: "Militaire",  emoji: "⚔️", description: "Ordre martial, gardes et compagnies armées" },
+  { id: "RELIGIEUX",  label: "Religieux",  emoji: "✝️", description: "Culte, clergé et dévotion" },
+  { id: "ARTISAN",    label: "Artisanat",  emoji: "🔨", description: "Métiers manuels et corporations d'artisans" },
+];
+
+// Rangs structurés d'une guilde — remplace l'ancien champ libre "role" (purement cosmétique,
+// sans droit réel). Le Chef est unique et porté par guild.leaderId, pas par ce tableau ; il
+// reste toujours au niveau le plus élevé quel que soit son rang stocké sur members[].
+export const GUILD_RANKS = [
+  { id: "MEMBRE",   label: "Membre",   level: 0 },
+  { id: "OFFICIER", label: "Officier", level: 1 },
+  { id: "CHEF",     label: "Chef",     level: 2 },
 ];
 
 // Races/espèces jouables — liste par défaut, modifiable par le Maître du Jeu (voir GMRaces dans
