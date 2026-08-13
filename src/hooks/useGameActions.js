@@ -3278,6 +3278,71 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         notify(`Votre proposition d'union a été envoyée à ${target.name}.`, "success");
       },
 
+      // Contre-proposition : le destinataire d'une proposition modifie les termes et les
+      // renvoie — la proposition change simplement de camp (retirée de mes propositions reçues,
+      // recréée chez le proposeur d'origine comme si j'étais moi-même la nouvelle proposante),
+      // avec un historique des termes précédents pour garder trace de la négociation.
+      onCounterProposeMarriage: (proposerId, contractData = {}) => {
+        if (!session) return;
+        const newCitizens = [...state.citizens];
+        const meIdx = newCitizens.findIndex((c) => c.id === session.id);
+        const proposerIdx = newCitizens.findIndex((c) => c.id === proposerId);
+        if (meIdx === -1 || proposerIdx === -1) return;
+        const me = newCitizens[meIdx];
+        const proposer = newCitizens[proposerIdx];
+
+        if (me.guardianship?.active && me.guardianship.rights?.marriageLocked) {
+          notify("Votre tuteur a restreint votre droit de contracter une union.", "error");
+          return;
+        }
+
+        const original = (me.marriageProposals || []).find((p) => p.fromId === proposerId);
+        if (!original) { notify("Proposition introuvable.", "error"); return; }
+
+        // Revalider la loi matrimoniale : la situation a pu changer depuis la proposition initiale.
+        const userCountry = (state.countries || []).find((c) => c.id === session.countryId);
+        const structure = userCountry?.laws?.marriageStructure || "monogamie";
+        const meSpouses = me.spouses || (me.spouseId ? [{ id: me.spouseId }] : []);
+        const proposerSpouses = proposer.spouses || (proposer.spouseId ? [{ id: proposer.spouseId }] : []);
+        if (structure === "monogamie") {
+          if (meSpouses.length >= 1) { notify("Vous êtes déjà lié(e) par les vœux. La coutume du Lien Unique est en vigueur.", "error"); return; }
+          if (proposerSpouses.length >= 1) { notify(`${proposer.name} est déjà lié(e) par les vœux. La coutume du Lien Unique règne ici.`, "error"); return; }
+        }
+
+        const defaultFiliation = userCountry?.laws?.marriageDefaultFiliation || "patrilineaire";
+        const history = [
+          ...(original.history || []),
+          {
+            proposedBy: original.fromId, proposedByName: original.fromName, timestamp: original.timestamp,
+            contractType: original.contractType, regime: original.regime, dotType: original.dotType, dot: original.dot,
+            dominance: original.dominance, filiation: original.filiation, clauses: original.clauses,
+          },
+        ];
+
+        newCitizens[meIdx] = { ...me, marriageProposals: (me.marriageProposals || []).filter((p) => p.fromId !== proposerId) };
+        newCitizens[proposerIdx] = {
+          ...proposer,
+          marriageProposals: [
+            ...(proposer.marriageProposals || []).filter((p) => p.fromId !== session.id),
+            {
+              fromId: session.id,
+              fromName: me.name,
+              timestamp: Date.now(),
+              contractType: contractData.contractType || original.contractType || "sacre",
+              regime: contractData.regime || original.regime || "separation",
+              dotType: contractData.dotType || original.dotType || "aucune",
+              dot: contractData.dot ?? original.dot ?? 0,
+              dominance: contractData.dominance || original.dominance || "egal",
+              filiation: contractData.filiation || original.filiation || defaultFiliation,
+              clauses: contractData.clauses !== undefined ? contractData.clauses : (original.clauses || ""),
+              history,
+            },
+          ],
+        };
+        saveState({ ...state, citizens: newCitizens });
+        notify(`Contre-proposition envoyée à ${proposer.name}.`, "success");
+      },
+
       onAcceptMarriage: (proposerId) => {
         if (!session) return;
         const newCitizens = [...state.citizens];

@@ -839,6 +839,7 @@ export default function App() {
             onAcceptMarriage={actions.onAcceptMarriage}
             onRejectMarriage={actions.onRejectMarriage}
             onCancelMarriageProposal={actions.onCancelMarriageProposal}
+            onCounterProposeMarriage={actions.onCounterProposeMarriage}
             onDivorce={actions.onDivorce}
             onDeclareChild={actions.onDeclareChild}
             onRemoveChild={actions.onRemoveChild}

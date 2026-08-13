@@ -607,6 +607,7 @@ const CitizenLayout = (props) => {
     onAcceptMarriage,
     onRejectMarriage,
     onCancelMarriageProposal,
+    onCounterProposeMarriage,
     onDivorce,
     onDeclareChild,
     onRemoveChild,
@@ -2942,6 +2943,7 @@ const CitizenLayout = (props) => {
                 onAcceptMarriage={onAcceptMarriage}
                 onRejectMarriage={onRejectMarriage}
                 onCancelMarriageProposal={onCancelMarriageProposal}
+                onCounterProposeMarriage={onCounterProposeMarriage}
                 onDivorce={onDivorce}
                 onDeclareChild={onDeclareChild}
                 onRemoveChild={onRemoveChild}

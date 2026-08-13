@@ -15,6 +15,9 @@ import {
   Gift,
   Target,
   BookHeart,
+  Sparkles,
+  History,
+  Send,
 } from "lucide-react";
 import {
   MARRIAGE_STRUCTURES,
@@ -26,7 +29,42 @@ import {
   FILIATION_TYPES,
   CHILD_RIGHTS_LIST,
 } from "../../lib/constants";
-import { getCitizenAge, formatRPDate, formatMoney } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, formatMoney, getEffectiveMagicHue, bondMagicTraces } from "../../lib/gameUtils";
+
+// ── Aperçu du pacte arcanique : montre la teinte de chacun avant/après fusion ──────────────
+function MagicBondPreview({ citizenA, citizenB }) {
+  if (!citizenA || !citizenB) return null;
+  const beforeA = getEffectiveMagicHue(citizenA);
+  const beforeB = getEffectiveMagicHue(citizenB);
+  const { hueA: afterA, hueB: afterB } = bondMagicTraces(citizenA, citizenB);
+  const Swatch = ({ hue, label }) => (
+    <div className="flex flex-col items-center gap-1">
+      <div className="w-8 h-8 rounded-full border-2 border-white shadow" style={{ backgroundColor: `hsl(${hue}, 70%, 55%)` }} />
+      <span className="text-[8px] text-stone-400">{label}</span>
+    </div>
+  );
+  return (
+    <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 space-y-2">
+      <div className="text-[10px] font-black uppercase tracking-widest text-violet-700 flex items-center gap-1.5">
+        <Sparkles size={11} /> Fusion des traces magiques
+      </div>
+      <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center gap-2">
+          <Swatch hue={beforeA} label={citizenA.name} />
+          <Swatch hue={beforeB} label={citizenB.name} />
+        </div>
+        <span className="text-violet-300 text-lg">→</span>
+        <div className="flex items-center gap-2">
+          <Swatch hue={afterA} label={citizenA.name} />
+          <Swatch hue={afterB} label={citizenB.name} />
+        </div>
+      </div>
+      <p className="text-[9px] text-violet-500 italic text-center">
+        Vos auras se rapprochent sans se confondre — le lien s'accentue à chaque pacte arcanique successif, et ne peut jamais être rompu.
+      </p>
+    </div>
+  );
+}
 
 // Droits pouvant être restreints par le conjoint dominant — même principe que
 // le contrat de servage utilisé pour les employés d'une entreprise.
@@ -1314,6 +1352,7 @@ const MarriageView = ({
   onAcceptMarriage,
   onRejectMarriage,
   onCancelMarriageProposal,
+  onCounterProposeMarriage,
   onDivorce,
   onDeclareChild,
   onRemoveChild,
@@ -1393,6 +1432,24 @@ const MarriageView = ({
   const [marryDominance, setMarryDominance] = useState("egal");
   const [marryFiliation, setMarryFiliation] = useState("patrilineaire");
   const [marryClauses, setMarryClauses] = useState("");
+
+  // État de la contre-proposition (sur une proposition reçue)
+  const [counteringId, setCounteringId] = useState(null);
+  const [counterForm, setCounterForm] = useState(null);
+  const [historyOpenId, setHistoryOpenId] = useState(null);
+
+  const startCounter = (proposal) => {
+    setCounteringId(proposal.fromId);
+    setCounterForm({
+      contractType: proposal.contractType || "sacre",
+      regime: proposal.regime || "separation",
+      dotType: proposal.dotType || "aucune",
+      dot: proposal.dot || 0,
+      dominance: proposal.dominance || "egal",
+      filiation: proposal.filiation || "patrilineaire",
+      clauses: proposal.clauses || "",
+    });
+  };
   const [showMarryForm, setShowMarryForm] = useState(false);
 
   // État formulaire enfant
@@ -1551,11 +1608,23 @@ const MarriageView = ({
             const domLabel = proposal.dominance === "proposant_dominant" ? `${proposal.fromName}, Dominant(e)`
               : proposal.dominance === "cible_dominante" ? "Vous, Dominant(e)"
               : dom?.label || "Égale";
+            const isArcane = proposal.contractType === "arcane";
+            const fromCitizen = safeUsers.find((u) => u.id === proposal.fromId);
+            const rounds = proposal.history?.length || 0;
+            const isCountering = counteringId === proposal.fromId;
             return (
               <div key={proposal.fromId} className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-black text-stone-800 text-base">{proposal.fromName}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-black text-stone-800 text-base">{proposal.fromName}</span>
+                      {rounds > 0 && (
+                        <button onClick={() => setHistoryOpenId(historyOpenId === proposal.fromId ? null : proposal.fromId)}
+                          className="text-[9px] font-black uppercase text-stone-400 hover:text-stone-600 border border-stone-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <History size={9} /> {rounds} renégociation{rounds > 1 ? "s" : ""}
+                        </button>
+                      )}
+                    </div>
                     <div className="text-[10px] text-stone-400">
                       {proposal.timestamp ? new Date(proposal.timestamp).toLocaleDateString("fr-FR") : ""}
                     </div>
@@ -1572,6 +1641,12 @@ const MarriageView = ({
                         <Heart size={11} /> Consentir
                       </button>
                       <button
+                        onClick={() => isCountering ? setCounteringId(null) : startCounter(proposal)}
+                        className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border ${isCountering ? "bg-purple-600 text-white border-purple-600" : "bg-white border-purple-200 text-purple-600 hover:bg-purple-50"}`}
+                      >
+                        <Edit3 size={11} /> Contre-proposer
+                      </button>
+                      <button
                         onClick={() => onRejectMarriage && onRejectMarriage(proposal.fromId)}
                         className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500"
                       >
@@ -1585,6 +1660,26 @@ const MarriageView = ({
                     </span>
                   )}
                 </div>
+
+                {historyOpenId === proposal.fromId && rounds > 0 && (
+                  <div className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-2 text-[10px]">
+                    {proposal.history.map((h, i) => {
+                      const hct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === h.contractType);
+                      const hreg = MARRIAGE_REGIMES.find((r) => r.id === h.regime);
+                      return (
+                        <div key={i} className="border-b border-stone-200 last:border-0 pb-1.5 last:pb-0">
+                          <span className="font-black text-stone-600">{h.proposedByName}</span>
+                          <span className="text-stone-400"> proposait : {hct?.emoji} {hct?.label} — {hreg?.label}{(h.dot || 0) > 0 ? ` — ${formatMoney(h.dot)}` : ""}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {isArcane && fromCitizen && !isCountering && (
+                  <MagicBondPreview citizenA={user} citizenB={fromCitizen} />
+                )}
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-rose-100 text-xs">
                   <div>
                     <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Régime</span>
@@ -1611,6 +1706,62 @@ const MarriageView = ({
                     </div>
                   )}
                 </div>
+
+                {isCountering && counterForm && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 space-y-2.5">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-purple-700 flex items-center gap-1.5">
+                      <Edit3 size={11} /> Ma contre-proposition
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={counterForm.contractType} onChange={(e) => setCounterForm({ ...counterForm, contractType: e.target.value })}
+                        className="p-2 border border-purple-200 rounded-lg text-xs bg-white">
+                        {MARRIAGE_CONTRACT_TYPES.map((c) => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+                      </select>
+                      <select value={counterForm.regime} onChange={(e) => setCounterForm({ ...counterForm, regime: e.target.value })}
+                        className="p-2 border border-purple-200 rounded-lg text-xs bg-white">
+                        {MARRIAGE_REGIMES.map((r) => <option key={r.id} value={r.id}>{r.emoji} {r.label}</option>)}
+                      </select>
+                      <select value={counterForm.dominance} onChange={(e) => setCounterForm({ ...counterForm, dominance: e.target.value })}
+                        className="p-2 border border-purple-200 rounded-lg text-xs bg-white">
+                        {MARRIAGE_DOMINANCE.filter((d) => ["egal", "proposant_dominant", "cible_dominante"].includes(d.id)).map((d) => (
+                          <option key={d.id} value={d.id}>{d.emoji} {d.id === "proposant_dominant" ? "Vous, Dominant(e)" : d.id === "cible_dominante" ? `${proposal.fromName}, Dominant(e)` : d.label}</option>
+                        ))}
+                      </select>
+                      <select value={counterForm.filiation} onChange={(e) => setCounterForm({ ...counterForm, filiation: e.target.value })}
+                        className="p-2 border border-purple-200 rounded-lg text-xs bg-white">
+                        {FILIATION_TYPES.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select value={counterForm.dotType} onChange={(e) => setCounterForm({ ...counterForm, dotType: e.target.value, ...(e.target.value === "aucune" ? { dot: 0 } : {}) })}
+                        className="p-2 border border-purple-200 rounded-lg text-xs bg-white">
+                        {MARRIAGE_DOT_TYPES.map((d) => <option key={d.id} value={d.id}>{d.emoji} {d.label}</option>)}
+                      </select>
+                      {counterForm.dotType !== "aucune" && (
+                        <input type="number" step="0.1" min={0} value={counterForm.dot}
+                          onChange={(e) => setCounterForm({ ...counterForm, dot: parseInt(e.target.value) || 0 })}
+                          placeholder="Montant de la dot" className="flex-1 p-2 border border-purple-200 rounded-lg text-xs" />
+                      )}
+                    </div>
+                    <textarea value={counterForm.clauses} onChange={(e) => setCounterForm({ ...counterForm, clauses: e.target.value })}
+                      placeholder="Serments & clauses (optionnel)" rows={2}
+                      className="w-full p-2 border border-purple-200 rounded-lg text-xs resize-none" />
+                    {counterForm.contractType === "arcane" && fromCitizen && (
+                      <MagicBondPreview citizenA={user} citizenB={fromCitizen} />
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { onCounterProposeMarriage && onCounterProposeMarriage(proposal.fromId, counterForm); setCounteringId(null); }}
+                        className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-1.5"
+                      >
+                        <Send size={11} /> Envoyer la contre-proposition
+                      </button>
+                      <button onClick={() => setCounteringId(null)} className="px-3 bg-white border border-stone-200 text-stone-400 rounded-lg text-[10px] font-bold uppercase">
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1625,21 +1776,35 @@ const MarriageView = ({
           </div>
           {sentMarriageProposals.map((proposal) => {
             const ct = MARRIAGE_CONTRACT_TYPES.find((c) => c.id === proposal.contractType);
+            const rounds = proposal.history?.length || 0;
+            const targetCitizen = safeUsers.find((u) => u.id === proposal.targetId);
             return (
-              <div key={proposal.targetId} className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-black text-stone-800 text-base">{proposal.targetName}</div>
-                  <div className="text-sm font-bold text-stone-500 mt-1">
-                    {ct?.emoji || "💍"} {ct?.label || "Mariage Sacré"}
+              <div key={proposal.targetId} className="bg-white rounded-xl border border-stone-200 p-4 shadow-sm space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-black text-stone-800 text-base">{proposal.targetName}</span>
+                      {rounds > 0 && (
+                        <span className="text-[9px] font-black uppercase text-stone-400 border border-stone-200 rounded-full px-2 py-0.5 flex items-center gap-1">
+                          <History size={9} /> renégocié {rounds}x
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-bold text-stone-500 mt-1">
+                      {ct?.emoji || "💍"} {ct?.label || "Mariage Sacré"}
+                    </div>
+                    <div className="text-[10px] text-stone-400">En attente de sa réponse</div>
                   </div>
-                  <div className="text-[10px] text-stone-400">En attente de sa réponse</div>
+                  <button
+                    onClick={() => onCancelMarriageProposal && onCancelMarriageProposal(proposal.targetId)}
+                    className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500 shrink-0"
+                  >
+                    Retirer
+                  </button>
                 </div>
-                <button
-                  onClick={() => onCancelMarriageProposal && onCancelMarriageProposal(proposal.targetId)}
-                  className="px-3 py-1.5 bg-white border border-stone-200 text-stone-500 text-[10px] font-black uppercase rounded-lg hover:text-red-500 shrink-0"
-                >
-                  Retirer
-                </button>
+                {proposal.contractType === "arcane" && targetCitizen && (
+                  <MagicBondPreview citizenA={user} citizenB={targetCitizen} />
+                )}
               </div>
             );
           })}
@@ -2064,6 +2229,14 @@ const MarriageView = ({
                     </button>
                   ))}
                 </div>
+                {marryContractType === "arcane" && (
+                  <p className="text-[9px] text-violet-700 italic bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
+                    🔮 Le Pacte Arcanique lie vos traces magiques par un sortilège ancien — cette union ne pourra jamais être dissoute par le divorce.
+                  </p>
+                )}
+                {marryContractType === "arcane" && marryTargetId && (
+                  <MagicBondPreview citizenA={user} citizenB={safeUsers.find((u) => u.id === marryTargetId)} />
+                )}
               </div>
 
               {/* Partage des Biens */}
