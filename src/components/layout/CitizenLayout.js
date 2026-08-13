@@ -559,6 +559,11 @@ const CitizenLayout = (props) => {
     bourseAlerts = [],
     staffLoanAlerts = [],
     magicBondAlerts = [],
+    healthAlerts = [],
+    companyAlerts = [],
+    postalAlerts = [],
+    guildAlerts = [],
+    contractAlerts = [],
     onAcknowledgeMagicBondAlert,
     onAddJournalEntry,
     onEditJournalEntry,
@@ -702,6 +707,7 @@ const CitizenLayout = (props) => {
     onCompleteContract,
     onBreachContract,
     onDeleteContract,
+    onCounterProposeContract,
     trials = [],
     settings,
     isDark,
@@ -925,7 +931,13 @@ const CitizenLayout = (props) => {
   } = useNotifications(
     user,
     users,
-    { debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [], propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [], magicBondAlerts: magicBondAlerts || [], coupleGifts: coupleGifts || {}, coupleGoals: coupleGoals || {} },
+    {
+      debtRegistry: debtRegistry || [], gazette: gazette || [], mushtagramNotifs: mushtagramNotifs || [],
+      propertyAlerts: propertyAlerts || [], bourseAlerts: bourseAlerts || [], staffLoanAlerts: staffLoanAlerts || [],
+      magicBondAlerts: magicBondAlerts || [], coupleGifts: coupleGifts || {}, coupleGoals: coupleGoals || {},
+      healthAlerts: healthAlerts || [], companyAlerts: companyAlerts || [], postalAlerts: postalAlerts || [],
+      guildAlerts: guildAlerts || [], contractAlerts: contractAlerts || [],
+    },
     settings.notifPrefs,
     gd,
     onDismissedChange
@@ -4245,6 +4257,7 @@ const CitizenLayout = (props) => {
                 onCompleteContract={onCompleteContract}
                 onBreachContract={onBreachContract}
                 onDeleteContract={onDeleteContract}
+                onCounterProposeContract={onCounterProposeContract}
               />
             )}
 

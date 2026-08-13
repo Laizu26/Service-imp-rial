@@ -16,6 +16,8 @@ import {
   Landmark,
   HeartHandshake,
   Users,
+  FileText,
+  AlertTriangle,
 } from "lucide-react";
 
 // Icônes disponibles pour notif.icon (voir useNotifications.js) — table partagée entre
@@ -38,6 +40,8 @@ export const NOTIF_ICON_MAP = {
   Landmark,
   HeartHandshake,
   Users,
+  FileText,
+  AlertTriangle,
 };
 
 // Une couleur par catégorie (voir les valeurs de `category` posées dans useNotifications.js).

@@ -555,6 +555,34 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes contrats notariés (nouveau, contre-proposition, activation, rupture, résiliation) ---
+    if (prefs.finances !== false) {
+      const CONTRACT_ALERT_META = {
+        created:   { title: "Nouveau contrat", icon: "FileText", desc: (a) => `${a.fromName} vous propose "${a.contractTitle}"` },
+        countered: { title: "Contrat renégocié", icon: "FileText", desc: (a) => `${a.fromName} a modifié les termes de "${a.contractTitle}"` },
+        activated: { title: "Contrat entré en vigueur", icon: "FileText", desc: (a) => `"${a.contractTitle}" — toutes les parties ont signé` },
+        cancelled: { title: "Contrat résilié", icon: "FileText", desc: (a) => `${a.fromName} a résilié "${a.contractTitle}"` },
+        breached:  { title: "Rupture de contrat", icon: "AlertTriangle", desc: (a) => `${a.fromName} a déclaré "${a.contractTitle}" rompu — ${a.reason}` },
+      };
+      (state?.contractAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = CONTRACT_ALERT_META[a.type];
+          if (!meta) return;
+          notifs.push({
+            id: `calert_${a.id}`,
+            type: `contract_${a.type}`,
+            category: "Finances",
+            title: meta.title,
+            description: meta.desc(a),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "contracts",
+            icon: meta.icon,
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -631,7 +659,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, state?.guildAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, state?.guildAlerts, state?.contractAlerts, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

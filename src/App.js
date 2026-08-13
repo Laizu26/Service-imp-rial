@@ -766,6 +766,11 @@ export default function App() {
             bourseAlerts={state.bourseAlerts || []}
             staffLoanAlerts={state.staffLoanAlerts || []}
             magicBondAlerts={state.magicBondAlerts || []}
+            healthAlerts={state.healthAlerts || []}
+            companyAlerts={state.companyAlerts || []}
+            postalAlerts={state.postalAlerts || []}
+            guildAlerts={state.guildAlerts || []}
+            contractAlerts={state.contractAlerts || []}
             onAcknowledgeMagicBondAlert={actions.onAcknowledgeMagicBondAlert}
             coupleGifts={state.coupleGifts || {}}
             coupleGoals={state.coupleGoals || {}}
@@ -923,6 +928,7 @@ export default function App() {
             onCompleteContract={actions.onCompleteContract}
             onBreachContract={actions.onBreachContract}
             onDeleteContract={actions.onDeleteContract}
+            onCounterProposeContract={actions.onCounterProposeContract}
             trials={state.trials || []}
             bookmarks={currentUser?.bookmarks}
             onBookmarksChange={handleBookmarksChange}

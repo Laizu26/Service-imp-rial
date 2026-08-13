@@ -133,6 +133,8 @@ export const DEFAULT_GAME_STATE = {
   guilds: [],
   guildAlerts: [],
   mushtagramGroups: [],
+  contracts: [],
+  contractAlerts: [],
   maisonStaff: [],
   maisonQueue: [],
   maisonHistory: [],

@@ -8244,7 +8244,14 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           createdAt: Date.now(),
           expiresAt: expiresAt || null,
         };
-        saveState({ ...state, contracts: [contract, ...(state.contracts || [])] });
+        const contractAlerts = [
+          ...(state.contractAlerts || []),
+          ...partyList.filter((p) => String(p.id) !== String(session.id)).map((p) => ({
+            id: `calert_${Date.now()}_${p.id}`, toId: p.id, type: "created",
+            contractId: contract.id, contractTitle: contract.title, fromName: user.name, timestamp: Date.now(),
+          })),
+        ];
+        saveState({ ...state, contracts: [contract, ...(state.contracts || [])], contractAlerts });
         notify(`Contrat "${title}" créé. En attente de signatures.`, "success");
       },
 
@@ -8255,13 +8262,80 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         if (idx === -1) return;
         const contract = contracts[idx];
         if (contract.status !== "PENDING") { notify("Ce contrat n'est plus en attente.", "error"); return; }
+        if (!(contract.parties || []).some((p) => String(p.id) === String(session.id))) {
+          notify("Vous n'êtes pas partie prenante de ce contrat.", "error");
+          return;
+        }
         const parties = (contract.parties || []).map((p) =>
-          p.id === session.id ? { ...p, signed: true, signedAt: Date.now() } : p
+          String(p.id) === String(session.id) ? { ...p, signed: true, signedAt: Date.now() } : p
         );
         const allSigned = parties.every((p) => p.signed);
         contracts[idx] = { ...contract, parties, status: allSigned ? "ACTIVE" : "PENDING" };
-        saveState({ ...state, contracts });
+        const contractAlerts = allSigned
+          ? [
+              ...(state.contractAlerts || []),
+              ...parties.filter((p) => String(p.id) !== String(session.id)).map((p) => ({
+                id: `calert_${Date.now()}_${p.id}`, toId: p.id, type: "activated",
+                contractId: contract.id, contractTitle: contract.title, timestamp: Date.now(),
+              })),
+            ]
+          : (state.contractAlerts || []);
+        saveState({ ...state, contracts, contractAlerts });
         notify(allSigned ? "Toutes les parties ont signé. Contrat actif !" : "Signature enregistrée.", "success");
+      },
+
+      // Contre-proposition : toute partie qui n'a pas encore signé peut modifier le titre, les
+      // parties ou les clauses et renvoyer le contrat — les signatures déjà recueillies sont
+      // réinitialisées (sauf la sienne, implicite en renvoyant), avec la version précédente
+      // conservée dans l'historique.
+      onCounterProposeContract: (contractId, { title, parties, clauses } = {}) => {
+        if (!session) return;
+        const contracts = [...(state.contracts || [])];
+        const idx = contracts.findIndex((c) => c.id === contractId);
+        if (idx === -1) return;
+        const contract = contracts[idx];
+        if (contract.status !== "PENDING") { notify("Seul un contrat en attente de signatures peut être renégocié.", "error"); return; }
+        if (!(contract.parties || []).some((p) => String(p.id) === String(session.id))) {
+          notify("Vous n'êtes pas partie prenante de ce contrat.", "error");
+          return;
+        }
+        const me = (state.citizens || []).find((c) => c.id === session.id);
+        const trimmedTitle = (title !== undefined ? title : contract.title || "").trim();
+        if (!trimmedTitle) { notify("Titre requis.", "error"); return; }
+        const partyIds = [...new Set([...(parties && parties.length ? parties : (contract.parties || []).map((p) => p.id)), session.id])];
+        if (partyIds.length < 2) { notify("Un contrat doit compter au moins deux parties.", "error"); return; }
+        const newParties = partyIds.map((id) => {
+          const c = (state.citizens || []).find((c) => c.id === id);
+          return { id, name: c ? c.name : "Inconnu", signed: String(id) === String(session.id), signedAt: String(id) === String(session.id) ? Date.now() : null };
+        });
+        const history = [
+          ...(contract.history || []),
+          {
+            title: contract.title, parties: contract.parties, clauses: contract.clauses,
+            proposedBy: contract.lastModifiedBy || contract.creatorId,
+            proposedByName: contract.lastModifiedByName || contract.creatorName,
+            timestamp: contract.lastModifiedAt || contract.createdAt,
+          },
+        ];
+        contracts[idx] = {
+          ...contract,
+          title: trimmedTitle,
+          parties: newParties,
+          clauses: clauses && clauses.length ? clauses : contract.clauses,
+          history,
+          lastModifiedBy: session.id,
+          lastModifiedByName: me?.name || session.name,
+          lastModifiedAt: Date.now(),
+        };
+        const contractAlerts = [
+          ...(state.contractAlerts || []),
+          ...newParties.filter((p) => String(p.id) !== String(session.id)).map((p) => ({
+            id: `calert_${Date.now()}_${p.id}`, toId: p.id, type: "countered",
+            contractId, contractTitle: trimmedTitle, fromName: me?.name || session.name, timestamp: Date.now(),
+          })),
+        ];
+        saveState({ ...state, contracts, contractAlerts });
+        notify("Contre-proposition envoyée aux autres parties.", "success");
       },
 
       onCancelContract: (contractId) => {
@@ -8272,7 +8346,15 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         const contract = contracts[idx];
         if (!contract.parties.find((p) => p.id === session.id)) { notify("Vous n'êtes pas partie prenante.", "error"); return; }
         contracts[idx] = { ...contract, status: "CANCELLED" };
-        saveState({ ...state, contracts });
+        const me = (state.citizens || []).find((c) => c.id === session.id);
+        const contractAlerts = [
+          ...(state.contractAlerts || []),
+          ...(contract.parties || []).filter((p) => String(p.id) !== String(session.id)).map((p) => ({
+            id: `calert_${Date.now()}_${p.id}`, toId: p.id, type: "cancelled",
+            contractId, contractTitle: contract.title, fromName: me?.name || session.name, timestamp: Date.now(),
+          })),
+        ];
+        saveState({ ...state, contracts, contractAlerts });
         notify("Contrat résilié.", "info");
       },
 
@@ -8288,15 +8370,44 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       },
 
       onBreachContract: (contractId, reason) => {
+        if (!session) return;
         const contracts = [...(state.contracts || [])];
         const idx = contracts.findIndex((c) => c.id === contractId);
         if (idx === -1) return;
-        contracts[idx] = { ...contracts[idx], status: "BREACHED", breachReason: reason || "Non précisé" };
-        saveState({ ...state, contracts });
+        const contract = contracts[idx];
+        if (!(contract.parties || []).some((p) => String(p.id) === String(session.id))) {
+          notify("Vous n'êtes pas partie prenante de ce contrat.", "error");
+          return;
+        }
+        if (contract.status !== "ACTIVE") { notify("Seul un contrat actif peut être déclaré rompu.", "error"); return; }
+        contracts[idx] = { ...contract, status: "BREACHED", breachReason: reason || "Non précisé" };
+        const me = (state.citizens || []).find((c) => c.id === session.id);
+        const contractAlerts = [
+          ...(state.contractAlerts || []),
+          ...(contract.parties || []).filter((p) => String(p.id) !== String(session.id)).map((p) => ({
+            id: `calert_${Date.now()}_${p.id}`, toId: p.id, type: "breached",
+            contractId, contractTitle: contract.title, fromName: me?.name || session.name, reason: reason || "Non précisé", timestamp: Date.now(),
+          })),
+        ];
+        saveState({ ...state, contracts, contractAlerts });
         notify("Rupture de contrat enregistrée.", "error");
       },
 
+      // Un contrat déjà actif ne peut pas être effacé (ça effacerait la trace d'une obligation
+      // en vigueur) — seul son rédacteur peut supprimer un brouillon en attente ou un contrat déjà
+      // résolu (accompli/résilié/rompu).
       onDeleteContract: (contractId) => {
+        if (!session) return;
+        const contract = (state.contracts || []).find((c) => c.id === contractId);
+        if (!contract) return;
+        if (String(contract.creatorId) !== String(session.id)) {
+          notify("Seul le rédacteur peut supprimer ce contrat.", "error");
+          return;
+        }
+        if (contract.status === "ACTIVE") {
+          notify("Un contrat actif ne peut pas être supprimé — résiliez-le d'abord.", "error");
+          return;
+        }
         saveState({ ...state, contracts: (state.contracts || []).filter((c) => c.id !== contractId) });
         notify("Contrat supprimé.", "info");
       },
