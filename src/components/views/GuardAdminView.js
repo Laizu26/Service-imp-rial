@@ -113,7 +113,7 @@ const GuardAdminView = ({
   ];
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 h-full font-sans">
+    <div className="flex flex-col md:flex-row gap-4 md:h-full font-sans">
 
       {/* ── Panneau gauche : sélection pays (si global) ── */}
       {isGlobal && (
@@ -123,7 +123,7 @@ const GuardAdminView = ({
               <Crown size={12} /> Pays
             </div>
           </div>
-          <div className="overflow-y-auto flex-1 p-2 space-y-1">
+          <div className="overflow-y-auto max-h-64 md:max-h-none md:flex-1 p-2 space-y-1">
             {visibleCountries.map((c) => {
               const g = c.guard || {};
               const mCount = (g.members || []).length;
