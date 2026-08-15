@@ -583,6 +583,38 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         });
     }
 
+    // --- Alertes garde impériale (ordre, candidature, incarcération/libération, exclusion) ---
+    if (prefs.employment !== false) {
+      const GUARD_ALERT_META = {
+        order:                 { title: "Nouvel ordre de la garde", icon: "Shield", desc: (a) => `${a.author || "Un supérieur"} — "${a.title}"${a.urgent ? " (urgent)" : ""}` },
+        application:           { title: "Nouvelle candidature", icon: "Shield", desc: (a) => `${a.applicantName} souhaite rejoindre ${a.guardName}` },
+        application_accepted:  { title: "Candidature acceptée", icon: "Shield", desc: (a) => `Vous rejoignez ${a.guardName}` },
+        application_rejected:  { title: "Candidature refusée", icon: "Shield", desc: (a) => `${a.guardName} a refusé votre candidature` },
+        imprisoned:            { title: "Incarcération", icon: "Lock", desc: (a) => `Vous avez été incarcéré(e) par ${a.guardName} — ${a.reason}` },
+        released:              { title: "Libération", icon: "Lock", desc: () => `Vous avez été libéré(e)` },
+        kicked:                { title: "Exclusion de la garde", icon: "Shield", desc: (a) => `Vous avez été exclu(e) de ${a.guardName}` },
+        member_left:           { title: "Départ d'un membre", icon: "Shield", desc: (a) => `${a.memberName} a quitté ${a.guardName}` },
+      };
+      (state?.guardAlerts || [])
+        .filter((a) => String(a.toId) === String(user.id))
+        .forEach((a) => {
+          const meta = GUARD_ALERT_META[a.type];
+          if (!meta) return;
+          const guardName = (state?.countries || []).find((c) => c.id === a.countryId)?.guard?.name || "la Garde";
+          notifs.push({
+            id: `gdalert_${a.id}`,
+            type: `guard_${a.type}`,
+            category: "Garde",
+            title: meta.title,
+            description: meta.desc({ ...a, guardName }),
+            timestamp: a.timestamp || Date.now(),
+            rpDate: rpDateStr,
+            route: "garde",
+            icon: meta.icon,
+          });
+        });
+    }
+
     // --- Gazette récente (max 3) ---
     if (prefs.gazette !== false) {
       const gazette = state?.gazette || [];
@@ -659,7 +691,7 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
     notifs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return notifs;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, state?.guildAlerts, state?.contractAlerts, prefs, gameDate]);
+  }, [user, users, state?.debtRegistry, state?.gazette, state?.postalAlerts, state?.mushtagramNotifs, state?.propertyAlerts, state?.bourseAlerts, state?.staffLoanAlerts, state?.healthAlerts, state?.companyAlerts, state?.guildAlerts, state?.contractAlerts, state?.guardAlerts, state?.countries, prefs, gameDate]);
 
   const unreadNotifications = useMemo(
     () => notifications.filter((n) => !dismissed.includes(n.id)),

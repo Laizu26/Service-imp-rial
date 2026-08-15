@@ -135,6 +135,7 @@ export const DEFAULT_GAME_STATE = {
   mushtagramGroups: [],
   contracts: [],
   contractAlerts: [],
+  guardAlerts: [],
   maisonStaff: [],
   maisonQueue: [],
   maisonHistory: [],

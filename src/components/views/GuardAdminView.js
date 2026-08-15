@@ -3,6 +3,7 @@ import {
   Shield, Plus, Trash2, Edit3, Save, X, Users, ScrollText,
   ChevronDown, AlertTriangle, Crown, Star, UserCheck,
   UserMinus, Search, CheckCircle2, Clock, FileText, Lock, Unlock,
+  Inbox, Check,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 
@@ -34,6 +35,8 @@ const GuardAdminView = ({
   onGuardCompleteOrder,
   onGuardImprison,
   onGuardRelease,
+  onGuardAcceptApplication,
+  onGuardRejectApplication,
 }) => {
   const safeRoleInfo = roleInfo || { level: 0, scope: "LOCAL" };
   const isGlobal = safeRoleInfo.scope === "GLOBAL";
@@ -77,6 +80,9 @@ const GuardAdminView = ({
   const [prisonReason, setPrisonReason] = useState("");
   const [prisonSentence, setPrisonSentence] = useState("");
 
+  // Candidatures
+  const [applicationRankId, setApplicationRankId] = useState({});
+
   const country = countries.find((c) => c.id === selectedCountryId);
   const guard = country?.guard || {};
   const ranks = guard.ranks || [];
@@ -95,11 +101,13 @@ const GuardAdminView = ({
   );
 
   const prisonCount = (guard.prison || []).length;
+  const applications = guard.applications || [];
 
   const TABS = [
     { id: "corps",   label: "Corps",   icon: Shield    },
     { id: "grades",  label: "Grades",  icon: Star      },
     { id: "membres", label: "Membres", icon: Users     },
+    { id: "candidatures", label: `Candidatures${applications.length > 0 ? ` (${applications.length})` : ""}`, icon: Inbox },
     { id: "ordres",  label: "Ordres",  icon: ScrollText },
     { id: "prison",  label: `Prison${prisonCount > 0 ? ` (${prisonCount})` : ""}`, icon: Lock },
   ];
@@ -365,6 +373,44 @@ const GuardAdminView = ({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ══ CANDIDATURES ══ */}
+          {tab === "candidatures" && (
+            <div className="space-y-2">
+              {applications.length === 0 && <p className="text-stone-400 italic text-sm text-center py-8">Aucune candidature en attente.</p>}
+              {applications.map((a) => (
+                <div key={a.id} className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-black text-stone-800">{a.citizenName}</div>
+                      <div className="text-[10px] text-stone-400">{a.appliedAt ? new Date(a.appliedAt).toLocaleDateString("fr-FR") : ""}</div>
+                    </div>
+                  </div>
+                  {a.message && <p className="text-sm text-stone-600 italic bg-stone-50 rounded-lg p-3 border border-stone-100">{a.message}</p>}
+                  {canEdit && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <select className="p-2 border rounded-lg text-sm bg-white outline-none focus:border-stone-400"
+                        value={applicationRankId[a.citizenId] || ""}
+                        onChange={(e) => setApplicationRankId({ ...applicationRankId, [a.citizenId]: e.target.value })}>
+                        <option value="">— Grade —</option>
+                        {ranks.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                      <button
+                        onClick={() => onGuardAcceptApplication(country.id, a.citizenId, applicationRankId[a.citizenId] || "")}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-[10px] font-bold uppercase hover:bg-green-500 flex items-center gap-1.5">
+                        <Check size={12} /> Accepter
+                      </button>
+                      <button
+                        onClick={() => onGuardRejectApplication(country.id, a.citizenId)}
+                        className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-2 rounded-lg hover:bg-red-50">
+                        Refuser
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

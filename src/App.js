@@ -676,6 +676,11 @@ export default function App() {
             onGuardCompleteOrder={actions.onGuardCompleteOrder}
             onGuardImprison={actions.onGuardImprison}
             onGuardRelease={actions.onGuardRelease}
+            onGuardApply={actions.onGuardApply}
+            onGuardWithdrawApplication={actions.onGuardWithdrawApplication}
+            onGuardAcceptApplication={actions.onGuardAcceptApplication}
+            onGuardRejectApplication={actions.onGuardRejectApplication}
+            onGuardLeave={actions.onGuardLeave}
             connectedAccounts={connectedAccounts}
             onSwitchAccount={switchAccount}
             onAddAccount={addAccount}
@@ -771,6 +776,7 @@ export default function App() {
             postalAlerts={state.postalAlerts || []}
             guildAlerts={state.guildAlerts || []}
             contractAlerts={state.contractAlerts || []}
+            guardAlerts={state.guardAlerts || []}
             onAcknowledgeMagicBondAlert={actions.onAcknowledgeMagicBondAlert}
             coupleGifts={state.coupleGifts || {}}
             coupleGoals={state.coupleGoals || {}}
@@ -1311,6 +1317,8 @@ export default function App() {
                       onGuardCompleteOrder={actions.onGuardCompleteOrder}
                       onGuardImprison={actions.onGuardImprison}
                       onGuardRelease={actions.onGuardRelease}
+                      onGuardAcceptApplication={actions.onGuardAcceptApplication}
+                      onGuardRejectApplication={actions.onGuardRejectApplication}
                     />
                   )}
 

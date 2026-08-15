@@ -18,6 +18,7 @@ import {
   Users,
   FileText,
   AlertTriangle,
+  Shield,
 } from "lucide-react";
 
 // Icônes disponibles pour notif.icon (voir useNotifications.js) — table partagée entre
@@ -42,6 +43,7 @@ export const NOTIF_ICON_MAP = {
   Users,
   FileText,
   AlertTriangle,
+  Shield,
 };
 
 // Une couleur par catégorie (voir les valeurs de `category` posées dans useNotifications.js).
@@ -60,6 +62,7 @@ export const NOTIF_CATEGORY_COLORS = {
   Santé:            { hex: "#059669", bg: "#05966920", border: "#05966930", text: "#047857", textDark: "#34d399", dot: "#059669" },
   Entreprise:       { hex: "#6366f1", bg: "#6366f120", border: "#6366f130", text: "#4f46e5", textDark: "#818cf8", dot: "#6366f1" },
   Guilde:           { hex: "#0d9488", bg: "#0d948820", border: "#0d948830", text: "#0f766e", textDark: "#2dd4bf", dot: "#0d9488" },
+  Garde:            { hex: "#475569", bg: "#47556920", border: "#47556930", text: "#334155", textDark: "#94a3b8", dot: "#475569" },
 };
 
 export const NOTIF_DEFAULT_COLORS = { hex: "#78716c", bg: "#78716c20", border: "#78716c30", text: "#57534e", textDark: "#a8a29e", dot: "#78716c" };

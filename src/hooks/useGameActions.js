@@ -9039,7 +9039,11 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         const newCitizens = (state.citizens || []).map((c) =>
           c.id === citizenId ? { ...c, status: "Prisonnier" } : c
         );
-        saveState({ ...state, countries, citizens: newCitizens });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          { id: `gal-${Date.now()}`, toId: citizenId, type: "imprisoned", countryId, reason: reason || "Non précisé", sentence: sentence || "", guardName: jailer?.name || "Garde inconnu", timestamp: Date.now() },
+        ].slice(-300);
+        saveState({ ...state, countries, citizens: newCitizens, guardAlerts });
         notify(`${citizen.name} incarcéré(e). Motif : ${reason || "Non précisé"}.`, "info");
       },
 
@@ -9052,7 +9056,11 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         const newCitizens = (state.citizens || []).map((c) =>
           c.id === citizenId ? { ...c, status: "Actif" } : c
         );
-        saveState({ ...state, countries, citizens: newCitizens });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          { id: `gal-${Date.now()}`, toId: citizenId, type: "released", countryId, timestamp: Date.now() },
+        ].slice(-300);
+        saveState({ ...state, countries, citizens: newCitizens, guardAlerts });
         notify(`${citizen?.name || "Prisonnier"} libéré(e).`, "success");
       },
 
@@ -9113,17 +9121,51 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           const guard = c.guard || {};
           return { ...c, guard: { ...guard, members: (guard.members || []).filter((m) => m.citizenId !== citizenId) } };
         });
-        saveState({ ...state, countries });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          { id: `gal-${Date.now()}`, toId: citizenId, type: "kicked", countryId, timestamp: Date.now() },
+        ].slice(-300);
+        saveState({ ...state, countries, guardAlerts });
         notify("Membre retiré de la garde.", "info");
       },
 
-      onGuardIssueOrder: (countryId, order) => {
+      onGuardLeave: (countryId) => {
+        if (!session) return;
+        const citizen = (state.citizens || []).find((c) => c.id === session.id);
+        const country = (state.countries || []).find((c) => c.id === countryId);
+        const guard = country?.guard || {};
+        if (!(guard.members || []).some((m) => m.citizenId === session.id)) { notify("Vous n'êtes pas membre de cette garde.", "error"); return; }
+        const canManageIds = (guard.members || [])
+          .filter((m) => m.citizenId !== session.id && (guard.ranks || []).find((r) => r.id === m.rankId)?.canManage)
+          .map((m) => m.citizenId);
         const countries = (state.countries || []).map((c) => {
           if (c.id !== countryId) return c;
-          const guard = c.guard || {};
+          const g = c.guard || {};
+          return { ...c, guard: { ...g, members: (g.members || []).filter((m) => m.citizenId !== session.id) } };
+        });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          ...canManageIds.map((toId) => ({ id: `gal-${Date.now()}-${toId}`, toId, type: "member_left", countryId, memberName: citizen?.name || "Un membre", timestamp: Date.now() })),
+        ].slice(-300);
+        saveState({ ...state, countries, guardAlerts });
+        notify("Vous avez quitté la garde.", "info");
+      },
+
+      onGuardIssueOrder: (countryId, order) => {
+        const country = (state.countries || []).find((c) => c.id === countryId);
+        const guard = country?.guard || {};
+        const eligibleIds = (guard.members || [])
+          .filter((m) => ((guard.ranks || []).find((r) => r.id === m.rankId)?.level || 0) >= (order.minRankLevel || 1))
+          .map((m) => m.citizenId);
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
           return { ...c, guard: { ...guard, orders: [order, ...(guard.orders || [])].slice(0, 100) } };
         });
-        saveState({ ...state, countries });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          ...eligibleIds.map((toId) => ({ id: `gal-${Date.now()}-${toId}`, toId, type: "order", countryId, orderId: order.id, title: order.title, urgent: !!order.urgent, author: order.author, timestamp: Date.now() })),
+        ].slice(-300);
+        saveState({ ...state, countries, guardAlerts });
         notify("Ordre émis.", "success");
       },
 
@@ -9154,6 +9196,78 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         });
         saveState({ ...state, countries });
         notify("Ordre marqué terminé. Rapport soumis.", "success");
+      },
+
+      onGuardApply: (countryId, message) => {
+        if (!session) return;
+        const country = (state.countries || []).find((c) => c.id === countryId);
+        if (!country) return;
+        const guard = country.guard || {};
+        if ((guard.members || []).some((m) => m.citizenId === session.id)) { notify("Vous êtes déjà membre de cette garde.", "error"); return; }
+        if ((guard.applications || []).some((a) => a.citizenId === session.id)) { notify("Vous avez déjà une candidature en attente.", "error"); return; }
+        const citizen = (state.citizens || []).find((c) => c.id === session.id);
+        if (!citizen) return;
+        const application = { id: `gapp-${Date.now()}`, citizenId: session.id, citizenName: citizen.name, message: (message || "").trim(), appliedAt: Date.now() };
+        const countries = (state.countries || []).map((c) =>
+          c.id === countryId ? { ...c, guard: { ...guard, applications: [...(guard.applications || []), application] } } : c
+        );
+        const canManageIds = (guard.members || [])
+          .filter((m) => (guard.ranks || []).find((r) => r.id === m.rankId)?.canManage)
+          .map((m) => m.citizenId);
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          ...canManageIds.map((toId) => ({ id: `gal-${Date.now()}-${toId}`, toId, type: "application", countryId, applicantId: session.id, applicantName: citizen.name, timestamp: Date.now() })),
+        ].slice(-300);
+        saveState({ ...state, countries, guardAlerts });
+        notify("Candidature envoyée.", "success");
+      },
+
+      onGuardWithdrawApplication: (countryId) => {
+        if (!session) return;
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, applications: (guard.applications || []).filter((a) => a.citizenId !== session.id) } };
+        });
+        saveState({ ...state, countries });
+        notify("Candidature retirée.", "info");
+      },
+
+      onGuardAcceptApplication: (countryId, applicantId, rankId) => {
+        const country = (state.countries || []).find((c) => c.id === countryId);
+        const guard = country?.guard || {};
+        const application = (guard.applications || []).find((a) => a.citizenId === applicantId);
+        if (!application) return;
+        const citizen = (state.citizens || []).find((c) => c.id === applicantId);
+        if (!citizen) return;
+        const chosenRankId = rankId || (guard.ranks || []).slice().sort((a, b) => a.level - b.level)[0]?.id || "";
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const g = c.guard || {};
+          const already = (g.members || []).some((m) => m.citizenId === applicantId);
+          const members = already ? (g.members || []) : [...(g.members || []), { citizenId: applicantId, citizenName: citizen.name, rankId: chosenRankId, note: "", joinedAt: Date.now() }];
+          return { ...c, guard: { ...g, members, applications: (g.applications || []).filter((a) => a.citizenId !== applicantId) } };
+        });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          { id: `gal-${Date.now()}`, toId: applicantId, type: "application_accepted", countryId, timestamp: Date.now() },
+        ].slice(-300);
+        saveState({ ...state, countries, guardAlerts });
+        notify(`${citizen.name} accepté(e) dans la garde.`, "success");
+      },
+
+      onGuardRejectApplication: (countryId, applicantId, reason) => {
+        const countries = (state.countries || []).map((c) => {
+          if (c.id !== countryId) return c;
+          const guard = c.guard || {};
+          return { ...c, guard: { ...guard, applications: (guard.applications || []).filter((a) => a.citizenId !== applicantId) } };
+        });
+        const guardAlerts = [
+          ...(state.guardAlerts || []),
+          { id: `gal-${Date.now()}`, toId: applicantId, type: "application_rejected", countryId, reason: reason || "", timestamp: Date.now() },
+        ].slice(-300);
+        saveState({ ...state, countries, guardAlerts });
+        notify("Candidature refusée.", "info");
       },
 
       // ── ALERTE BUREAU DE POSTE ──────────────────────────────────
