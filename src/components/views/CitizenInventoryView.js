@@ -468,6 +468,10 @@ const CitizenInventoryView = ({
                 ? "Votre tuteur a restreint vos droits de commerce."
                 : marketLockSource === "propriétaire"
                 ? "Votre propriétaire ne vous a pas accordé l'accès au marché."
+                : marketLockSource === "vous-même"
+                ? "Vous avez vous-même restreint cet accès depuis la gestion de votre entreprise (onglet Restrictions)."
+                : marketLockSource === "entreprise emprunteuse"
+                ? "L'entreprise qui vous a emprunté a restreint vos droits de commerce."
                 : "Votre conjoint dominant a restreint vos droits de commerce."}
             </p>
           </div>

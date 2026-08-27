@@ -1861,6 +1861,10 @@ const CitizenLayout = (props) => {
                       ? "Votre employeur a restreint votre accès à la Poste Impériale dans le cadre de votre contrat."
                       : restrictionSource("postLocked") === "tuteur"
                       ? "Votre tuteur a restreint votre accès à la Poste Impériale."
+                      : restrictionSource("postLocked") === "vous-même"
+                      ? "Vous avez vous-même restreint cet accès depuis la gestion de votre entreprise (onglet Restrictions)."
+                      : restrictionSource("postLocked") === "entreprise emprunteuse"
+                      ? "L'entreprise qui vous a emprunté a restreint votre accès à la Poste Impériale."
                       : "Votre conjoint dominant a restreint votre accès à la Poste Impériale."}
                   </p>
                 </div>
@@ -1950,6 +1954,10 @@ const CitizenLayout = (props) => {
                         ? "Votre employeur a restreint vos droits de voyage dans le cadre de votre contrat."
                         : restrictionSource("travelLocked") === "tuteur"
                         ? "Votre tuteur a restreint vos droits de voyage."
+                        : restrictionSource("travelLocked") === "vous-même"
+                        ? "Vous avez vous-même restreint cet accès depuis la gestion de votre entreprise (onglet Restrictions)."
+                        : restrictionSource("travelLocked") === "entreprise emprunteuse"
+                        ? "L'entreprise qui vous a emprunté a restreint vos droits de voyage."
                         : "Votre conjoint dominant a restreint vos droits de voyage."}
                     </p>
                   </div>
@@ -2337,6 +2345,10 @@ const CitizenLayout = (props) => {
                       ? "Votre employeur a restreint votre accès à la Maison de Asia dans le cadre de votre contrat."
                       : restrictionSource("maisonLocked") === "tuteur"
                       ? "Votre tuteur a restreint votre accès à la Maison de Asia."
+                      : restrictionSource("maisonLocked") === "vous-même"
+                      ? "Vous avez vous-même restreint cet accès depuis la gestion de votre entreprise (onglet Restrictions)."
+                      : restrictionSource("maisonLocked") === "entreprise emprunteuse"
+                      ? "L'entreprise qui vous a emprunté a restreint votre accès à la Maison de Asia."
                       : "Votre conjoint dominant a restreint votre accès à la Maison de Asia."}
                   </p>
                 </div>
@@ -3385,6 +3397,10 @@ const CitizenLayout = (props) => {
                     ? "Votre employeur a restreint vos droits de commerce dans le cadre de votre contrat."
                     : restrictionSource("marketLocked") === "tuteur"
                     ? "Votre tuteur a restreint vos droits de commerce."
+                    : restrictionSource("marketLocked") === "vous-même"
+                    ? "Vous avez vous-même restreint cet accès depuis la gestion de votre entreprise (onglet Restrictions)."
+                    : restrictionSource("marketLocked") === "entreprise emprunteuse"
+                    ? "L'entreprise qui vous a emprunté a restreint vos droits de commerce."
                     : "Votre conjoint dominant a restreint vos droits de commerce."}
                 </p>
               </div>
