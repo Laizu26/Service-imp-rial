@@ -3958,8 +3958,8 @@ const MyCompanyView = ({
                         </div>
                         {bourseForm.dividend && parseFloat(bourseForm.dividend) > 0 && (
                           <div className="flex justify-between border-t border-stone-200 pt-1 mt-1">
-                            <span className="text-amber-600 font-bold">Total à distribuer</span>
-                            <span className="font-black font-mono text-amber-700">{formatMoney(parseFloat(bourseForm.dividend) * totalHeld)}</span>
+                            <span className="text-amber-600 font-bold">Par action</span>
+                            <span className="font-black font-mono text-amber-700">{formatMoney(parseFloat(bourseForm.dividend) / totalHeld)}</span>
                           </div>
                         )}
                       </div>
@@ -3970,13 +3970,13 @@ const MyCompanyView = ({
                         </button>
                       ) : (
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Montant par action (Écus)</label>
+                          <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block">Montant total à distribuer (Écus)</label>
                           <div className="flex gap-2">
                             <input type="number" step="0.1" className="flex-1 border border-amber-200 rounded-lg p-2.5 text-sm outline-none focus:border-amber-400 bg-amber-50 font-mono"
-                              placeholder="ex: 5" value={bourseForm.dividend} onChange={(e) => setBF({ dividend: e.target.value })} />
+                              placeholder="ex: 500" value={bourseForm.dividend} onChange={(e) => setBF({ dividend: e.target.value })} />
                             <button
                               disabled={!bourseForm.dividend || parseFloat(bourseForm.dividend) <= 0}
-                              onClick={() => { onBoursePayDividends(myListing.id, bourseForm.dividend); setBF({ dividend: "", showDividendForm: false }); }}
+                              onClick={() => { onBoursePayDividends(myListing.id, parseFloat(bourseForm.dividend) / totalHeld); setBF({ dividend: "", showDividendForm: false }); }}
                               className="px-4 py-2 bg-amber-600 text-white text-xs font-black uppercase rounded-lg hover:bg-amber-500 disabled:opacity-40 transition-colors">
                               Distribuer
                             </button>

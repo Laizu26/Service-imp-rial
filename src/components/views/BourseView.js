@@ -225,13 +225,13 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
         </div>
         {showDivForm && (
           <div className="space-y-2">
-            <label className="text-[9px] font-bold uppercase text-stone-400 block">Montant par action (Écus)</label>
+            <label className="text-[9px] font-bold uppercase text-stone-400 block">Montant total à distribuer (Écus)</label>
             <div className="flex gap-2">
-              <input type="number" step="0.1" value={divAmount} onChange={(e) => setDivAmount(e.target.value)} placeholder="ex: 5"
+              <input type="number" step="0.1" value={divAmount} onChange={(e) => setDivAmount(e.target.value)} placeholder="ex: 500"
                 className="flex-1 bg-white border border-stone-200 rounded-lg p-2 text-sm font-mono outline-none focus:border-amber-400" />
               <button
-                onClick={() => { onPayDividends(listing.id, divAmount); setDivAmount(""); setShowDivForm(false); }}
-                disabled={!divAmount || parseFloat(divAmount) <= 0}
+                onClick={() => { onPayDividends(listing.id, totalHeld > 0 ? parseFloat(divAmount) / totalHeld : 0); setDivAmount(""); setShowDivForm(false); }}
+                disabled={!divAmount || parseFloat(divAmount) <= 0 || totalHeld <= 0}
                 className="flex-1 py-2 bg-amber-500 text-white text-xs font-black uppercase rounded-lg hover:bg-amber-400 disabled:opacity-40 transition-colors">
                 Distribuer
               </button>
@@ -239,7 +239,7 @@ const ListingDetail = ({ listing, citizens, onEdit, onDelete, onPayDividends, on
             </div>
             {divAmount && totalHeld > 0 && (
               <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                Total à distribuer : <span className="font-black font-mono">{formatMoney(parseFloat(divAmount) * totalHeld)}</span> pour {shareholders.length} actionnaire(s)
+                Soit <span className="font-black font-mono">{formatMoney(parseFloat(divAmount) / totalHeld)}</span>/action pour {shareholders.length} actionnaire(s)
               </div>
             )}
           </div>
