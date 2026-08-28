@@ -758,6 +758,7 @@ export default function App() {
             onAdministerRequestedTreatment={actions.onAdministerRequestedTreatment}
             onSelfTreat={actions.onSelfTreat}
             onResearchTreatment={actions.onResearchTreatment}
+            onEditResearchedTreatment={actions.onEditResearchedTreatment}
             onUpdateEmployeeContract={actions.onUpdateEmployeeContract}
             onApplyToCompany={actions.onApplyToCompany}
             onRespondApplication={actions.onRespondApplication}

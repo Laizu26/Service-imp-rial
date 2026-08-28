@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FlaskConical, Search, Clock, History, Coins, HeartHandshake, ClipboardList, Beaker } from "lucide-react";
+import { FlaskConical, Search, Clock, History, Coins, HeartHandshake, ClipboardList, Beaker, Pencil, Check as CheckIcon, X as XIcon } from "lucide-react";
 import { formatMoney, getApothecaryOffer, getApothecaryTreatments, getResearchCost, HANGOVER_INFO } from "../../lib/gameUtils";
 
 const EFFECT_OPTIONS = [
@@ -112,6 +112,7 @@ const ApothecaryView = ({
   onAdministerRequestedTreatment,
   onSelfTreat,
   onResearchTreatment,
+  onEditResearchedTreatment,
 }) => {
   const isApothicaire = (user?.occupation || "").trim().toLowerCase() === "apothicaire";
   const myTreatments = getApothecaryTreatments(user, illnessConfig);
@@ -124,6 +125,28 @@ const ApothecaryView = ({
   const [declineDraft, setDeclineDraft] = useState({});
   const [treatmentChoice, setTreatmentChoice] = useState({});
   const [researchForm, setResearchForm] = useState({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15, addEffects: [], removeEffects: [] });
+  const [baseId, setBaseId] = useState("");
+  const [editingResearchId, setEditingResearchId] = useState(null);
+  const [editDraft, setEditDraft] = useState({ name: "", icon: "" });
+
+  // Partir d'une base déjà créée (catalogue MJ ou une de mes propres inventions) pour préremplir
+  // le formulaire et gagner du temps sur une variante — n'affecte pas l'original, une nouvelle
+  // recherche (et son coût) reste nécessaire pour la valider.
+  const applyBase = (id) => {
+    setBaseId(id);
+    if (!id) return;
+    const base = myTreatments.find((t) => t.id === id);
+    if (!base) return;
+    setResearchForm({
+      name: `${base.name} (variante)`,
+      icon: base.icon || "",
+      description: base.description || "",
+      effect: base.effect,
+      value: base.value || (EFFECT_OPTIONS.find((e) => e.id === base.effect)?.min || 0),
+      addEffects: base.addEffects ? [...base.addEffects] : [],
+      removeEffects: base.removeEffects ? [...base.removeEffects] : [],
+    });
+  };
 
   const myPendingRequest = careRequests.find((r) => r.patientId === user.id && r.status === "PENDING");
   const myRequestHistory = careRequests
@@ -323,6 +346,18 @@ const ApothecaryView = ({
                   <p className="text-[11px] text-stone-500">
                     Ce traitement vous sera propre — les autres apothicaires ne le verront pas dans leur offre.
                   </p>
+                  {myTreatments.length > 0 && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-stone-400 tracking-widest block mb-1">Partir d'une base (optionnel)</label>
+                      <select className="w-full p-2 border border-stone-200 rounded-lg text-sm bg-white outline-none"
+                        value={baseId} onChange={(e) => applyBase(e.target.value)}>
+                        <option value="">— Partir de zéro —</option>
+                        {myTreatments.map((t) => (
+                          <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input className="sm:col-span-2 p-2 border border-stone-200 rounded-lg text-sm outline-none"
                       placeholder="Nom du traitement..." value={researchForm.name}
@@ -381,7 +416,7 @@ const ApothecaryView = ({
                     <span className={`font-black font-mono text-sm ${canAffordResearch ? "text-purple-700" : "text-red-600"}`}>{formatMoney(researchCost)}</span>
                   </div>
                   <button
-                    onClick={() => { onResearchTreatment(researchForm); setResearchForm({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15, addEffects: [], removeEffects: [] }); }}
+                    onClick={() => { onResearchTreatment(researchForm); setResearchForm({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15, addEffects: [], removeEffects: [] }); setBaseId(""); }}
                     disabled={!canSubmitResearch}
                     className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white py-2.5 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
                     <Beaker size={14} /> Lancer la recherche
@@ -395,21 +430,36 @@ const ApothecaryView = ({
                   ) : (
                     <div className="space-y-2">
                       {[...(user.apothecaryResearch || [])].reverse().map((r) => (
-                        <div key={r.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                          <span className="text-lg shrink-0">{r.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-sm text-stone-800">{r.name}</div>
-                            <div className="text-[10px] text-stone-400">
-                              {formatDate(r.researchedAt)} — investi {formatMoney(r.cost)}
-                              {r.effect === "STATUS" && (r.addEffects?.length || r.removeEffects?.length) ? (
-                                <>
-                                  {r.addEffects?.length > 0 && ` — ajoute : ${r.addEffects.map((id) => STATUS_EFFECT_LABELS[id]?.label || id).join(", ")}`}
-                                  {r.removeEffects?.length > 0 && ` — retire : ${r.removeEffects.map((id) => STATUS_EFFECT_LABELS[id]?.label || id).join(", ")}`}
-                                </>
-                              ) : null}
-                            </div>
+                        editingResearchId === r.id ? (
+                          <div key={r.id} className="flex items-center gap-2 bg-white border-2 border-purple-300 rounded-xl px-3 py-2">
+                            <input className="w-14 p-1.5 border border-stone-200 rounded-lg text-sm outline-none text-center"
+                              maxLength={2} value={editDraft.icon} onChange={(e) => setEditDraft({ ...editDraft, icon: e.target.value })} />
+                            <input className="flex-1 p-1.5 border border-stone-200 rounded-lg text-sm outline-none"
+                              value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} />
+                            <button onClick={() => { onEditResearchedTreatment(r.id, editDraft); setEditingResearchId(null); }}
+                              className="shrink-0 p-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200"><CheckIcon size={14} /></button>
+                            <button onClick={() => setEditingResearchId(null)}
+                              className="shrink-0 p-1.5 bg-stone-100 text-stone-500 rounded-lg hover:bg-stone-200"><XIcon size={14} /></button>
                           </div>
-                        </div>
+                        ) : (
+                          <div key={r.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                            <span className="text-lg shrink-0">{r.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-sm text-stone-800">{r.name}</div>
+                              <div className="text-[10px] text-stone-400">
+                                {formatDate(r.researchedAt)} — investi {formatMoney(r.cost)}
+                                {r.effect === "STATUS" && (r.addEffects?.length || r.removeEffects?.length) ? (
+                                  <>
+                                    {r.addEffects?.length > 0 && ` — ajoute : ${r.addEffects.map((id) => STATUS_EFFECT_LABELS[id]?.label || id).join(", ")}`}
+                                    {r.removeEffects?.length > 0 && ` — retire : ${r.removeEffects.map((id) => STATUS_EFFECT_LABELS[id]?.label || id).join(", ")}`}
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                            <button onClick={() => { setEditingResearchId(r.id); setEditDraft({ name: r.name, icon: r.icon }); }}
+                              className="shrink-0 p-1.5 text-stone-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg"><Pencil size={13} /></button>
+                          </div>
+                        )
                       ))}
                     </div>
                   )}

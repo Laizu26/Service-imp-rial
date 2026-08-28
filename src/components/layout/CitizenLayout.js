@@ -548,6 +548,7 @@ const CitizenLayout = (props) => {
     onAdministerRequestedTreatment,
     onSelfTreat,
     onResearchTreatment,
+    onEditResearchedTreatment,
     onUpdateEmployeeContract,
     onApplyToCompany,
     onRespondApplication,
@@ -4304,6 +4305,7 @@ const CitizenLayout = (props) => {
                 onAdministerRequestedTreatment={onAdministerRequestedTreatment}
                 onSelfTreat={onSelfTreat}
                 onResearchTreatment={onResearchTreatment}
+                onEditResearchedTreatment={onEditResearchedTreatment}
               />
             )}
 

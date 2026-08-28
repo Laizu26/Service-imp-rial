@@ -5898,6 +5898,26 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         notify("Tarif mis à jour.", "success");
       },
 
+      // Renomme/change l'icône d'un traitement déjà inventé (R&D) — pas de nouveau coût, l'effet
+      // reste inchangé, seule la présentation évolue.
+      onEditResearchedTreatment: (treatmentId, { name, icon } = {}) => {
+        if (!session) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const apothecary = state.citizens[idx];
+        const research = apothecary.apothecaryResearch || [];
+        const rIdx = research.findIndex((r) => r.id === treatmentId);
+        if (rIdx === -1) return;
+        const trimmedName = (name || "").trim();
+        if (!trimmedName) { notify("Nom du traitement requis.", "error"); return; }
+        const newResearch = [...research];
+        newResearch[rIdx] = { ...newResearch[rIdx], name: trimmedName, icon: (icon || "⚗️").trim() || "⚗️" };
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = { ...apothecary, apothecaryResearch: newResearch };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Traitement mis à jour.", "success");
+      },
+
       // Un apothicaire invente son propre traitement (R&D) — contrairement au catalogue MJ,
       // celui-ci lui est propre et n'apparaît pas chez les autres apothicaires. Le coût est calculé
       // depuis la puissance de l'effet choisi (getResearchCost) plutôt que déclaré librement, pour
