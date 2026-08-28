@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -348,6 +348,25 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
     // Repli si l'appelant ne fournit pas encore la variante atomique (ex: anciens tests) —
     // se comporte alors comme l'ancien saveState (réécriture complète), unionFields ignoré.
     const appendState = saveStateAppend || ((newState) => saveState(newState));
+    // Applique l'effet d'un traitement (CURE / REDUCE_DAYS / REDUCE_PENALTY) à un patient et
+    // renvoie le citizen mis à jour + si ça l'a guéri — factorisé pour être partagé entre
+    // l'acceptation d'une demande de soin (onRespondTreatmentRequest) et l'auto-soin d'un
+    // apothicaire sur lui-même (onSelfTreat).
+    const applyTreatmentEffect = (patient, treatmentSnapshot) => {
+      if (treatmentSnapshot.effect === "CURE") {
+        return { updatedPatient: clearIllnessFromCitizen(patient), cured: true };
+      }
+      if (treatmentSnapshot.effect === "REDUCE_DAYS") {
+        const daysElapsed = Math.min(patient.illness.durationDays, (patient.illness.daysElapsed || 0) + (treatmentSnapshot.value || 0));
+        if (daysElapsed >= patient.illness.durationDays) return { updatedPatient: clearIllnessFromCitizen(patient), cured: true };
+        return { updatedPatient: { ...patient, illness: { ...patient.illness, daysElapsed } }, cured: false };
+      }
+      if (treatmentSnapshot.effect === "REDUCE_PENALTY") {
+        const productionPenaltyPercent = Math.max(0, (patient.illness.productionPenaltyPercent || 0) - (treatmentSnapshot.value || 0));
+        return { updatedPatient: { ...patient, illness: { ...patient.illness, productionPenaltyPercent } }, cured: false };
+      }
+      return { updatedPatient: patient, cured: false };
+    };
     // Un citoyen restreint (contrat de servage, conjoint dominant ou tutelle active) ne
     // peut pas accéder à la Maison de Asia — même logique que combinedRestriction côté UI.
     const isMaisonLocked = (citizenId) => {
@@ -5853,63 +5872,148 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       // Réservé aux citoyens dont l'occupation (texte libre défini par le GM sur la fiche
       // citoyen) est "Apothicaire" — un rôle de métier, pas un lieu. Le patient paie le prix du
       // traitement à l'apothicaire (sauf auto-traitement, sans effet économique).
-      onAdministerTreatment: ({ patientId, treatmentId }) => {
+      // ── APOTHICAIRE ────────────────────────────────────────────────────
+      // Un apothicaire fixe son propre tarif (et peut retirer un soin de son offre) pour chaque
+      // type de traitement du catalogue MJ — plusieurs apothicaires peuvent ainsi se faire
+      // concurrence sur les prix plutôt que de partager un tarif unique imposé.
+      onSetApothecaryOffer: (treatmentId, { price, active } = {}) => {
         if (!session) return;
-        const apothecary = (state.citizens || []).find((c) => c.id === session.id);
-        if (!apothecary) return;
-        if ((apothecary.occupation || "").trim().toLowerCase() !== "apothicaire") {
-          notify("Seul un apothicaire peut administrer un traitement.", "error");
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        if ((state.citizens[idx].occupation || "").trim().toLowerCase() !== "apothicaire") {
+          notify("Seul un apothicaire peut définir ses tarifs.", "error");
           return;
         }
-        const patient = (state.citizens || []).find((c) => c.id === patientId);
-        if (!patient) { notify("Patient introuvable.", "error"); return; }
-        if (!patient.illness) { notify(`${patient.name} n'est pas malade.`, "error"); return; }
+        const newCitizens = [...state.citizens];
+        const catalog = { ...(newCitizens[idx].apothecaryCatalog || {}) };
+        catalog[treatmentId] = { ...(catalog[treatmentId] || {}), ...(price !== undefined ? { price: price === "" ? undefined : Number(price) } : {}), ...(active !== undefined ? { active } : {}) };
+        newCitizens[idx] = { ...newCitizens[idx], apothecaryCatalog: catalog };
+        saveState({ ...state, citizens: newCitizens });
+        notify("Tarif mis à jour.", "success");
+      },
+
+      // Un patient malade envoie une demande à UN apothicaire précis (au tarif affiché au moment
+      // de la demande, figé dans treatmentSnapshot pour rester cohérent même si l'apothicaire
+      // change ses tarifs entre-temps) au lieu de se faire traiter unilatéralement.
+      onRequestTreatment: (apothecaryId, treatmentId, note) => {
+        if (!session) return;
+        const patient = (state.citizens || []).find((c) => c.id === session.id);
+        if (!patient) return;
+        if (!patient.illness) { notify("Vous n'êtes pas malade.", "error"); return; }
+        if ((state.careRequests || []).some((r) => String(r.patientId) === String(session.id) && r.status === "PENDING")) {
+          notify("Vous avez déjà une demande de soin en attente.", "error");
+          return;
+        }
+        const apothecary = (state.citizens || []).find((c) => c.id === apothecaryId);
+        if (!apothecary || (apothecary.occupation || "").trim().toLowerCase() !== "apothicaire") {
+          notify("Apothicaire introuvable.", "error");
+          return;
+        }
         const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
         if (!treatment) { notify("Traitement introuvable.", "error"); return; }
-        const price = treatment.price || 0;
-        const isSelfTreatment = String(patient.id) === String(apothecary.id);
-        if (!isSelfTreatment && (patient.balance || 0) < price) {
-          notify(`${patient.name} n'a pas les fonds nécessaires (${formatMoney(price)}).`, "error");
+        const offer = getApothecaryOffer(apothecary, treatment);
+        if (!offer.active) { notify("Cet apothicaire ne propose pas ce soin.", "error"); return; }
+        const request = {
+          id: `care_${Date.now()}`,
+          patientId: patient.id, patientName: patient.name,
+          apothecaryId: apothecary.id, apothecaryName: apothecary.name,
+          treatmentId, treatmentSnapshot: { name: treatment.name, icon: treatment.icon, effect: treatment.effect, value: treatment.value, price: offer.price },
+          status: "PENDING", note: (note || "").trim(), requestedAt: Date.now(),
+        };
+        const healthAlerts = [
+          { id: `health_${apothecary.id}_${Date.now()}`, toId: apothecary.id, type: "treatment_requested", name: treatment.name, fromName: patient.name, timestamp: Date.now() },
+          ...(state.healthAlerts || []),
+        ].slice(0, 300);
+        saveState({ ...state, careRequests: [request, ...(state.careRequests || [])].slice(0, 300), healthAlerts });
+        notify(`Demande envoyée à ${apothecary.name}.`, "success");
+      },
+
+      onCancelTreatmentRequest: (requestId) => {
+        if (!session) return;
+        const requests = [...(state.careRequests || [])];
+        const idx = requests.findIndex((r) => r.id === requestId);
+        if (idx === -1) return;
+        if (String(requests[idx].patientId) !== String(session.id) || requests[idx].status !== "PENDING") return;
+        requests[idx] = { ...requests[idx], status: "CANCELLED", respondedAt: Date.now() };
+        saveState({ ...state, careRequests: requests });
+        notify("Demande annulée.", "info");
+      },
+
+      onRespondTreatmentRequest: (requestId, accept, declineReason) => {
+        if (!session) return;
+        const requests = [...(state.careRequests || [])];
+        const idx = requests.findIndex((r) => r.id === requestId);
+        if (idx === -1) return;
+        const request = requests[idx];
+        if (String(request.apothecaryId) !== String(session.id) || request.status !== "PENDING") return;
+
+        if (!accept) {
+          requests[idx] = { ...request, status: "DECLINED", declineReason: (declineReason || "").trim(), respondedAt: Date.now() };
+          const healthAlerts = [
+            { id: `health_${request.patientId}_${Date.now()}`, toId: request.patientId, type: "treatment_declined", name: request.treatmentSnapshot.name, fromName: request.apothecaryName, reason: declineReason || "", timestamp: Date.now() },
+            ...(state.healthAlerts || []),
+          ].slice(0, 300);
+          saveState({ ...state, careRequests: requests, healthAlerts });
+          notify("Demande refusée.", "info");
           return;
         }
 
-        let updatedPatient = patient;
-        let cured = false;
-        if (treatment.effect === "CURE") {
-          updatedPatient = clearIllnessFromCitizen(patient);
-          cured = true;
-        } else if (treatment.effect === "REDUCE_DAYS") {
-          const daysElapsed = Math.min(patient.illness.durationDays, (patient.illness.daysElapsed || 0) + (treatment.value || 0));
-          updatedPatient = daysElapsed >= patient.illness.durationDays
-            ? (cured = true, clearIllnessFromCitizen(patient))
-            : { ...patient, illness: { ...patient.illness, daysElapsed } };
-        } else if (treatment.effect === "REDUCE_PENALTY") {
-          const productionPenaltyPercent = Math.max(0, (patient.illness.productionPenaltyPercent || 0) - (treatment.value || 0));
-          updatedPatient = { ...patient, illness: { ...patient.illness, productionPenaltyPercent } };
+        const apothecary = (state.citizens || []).find((c) => c.id === session.id);
+        const patient = (state.citizens || []).find((c) => c.id === request.patientId);
+        if (!apothecary || !patient) return;
+        if (!patient.illness) {
+          requests[idx] = { ...request, status: "CANCELLED", declineReason: "Le patient n'est plus malade.", respondedAt: Date.now() };
+          saveState({ ...state, careRequests: requests });
+          notify(`${patient.name} n'est plus malade — demande annulée.`, "error");
+          return;
+        }
+        const price = request.treatmentSnapshot.price || 0;
+        if ((patient.balance || 0) < price) {
+          requests[idx] = { ...request, status: "CANCELLED", declineReason: "Fonds insuffisants.", respondedAt: Date.now() };
+          saveState({ ...state, careRequests: requests });
+          notify(`${patient.name} n'a plus les fonds nécessaires (${formatMoney(price)}).`, "error");
+          return;
         }
 
+        const { updatedPatient, cured } = applyTreatmentEffect(patient, request.treatmentSnapshot);
         const newCitizens = (state.citizens || []).map((c) => {
-          if (isSelfTreatment && c.id === patient.id) return updatedPatient;
           if (c.id === patient.id) return { ...updatedPatient, balance: (updatedPatient.balance || 0) - price };
           if (c.id === apothecary.id) return { ...c, balance: (c.balance || 0) + price };
           return c;
         });
-
+        requests[idx] = { ...request, status: "COMPLETED", cured, respondedAt: Date.now() };
         const healthAlerts = [
-          {
-            id: `health_${patient.id}_${Date.now()}`, toId: patient.id,
-            type: cured ? "illness_recovered" : "treatment_administered",
-            name: cured ? treatment.name : treatment.name, timestamp: Date.now(),
-          },
+          { id: `health_${patient.id}_${Date.now()}`, toId: patient.id, type: cured ? "illness_recovered" : "treatment_administered", name: request.treatmentSnapshot.name, timestamp: Date.now() },
           ...(state.healthAlerts || []),
         ].slice(0, 300);
-
-        const ledger = price > 0 && !isSelfTreatment
-          ? [{ id: Date.now(), fromName: patient.name, toName: apothecary.name, amount: price, timestamp: Date.now(), reason: `Traitement — ${treatment.name}`, type: "TREATMENT" }, ...(state.globalLedger || [])].slice(0, 1000)
+        const ledger = price > 0
+          ? [{ id: Date.now(), fromName: patient.name, toName: apothecary.name, amount: price, timestamp: Date.now(), reason: `Traitement — ${request.treatmentSnapshot.name}`, type: "TREATMENT" }, ...(state.globalLedger || [])].slice(0, 1000)
           : state.globalLedger;
-
-        saveState({ ...state, citizens: newCitizens, healthAlerts, globalLedger: ledger });
+        saveState({ ...state, citizens: newCitizens, careRequests: requests, healthAlerts, globalLedger: ledger });
         notify(cured ? `${patient.name} est guéri(e) grâce à votre traitement.` : `Traitement administré à ${patient.name}.`, "success");
+      },
+
+      // Un apothicaire malade peut se soigner instantanément avec son propre catalogue — inutile
+      // de s'envoyer une demande à soi-même et d'attendre sa propre réponse.
+      onSelfTreat: (treatmentId) => {
+        if (!session) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const apothecary = state.citizens[idx];
+        if ((apothecary.occupation || "").trim().toLowerCase() !== "apothicaire") {
+          notify("Seul un apothicaire peut s'auto-soigner.", "error");
+          return;
+        }
+        if (!apothecary.illness) { notify("Vous n'êtes pas malade.", "error"); return; }
+        const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
+        if (!treatment) { notify("Traitement introuvable.", "error"); return; }
+        const offer = getApothecaryOffer(apothecary, treatment);
+        if (!offer.active) { notify("Vous ne proposez pas ce soin.", "error"); return; }
+        const { updatedPatient, cured } = applyTreatmentEffect(apothecary, { effect: treatment.effect, value: treatment.value });
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = updatedPatient;
+        saveState({ ...state, citizens: newCitizens });
+        notify(cured ? "Vous êtes guéri(e)." : "Traitement appliqué.", "success");
       },
 
       onUpdateEmployeeContract: ({ companyId, citizenId, updates }) => {

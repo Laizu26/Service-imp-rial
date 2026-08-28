@@ -399,6 +399,17 @@ export function applyIllnessToCitizen(citizen, illnessInstance) {
   };
 }
 
+// Résout le tarif effectif et la disponibilité d'un type de traitement (catalogue défini par le
+// MJ) pour UN apothicaire en particulier — chaque apothicaire peut surcoter/décoter ou retirer un
+// soin de son offre via citizen.apothecaryCatalog, sans toucher au catalogue global des autres.
+export function getApothecaryOffer(apothecary, treatment) {
+  const override = apothecary?.apothecaryCatalog?.[treatment.id];
+  return {
+    price: override?.price != null && override.price !== "" ? Number(override.price) : (treatment.price || 0),
+    active: override?.active !== false,
+  };
+}
+
 export function clearIllnessFromCitizen(citizen) {
   const granted = citizen.illness?.grantedStatusEffects || [];
   const remainingEffects = (citizen.statusEffects || []).filter((id) => !granted.includes(id));

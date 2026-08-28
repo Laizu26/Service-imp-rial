@@ -90,6 +90,7 @@ const CitizenPhysicsMagicView = lazy(() => import("../views/CitizenPhysicsMagicV
 const GuildsView = lazy(() => import("../views/GuildsView"));
 const ContractsView = lazy(() => import("../views/ContractsView"));
 const GuardView = lazy(() => import("../views/GuardView"));
+const ApothecaryView = lazy(() => import("../views/ApothecaryView"));
 const PropertyDetailView = lazy(() => import("../views/PropertyDetailView"));
 const SettingsView = lazy(() => import("../views/SettingsView"));
 const CitizenBourseView = lazy(() => import("../views/CitizenBourseView"));
@@ -539,7 +540,12 @@ const CitizenLayout = (props) => {
     onSetSelfRights,
     onSetMyMorale,
     illnessConfig,
-    onAdministerTreatment,
+    careRequests = [],
+    onSetApothecaryOffer,
+    onRequestTreatment,
+    onCancelTreatmentRequest,
+    onRespondTreatmentRequest,
+    onSelfTreat,
     onUpdateEmployeeContract,
     onApplyToCompany,
     onRespondApplication,
@@ -826,10 +832,7 @@ const CitizenLayout = (props) => {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showRestorePanel, setShowRestorePanel] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
-  // Apothicaire : recherche + sélection pour administrer un traitement
-  const [apoSearch, setApoSearch] = useState("");
-  const [apoPatientId, setApoPatientId] = useState("");
-  const [apoTreatmentId, setApoTreatmentId] = useState("");
+  // Apothicaire — géré par ApothecaryView
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Onglets non-fermables (essentiels)
@@ -4285,131 +4288,19 @@ const CitizenLayout = (props) => {
             )}
 
             {/* --- BLOC APOTHICAIRE --- */}
-            {active === "apothicaire" && (() => {
-              const isApothicaire = (user?.occupation || "").trim().toLowerCase() === "apothicaire";
-              const treatments = illnessConfig?.treatments || [];
-              const myIllness = user?.illness;
-
-              if (!isApothicaire) {
-                return (
-                  <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-6 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                        <FlaskConical size={22} className="text-emerald-600" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-black text-stone-800">Apothicaire</h2>
-                        <p className="text-xs text-stone-400">Soins et traitements</p>
-                      </div>
-                    </div>
-                    {myIllness ? (
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
-                        Vous êtes actuellement malade ({myIllness.name || "maladie"}). Rendez-vous auprès d'un citoyen
-                        exerçant la profession d'Apothicaire pour vous faire soigner — lui seul peut administrer un
-                        traitement.
-                      </div>
-                    ) : (
-                      <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 text-sm text-stone-500">
-                        Vous n'êtes pas malade actuellement. Si vous tombez malade, un citoyen exerçant la profession
-                        d'Apothicaire pourra vous administrer un traitement ici.
-                      </div>
-                    )}
-                    <p className="text-[10px] text-stone-400 italic">
-                      Seuls les citoyens dont l'occupation est "Apothicaire" (définie par l'administration) peuvent
-                      administrer des traitements.
-                    </p>
-                  </div>
-                );
-              }
-
-              const matches = safeUsers.filter((c) => c.illness && (!apoSearch.trim() || c.name?.toLowerCase().includes(apoSearch.trim().toLowerCase()))).slice(0, 20);
-              const selectedPatient = safeUsers.find((c) => c.id === apoPatientId);
-
-              return (
-                <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-6 space-y-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <FlaskConical size={22} className="text-emerald-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-black text-stone-800">Apothicaire</h2>
-                      <p className="text-xs text-stone-400">Administrez un traitement à un patient malade</p>
-                    </div>
-                  </div>
-
-                  {treatments.length === 0 ? (
-                    <div className="text-sm text-stone-400 italic">Aucun traitement n'a été défini par l'administration.</div>
-                  ) : (
-                    <>
-                      {/* Le catalogue reste toujours visible, avant même de choisir un patient —
-                          un apothicaire doit pouvoir voir ce qu'il propose sans dépendre d'un
-                          malade présent pour l'instant. */}
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-2">
-                          Traitement {apoTreatmentId && "— sélectionné"}
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {treatments.map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => setApoTreatmentId(t.id)}
-                              className={`text-left p-3 rounded-xl border-2 transition-colors ${
-                                apoTreatmentId === t.id ? "border-emerald-400 bg-emerald-50" : "border-stone-200 hover:border-stone-300"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">{t.icon}</span>
-                                <span className="font-bold text-sm text-stone-800">{t.name}</span>
-                              </div>
-                              {t.description && <p className="text-[11px] text-stone-500 italic mt-1">{t.description}</p>}
-                              <div className="text-[10px] text-emerald-700 font-bold mt-1">{formatMoney(t.price)}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest block mb-1">Patient</label>
-                        <input
-                          className="w-full p-2.5 border-2 border-stone-200 rounded-xl outline-none font-bold text-sm"
-                          placeholder="Chercher un citoyen malade..."
-                          value={selectedPatient ? selectedPatient.name : apoSearch}
-                          onChange={(e) => { setApoSearch(e.target.value); setApoPatientId(""); }}
-                        />
-                        {!selectedPatient && (
-                          <div className="mt-1 max-h-48 overflow-y-auto border border-stone-200 rounded-xl divide-y divide-stone-100">
-                            {matches.length === 0 ? (
-                              <div className="p-3 text-xs text-stone-400 italic">Aucun citoyen malade trouvé.</div>
-                            ) : matches.map((c) => (
-                              <button
-                                key={c.id}
-                                onClick={() => { setApoPatientId(c.id); setApoSearch(""); }}
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 flex items-center justify-between"
-                              >
-                                <span className="font-bold text-stone-700">{c.name}</span>
-                                <span className="text-[10px] text-yellow-600">{c.illness?.icon} {c.illness?.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          if (!apoTreatmentId || !selectedPatient || !onAdministerTreatment) return;
-                          onAdministerTreatment({ patientId: selectedPatient.id, treatmentId: apoTreatmentId });
-                          setApoPatientId(""); setApoTreatmentId(""); setApoSearch("");
-                        }}
-                        disabled={!apoTreatmentId || !selectedPatient}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-3 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2"
-                      >
-                        <FlaskConical size={16} /> Administrer le traitement
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
+            {active === "apothicaire" && (
+              <ApothecaryView
+                user={user}
+                citizens={safeUsers}
+                illnessConfig={illnessConfig}
+                careRequests={careRequests}
+                onSetApothecaryOffer={onSetApothecaryOffer}
+                onRequestTreatment={onRequestTreatment}
+                onCancelTreatmentRequest={onCancelTreatmentRequest}
+                onRespondTreatmentRequest={onRespondTreatmentRequest}
+                onSelfTreat={onSelfTreat}
+              />
+            )}
 
             {/* --- BLOC FICHE DE COMBAT --- */}
             {active === "combat" && (() => {

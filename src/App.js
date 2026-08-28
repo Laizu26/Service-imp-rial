@@ -750,7 +750,12 @@ export default function App() {
             onSetSelfRights={actions.onSetSelfRights}
             onSetMyMorale={actions.onSetMyMorale}
             illnessConfig={state.illnessConfig}
-            onAdministerTreatment={actions.onAdministerTreatment}
+            careRequests={state.careRequests || []}
+            onSetApothecaryOffer={actions.onSetApothecaryOffer}
+            onRequestTreatment={actions.onRequestTreatment}
+            onCancelTreatmentRequest={actions.onCancelTreatmentRequest}
+            onRespondTreatmentRequest={actions.onRespondTreatmentRequest}
+            onSelfTreat={actions.onSelfTreat}
             onUpdateEmployeeContract={actions.onUpdateEmployeeContract}
             onApplyToCompany={actions.onApplyToCompany}
             onRespondApplication={actions.onRespondApplication}

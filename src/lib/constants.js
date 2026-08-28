@@ -136,6 +136,7 @@ export const DEFAULT_GAME_STATE = {
   contracts: [],
   contractAlerts: [],
   guardAlerts: [],
+  careRequests: [],
   maisonStaff: [],
   maisonQueue: [],
   maisonHistory: [],

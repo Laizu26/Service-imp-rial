@@ -19,6 +19,7 @@ import {
   FileText,
   AlertTriangle,
   Shield,
+  FlaskConical,
 } from "lucide-react";
 
 // Icônes disponibles pour notif.icon (voir useNotifications.js) — table partagée entre
@@ -44,6 +45,7 @@ export const NOTIF_ICON_MAP = {
   FileText,
   AlertTriangle,
   Shield,
+  FlaskConical,
 };
 
 // Une couleur par catégorie (voir les valeurs de `category` posées dans useNotifications.js).
