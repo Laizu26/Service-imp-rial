@@ -1,6 +1,12 @@
 import React, { useState } from "react";
-import { FlaskConical, Search, Clock, History, Coins, HeartHandshake, ClipboardList } from "lucide-react";
-import { formatMoney, getApothecaryOffer, HANGOVER_INFO } from "../../lib/gameUtils";
+import { FlaskConical, Search, Clock, History, Coins, HeartHandshake, ClipboardList, Beaker } from "lucide-react";
+import { formatMoney, getApothecaryOffer, getApothecaryTreatments, getResearchCost, HANGOVER_INFO } from "../../lib/gameUtils";
+
+const EFFECT_OPTIONS = [
+  { id: "CURE", label: "Guérison immédiate" },
+  { id: "REDUCE_DAYS", label: "Réduit la durée restante (jours)", min: 1, max: 10 },
+  { id: "REDUCE_PENALTY", label: "Réduit la pénalité de production (%)", min: 5, max: 90 },
+];
 
 const STATUS_LABELS = { PENDING: "En attente", COMPLETED: "Soigné", DECLINED: "Refusée", CANCELLED: "Annulée" };
 const STATUS_COLORS = {
@@ -104,9 +110,10 @@ const ApothecaryView = ({
   onDeclineTreatmentRequest,
   onAdministerRequestedTreatment,
   onSelfTreat,
+  onResearchTreatment,
 }) => {
   const isApothicaire = (user?.occupation || "").trim().toLowerCase() === "apothicaire";
-  const treatments = illnessConfig?.treatments || [];
+  const myTreatments = getApothecaryTreatments(user, illnessConfig);
   const myIllness = user?.illness;
 
   const [tab, setTab] = useState("demandes");
@@ -115,6 +122,7 @@ const ApothecaryView = ({
   const [priceDrafts, setPriceDrafts] = useState({});
   const [declineDraft, setDeclineDraft] = useState({});
   const [treatmentChoice, setTreatmentChoice] = useState({});
+  const [researchForm, setResearchForm] = useState({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15 });
 
   const myPendingRequest = careRequests.find((r) => r.patientId === user.id && r.status === "PENDING");
   const myRequestHistory = careRequests
@@ -131,13 +139,18 @@ const ApothecaryView = ({
 
   const apothecaries = citizens.filter((c) => c.id !== user.id && (c.occupation || "").trim().toLowerCase() === "apothicaire");
   const filteredApothecaries = apothecaries.filter((a) => !search.trim() || (a.name || "").toLowerCase().includes(search.trim().toLowerCase()));
-  const offersFor = (apothecary) => treatments.map((t) => ({ ...t, offer: getApothecaryOffer(apothecary, t) })).filter((t) => t.offer.active);
+  const offersFor = (apothecary) => getApothecaryTreatments(apothecary, illnessConfig).map((t) => ({ ...t, offer: getApothecaryOffer(apothecary, t) })).filter((t) => t.offer.active);
 
-  const myOffers = treatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) })).filter((t) => t.offer.active);
+  const myOffers = myTreatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) })).filter((t) => t.offer.active);
+
+  const researchEffect = EFFECT_OPTIONS.find((e) => e.id === researchForm.effect);
+  const researchCost = getResearchCost(researchForm.effect, researchForm.value);
+  const canAffordResearch = (user?.balance || 0) >= researchCost;
 
   const TABS = [
     { id: "demandes", label: `Demandes reçues${incomingRequests.length > 0 ? ` (${incomingRequests.length})` : ""}` },
     { id: "tarifs", label: "Mes tarifs" },
+    { id: "recherche", label: "Recherche" },
     { id: "historique", label: "Historique" },
   ];
 
@@ -190,7 +203,7 @@ const ApothecaryView = ({
                 {incomingRequests.length === 0 && <p className="text-sm text-stone-400 italic text-center py-6">Aucune demande en attente.</p>}
                 {incomingRequests.map((r) => {
                   const patient = citizens.find((c) => c.id === r.patientId);
-                  const availableOffers = patient ? treatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) })).filter((t) => t.offer.active) : [];
+                  const availableOffers = patient ? myOffers : [];
                   const chosenId = treatmentChoice[r.id];
                   return (
                     <div key={r.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
@@ -253,17 +266,20 @@ const ApothecaryView = ({
 
             {tab === "tarifs" && (
               <>
-                {treatments.length === 0 ? (
-                  <p className="text-sm text-stone-400 italic text-center py-6">Aucun traitement défini par l'administration.</p>
+                {myTreatments.length === 0 ? (
+                  <p className="text-sm text-stone-400 italic text-center py-6">Aucun traitement disponible — définissez-en un par recherche ou attendez que l'administration en configure.</p>
                 ) : (
                   <div className="space-y-2">
-                    {treatments.map((t) => {
+                    {myTreatments.map((t) => {
                       const offer = getApothecaryOffer(user, t);
                       return (
                         <div key={t.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
                           <span className="text-lg shrink-0">{t.icon}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-sm text-stone-800">{t.name}</div>
+                            <div className="font-bold text-sm text-stone-800 flex items-center gap-1.5">
+                              {t.name}
+                              {t.researchedAt && <span className="text-[8px] font-black uppercase bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">Inventé</span>}
+                            </div>
                             {t.description && <div className="text-[10px] text-stone-400 italic truncate">{t.description}</div>}
                           </div>
                           <input
@@ -286,6 +302,75 @@ const ApothecaryView = ({
                   </div>
                 )}
               </>
+            )}
+
+            {tab === "recherche" && (
+              <div className="space-y-5">
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+                  <div className="text-[10px] font-black uppercase text-purple-700 tracking-widest flex items-center gap-1.5">
+                    <Beaker size={12} /> Inventer un nouveau traitement
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Ce traitement vous sera propre — les autres apothicaires ne le verront pas dans leur offre.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input className="sm:col-span-2 p-2 border border-stone-200 rounded-lg text-sm outline-none"
+                      placeholder="Nom du traitement..." value={researchForm.name}
+                      onChange={(e) => setResearchForm({ ...researchForm, name: e.target.value })} />
+                    <input className="p-2 border border-stone-200 rounded-lg text-sm outline-none text-center"
+                      placeholder="⚗️" maxLength={2} value={researchForm.icon}
+                      onChange={(e) => setResearchForm({ ...researchForm, icon: e.target.value })} />
+                  </div>
+                  <textarea className="w-full p-2 border border-stone-200 rounded-lg text-sm outline-none resize-none" rows={2}
+                    placeholder="Description (optionnelle)..." value={researchForm.description}
+                    onChange={(e) => setResearchForm({ ...researchForm, description: e.target.value })} />
+                  <div className="flex flex-wrap gap-2">
+                    {EFFECT_OPTIONS.map((e) => (
+                      <button key={e.id} onClick={() => setResearchForm({ ...researchForm, effect: e.id, value: e.min || 0 })}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase border-2 transition-colors ${
+                          researchForm.effect === e.id ? "border-purple-400 bg-purple-100 text-purple-800" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
+                        }`}>{e.label}</button>
+                    ))}
+                  </div>
+                  {researchEffect?.min !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <input type="range" min={researchEffect.min} max={researchEffect.max} value={researchForm.value}
+                        onChange={(e) => setResearchForm({ ...researchForm, value: Number(e.target.value) })}
+                        className="flex-1" />
+                      <span className="text-xs font-mono font-bold text-stone-700 w-16 text-right">{researchForm.value} {researchEffect.id === "REDUCE_PENALTY" ? "%" : "j."}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between bg-white border border-stone-200 rounded-lg px-3 py-2">
+                    <span className="text-xs text-stone-500">Coût de la recherche</span>
+                    <span className={`font-black font-mono text-sm ${canAffordResearch ? "text-purple-700" : "text-red-600"}`}>{formatMoney(researchCost)}</span>
+                  </div>
+                  <button
+                    onClick={() => { onResearchTreatment(researchForm); setResearchForm({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15 }); }}
+                    disabled={!researchForm.name.trim() || !canAffordResearch}
+                    className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white py-2.5 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
+                    <Beaker size={14} /> Lancer la recherche
+                  </button>
+                </div>
+
+                <div>
+                  <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-2">Mes inventions ({(user.apothecaryResearch || []).length})</div>
+                  {(user.apothecaryResearch || []).length === 0 ? (
+                    <p className="text-sm text-stone-400 italic text-center py-4">Aucune recherche aboutie pour le moment.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {[...(user.apothecaryResearch || [])].reverse().map((r) => (
+                        <div key={r.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                          <span className="text-lg shrink-0">{r.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-sm text-stone-800">{r.name}</div>
+                            <div className="text-[10px] text-stone-400">{formatDate(r.researchedAt)} — investi {formatMoney(r.cost)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {tab === "historique" && (

@@ -410,6 +410,23 @@ export function getApothecaryOffer(apothecary, treatment) {
   };
 }
 
+// Traitements accessibles à un apothicaire donné : le catalogue commun défini par le MJ, complété
+// par les traitements qu'il a lui-même inventés via la R&D (privés — invisibles pour les autres
+// apothicaires, voir onResearchTreatment).
+export function getApothecaryTreatments(apothecary, illnessConfig) {
+  return [...(illnessConfig?.treatments || []), ...(apothecary?.apothecaryResearch || [])];
+}
+
+// Coût en Écus pour inventer un nouveau traitement (R&D) — proportionnel à la puissance de
+// l'effet choisi, afin qu'une guérison instantanée coûte structurellement plus cher qu'un
+// allègement partiel, sans dépendre d'un prix librement déclaré par le joueur.
+export function getResearchCost(effect, value) {
+  if (effect === "CURE") return 300;
+  if (effect === "REDUCE_DAYS") return 40 * (value || 0);
+  if (effect === "REDUCE_PENALTY") return 10 * (value || 0);
+  return 0;
+}
+
 export function clearIllnessFromCitizen(citizen) {
   const granted = citizen.illness?.grantedStatusEffects || [];
   const remainingEffects = (citizen.statusEffects || []).filter((id) => !granted.includes(id));

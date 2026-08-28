@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer, getResearchCost } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -5890,6 +5890,47 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         newCitizens[idx] = { ...newCitizens[idx], apothecaryCatalog: catalog };
         saveState({ ...state, citizens: newCitizens });
         notify("Tarif mis à jour.", "success");
+      },
+
+      // Un apothicaire invente son propre traitement (R&D) — contrairement au catalogue MJ,
+      // celui-ci lui est propre et n'apparaît pas chez les autres apothicaires. Le coût est calculé
+      // depuis la puissance de l'effet choisi (getResearchCost) plutôt que déclaré librement, pour
+      // ne pas permettre de contourner l'équilibrage économique.
+      onResearchTreatment: ({ name, icon, description, effect, value }) => {
+        if (!session) return;
+        const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
+        if (idx === -1) return;
+        const apothecary = state.citizens[idx];
+        if ((apothecary.occupation || "").trim().toLowerCase() !== "apothicaire") {
+          notify("Seul un apothicaire peut mener des recherches.", "error");
+          return;
+        }
+        const trimmedName = (name || "").trim();
+        if (!trimmedName) { notify("Nom du traitement requis.", "error"); return; }
+        if (!["CURE", "REDUCE_DAYS", "REDUCE_PENALTY"].includes(effect)) { notify("Effet invalide.", "error"); return; }
+        const clampedValue = effect === "CURE" ? 0
+          : effect === "REDUCE_DAYS" ? Math.min(10, Math.max(1, Math.round(Number(value) || 0)))
+          : Math.min(90, Math.max(5, Math.round(Number(value) || 0)));
+        const cost = getResearchCost(effect, clampedValue);
+        if ((apothecary.balance || 0) < cost) {
+          notify(`Fonds insuffisants pour cette recherche (${formatMoney(cost)} requis).`, "error");
+          return;
+        }
+        const research = {
+          id: `research_${Date.now()}`,
+          name: trimmedName, icon: (icon || "⚗️").trim() || "⚗️", description: (description || "").trim(),
+          effect, value: clampedValue, price: Math.max(1, Math.round(cost / 15)),
+          researchedAt: Date.now(), cost,
+        };
+        const newCitizens = [...state.citizens];
+        newCitizens[idx] = {
+          ...apothecary,
+          balance: (apothecary.balance || 0) - cost,
+          apothecaryResearch: [...(apothecary.apothecaryResearch || []), research],
+        };
+        const ledgerEntry = { id: Date.now(), fromName: apothecary.name, toName: "Recherche & Développement", amount: cost, timestamp: Date.now(), reason: `Invention — ${research.name}`, type: "RESEARCH" };
+        saveState({ ...state, citizens: newCitizens, globalLedger: [ledgerEntry, ...(state.globalLedger || [])].slice(0, 1000) });
+        notify(`Nouveau traitement inventé : ${research.name}.`, "success");
       },
 
       // Un patient malade choisit UN apothicaire (sans présélectionner de traitement) — dès la
