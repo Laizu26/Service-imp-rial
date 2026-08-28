@@ -5892,10 +5892,10 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         notify("Tarif mis à jour.", "success");
       },
 
-      // Un patient malade envoie une demande à UN apothicaire précis (au tarif affiché au moment
-      // de la demande, figé dans treatmentSnapshot pour rester cohérent même si l'apothicaire
-      // change ses tarifs entre-temps) au lieu de se faire traiter unilatéralement.
-      onRequestTreatment: (apothecaryId, treatmentId, note) => {
+      // Un patient malade choisit UN apothicaire (sans présélectionner de traitement) — dès la
+      // demande envoyée, l'apothicaire désigné a accès à sa fiche de santé complète (lue en
+      // direct depuis citizens, pas figée) et choisit lui-même le soin approprié.
+      onRequestTreatment: (apothecaryId, note) => {
         if (!session) return;
         const patient = (state.citizens || []).find((c) => c.id === session.id);
         if (!patient) return;
@@ -5909,19 +5909,14 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           notify("Apothicaire introuvable.", "error");
           return;
         }
-        const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
-        if (!treatment) { notify("Traitement introuvable.", "error"); return; }
-        const offer = getApothecaryOffer(apothecary, treatment);
-        if (!offer.active) { notify("Cet apothicaire ne propose pas ce soin.", "error"); return; }
         const request = {
           id: `care_${Date.now()}`,
           patientId: patient.id, patientName: patient.name,
           apothecaryId: apothecary.id, apothecaryName: apothecary.name,
-          treatmentId, treatmentSnapshot: { name: treatment.name, icon: treatment.icon, effect: treatment.effect, value: treatment.value, price: offer.price },
           status: "PENDING", note: (note || "").trim(), requestedAt: Date.now(),
         };
         const healthAlerts = [
-          { id: `health_${apothecary.id}_${Date.now()}`, toId: apothecary.id, type: "treatment_requested", name: treatment.name, fromName: patient.name, timestamp: Date.now() },
+          { id: `health_${apothecary.id}_${Date.now()}`, toId: apothecary.id, type: "treatment_requested", fromName: patient.name, timestamp: Date.now() },
           ...(state.healthAlerts || []),
         ].slice(0, 300);
         saveState({ ...state, careRequests: [request, ...(state.careRequests || [])].slice(0, 300), healthAlerts });
@@ -5939,24 +5934,33 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         notify("Demande annulée.", "info");
       },
 
-      onRespondTreatmentRequest: (requestId, accept, declineReason) => {
+      // L'apothicaire refuse la consultation (avant même d'avoir choisi un traitement).
+      onDeclineTreatmentRequest: (requestId, declineReason) => {
         if (!session) return;
         const requests = [...(state.careRequests || [])];
         const idx = requests.findIndex((r) => r.id === requestId);
         if (idx === -1) return;
         const request = requests[idx];
         if (String(request.apothecaryId) !== String(session.id) || request.status !== "PENDING") return;
+        requests[idx] = { ...request, status: "DECLINED", declineReason: (declineReason || "").trim(), respondedAt: Date.now() };
+        const healthAlerts = [
+          { id: `health_${request.patientId}_${Date.now()}`, toId: request.patientId, type: "treatment_declined", fromName: request.apothecaryName, reason: declineReason || "", timestamp: Date.now() },
+          ...(state.healthAlerts || []),
+        ].slice(0, 300);
+        saveState({ ...state, careRequests: requests, healthAlerts });
+        notify("Demande refusée.", "info");
+      },
 
-        if (!accept) {
-          requests[idx] = { ...request, status: "DECLINED", declineReason: (declineReason || "").trim(), respondedAt: Date.now() };
-          const healthAlerts = [
-            { id: `health_${request.patientId}_${Date.now()}`, toId: request.patientId, type: "treatment_declined", name: request.treatmentSnapshot.name, fromName: request.apothecaryName, reason: declineReason || "", timestamp: Date.now() },
-            ...(state.healthAlerts || []),
-          ].slice(0, 300);
-          saveState({ ...state, careRequests: requests, healthAlerts });
-          notify("Demande refusée.", "info");
-          return;
-        }
+      // L'apothicaire, ayant consulté la fiche de santé complète du patient, choisit lui-même le
+      // traitement (parmi son offre active) et l'administre — le tarif est résolu à cet instant
+      // (pas figé à la demande, puisqu'aucun traitement n'était encore choisi), puis le patient paie.
+      onAdministerRequestedTreatment: (requestId, treatmentId) => {
+        if (!session) return;
+        const requests = [...(state.careRequests || [])];
+        const idx = requests.findIndex((r) => r.id === requestId);
+        if (idx === -1) return;
+        const request = requests[idx];
+        if (String(request.apothecaryId) !== String(session.id) || request.status !== "PENDING") return;
 
         const apothecary = (state.citizens || []).find((c) => c.id === session.id);
         const patient = (state.citizens || []).find((c) => c.id === request.patientId);
@@ -5967,27 +5971,32 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           notify(`${patient.name} n'est plus malade — demande annulée.`, "error");
           return;
         }
-        const price = request.treatmentSnapshot.price || 0;
+        const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
+        if (!treatment) { notify("Traitement introuvable.", "error"); return; }
+        const offer = getApothecaryOffer(apothecary, treatment);
+        if (!offer.active) { notify("Vous ne proposez pas ce soin.", "error"); return; }
+        const price = offer.price || 0;
         if ((patient.balance || 0) < price) {
           requests[idx] = { ...request, status: "CANCELLED", declineReason: "Fonds insuffisants.", respondedAt: Date.now() };
           saveState({ ...state, careRequests: requests });
-          notify(`${patient.name} n'a plus les fonds nécessaires (${formatMoney(price)}).`, "error");
+          notify(`${patient.name} n'a pas les fonds nécessaires (${formatMoney(price)}).`, "error");
           return;
         }
 
-        const { updatedPatient, cured } = applyTreatmentEffect(patient, request.treatmentSnapshot);
+        const { updatedPatient, cured } = applyTreatmentEffect(patient, treatment);
         const newCitizens = (state.citizens || []).map((c) => {
           if (c.id === patient.id) return { ...updatedPatient, balance: (updatedPatient.balance || 0) - price };
           if (c.id === apothecary.id) return { ...c, balance: (c.balance || 0) + price };
           return c;
         });
-        requests[idx] = { ...request, status: "COMPLETED", cured, respondedAt: Date.now() };
+        const treatmentSnapshot = { name: treatment.name, icon: treatment.icon, effect: treatment.effect, value: treatment.value, price };
+        requests[idx] = { ...request, status: "COMPLETED", cured, treatmentSnapshot, respondedAt: Date.now() };
         const healthAlerts = [
-          { id: `health_${patient.id}_${Date.now()}`, toId: patient.id, type: cured ? "illness_recovered" : "treatment_administered", name: request.treatmentSnapshot.name, timestamp: Date.now() },
+          { id: `health_${patient.id}_${Date.now()}`, toId: patient.id, type: cured ? "illness_recovered" : "treatment_administered", name: treatment.name, timestamp: Date.now() },
           ...(state.healthAlerts || []),
         ].slice(0, 300);
         const ledger = price > 0
-          ? [{ id: Date.now(), fromName: patient.name, toName: apothecary.name, amount: price, timestamp: Date.now(), reason: `Traitement — ${request.treatmentSnapshot.name}`, type: "TREATMENT" }, ...(state.globalLedger || [])].slice(0, 1000)
+          ? [{ id: Date.now(), fromName: patient.name, toName: apothecary.name, amount: price, timestamp: Date.now(), reason: `Traitement — ${treatment.name}`, type: "TREATMENT" }, ...(state.globalLedger || [])].slice(0, 1000)
           : state.globalLedger;
         saveState({ ...state, citizens: newCitizens, careRequests: requests, healthAlerts, globalLedger: ledger });
         notify(cured ? `${patient.name} est guéri(e) grâce à votre traitement.` : `Traitement administré à ${patient.name}.`, "success");

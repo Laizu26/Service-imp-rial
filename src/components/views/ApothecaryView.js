@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { FlaskConical, Search, Check, Clock, History, Coins, HeartHandshake } from "lucide-react";
-import { formatMoney, getApothecaryOffer } from "../../lib/gameUtils";
+import { FlaskConical, Search, Clock, History, Coins, HeartHandshake, ClipboardList } from "lucide-react";
+import { formatMoney, getApothecaryOffer, HANGOVER_INFO } from "../../lib/gameUtils";
 
 const STATUS_LABELS = { PENDING: "En attente", COMPLETED: "Soigné", DECLINED: "Refusée", CANCELLED: "Annulée" };
 const STATUS_COLORS = {
@@ -10,17 +10,99 @@ const STATUS_COLORS = {
   CANCELLED: "bg-stone-200 text-stone-600",
 };
 
+// Reprend les identifiants d'états physiques/magiques définis dans CitizenPhysicsMagicView.js
+// (et configurés côté MJ dans GameMasterView.js) — dupliqué localement comme le reste du site
+// pour un affichage compact dans la fiche de santé, sans dépendre de ces vues.
+const STATUS_EFFECT_LABELS = {
+  fatigue_legere: { label: "Fatigué(e)", icon: "😴" },
+  emeche: { label: "Éméché(e)", icon: "🍷" },
+  alcoolise: { label: "Alcoolisé(e)", icon: "🍺" },
+  ovulation: { label: "En ovulation", icon: "🌸" },
+  enceinte: { label: "Enceinte", icon: "🤰" },
+  enrhume: { label: "Enrhumé(e)", icon: "🤧" },
+  fievre: { label: "Fièvre", icon: "🌡️" },
+  empoisonne: { label: "Empoisonné(e)", icon: "☠️" },
+  sous_drogue: { label: "Sous substance", icon: "💊" },
+  affaibli: { label: "Affaibli(e)", icon: "😓" },
+  en_rut: { label: "En rut / en chaleur", icon: "🔥" },
+  blessure_cachee: { label: "Blessure interne", icon: "🩸" },
+  paralysie: { label: "Paralysé(e)", icon: "🧊" },
+  sous_charme: { label: "Sous charme", icon: "✨" },
+  envoute: { label: "Envoûté(e)", icon: "🔮" },
+  malediction: { label: "Sous malédiction", icon: "💀" },
+  beni: { label: "Béni(e)", icon: "⭐" },
+  transformation: { label: "En transformation", icon: "🐺" },
+  possede: { label: "Possédé(e)", icon: "👻" },
+  lien_magique: { label: "Lié(e) magiquement", icon: "🔗" },
+  surcharge_mana: { label: "Surcharge de mana", icon: "⚡" },
+  manque_mana: { label: "Manque de mana", icon: "🌑" },
+  vision_magique: { label: "Vision altérée (magie)", icon: "👁️" },
+};
+
 const formatDate = (ts) => (ts ? new Date(ts).toLocaleDateString("fr-FR") : "");
+
+// Fiche de santé complète d'un patient, telle que consultée en direct par l'apothicaire désigné —
+// pas un instantané figé : reflète l'état du citoyen au moment où l'apothicaire la consulte.
+const HealthFile = ({ patient, gameDate }) => {
+  if (!patient) return <p className="text-xs text-stone-400 italic">Patient introuvable.</p>;
+  const gd = gameDate || { day: 1, month: 1, year: 1200 };
+  const todayKey = `${gd.day}/${gd.month}/${gd.year}`;
+  const drunkPercent = patient.drunkenness?.day === todayKey ? (patient.drunkenness.percent || 0) : 0;
+  const hasHangover = patient.hangover?.day === todayKey;
+  const activeEffects = (patient.statusEffects || []).map((id) => STATUS_EFFECT_LABELS[id]).filter(Boolean);
+  const injuries = Object.entries(patient.physicalStats?.injuries || {}).filter(([, st]) => st && st !== "sain");
+
+  return (
+    <div className="bg-white border border-stone-200 rounded-xl p-3 space-y-2">
+      {patient.illness && (
+        <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+          <span className="text-lg shrink-0">{patient.illness.icon || "🤒"}</span>
+          <div>
+            <div className="font-bold text-xs text-yellow-900">{patient.illness.name || "Maladie"}</div>
+            {patient.illness.description && <div className="text-[11px] text-yellow-800 italic">{patient.illness.description}</div>}
+            <div className="text-[10px] text-yellow-700 mt-0.5">
+              {Math.max(0, (patient.illness.durationDays || 0) - (patient.illness.daysElapsed || 0))} jour(s) avant guérison estimée
+              {patient.illness.productionPenaltyPercent ? ` — malus de production ${patient.illness.productionPenaltyPercent}%` : ""}
+            </div>
+          </div>
+        </div>
+      )}
+      {drunkPercent > 0 && (
+        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">🍺 Ivresse : {Math.round(drunkPercent)}%</div>
+      )}
+      {hasHangover && (
+        <div className="text-[11px] text-stone-600 bg-stone-100 border border-stone-200 rounded-lg px-2 py-1">🤕 {HANGOVER_INFO.label} — {HANGOVER_INFO.desc}</div>
+      )}
+      {activeEffects.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {activeEffects.map((e, i) => (
+            <span key={i} className="text-[10px] bg-stone-100 border border-stone-200 rounded-full px-2 py-0.5">{e.icon} {e.label}</span>
+          ))}
+        </div>
+      )}
+      {injuries.length > 0 && (
+        <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
+          🩹 {injuries.length} blessure{injuries.length > 1 ? "s" : ""} visible{injuries.length > 1 ? "s" : ""}
+        </div>
+      )}
+      {!patient.illness && drunkPercent === 0 && !hasHangover && activeEffects.length === 0 && injuries.length === 0 && (
+        <p className="text-[11px] text-stone-400 italic">Aucun état de santé notable relevé.</p>
+      )}
+    </div>
+  );
+};
 
 const ApothecaryView = ({
   user,
   citizens = [],
   illnessConfig,
   careRequests = [],
+  gameDate,
   onSetApothecaryOffer,
   onRequestTreatment,
   onCancelTreatmentRequest,
-  onRespondTreatmentRequest,
+  onDeclineTreatmentRequest,
+  onAdministerRequestedTreatment,
   onSelfTreat,
 }) => {
   const isApothicaire = (user?.occupation || "").trim().toLowerCase() === "apothicaire";
@@ -29,11 +111,10 @@ const ApothecaryView = ({
 
   const [tab, setTab] = useState("demandes");
   const [search, setSearch] = useState("");
-  const [selectedApothecaryId, setSelectedApothecaryId] = useState("");
-  const [selectedTreatmentId, setSelectedTreatmentId] = useState("");
   const [requestNote, setRequestNote] = useState("");
   const [priceDrafts, setPriceDrafts] = useState({});
   const [declineDraft, setDeclineDraft] = useState({});
+  const [treatmentChoice, setTreatmentChoice] = useState({});
 
   const myPendingRequest = careRequests.find((r) => r.patientId === user.id && r.status === "PENDING");
   const myRequestHistory = careRequests
@@ -50,12 +131,9 @@ const ApothecaryView = ({
 
   const apothecaries = citizens.filter((c) => c.id !== user.id && (c.occupation || "").trim().toLowerCase() === "apothicaire");
   const filteredApothecaries = apothecaries.filter((a) => !search.trim() || (a.name || "").toLowerCase().includes(search.trim().toLowerCase()));
-  const selectedApothecary = apothecaries.find((a) => a.id === selectedApothecaryId);
   const offersFor = (apothecary) => treatments.map((t) => ({ ...t, offer: getApothecaryOffer(apothecary, t) })).filter((t) => t.offer.active);
-  const selectedOffers = selectedApothecary ? offersFor(selectedApothecary) : [];
-  const selectedTreatment = selectedOffers.find((t) => t.id === selectedTreatmentId);
 
-  const myOffers = treatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) }));
+  const myOffers = treatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) })).filter((t) => t.offer.active);
 
   const TABS = [
     { id: "demandes", label: `Demandes reçues${incomingRequests.length > 0 ? ` (${incomingRequests.length})` : ""}` },
@@ -84,15 +162,13 @@ const ApothecaryView = ({
             <HeartHandshake size={12} /> Vous êtes malade ({myIllness.name || "maladie"}) — auto-soin
           </div>
           <div className="flex flex-wrap gap-2">
-            {myOffers.filter((t) => t.offer.active).map((t) => (
+            {myOffers.map((t) => (
               <button key={t.id} onClick={() => onSelfTreat(t.id)}
                 className="flex items-center gap-1.5 bg-white border border-emerald-300 rounded-lg px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors">
                 <span>{t.icon}</span> {t.name}
               </button>
             ))}
-            {myOffers.filter((t) => t.offer.active).length === 0 && (
-              <p className="text-xs text-stone-400 italic">Aucun soin actif dans votre offre.</p>
-            )}
+            {myOffers.length === 0 && <p className="text-xs text-stone-400 italic">Aucun soin actif dans votre offre.</p>}
           </div>
         </div>
       )}
@@ -112,36 +188,66 @@ const ApothecaryView = ({
             {tab === "demandes" && (
               <>
                 {incomingRequests.length === 0 && <p className="text-sm text-stone-400 italic text-center py-6">Aucune demande en attente.</p>}
-                {incomingRequests.map((r) => (
-                  <div key={r.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-bold text-stone-800 text-sm">{r.patientName}</div>
-                      <div className="text-[10px] text-stone-400">{formatDate(r.requestedAt)}</div>
+                {incomingRequests.map((r) => {
+                  const patient = citizens.find((c) => c.id === r.patientId);
+                  const availableOffers = patient ? treatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) })).filter((t) => t.offer.active) : [];
+                  const chosenId = treatmentChoice[r.id];
+                  return (
+                    <div key={r.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-bold text-stone-800 text-sm">{r.patientName}</div>
+                        <div className="text-[10px] text-stone-400">{formatDate(r.requestedAt)}</div>
+                      </div>
+                      {r.note && <p className="text-xs text-stone-500 italic bg-white rounded-lg border border-stone-100 p-2">{r.note}</p>}
+
+                      <div>
+                        <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1.5 flex items-center gap-1"><ClipboardList size={10} /> Fiche de santé</div>
+                        <HealthFile patient={patient} gameDate={gameDate} />
+                      </div>
+
+                      <div>
+                        <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1.5">Administrer un traitement</div>
+                        {availableOffers.length === 0 ? (
+                          <p className="text-xs text-stone-400 italic">Aucun soin actif dans votre offre.</p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {availableOffers.map((t) => (
+                              <button key={t.id} onClick={() => setTreatmentChoice({ ...treatmentChoice, [r.id]: t.id })}
+                                className={`text-left p-2.5 rounded-lg border-2 transition-colors ${
+                                  chosenId === t.id ? "border-emerald-400 bg-emerald-50" : "border-stone-200 bg-white hover:border-stone-300"
+                                }`}>
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  <span>{t.icon}</span>
+                                  <span className="font-bold text-stone-800">{t.name}</span>
+                                </div>
+                                <div className="text-[10px] text-emerald-700 font-bold mt-0.5 flex items-center gap-1"><Coins size={9} /> {formatMoney(t.offer.price)}</div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <button
+                          onClick={() => { if (chosenId) { onAdministerRequestedTreatment(r.id, chosenId); setTreatmentChoice({ ...treatmentChoice, [r.id]: undefined }); } }}
+                          disabled={!chosenId}
+                          className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase">
+                          <FlaskConical size={12} /> Administrer et facturer
+                        </button>
+                        <input
+                          className="flex-1 min-w-32 p-2 border border-stone-200 rounded-lg text-xs outline-none"
+                          placeholder="Motif du refus (optionnel)..."
+                          value={declineDraft[r.id] || ""}
+                          onChange={(e) => setDeclineDraft({ ...declineDraft, [r.id]: e.target.value })}
+                        />
+                        <button onClick={() => onDeclineTreatmentRequest(r.id, declineDraft[r.id])}
+                          className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-2 rounded-lg hover:bg-red-50">
+                          Refuser
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span>{r.treatmentSnapshot.icon}</span>
-                      <span className="font-bold text-stone-700">{r.treatmentSnapshot.name}</span>
-                      <span className="text-emerald-700 font-bold text-xs ml-auto">{formatMoney(r.treatmentSnapshot.price)}</span>
-                    </div>
-                    {r.note && <p className="text-xs text-stone-500 italic bg-white rounded-lg border border-stone-100 p-2">{r.note}</p>}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <button onClick={() => onRespondTreatmentRequest(r.id, true)}
-                        className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase">
-                        <Check size={12} /> Accepter et soigner
-                      </button>
-                      <input
-                        className="flex-1 min-w-32 p-2 border border-stone-200 rounded-lg text-xs outline-none"
-                        placeholder="Motif du refus (optionnel)..."
-                        value={declineDraft[r.id] || ""}
-                        onChange={(e) => setDeclineDraft({ ...declineDraft, [r.id]: e.target.value })}
-                      />
-                      <button onClick={() => onRespondTreatmentRequest(r.id, false, declineDraft[r.id])}
-                        className="text-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-2 rounded-lg hover:bg-red-50">
-                        Refuser
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </>
             )}
 
@@ -151,29 +257,32 @@ const ApothecaryView = ({
                   <p className="text-sm text-stone-400 italic text-center py-6">Aucun traitement défini par l'administration.</p>
                 ) : (
                   <div className="space-y-2">
-                    {myOffers.map((t) => (
-                      <div key={t.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-                        <span className="text-lg shrink-0">{t.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-sm text-stone-800">{t.name}</div>
-                          {t.description && <div className="text-[10px] text-stone-400 italic truncate">{t.description}</div>}
+                    {treatments.map((t) => {
+                      const offer = getApothecaryOffer(user, t);
+                      return (
+                        <div key={t.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
+                          <span className="text-lg shrink-0">{t.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-sm text-stone-800">{t.name}</div>
+                            {t.description && <div className="text-[10px] text-stone-400 italic truncate">{t.description}</div>}
+                          </div>
+                          <input
+                            type="number" step="0.1"
+                            className="w-24 p-1.5 border border-stone-200 rounded-lg text-sm font-mono outline-none focus:border-emerald-400"
+                            placeholder={String(t.price || 0)}
+                            value={priceDrafts[t.id] ?? offer.price}
+                            onChange={(e) => setPriceDrafts({ ...priceDrafts, [t.id]: e.target.value })}
+                            onBlur={(e) => onSetApothecaryOffer(t.id, { price: e.target.value })}
+                          />
+                          <button
+                            onClick={() => onSetApothecaryOffer(t.id, { active: !offer.active })}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${offer.active ? "bg-emerald-500" : "bg-stone-300"}`}
+                          >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${offer.active ? "translate-x-6" : "translate-x-1"}`} />
+                          </button>
                         </div>
-                        <input
-                          type="number" step="0.1"
-                          className="w-24 p-1.5 border border-stone-200 rounded-lg text-sm font-mono outline-none focus:border-emerald-400"
-                          placeholder={String(t.price || 0)}
-                          value={priceDrafts[t.id] ?? t.offer.price}
-                          onChange={(e) => setPriceDrafts({ ...priceDrafts, [t.id]: e.target.value })}
-                          onBlur={(e) => onSetApothecaryOffer(t.id, { price: e.target.value })}
-                        />
-                        <button
-                          onClick={() => onSetApothecaryOffer(t.id, { active: !t.offer.active })}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${t.offer.active ? "bg-emerald-500" : "bg-stone-300"}`}
-                        >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${t.offer.active ? "translate-x-6" : "translate-x-1"}`} />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -181,15 +290,15 @@ const ApothecaryView = ({
 
             {tab === "historique" && (
               <>
-                {myGivenHistory.length === 0 && <p className="text-sm text-stone-400 italic text-center py-6">Aucun soin prodigué pour le moment.</p>}
+                {myGivenHistory.length === 0 && <p className="text-sm text-stone-400 italic text-center py-6">Aucune consultation pour le moment.</p>}
                 {myGivenHistory.map((r) => (
                   <div key={r.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
                     <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${STATUS_COLORS[r.status]}`}>{STATUS_LABELS[r.status]}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-stone-800 truncate">{r.patientName} — {r.treatmentSnapshot.name}</div>
+                      <div className="font-bold text-sm text-stone-800 truncate">{r.patientName}{r.treatmentSnapshot ? ` — ${r.treatmentSnapshot.name}` : ""}</div>
                       <div className="text-[10px] text-stone-400">{formatDate(r.respondedAt || r.requestedAt)}{r.declineReason ? ` — ${r.declineReason}` : ""}</div>
                     </div>
-                    {r.status === "COMPLETED" && <span className="text-emerald-700 font-bold text-xs shrink-0">{formatMoney(r.treatmentSnapshot.price)}</span>}
+                    {r.status === "COMPLETED" && r.treatmentSnapshot && <span className="text-emerald-700 font-bold text-xs shrink-0">{formatMoney(r.treatmentSnapshot.price)}</span>}
                   </div>
                 ))}
               </>
@@ -204,10 +313,10 @@ const ApothecaryView = ({
           <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-6 space-y-3">
             <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest flex items-center gap-1.5"><Clock size={12} /> Demande en cours</div>
             <div className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <span className="text-lg">{myPendingRequest.treatmentSnapshot.icon}</span>
+              <span className="text-lg">🩺</span>
               <div className="flex-1">
-                <div className="font-bold text-sm text-stone-800">{myPendingRequest.treatmentSnapshot.name}</div>
-                <div className="text-xs text-stone-500">Auprès de {myPendingRequest.apothecaryName} — {formatMoney(myPendingRequest.treatmentSnapshot.price)}</div>
+                <div className="font-bold text-sm text-stone-800">En attente que {myPendingRequest.apothecaryName} vous reçoive</div>
+                <div className="text-xs text-stone-500">Il/elle a accès à votre fiche de santé et choisira le traitement adapté.</div>
               </div>
             </div>
             <button onClick={() => onCancelTreatmentRequest(myPendingRequest.id)}
@@ -218,76 +327,46 @@ const ApothecaryView = ({
         ) : (
           <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-6 space-y-4">
             <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">
-              Vous êtes malade ({myIllness.name || "maladie"}) — demander un soin
+              Vous êtes malade ({myIllness.name || "maladie"}) — choisir un apothicaire
             </div>
-            {!selectedApothecary ? (
-              <>
-                <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2">
-                  <Search size={13} className="text-stone-400" />
-                  <input className="flex-1 text-sm outline-none bg-transparent" placeholder="Chercher un apothicaire..."
-                    value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
-                <div className="space-y-2 max-h-80 overflow-y-auto">
-                  {filteredApothecaries.length === 0 && <p className="text-sm text-stone-400 italic text-center py-4">Aucun apothicaire disponible.</p>}
-                  {filteredApothecaries.map((a) => {
-                    const offers = offersFor(a);
-                    return (
-                      <button key={a.id} onClick={() => setSelectedApothecaryId(a.id)}
-                        className="w-full text-left bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded-xl p-3 transition-colors">
-                        <div className="font-bold text-sm text-stone-800">{a.name}</div>
-                        <div className="text-[10px] text-stone-400 mt-0.5">
-                          {offers.length === 0 ? "Aucun soin proposé actuellement" : `${offers.length} soin${offers.length > 1 ? "s" : ""} proposé${offers.length > 1 ? "s" : ""} — à partir de ${formatMoney(Math.min(...offers.map((o) => o.offer.price)))}`}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <button onClick={() => { setSelectedApothecaryId(""); setSelectedTreatmentId(""); }} className="text-[10px] font-bold uppercase text-stone-400 hover:text-stone-600">
-                  ← Changer d'apothicaire
-                </button>
-                <div className="font-bold text-stone-800">{selectedApothecary.name}</div>
-                {selectedOffers.length === 0 ? (
-                  <p className="text-sm text-stone-400 italic">Cet apothicaire ne propose aucun soin actuellement.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {selectedOffers.map((t) => (
-                      <button key={t.id} onClick={() => setSelectedTreatmentId(t.id)}
-                        className={`text-left p-3 rounded-xl border-2 transition-colors ${
-                          selectedTreatmentId === t.id ? "border-emerald-400 bg-emerald-50" : "border-stone-200 hover:border-stone-300"
-                        }`}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{t.icon}</span>
-                          <span className="font-bold text-sm text-stone-800">{t.name}</span>
-                        </div>
-                        {t.description && <p className="text-[11px] text-stone-500 italic mt-1">{t.description}</p>}
-                        <div className="text-[10px] text-emerald-700 font-bold mt-1 flex items-center gap-1"><Coins size={10} /> {formatMoney(t.offer.price)}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {selectedTreatment && (
-                  <>
-                    <input className="w-full p-2.5 border border-stone-200 rounded-xl text-sm outline-none"
-                      placeholder="Message pour l'apothicaire (optionnel)..." value={requestNote} onChange={(e) => setRequestNote(e.target.value)} />
+            <p className="text-xs text-stone-400 -mt-2">
+              L'apothicaire choisi recevra votre fiche de santé complète et déterminera lui-même le traitement à administrer. Vous payez une fois le soin reçu.
+            </p>
+            <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2">
+              <Search size={13} className="text-stone-400" />
+              <input className="flex-1 text-sm outline-none bg-transparent" placeholder="Chercher un apothicaire..."
+                value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {filteredApothecaries.length === 0 && <p className="text-sm text-stone-400 italic text-center py-4">Aucun apothicaire disponible.</p>}
+              {filteredApothecaries.map((a) => {
+                const offers = offersFor(a);
+                return (
+                  <div key={a.id} className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-sm text-stone-800">{a.name}</div>
+                      <div className="text-[10px] text-stone-400 mt-0.5">
+                        {offers.length === 0 ? "Aucun soin proposé actuellement" : `${offers.length} soin${offers.length > 1 ? "s" : ""} — à partir de ${formatMoney(Math.min(...offers.map((o) => o.offer.price)))}`}
+                      </div>
+                    </div>
                     <button
-                      onClick={() => { onRequestTreatment(selectedApothecary.id, selectedTreatment.id, requestNote); setSelectedApothecaryId(""); setSelectedTreatmentId(""); setRequestNote(""); }}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2"
-                    >
-                      <FlaskConical size={16} /> Envoyer la demande
+                      onClick={() => { onRequestTreatment(a.id, requestNote); setRequestNote(""); }}
+                      disabled={offers.length === 0}
+                      className="shrink-0 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase">
+                      Consulter
                     </button>
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+                );
+              })}
+            </div>
+            <input className="w-full p-2.5 border border-stone-200 rounded-xl text-sm outline-none"
+              placeholder="Message pour l'apothicaire (optionnel)..." value={requestNote} onChange={(e) => setRequestNote(e.target.value)} />
           </div>
         )
       ) : (
         !isApothicaire && (
           <div className="bg-stone-50 border border-stone-200 rounded-2xl p-6 text-sm text-stone-500">
-            Vous n'êtes pas malade actuellement. Si vous tombez malade, vous pourrez demander un soin à un apothicaire ici.
+            Vous n'êtes pas malade actuellement. Si vous tombez malade, vous pourrez choisir un apothicaire ici.
           </div>
         )
       )}
@@ -301,10 +380,10 @@ const ApothecaryView = ({
               <div key={r.id} className="flex items-center gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${STATUS_COLORS[r.status]}`}>{STATUS_LABELS[r.status]}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-stone-800 truncate">{r.apothecaryName} — {r.treatmentSnapshot.name}</div>
+                  <div className="font-bold text-sm text-stone-800 truncate">{r.apothecaryName}{r.treatmentSnapshot ? ` — ${r.treatmentSnapshot.name}` : ""}</div>
                   <div className="text-[10px] text-stone-400">{formatDate(r.respondedAt || r.requestedAt)}{r.declineReason ? ` — ${r.declineReason}` : ""}</div>
                 </div>
-                {r.status === "COMPLETED" && <span className="text-red-600 font-bold text-xs shrink-0">−{formatMoney(r.treatmentSnapshot.price)}</span>}
+                {r.status === "COMPLETED" && r.treatmentSnapshot && <span className="text-red-600 font-bold text-xs shrink-0">−{formatMoney(r.treatmentSnapshot.price)}</span>}
               </div>
             ))}
           </div>

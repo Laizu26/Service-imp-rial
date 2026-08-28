@@ -486,8 +486,8 @@ export const useNotifications = (user, users, state, notifPrefs, gameDate, onDis
         illness_started:   { title: "Vous êtes tombé(e) malade", icon: "ShieldAlert", desc: (a) => a.name ? `${a.name}${a.description ? ` — ${a.description}` : ""}` : "Repos conseillé." },
         illness_recovered: { title: "Rétabli(e)", icon: "HeartHandshake", desc: (a) => a.name ? `Vous vous êtes remis(e) de : ${a.name}.` : "Vous vous êtes remis(e) de votre maladie." },
         treatment_administered: { title: "Traitement reçu", icon: "HeartHandshake", desc: (a) => a.name ? `Un apothicaire vous a administré : ${a.name}.` : "Un apothicaire vous a administré un traitement." },
-        treatment_requested: { title: "Demande de soin", icon: "FlaskConical", desc: (a) => `${a.fromName} sollicite un soin : ${a.name}.`, route: "apothicaire" },
-        treatment_declined: { title: "Soin refusé", icon: "FlaskConical", desc: (a) => `${a.fromName} a refusé de vous soigner${a.reason ? ` — ${a.reason}` : ""}.`, route: "apothicaire" },
+        treatment_requested: { title: "Demande de consultation", icon: "FlaskConical", desc: (a) => `${a.fromName} sollicite une consultation.`, route: "apothicaire" },
+        treatment_declined: { title: "Consultation refusée", icon: "FlaskConical", desc: (a) => `${a.fromName} a refusé de vous recevoir${a.reason ? ` — ${a.reason}` : ""}.`, route: "apothicaire" },
       };
       (state?.healthAlerts || [])
         .filter((a) => String(a.toId) === String(user.id))

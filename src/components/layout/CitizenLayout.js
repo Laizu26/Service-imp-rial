@@ -544,7 +544,8 @@ const CitizenLayout = (props) => {
     onSetApothecaryOffer,
     onRequestTreatment,
     onCancelTreatmentRequest,
-    onRespondTreatmentRequest,
+    onDeclineTreatmentRequest,
+    onAdministerRequestedTreatment,
     onSelfTreat,
     onUpdateEmployeeContract,
     onApplyToCompany,
@@ -4294,10 +4295,12 @@ const CitizenLayout = (props) => {
                 citizens={safeUsers}
                 illnessConfig={illnessConfig}
                 careRequests={careRequests}
+                gameDate={gd}
                 onSetApothecaryOffer={onSetApothecaryOffer}
                 onRequestTreatment={onRequestTreatment}
                 onCancelTreatmentRequest={onCancelTreatmentRequest}
-                onRespondTreatmentRequest={onRespondTreatmentRequest}
+                onDeclineTreatmentRequest={onDeclineTreatmentRequest}
+                onAdministerRequestedTreatment={onAdministerRequestedTreatment}
                 onSelfTreat={onSelfTreat}
               />
             )}
