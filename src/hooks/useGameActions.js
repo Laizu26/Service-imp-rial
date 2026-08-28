@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer, getResearchCost } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer, getApothecaryTreatments, getResearchCost } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -364,6 +364,12 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       if (treatmentSnapshot.effect === "REDUCE_PENALTY") {
         const productionPenaltyPercent = Math.max(0, (patient.illness.productionPenaltyPercent || 0) - (treatmentSnapshot.value || 0));
         return { updatedPatient: { ...patient, illness: { ...patient.illness, productionPenaltyPercent } }, cured: false };
+      }
+      if (treatmentSnapshot.effect === "STATUS") {
+        const add = treatmentSnapshot.addEffects || [];
+        const remove = treatmentSnapshot.removeEffects || [];
+        const nextEffects = [...new Set([...(patient.statusEffects || []).filter((id) => !remove.includes(id)), ...add])];
+        return { updatedPatient: { ...patient, statusEffects: nextEffects }, cured: false };
       }
       return { updatedPatient: patient, cured: false };
     };
@@ -5896,7 +5902,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       // celui-ci lui est propre et n'apparaît pas chez les autres apothicaires. Le coût est calculé
       // depuis la puissance de l'effet choisi (getResearchCost) plutôt que déclaré librement, pour
       // ne pas permettre de contourner l'équilibrage économique.
-      onResearchTreatment: ({ name, icon, description, effect, value }) => {
+      onResearchTreatment: ({ name, icon, description, effect, value, addEffects, removeEffects }) => {
         if (!session) return;
         const idx = (state.citizens || []).findIndex((c) => c.id === session.id);
         if (idx === -1) return;
@@ -5907,11 +5913,17 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         }
         const trimmedName = (name || "").trim();
         if (!trimmedName) { notify("Nom du traitement requis.", "error"); return; }
-        if (!["CURE", "REDUCE_DAYS", "REDUCE_PENALTY"].includes(effect)) { notify("Effet invalide.", "error"); return; }
-        const clampedValue = effect === "CURE" ? 0
+        if (!["CURE", "REDUCE_DAYS", "REDUCE_PENALTY", "STATUS"].includes(effect)) { notify("Effet invalide.", "error"); return; }
+        const cleanAdd = effect === "STATUS" ? [...new Set((addEffects || []).filter(Boolean))] : [];
+        const cleanRemove = effect === "STATUS" ? [...new Set((removeEffects || []).filter((id) => id && !cleanAdd.includes(id)))] : [];
+        if (effect === "STATUS" && cleanAdd.length === 0 && cleanRemove.length === 0) {
+          notify("Sélectionnez au moins un effet à ajouter ou retirer.", "error");
+          return;
+        }
+        const clampedValue = effect === "CURE" || effect === "STATUS" ? 0
           : effect === "REDUCE_DAYS" ? Math.min(10, Math.max(1, Math.round(Number(value) || 0)))
           : Math.min(90, Math.max(5, Math.round(Number(value) || 0)));
-        const cost = getResearchCost(effect, clampedValue);
+        const cost = getResearchCost({ effect, value: clampedValue, addEffects: cleanAdd, removeEffects: cleanRemove });
         if ((apothecary.balance || 0) < cost) {
           notify(`Fonds insuffisants pour cette recherche (${formatMoney(cost)} requis).`, "error");
           return;
@@ -5919,7 +5931,9 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         const research = {
           id: `research_${Date.now()}`,
           name: trimmedName, icon: (icon || "⚗️").trim() || "⚗️", description: (description || "").trim(),
-          effect, value: clampedValue, price: Math.max(1, Math.round(cost / 15)),
+          effect, value: clampedValue,
+          ...(effect === "STATUS" ? { addEffects: cleanAdd, removeEffects: cleanRemove } : {}),
+          price: Math.max(1, Math.round(cost / 15)),
           researchedAt: Date.now(), cost,
         };
         const newCitizens = [...state.citizens];
@@ -6012,7 +6026,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           notify(`${patient.name} n'est plus malade — demande annulée.`, "error");
           return;
         }
-        const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
+        const treatment = getApothecaryTreatments(apothecary, state.illnessConfig).find((t) => t.id === treatmentId);
         if (!treatment) { notify("Traitement introuvable.", "error"); return; }
         const offer = getApothecaryOffer(apothecary, treatment);
         if (!offer.active) { notify("Vous ne proposez pas ce soin.", "error"); return; }
@@ -6030,7 +6044,10 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           if (c.id === apothecary.id) return { ...c, balance: (c.balance || 0) + price };
           return c;
         });
-        const treatmentSnapshot = { name: treatment.name, icon: treatment.icon, effect: treatment.effect, value: treatment.value, price };
+        const treatmentSnapshot = {
+          name: treatment.name, icon: treatment.icon, effect: treatment.effect, value: treatment.value, price,
+          ...(treatment.effect === "STATUS" ? { addEffects: treatment.addEffects || [], removeEffects: treatment.removeEffects || [] } : {}),
+        };
         requests[idx] = { ...request, status: "COMPLETED", cured, treatmentSnapshot, respondedAt: Date.now() };
         const healthAlerts = [
           { id: `health_${patient.id}_${Date.now()}`, toId: patient.id, type: cured ? "illness_recovered" : "treatment_administered", name: treatment.name, timestamp: Date.now() },
@@ -6055,11 +6072,11 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           return;
         }
         if (!apothecary.illness) { notify("Vous n'êtes pas malade.", "error"); return; }
-        const treatment = (state.illnessConfig?.treatments || []).find((t) => t.id === treatmentId);
+        const treatment = getApothecaryTreatments(apothecary, state.illnessConfig).find((t) => t.id === treatmentId);
         if (!treatment) { notify("Traitement introuvable.", "error"); return; }
         const offer = getApothecaryOffer(apothecary, treatment);
         if (!offer.active) { notify("Vous ne proposez pas ce soin.", "error"); return; }
-        const { updatedPatient, cured } = applyTreatmentEffect(apothecary, { effect: treatment.effect, value: treatment.value });
+        const { updatedPatient, cured } = applyTreatmentEffect(apothecary, treatment);
         const newCitizens = [...state.citizens];
         newCitizens[idx] = updatedPatient;
         saveState({ ...state, citizens: newCitizens });

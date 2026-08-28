@@ -420,10 +420,13 @@ export function getApothecaryTreatments(apothecary, illnessConfig) {
 // Coût en Écus pour inventer un nouveau traitement (R&D) — proportionnel à la puissance de
 // l'effet choisi, afin qu'une guérison instantanée coûte structurellement plus cher qu'un
 // allègement partiel, sans dépendre d'un prix librement déclaré par le joueur.
-export function getResearchCost(effect, value) {
+// `form` : { effect, value, addEffects?, removeEffects? }.
+export function getResearchCost(form) {
+  const { effect, value, addEffects, removeEffects } = form || {};
   if (effect === "CURE") return 300;
   if (effect === "REDUCE_DAYS") return 40 * (value || 0);
   if (effect === "REDUCE_PENALTY") return 10 * (value || 0);
+  if (effect === "STATUS") return 60 * Math.max(1, (addEffects?.length || 0) + (removeEffects?.length || 0));
   return 0;
 }
 

@@ -6,6 +6,7 @@ const EFFECT_OPTIONS = [
   { id: "CURE", label: "Guérison immédiate" },
   { id: "REDUCE_DAYS", label: "Réduit la durée restante (jours)", min: 1, max: 10 },
   { id: "REDUCE_PENALTY", label: "Réduit la pénalité de production (%)", min: 5, max: 90 },
+  { id: "STATUS", label: "Autre — ajoute/retire des effets" },
 ];
 
 const STATUS_LABELS = { PENDING: "En attente", COMPLETED: "Soigné", DECLINED: "Refusée", CANCELLED: "Annulée" };
@@ -122,7 +123,7 @@ const ApothecaryView = ({
   const [priceDrafts, setPriceDrafts] = useState({});
   const [declineDraft, setDeclineDraft] = useState({});
   const [treatmentChoice, setTreatmentChoice] = useState({});
-  const [researchForm, setResearchForm] = useState({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15 });
+  const [researchForm, setResearchForm] = useState({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15, addEffects: [], removeEffects: [] });
 
   const myPendingRequest = careRequests.find((r) => r.patientId === user.id && r.status === "PENDING");
   const myRequestHistory = careRequests
@@ -144,8 +145,17 @@ const ApothecaryView = ({
   const myOffers = myTreatments.map((t) => ({ ...t, offer: getApothecaryOffer(user, t) })).filter((t) => t.offer.active);
 
   const researchEffect = EFFECT_OPTIONS.find((e) => e.id === researchForm.effect);
-  const researchCost = getResearchCost(researchForm.effect, researchForm.value);
+  const researchCost = getResearchCost(researchForm);
   const canAffordResearch = (user?.balance || 0) >= researchCost;
+  const hasStatusSelection = researchForm.addEffects.length > 0 || researchForm.removeEffects.length > 0;
+  const canSubmitResearch = researchForm.name.trim() && canAffordResearch && (researchForm.effect !== "STATUS" || hasStatusSelection);
+
+  const toggleStatusEffect = (list, id) => {
+    const current = researchForm[list];
+    const otherList = list === "addEffects" ? "removeEffects" : "addEffects";
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    setResearchForm({ ...researchForm, [list]: next, [otherList]: researchForm[otherList].filter((x) => x !== id) });
+  };
 
   const TABS = [
     { id: "demandes", label: `Demandes reçues${incomingRequests.length > 0 ? ` (${incomingRequests.length})` : ""}` },
@@ -326,7 +336,7 @@ const ApothecaryView = ({
                     onChange={(e) => setResearchForm({ ...researchForm, description: e.target.value })} />
                   <div className="flex flex-wrap gap-2">
                     {EFFECT_OPTIONS.map((e) => (
-                      <button key={e.id} onClick={() => setResearchForm({ ...researchForm, effect: e.id, value: e.min || 0 })}
+                      <button key={e.id} onClick={() => setResearchForm({ ...researchForm, effect: e.id, value: e.min || 0, addEffects: [], removeEffects: [] })}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase border-2 transition-colors ${
                           researchForm.effect === e.id ? "border-purple-400 bg-purple-100 text-purple-800" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
                         }`}>{e.label}</button>
@@ -340,13 +350,39 @@ const ApothecaryView = ({
                       <span className="text-xs font-mono font-bold text-stone-700 w-16 text-right">{researchForm.value} {researchEffect.id === "REDUCE_PENALTY" ? "%" : "j."}</span>
                     </div>
                   )}
+                  {researchForm.effect === "STATUS" && (
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Effets à ajouter</div>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(STATUS_EFFECT_LABELS).map(([id, e]) => (
+                            <button key={id} onClick={() => toggleStatusEffect("addEffects", id)}
+                              className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${
+                                researchForm.addEffects.includes(id) ? "bg-green-100 border-green-300 text-green-800" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300"
+                              }`}>{e.icon} {e.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Effets à retirer</div>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(STATUS_EFFECT_LABELS).map(([id, e]) => (
+                            <button key={id} onClick={() => toggleStatusEffect("removeEffects", id)}
+                              className={`text-[10px] px-2 py-1 rounded-full border transition-colors ${
+                                researchForm.removeEffects.includes(id) ? "bg-red-100 border-red-300 text-red-800" : "bg-white border-stone-200 text-stone-500 hover:border-stone-300"
+                              }`}>{e.icon} {e.label}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between bg-white border border-stone-200 rounded-lg px-3 py-2">
                     <span className="text-xs text-stone-500">Coût de la recherche</span>
                     <span className={`font-black font-mono text-sm ${canAffordResearch ? "text-purple-700" : "text-red-600"}`}>{formatMoney(researchCost)}</span>
                   </div>
                   <button
-                    onClick={() => { onResearchTreatment(researchForm); setResearchForm({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15 }); }}
-                    disabled={!researchForm.name.trim() || !canAffordResearch}
+                    onClick={() => { onResearchTreatment(researchForm); setResearchForm({ name: "", icon: "", description: "", effect: "REDUCE_PENALTY", value: 15, addEffects: [], removeEffects: [] }); }}
+                    disabled={!canSubmitResearch}
                     className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white py-2.5 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
                     <Beaker size={14} /> Lancer la recherche
                   </button>
@@ -363,7 +399,15 @@ const ApothecaryView = ({
                           <span className="text-lg shrink-0">{r.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-sm text-stone-800">{r.name}</div>
-                            <div className="text-[10px] text-stone-400">{formatDate(r.researchedAt)} — investi {formatMoney(r.cost)}</div>
+                            <div className="text-[10px] text-stone-400">
+                              {formatDate(r.researchedAt)} — investi {formatMoney(r.cost)}
+                              {r.effect === "STATUS" && (r.addEffects?.length || r.removeEffects?.length) ? (
+                                <>
+                                  {r.addEffects?.length > 0 && ` — ajoute : ${r.addEffects.map((id) => STATUS_EFFECT_LABELS[id]?.label || id).join(", ")}`}
+                                  {r.removeEffects?.length > 0 && ` — retire : ${r.removeEffects.map((id) => STATUS_EFFECT_LABELS[id]?.label || id).join(", ")}`}
+                                </>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       ))}
