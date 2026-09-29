@@ -1950,9 +1950,27 @@ const CitizenLayout = (props) => {
 
             {active === "properties" && !selectedPropertyId && (
               <div className="space-y-6 animate-fadeIn">
-                <div className="flex items-center gap-3 mb-2">
-                  <MapPin size={24} className="text-stone-400" />
-                  <h2 className="text-2xl font-black font-serif text-stone-800">Registre Foncier</h2>
+                <div className="bg-gradient-to-r from-stone-100 to-stone-50 border border-stone-200 rounded-xl p-5 flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-stone-200 rounded-xl flex items-center justify-center shrink-0">
+                      <MapPin size={22} className="text-stone-600" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Registre Impérial</div>
+                      <h2 className="text-2xl font-black font-serif text-stone-800">Registre Foncier</h2>
+                      <div className="text-xs text-stone-400 mt-0.5">Biens immobiliers, terres et édifices</div>
+                    </div>
+                  </div>
+                  {(() => {
+                    const myCompanyIds0 = (companies || []).filter((c) => c.ownerId === user.id).map((c) => c.id);
+                    const myPropsCount = properties.filter((p) => p.ownerId === user.id || (p.ownerType === "COMPANY" && myCompanyIds0.includes(p.ownerId))).length;
+                    return myPropsCount > 0 ? (
+                      <div className="text-right shrink-0">
+                        <div className="text-3xl font-black text-stone-700">{myPropsCount}</div>
+                        <div className="text-[10px] text-stone-400 uppercase font-bold">Bien{myPropsCount > 1 ? "s" : ""} possédé{myPropsCount > 1 ? "s" : ""}</div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* Helper pour le nom de localisation */}
