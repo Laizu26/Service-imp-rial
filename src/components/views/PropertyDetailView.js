@@ -3,7 +3,8 @@ import {
   MapPin, Shield, MessageSquare, Lock, Home, Utensils, Eye,
   Package, Hammer, ShoppingBag, Calendar, Plus, Trash2, X, ArrowLeft,
   Crown, UserPlus, Pencil, Save, TrendingUp, Building2,
-  Navigation, Unlock, CheckCircle, UserCheck,
+  Navigation, Unlock, CheckCircle, UserCheck, Landmark, Mail,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
@@ -25,20 +26,20 @@ const TYPE_COLORS = {
   AUBERGE:  "#EC4899",
 };
 
-// Tous les onglets possibles par type — voyage toujours inclus
+// Tous les onglets possibles par type
 const TYPE_TABS = {
-  MANOIR:   ["garnison", "cachot", "audiences", "voyage", "personnel", "evenements"],
-  AUBERGE:  ["chambres", "taverne", "rumeurs", "menu", "voyage", "personnel", "evenements"],
-  FERME:    ["production", "voyage", "personnel", "evenements"],
-  ATELIER:  ["fabrication", "voyage", "personnel", "evenements"],
-  COMMERCE: ["boutique", "voyage", "personnel", "evenements"],
-  MAISON:   ["voyage", "personnel", "evenements"],
-  DOMAINE:  ["voyage", "personnel", "evenements"],
-  TERRAIN:  ["voyage", "personnel", "evenements"],
+  MANOIR:   ["garnison", "cachot", "audiences", "voyage", "banque", "poste", "personnel", "evenements"],
+  AUBERGE:  ["chambres", "taverne", "rumeurs", "menu", "voyage", "banque", "poste", "personnel", "evenements"],
+  FERME:    ["production", "voyage", "banque", "poste", "personnel", "evenements"],
+  ATELIER:  ["fabrication", "voyage", "banque", "poste", "personnel", "evenements"],
+  COMMERCE: ["boutique", "voyage", "banque", "poste", "personnel", "evenements"],
+  MAISON:   ["voyage", "banque", "poste", "personnel", "evenements"],
+  DOMAINE:  ["voyage", "banque", "poste", "personnel", "evenements"],
+  TERRAIN:  ["voyage", "banque", "poste", "personnel", "evenements"],
 };
 
-// Onglets désactivés par défaut (peuvent être activés par le propriétaire)
-const DEFAULT_DISABLED = ["voyage"];
+// Onglets désactivés par défaut — activables par le propriétaire
+const DEFAULT_DISABLED = ["voyage", "banque", "poste"];
 
 const TAB_LABELS = {
   garnison:    "Garnison",
@@ -52,6 +53,8 @@ const TAB_LABELS = {
   fabrication: "Fabrication",
   boutique:    "Boutique",
   voyage:      "Voyages",
+  banque:      "Banque",
+  poste:       "Poste",
   personnel:   "Personnel",
   evenements:  "Événements",
 };
@@ -71,6 +74,8 @@ const DORMANT_MESSAGES = {
   production:  { title: "Les champs reposent", text: "La terre est fertile, mais aucune graine n'a encore été semée.", color: "#16A34A" },
   fabrication: { title: "L'atelier est silencieux", text: "Les outils attendent. Le feu de la forge n'a pas encore été allumé.", color: "#C2410C" },
   boutique:    { title: "L'étal est vide", text: "Le commerce n'a pas encore débuté. Rien à acheter, rien à vendre.", color: "#1D4ED8" },
+  banque:      { title: "Le coffre est vide", text: "Les pièces n'ont pas encore trouvé leur chemin jusqu'ici. Nul ne peut déposer ni retirer en ces murs.", color: "#D97706" },
+  poste:       { title: "Le bureau est fermé", text: "Les lettres s'accumulent, sans destinataire ni sceau. Nul courrier ne peut transiter par ici.", color: "#7C3AED" },
   personnel:   { title: "Aucun serviteur", text: "Ces murs n'ont pas encore connu le pas des employés fidèles.", color: "#6D28D9" },
   evenements:  { title: "Aucune fête prévue", text: "Le calendrier est vierge. Aucune célébration n'a été annoncée.", color: "#BE185D" },
 };
@@ -272,6 +277,15 @@ const PropertyDetailView = ({
   const [recipeInputQty, setRecipeInputQty] = useState("");
   const [recipeOutputItem, setRecipeOutputItem] = useState("");
   const [recipeOutputQty, setRecipeOutputQty] = useState("");
+  // Banque
+  const [vaultAmount, setVaultAmount] = useState("");
+  const [vaultNote, setVaultNote] = useState("");
+  // Poste
+  const [letterTo, setLetterTo] = useState("");
+  const [letterSubject, setLetterSubject] = useState("");
+  const [letterContent, setLetterContent] = useState("");
+  const [letterSeal, setLetterSeal] = useState("NORMAL");
+  const [expandedLetter, setExpandedLetter] = useState(null);
   // Voyage
   const [voyageDest, setVoyageDest] = useState("");
   const [voyageDate, setVoyageDate] = useState("");
@@ -764,6 +778,135 @@ const PropertyDetailView = ({
               </div>
             </Card>
           )}
+
+          {/* ── BANQUE ── */}
+          {activeTab === "banque" && (() => {
+            const vault = prop.vault || { balance: 0, log: [] };
+            const handleVaultMove = (sign) => {
+              const amt = parseInt(vaultAmount);
+              if (!amt || amt <= 0) return;
+              const newBalance = vault.balance + sign * amt;
+              const entry = { id: Date.now(), date: new Date().toLocaleDateString("fr-FR"), authorName: user.name, amount: sign * amt, note: vaultNote.trim() };
+              onUpdatePropertyFeature(prop.id, "vault", { balance: newBalance, log: [entry, ...(vault.log || [])] });
+              setVaultAmount(""); setVaultNote("");
+            };
+            return (
+              <Card title="Coffre-fort" icon={Landmark}>
+                {/* Solde */}
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center mb-4">
+                  <div className="text-[10px] font-black uppercase text-amber-500 tracking-widest mb-1">Solde du coffre</div>
+                  <div className={`text-4xl font-mono font-black ${vault.balance >= 0 ? "text-amber-800" : "text-red-700"}`}>
+                    {vault.balance.toLocaleString()} <span className="text-lg font-bold text-amber-600">Écus</span>
+                  </div>
+                </div>
+                {/* Formulaire propriétaire */}
+                {isOwner && (
+                  <div className="flex gap-2 mb-4">
+                    <input className="w-28 p-1.5 border rounded text-xs font-mono" type="number" placeholder="Montant" value={vaultAmount} onChange={(e) => setVaultAmount(e.target.value)} />
+                    <input className="flex-1 p-1.5 border rounded text-xs" placeholder="Note (optionnel)" value={vaultNote} onChange={(e) => setVaultNote(e.target.value)} />
+                    <button onClick={() => handleVaultMove(1)} disabled={!vaultAmount} className="bg-green-600 text-white px-3 rounded text-[10px] font-bold uppercase disabled:opacity-50 flex items-center gap-1">
+                      <Plus size={11} /> Créditer
+                    </button>
+                    <button onClick={() => handleVaultMove(-1)} disabled={!vaultAmount || parseInt(vaultAmount) > vault.balance} className="bg-red-600 text-white px-3 rounded text-[10px] font-bold uppercase disabled:opacity-50 flex items-center gap-1">
+                      <Trash2 size={11} /> Débiter
+                    </button>
+                  </div>
+                )}
+                {/* Journal */}
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {(vault.log || []).length === 0 && <p className="text-stone-400 text-xs italic text-center py-4">Aucun mouvement enregistré.</p>}
+                  {(vault.log || []).map((e) => (
+                    <div key={e.id} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${e.amount >= 0 ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}>
+                      <div>
+                        <span className="font-bold text-stone-700">{e.authorName}</span>
+                        {e.note && <span className="text-stone-500 ml-2 italic">— {e.note}</span>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`font-mono font-black text-sm ${e.amount >= 0 ? "text-green-700" : "text-red-700"}`}>
+                          {e.amount >= 0 ? "+" : ""}{e.amount.toLocaleString()} Écus
+                        </span>
+                        <span className="text-[10px] text-stone-400">{e.date}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            );
+          })()}
+
+          {/* ── POSTE ── */}
+          {activeTab === "poste" && (() => {
+            const SEALS = {
+              NORMAL:   { label: "Normal",   color: "#78716C", bg: "bg-stone-100",  text: "text-stone-600" },
+              URGENT:   { label: "Urgent",   color: "#DC2626", bg: "bg-red-100",    text: "text-red-700"   },
+              OFFICIAL: { label: "Officiel", color: "#1D4ED8", bg: "bg-blue-100",   text: "text-blue-700"  },
+              SECRET:   { label: "Secret",   color: "#7C3AED", bg: "bg-purple-100", text: "text-purple-700"},
+            };
+            const letters = prop.postLetters || [];
+            const handlePost = () => {
+              if (!letterSubject.trim() || !letterContent.trim()) return;
+              onUpdatePropertyFeature(prop.id, "postLetters", [
+                { id: Date.now(), fromName: user.name, fromId: user.id, to: letterTo.trim(), subject: letterSubject.trim(), content: letterContent.trim(), date: new Date().toLocaleDateString("fr-FR"), seal: letterSeal },
+                ...letters,
+              ]);
+              setLetterTo(""); setLetterSubject(""); setLetterContent(""); setLetterSeal("NORMAL");
+            };
+            return (
+              <Card title="Bureau de Poste" icon={Mail}>
+                <div className="space-y-2 mb-4">
+                  {letters.length === 0 && <p className="text-stone-400 text-xs italic text-center py-4">Aucun courrier affiché.</p>}
+                  {letters.map((l) => {
+                    const seal = SEALS[l.seal] || SEALS.NORMAL;
+                    const open = expandedLetter === l.id;
+                    return (
+                      <div key={l.id} className="border border-stone-200 rounded-xl overflow-hidden">
+                        <button
+                          className="w-full flex items-center gap-3 px-3 py-2.5 bg-stone-50 hover:bg-stone-100 transition-colors text-left"
+                          onClick={() => setExpandedLetter(open ? null : l.id)}
+                        >
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded shrink-0 ${seal.bg} ${seal.text}`}>{seal.label}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-stone-800 text-xs truncate">{l.subject}</div>
+                            <div className="text-[10px] text-stone-400">
+                              De <span className="font-bold">{l.fromName}</span>
+                              {l.to && <> → <span className="font-bold">{l.to}</span></>}
+                              <span className="ml-2">{l.date}</span>
+                            </div>
+                          </div>
+                          {isOwner && (
+                            <button onClick={(e) => { e.stopPropagation(); onUpdatePropertyFeature(prop.id, "postLetters", letters.filter((x) => x.id !== l.id)); }} className="text-red-400 hover:text-red-600 shrink-0 p-1">
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                          {open ? <ChevronUp size={13} className="text-stone-400 shrink-0" /> : <ChevronDown size={13} className="text-stone-400 shrink-0" />}
+                        </button>
+                        {open && (
+                          <div className="px-4 py-3 bg-white border-t border-stone-100">
+                            <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">{l.content}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Formulaire de rédaction */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
+                  <div className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Rédiger un courrier</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="p-1.5 border rounded text-xs" placeholder="Destinataire (optionnel)" value={letterTo} onChange={(e) => setLetterTo(e.target.value)} />
+                    <select className="p-1.5 border rounded text-xs bg-white" value={letterSeal} onChange={(e) => setLetterSeal(e.target.value)}>
+                      {Object.entries(SEALS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
+                    </select>
+                  </div>
+                  <input className="w-full p-1.5 border rounded text-xs" placeholder="Sujet" value={letterSubject} onChange={(e) => setLetterSubject(e.target.value)} />
+                  <textarea className="w-full p-1.5 border rounded text-xs resize-none" rows={3} placeholder="Contenu du courrier..." value={letterContent} onChange={(e) => setLetterContent(e.target.value)} />
+                  <button onClick={handlePost} disabled={!letterSubject.trim() || !letterContent.trim()} className="bg-stone-800 text-white px-4 py-1.5 rounded text-[10px] font-bold uppercase w-full disabled:opacity-50 flex items-center justify-center gap-1">
+                    <Mail size={12} /> Afficher le courrier
+                  </button>
+                </div>
+              </Card>
+            );
+          })()}
 
           {/* ── PERSONNEL ── */}
           {activeTab === "personnel" && (
