@@ -160,6 +160,7 @@ export const DEFAULT_GAME_STATE = {
   mushtagramPosts: [],
   mushtagramDMs: [],
   mushtagramStories: [],
+  school: null,
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────
@@ -293,3 +294,38 @@ export const MUSHTAGRAM_REPORT_REASONS = [
   { id: "desinformation", label: "Désinformation" },
   { id: "autre", label: "Autre" },
 ];
+
+// ─── ACADÉMIE IMPÉRIALE ────────────────────────────────────────────────────
+
+export const DEFAULT_SCHOOL = {
+  name: "Académie Impériale",
+  description: "L'institution académique au service de l'Empire.",
+  motto: "Sapientia et Virtus",
+  active: true,
+  subjects: [
+    { id: "subj_rhetorique",    name: "Rhétorique",    description: "L'art de convaincre et de bien parler.", icon: "📜", year: "all", teacherId: null, teacherName: null, color: "#7C3AED" },
+    { id: "subj_alchimie",      name: "Alchimie",      description: "La science des matières et de leurs transformations.", icon: "⚗️", year: "all", teacherId: null, teacherName: null, color: "#059669" },
+    { id: "subj_escrime",       name: "Escrime",        description: "La maîtrise de l'épée et du combat noble.", icon: "⚔️", year: "all", teacherId: null, teacherName: null, color: "#DC2626" },
+    { id: "subj_theologie",     name: "Théologie",      description: "L'étude des divinités et des textes sacrés.", icon: "✝️", year: "all", teacherId: null, teacherName: null, color: "#D97706" },
+    { id: "subj_hermeneutique", name: "Herméneutique",  description: "L'interprétation des textes anciens.", icon: "🔍", year: "all", teacherId: null, teacherName: null, color: "#0891B2" },
+    { id: "subj_arithmetique",  name: "Arithmétique",   description: "Les nombres, le calcul et la logique.", icon: "🔢", year: 1,     teacherId: null, teacherName: null, color: "#64748B" },
+    { id: "subj_geographie",    name: "Géographie",     description: "La connaissance des terres et des royaumes.", icon: "🗺️", year: 2,     teacherId: null, teacherName: null, color: "#0D9488" },
+    { id: "subj_heraldique",    name: "Héraldique",     description: "Les armoiries, blasons et symboles nobles.", icon: "🛡️", year: 3,     teacherId: null, teacherName: null, color: "#9333EA" },
+  ],
+  schedule: [],
+  clubs: [],
+  announcements: [],
+};
+
+export const SCHOOL_LIFE_EVENT_TYPES = {
+  retard:     { label: "Retard",     color: "#F59E0B", bg: "bg-amber-50",  border: "border-amber-200",  text: "text-amber-700"  },
+  absence:    { label: "Absence",    color: "#EF4444", bg: "bg-red-50",    border: "border-red-200",    text: "text-red-700"    },
+  punition:   { label: "Punition",   color: "#DC2626", bg: "bg-red-50",    border: "border-red-200",    text: "text-red-700"    },
+  detention:  { label: "Retenue",    color: "#9333EA", bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-700" },
+  recompense: { label: "Récompense", color: "#16A34A", bg: "bg-green-50",  border: "border-green-200",  text: "text-green-700"  },
+  mention:    { label: "Mention",    color: "#2563EB", bg: "bg-blue-50",   border: "border-blue-200",   text: "text-blue-700"   },
+  expulsion:  { label: "Expulsion",  color: "#1E1E1E", bg: "bg-stone-100", border: "border-stone-400",  text: "text-stone-900"  },
+};
+
+export const SCHOOL_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+export const SCHOOL_TIME_SLOTS = ["Matin", "Après-midi", "Soir"];

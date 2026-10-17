@@ -39,7 +39,7 @@ import {
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
-import { ROLES, DEFAULT_RACE_CONFIG, MUSHTAGRAM_REPORT_REASONS } from "./lib/constants";
+import { ROLES, DEFAULT_RACE_CONFIG, MUSHTAGRAM_REPORT_REASONS, DEFAULT_SCHOOL } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { ageToBirthDate } from "./lib/gameUtils";
 import { useSettings } from "./hooks/useSettings";
@@ -80,6 +80,7 @@ const GazetteAdminView = lazy(() => import("./components/views/GazetteAdminView"
 const BourseView = lazy(() => import("./components/views/BourseView"));
 const PropertiesAdminView = lazy(() => import("./components/views/PropertiesAdminView"));
 const TribunalAdminView = lazy(() => import("./components/views/TribunalAdminView"));
+const SchoolAdminView = lazy(() => import("./components/views/SchoolAdminView"));
 const GameMasterView = lazy(() => import("./components/views/GameMasterView"));
 const CitizenLayout = lazy(() => import("./components/layout/CitizenLayout"));
 const PostalCheckModal = lazy(() => import("./components/views/PostalCheckModal"));
@@ -111,7 +112,7 @@ const ADMIN_CATEGORIES = [
   { id: "social",      label: "Social & Registre", tabs: ["registry", "mushtagram"] },
   { id: "economie",    label: "Économie", tabs: ["bank", "items", "post", "bourse_admin", "companies_admin", "postoffice", "asia_admin", "properties_admin"] },
   { id: "ordre",       label: "Ordre & Combat", tabs: ["combat_admin", "guard_admin", "espionage", "jobs_admin", "tribunal_admin"] },
-  { id: "social2",     label: "Société", tabs: ["families_admin", "erudit_admin"] },
+  { id: "social2",     label: "Société", tabs: ["families_admin", "erudit_admin", "school_admin"] },
 ];
 
 export default function App() {
@@ -441,6 +442,9 @@ export default function App() {
 
     if (effectiveLevel >= 20 || effectiveScope === "LOCAL")
       tabs.push({ id: "erudit_admin", label: "Érudits", icon: Library });
+
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "school_admin", label: "Académie", icon: GraduationCap });
 
     return tabs;
   }, [roleInfo, effectiveLevel, effectiveScope]);
@@ -997,6 +1001,12 @@ export default function App() {
             onSendMushtagramGroupDM={actions.onSendMushtagramGroupDM}
             onMarkMushtagramGroupDMsRead={actions.onMarkMushtagramGroupDMsRead}
             onSetMushtagramNickname={actions.onSetMushtagramNickname}
+            school={state.school || DEFAULT_SCHOOL}
+            onSchoolJoinClub={actions.onSchoolJoinClub}
+            onSchoolLeaveClub={actions.onSchoolLeaveClub}
+            onSchoolAddNote={actions.onSchoolAddNote}
+            onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
+            onUpdateSchool={actions.onUpdateSchool}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1959,6 +1969,23 @@ export default function App() {
                       </div>
                     );
                   })()}
+                  {activeTab === "school_admin" && (
+                    <SchoolAdminView
+                      school={state.school || DEFAULT_SCHOOL}
+                      citizens={state.citizens || []}
+                      session={session}
+                      roleInfo={roleInfo}
+                      onUpdateSchool={actions.onUpdateSchool}
+                      onSchoolEnroll={actions.onSchoolEnroll}
+                      onSchoolUnenroll={actions.onSchoolUnenroll}
+                      onSchoolPromote={actions.onSchoolPromote}
+                      onSchoolAddNote={actions.onSchoolAddNote}
+                      onSchoolDeleteNote={actions.onSchoolDeleteNote}
+                      onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
+                      onSchoolDeleteLifeEvent={actions.onSchoolDeleteLifeEvent}
+                      notify={notify}
+                    />
+                  )}
                 </div>
               </main>
             </div>

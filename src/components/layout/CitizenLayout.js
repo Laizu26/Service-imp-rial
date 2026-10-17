@@ -65,7 +65,7 @@ import NotificationCenter from "../ui/NotificationCenter";
 import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
 import MagicResonanceModal from "../ui/MagicResonanceModal";
-import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
+import { ROLES, MARRIAGE_CONTRACT_TYPES, DEFAULT_SCHOOL } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive, getActiveStaffLoan } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
@@ -93,6 +93,7 @@ const GuardView = lazy(() => import("../views/GuardView"));
 const ApothecaryView = lazy(() => import("../views/ApothecaryView"));
 const PropertyDetailView = lazy(() => import("../views/PropertyDetailView"));
 const SettingsView = lazy(() => import("../views/SettingsView"));
+const SchoolCitizenView = lazy(() => import("../views/SchoolCitizenView"));
 const CitizenBourseView = lazy(() => import("../views/CitizenBourseView"));
 const WorldMapView = lazy(() => import("../views/WorldMapView"));
 
@@ -805,6 +806,12 @@ const CitizenLayout = (props) => {
     onSendMushtagramGroupDM,
     onMarkMushtagramGroupDMsRead,
     onSetMushtagramNickname,
+    school = null,
+    onSchoolJoinClub,
+    onSchoolLeaveClub,
+    onSchoolAddNote,
+    onSchoolAddLifeEvent,
+    onUpdateSchool,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -954,6 +961,9 @@ const CitizenLayout = (props) => {
   // --- 3. VARIABLES CALCULÉES (Sécurisées avec ?.) ---
   // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
   const isSlave = user?.status === "Esclave";
+  const activeSchool = school || DEFAULT_SCHOOL;
+  const isSchoolStudent = user?.schoolProfile?.enrolled === true;
+  const isSchoolProf = (activeSchool.subjects || []).some((s) => s.teacherId === user?.id);
   // Le titre d'Érudit est additif : soit accordé via le rôle historique "ERUDIT",
   // soit via une demande de titre approuvée (sans écraser un rôle plus élevé).
   const isErudit = user?.role === "ERUDIT" || user?.eruditTitleStatus === "approved";
@@ -1069,6 +1079,7 @@ const CitizenLayout = (props) => {
         { id: "combat", label: "Fiche de Combat", icon: Swords },
         isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
         { id: "erudit", label: isErudit ? "Statut Érudit" : "Devenir Érudit", icon: GraduationCap },
+        (isSchoolStudent || isSchoolProf) && { id: "ecole", label: "Académie", icon: GraduationCap },
       ].filter(Boolean),
     },
     {
@@ -1087,7 +1098,7 @@ const CitizenLayout = (props) => {
         mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
       ].filter(Boolean),
     },
-  ], [isSlave, isErudit, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, myGuard.name, mySlaves.length]);
+  ], [isSlave, isErudit, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, myGuard.name, mySlaves.length, isSchoolStudent, isSchoolProf]);
 
   // --- 2. SÉCURITÉ CRITIQUE ---
   // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
@@ -4699,6 +4710,19 @@ const CitizenLayout = (props) => {
                   )}
                 </div>
               </div>
+            )}
+            {active === "ecole" && (isSchoolStudent || isSchoolProf) && (
+              <SchoolCitizenView
+                user={user}
+                school={activeSchool}
+                citizens={users || []}
+                onSchoolJoinClub={onSchoolJoinClub}
+                onSchoolLeaveClub={onSchoolLeaveClub}
+                onSchoolAddNote={onSchoolAddNote}
+                onSchoolAddLifeEvent={onSchoolAddLifeEvent}
+                onUpdateSchool={onUpdateSchool}
+                notify={notify}
+              />
             )}
             {/* ----------------------------- */}
           </Suspense>
