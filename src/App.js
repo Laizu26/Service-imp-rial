@@ -29,13 +29,14 @@ import {
   Newspaper,
   Swords,
   Hash,
+  GraduationCap,
 } from "lucide-react";
 
 // Hooks & Lib
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
-import { ROLES } from "./lib/constants";
+import { ROLES, DEFAULT_SCHOOL } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { useSettings } from "./hooks/useSettings";
 
@@ -70,6 +71,7 @@ import BourseView from "./components/views/BourseView";
 import PropertiesAdminView from "./components/views/PropertiesAdminView";
 import TribunalAdminView from "./components/views/TribunalAdminView";
 import GameMasterView from "./components/views/GameMasterView";
+import SchoolAdminView from "./components/views/SchoolAdminView";
 import CitizenLayout from "./components/layout/CitizenLayout";
 import PostalCheckModal from "./components/views/PostalCheckModal";
 
@@ -358,6 +360,9 @@ export default function App() {
 
     if (effectiveLevel >= 20 || effectiveScope === "LOCAL")
       tabs.push({ id: "erudit_admin", label: "Érudits", icon: Library });
+
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "school_admin", label: "Académie", icon: GraduationCap });
 
     return tabs;
   }, [roleInfo, session, effectiveLevel, effectiveScope]);
@@ -766,6 +771,12 @@ export default function App() {
             onLikeMushtagramStory={actions.onLikeMushtagramStory}
             onUpdateMushtagramSettings={actions.onUpdateMushtagramSettings}
             onRequestPublicPersonality={actions.onRequestPublicPersonality}
+            school={state.school || DEFAULT_SCHOOL}
+            onSchoolJoinClub={actions.onSchoolJoinClub}
+            onSchoolLeaveClub={actions.onSchoolLeaveClub}
+            onSchoolAddNote={actions.onSchoolAddNote}
+            onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
+            onUpdateSchool={actions.onUpdateSchool}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1432,6 +1443,24 @@ export default function App() {
                       </div>
                     );
                   })()}
+
+                  {activeTab === "school_admin" && (
+                    <SchoolAdminView
+                      school={state.school || DEFAULT_SCHOOL}
+                      citizens={state.citizens || []}
+                      session={session}
+                      roleInfo={roleInfo}
+                      onUpdateSchool={actions.onUpdateSchool}
+                      onSchoolEnroll={actions.onSchoolEnroll}
+                      onSchoolUnenroll={actions.onSchoolUnenroll}
+                      onSchoolPromote={actions.onSchoolPromote}
+                      onSchoolAddNote={actions.onSchoolAddNote}
+                      onSchoolDeleteNote={actions.onSchoolDeleteNote}
+                      onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
+                      onSchoolDeleteLifeEvent={actions.onSchoolDeleteLifeEvent}
+                      notify={notify}
+                    />
+                  )}
                 </div>
               </main>
             </div>

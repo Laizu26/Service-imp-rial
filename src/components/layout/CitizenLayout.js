@@ -50,7 +50,7 @@ import {
 import NotificationCenter from "../ui/NotificationCenter";
 import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
-import { ROLES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
+import { ROLES, MARRIAGE_CONTRACT_TYPES, DEFAULT_SCHOOL } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
@@ -73,6 +73,7 @@ import GuildsView from "../views/GuildsView";
 import ContractsView from "../views/ContractsView";
 import PropertyDetailView from "../views/PropertyDetailView";
 import SettingsView from "../views/SettingsView";
+import SchoolCitizenView from "../views/SchoolCitizenView";
 
 // Mini-composant trésorerie famille
 const FamilyTreasuryActions = ({ familyId, isHead, treasury, userBalance, onDeposit, onWithdraw, onTransfer, allFamilies }) => {
@@ -868,6 +869,12 @@ const CitizenLayout = (props) => {
     onLikeMushtagramStory,
     onUpdateMushtagramSettings,
     onRequestPublicPersonality,
+    school = null,
+    onSchoolJoinClub,
+    onSchoolLeaveClub,
+    onSchoolAddNote,
+    onSchoolAddLifeEvent,
+    onUpdateSchool,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -993,6 +1000,9 @@ const CitizenLayout = (props) => {
   // Utilisation de l'opérateur optionnel pour éviter tout crash résiduel
   const isSlave = user?.status === "Esclave";
   const isErudit = user?.role === "ERUDIT";
+  const activeSchool = school || DEFAULT_SCHOOL;
+  const isSchoolStudent = user?.schoolProfile?.enrolled === true;
+  const isSchoolProf = (activeSchool.subjects || []).some((s) => s.teacherId === user?.id);
 
   const permissions = user?.permissions || {};
 
@@ -1036,6 +1046,7 @@ const CitizenLayout = (props) => {
         { id: "combat", label: "Fiche de Combat", icon: Swords },
         isSlave && { id: "servitude", label: "Ma Servitude", icon: ShieldAlert },
         isErudit && { id: "erudit", label: "Statut Érudit", icon: GraduationCap },
+        (isSchoolStudent || isSchoolProf) && { id: "ecole", label: "Académie", icon: GraduationCap },
       ].filter(Boolean),
     },
     {
@@ -1054,7 +1065,7 @@ const CitizenLayout = (props) => {
         mySlaves.length > 0 && { id: "slaves", label: "Main d'Œuvre", icon: Gavel },
       ].filter(Boolean),
     },
-  ], [isSlave, isErudit, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, mySlaves.length]);
+  ], [isSlave, isErudit, canUseBank, canUsePost, canUseTravel, isBanned, isPrisoner, isGuard, mySlaves.length, isSchoolStudent, isSchoolProf]);
 
   // --- 2. SÉCURITÉ CRITIQUE ---
   // Si user est undefined ou null, on affiche un loader et on ARRÊTE le rendu ici.
@@ -4726,6 +4737,19 @@ const CitizenLayout = (props) => {
                   )}
                 </div>
               </div>
+            )}
+            {active === "ecole" && (isSchoolStudent || isSchoolProf) && (
+              <SchoolCitizenView
+                user={user}
+                school={activeSchool}
+                citizens={users || []}
+                onSchoolJoinClub={onSchoolJoinClub}
+                onSchoolLeaveClub={onSchoolLeaveClub}
+                onSchoolAddNote={onSchoolAddNote}
+                onSchoolAddLifeEvent={onSchoolAddLifeEvent}
+                onUpdateSchool={onUpdateSchool}
+                notify={notify}
+              />
             )}
             {/* ----------------------------- */}
           </TabErrorBoundary>
