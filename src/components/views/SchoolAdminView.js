@@ -189,10 +189,12 @@ export default function SchoolAdminView({
                     <div className="flex-1">
                       <UserSearchSelect
                         users={citizens}
-                        value={null}
-                        onSelect={(selected) => {
-                          if (!selected) return;
-                          handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teacherId: selected.id, teacherName: selected.name } : s) });
+                        value={subj.teacherId || null}
+                        onSelect={(selectedId) => {
+                          if (!selectedId) return;
+                          const citizen = citizens.find((c) => c.id === selectedId);
+                          if (!citizen) return;
+                          handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teacherId: citizen.id, teacherName: citizen.name } : s) });
                         }}
                         placeholder="Chercher un citoyen..."
                       />
