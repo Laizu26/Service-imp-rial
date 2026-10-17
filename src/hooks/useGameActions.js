@@ -5780,6 +5780,155 @@ export const useGameActions = (session, state, saveState, notify) => {
       },
       // ────────────────────────────────────────────────────────────
 
+      // ── ACADÉMIE IMPÉRIALE ─────────────────────────────────────────────────
+      onUpdateSchool: (newSchool) => {
+        saveState({ ...state, school: newSchool });
+      },
+
+      onSchoolEnroll: (citizenId, year) => {
+        const citizens = (state.citizens || []).map((c) =>
+          c.id === citizenId
+            ? {
+                ...c,
+                schoolProfile: {
+                  enrolled: true,
+                  year,
+                  enrolledAt: new Date().toLocaleDateString("fr-FR"),
+                  specialNote: "",
+                  notes: [],
+                  lifeEvents: [],
+                },
+              }
+            : c
+        );
+        saveState({ ...state, citizens });
+        notify("Étudiant inscrit à l'Académie.", "success");
+      },
+
+      onSchoolUnenroll: (citizenId) => {
+        const school = state.school || {};
+        const updatedSchedule = (school.schedule || []).map((slot) => ({
+          ...slot,
+          enrolledStudents: (slot.enrolledStudents || []).filter((s) => s.id !== citizenId),
+        }));
+        const updatedClubs = (school.clubs || []).map((club) => ({
+          ...club,
+          members: (club.members || []).filter((m) => m.id !== citizenId),
+        }));
+        const citizens = (state.citizens || []).map((c) =>
+          c.id === citizenId
+            ? { ...c, schoolProfile: { ...(c.schoolProfile || {}), enrolled: false } }
+            : c
+        );
+        saveState({ ...state, citizens, school: { ...school, schedule: updatedSchedule, clubs: updatedClubs } });
+        notify("Étudiant désinscrit.", "info");
+      },
+
+      onSchoolPromote: (citizenId, newYear) => {
+        const citizens = (state.citizens || []).map((c) =>
+          c.id === citizenId
+            ? { ...c, schoolProfile: { ...(c.schoolProfile || {}), year: newYear } }
+            : c
+        );
+        saveState({ ...state, citizens });
+        notify(`Étudiant promu en ${newYear}e année.`, "success");
+      },
+
+      onSchoolAddNote: (citizenId, noteData) => {
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== citizenId) return c;
+          const notes = [...(c.schoolProfile?.notes || []), { id: `note_${Date.now()}`, ...noteData }];
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), notes } };
+        });
+        saveState({ ...state, citizens });
+        notify("Note ajoutée.", "success");
+      },
+
+      onSchoolDeleteNote: (citizenId, noteId) => {
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== citizenId) return c;
+          const notes = (c.schoolProfile?.notes || []).filter((n) => n.id !== noteId);
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), notes } };
+        });
+        saveState({ ...state, citizens });
+      },
+
+      onSchoolAddLifeEvent: (citizenId, eventData) => {
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== citizenId) return c;
+          const lifeEvents = [...(c.schoolProfile?.lifeEvents || []), { id: `evt_${Date.now()}`, ...eventData }];
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), lifeEvents } };
+        });
+        saveState({ ...state, citizens });
+        notify("Événement vie scolaire ajouté.", "success");
+      },
+
+      onSchoolDeleteLifeEvent: (citizenId, eventId) => {
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== citizenId) return c;
+          const lifeEvents = (c.schoolProfile?.lifeEvents || []).filter((e) => e.id !== eventId);
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), lifeEvents } };
+        });
+        saveState({ ...state, citizens });
+      },
+
+      onSchoolEnrollInSlot: (citizenId, citizenName, slotId) => {
+        const school = state.school || {};
+        const schedule = (school.schedule || []).map((slot) => {
+          if (slot.id !== slotId) return slot;
+          const already = (slot.enrolledStudents || []).some((s) => s.id === citizenId);
+          if (already) return slot;
+          return { ...slot, enrolledStudents: [...(slot.enrolledStudents || []), { id: citizenId, name: citizenName }] };
+        });
+        saveState({ ...state, school: { ...school, schedule } });
+        notify("Inscrit au cours.", "success");
+      },
+
+      onSchoolLeaveSlot: (citizenId, slotId) => {
+        const school = state.school || {};
+        const schedule = (school.schedule || []).map((slot) =>
+          slot.id !== slotId
+            ? slot
+            : { ...slot, enrolledStudents: (slot.enrolledStudents || []).filter((s) => s.id !== citizenId) }
+        );
+        saveState({ ...state, school: { ...school, schedule } });
+        notify("Désinscrit du cours.", "info");
+      },
+
+      onSchoolJoinClub: (citizenId, citizenName, clubId) => {
+        const school = state.school || {};
+        const clubs = (school.clubs || []).map((club) => {
+          if (club.id !== clubId) return club;
+          const already = (club.members || []).some((m) => m.id === citizenId);
+          if (already) return club;
+          return { ...club, members: [...(club.members || []), { id: citizenId, name: citizenName }] };
+        });
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== citizenId) return c;
+          const clubIds = [...(c.schoolProfile?.clubIds || []), clubId];
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), clubIds } };
+        });
+        saveState({ ...state, school: { ...school, clubs }, citizens });
+        notify("Rejoint le club.", "success");
+      },
+
+      onSchoolLeaveClub: (citizenId, clubId) => {
+        const school = state.school || {};
+        const clubs = (school.clubs || []).map((club) =>
+          club.id !== clubId
+            ? club
+            : { ...club, members: (club.members || []).filter((m) => m.id !== citizenId) }
+        );
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== citizenId) return c;
+          const clubIds = (c.schoolProfile?.clubIds || []).filter((id) => id !== clubId);
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), clubIds } };
+        });
+        saveState({ ...state, school: { ...school, clubs }, citizens });
+        notify("Quitté le club.", "info");
+      },
+      // ──────────────────────────────────────────────────────────────────────
+
     }, notify);
   }, [session, state, saveState, notify]);
 };
