@@ -12,6 +12,7 @@ export default function SchoolCitizenView({
   user,
   school: schoolProp,
   citizens = [],
+  gameDate,
   onSchoolJoinClub,
   onSchoolLeaveClub,
   onSchoolAddNote,
@@ -20,6 +21,9 @@ export default function SchoolCitizenView({
   notify,
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
+  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 6] : null;
+  const viewWeek = school.currentWeek || 1;
   const sp = user?.schoolProfile || {};
   const isEnrolled = sp.enrolled;
 
@@ -133,20 +137,24 @@ export default function SchoolCitizenView({
       {/* ── MON EDT ──────────────────────────────────────────────────────── */}
       {activeTab === "edt" && (
         <div>
-          {isEnrolled && (
-            <p className="text-xs text-stone-500 mb-3">Emploi du temps de votre promotion — {YEAR_LABELS[myYear]}</p>
-          )}
-          {!isEnrolled && isProf && (
-            <p className="text-xs text-stone-500 mb-3">Vos créneaux d'enseignement</p>
-          )}
+          <div className="flex items-center gap-3 mb-3 bg-stone-50 rounded-xl px-4 py-2 border border-stone-200">
+            <span className="text-xs font-bold text-stone-600">Semaine {viewWeek}</span>
+            {currentDay && <span className="text-xs text-indigo-600 font-semibold">· Aujourd'hui : {currentDay}</span>}
+            {isEnrolled && <span className="text-xs text-stone-400 ml-auto">{YEAR_LABELS[myYear]}</span>}
+            {!isEnrolled && isProf && <span className="text-xs text-stone-400 ml-auto">Vos créneaux</span>}
+          </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {SCHOOL_DAYS.map((day) => {
-              const daySlots = isProf && !isEnrolled
+              const isToday = day === currentDay;
+              const allDaySlots = isProf && !isEnrolled
                 ? (school.schedule || []).filter((s) => s.day === day && mySubjects.some((ms) => ms.id === s.subjectId))
                 : mySchedule.filter((s) => s.day === day);
+              const daySlots = allDaySlots.filter((s) => s.week == null || s.week === viewWeek);
               return (
-                <div key={day} className="min-h-[100px]">
-                  <div className="text-[10px] font-bold uppercase text-stone-500 mb-2 text-center border-b border-stone-100 pb-1">{day}</div>
+                <div key={day} className={`min-h-[100px] rounded-lg p-1 ${isToday ? "bg-indigo-50 ring-2 ring-indigo-300" : ""}`}>
+                  <div className={`text-[10px] font-bold uppercase mb-2 text-center border-b pb-1 ${isToday ? "text-indigo-600 border-indigo-200" : "text-stone-500 border-stone-100"}`}>
+                    {day}{isToday && " ◀"}
+                  </div>
                   {daySlots.length === 0 && <div className="text-[10px] text-stone-300 text-center mt-3">—</div>}
                   {daySlots.map((slot) => {
                     const subj = getSubjectById(slot.subjectId);
@@ -165,10 +173,10 @@ export default function SchoolCitizenView({
               );
             })}
           </div>
-          {mySchedule.length === 0 && !isProf && (
+          {mySchedule.filter((s) => s.week == null || s.week === viewWeek).length === 0 && !isProf && (
             <div className="text-center py-8 text-stone-400 text-sm">
               <Calendar size={32} className="mx-auto mb-2 opacity-30" />
-              Aucun cours planifié pour votre promotion.
+              Aucun cours planifié pour cette semaine.
             </div>
           )}
         </div>
