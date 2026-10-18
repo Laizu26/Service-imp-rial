@@ -23,8 +23,10 @@ export default function SchoolCitizenView({
   const sp = user?.schoolProfile || {};
   const isEnrolled = sp.enrolled;
 
-  // Prof detection: citizen is a prof if they are teacherId on any subject
-  const mySubjects = (school.subjects || []).filter((s) => s.teacherId === user?.id);
+  // Prof detection: check teachers[] array (new) or legacy teacherId
+  const mySubjects = (school.subjects || []).filter((s) =>
+    (s.teachers || (s.teacherId ? [{ id: s.teacherId }] : [])).some((t) => t.id === user?.id)
+  );
   const isProf = mySubjects.length > 0;
 
   const [activeTab, setActiveTab] = useState("edt");
@@ -153,7 +155,9 @@ export default function SchoolCitizenView({
                         <div className="font-bold" style={{ color: subj?.color || "#64748B" }}>{subj?.icon} {subj?.name || slot.subjectId}</div>
                         <div className="text-stone-500">{slot.timeSlot}</div>
                         {slot.room && <div className="text-stone-400 italic">{slot.room}</div>}
-                        {subj?.teacherName && <div className="text-stone-400 mt-0.5">↳ {subj.teacherName}</div>}
+                        {(subj?.teachers?.length > 0 || subj?.teacherName) && (
+                          <div className="text-stone-400 mt-0.5">↳ {subj.teachers?.map((t) => t.name).join(", ") || subj.teacherName}</div>
+                        )}
                       </div>
                     );
                   })}

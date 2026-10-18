@@ -963,7 +963,9 @@ const CitizenLayout = (props) => {
   const isSlave = user?.status === "Esclave";
   const activeSchool = school || DEFAULT_SCHOOL;
   const isSchoolStudent = user?.schoolProfile?.enrolled === true;
-  const isSchoolProf = (activeSchool.subjects || []).some((s) => s.teacherId === user?.id);
+  const isSchoolProf = (activeSchool.subjects || []).some((s) =>
+    (s.teachers || (s.teacherId ? [{ id: s.teacherId }] : [])).some((t) => t.id === user?.id)
+  );
   // Le titre d'Érudit est additif : soit accordé via le rôle historique "ERUDIT",
   // soit via une demande de titre approuvée (sans écraser un rôle plus élevé).
   const isErudit = user?.role === "ERUDIT" || user?.eruditTitleStatus === "approved";

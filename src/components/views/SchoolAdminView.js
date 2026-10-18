@@ -169,8 +169,14 @@ export default function SchoolAdminView({
                         </span>
                       </div>
                       <p className="text-xs text-stone-500 mt-0.5">{subj.description}</p>
-                      {subj.teacherId && (
-                        <p className="text-xs text-indigo-600 mt-1">Professeur : <strong>{subj.teacherName || getCitizenName(subj.teacherId)}</strong></p>
+                      {(subj.teachers || (subj.teacherId ? [{ id: subj.teacherId, name: subj.teacherName }] : [])).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(subj.teachers || [{ id: subj.teacherId, name: subj.teacherName }]).map((t) => (
+                            <span key={t.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-xs text-indigo-700 font-semibold">
+                              {t.name}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </>
                   )}
@@ -181,28 +187,37 @@ export default function SchoolAdminView({
                 </div>
               </div>
 
-              {/* Assign professor */}
+              {/* Assign professors */}
               {editingSubjectId !== subj.id && (
                 <div className="mt-3 pt-3 border-t border-stone-100">
-                  <p className="text-[10px] font-bold uppercase text-stone-400 mb-1.5">Attribuer un professeur</p>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <UserSearchSelect
-                        users={citizens}
-                        value={subj.teacherId || null}
-                        onSelect={(selectedId) => {
-                          if (!selectedId) return;
-                          const citizen = citizens.find((c) => c.id === selectedId);
-                          if (!citizen) return;
-                          handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teacherId: citizen.id, teacherName: citizen.name } : s) });
+                  <p className="text-[10px] font-bold uppercase text-stone-400 mb-1.5">Professeurs</p>
+                  {/* Liste profs existants */}
+                  {(subj.teachers || (subj.teacherId ? [{ id: subj.teacherId, name: subj.teacherName }] : [])).map((t) => (
+                    <div key={t.id} className="flex items-center justify-between py-1 px-2 mb-1 rounded bg-indigo-50 border border-indigo-100">
+                      <span className="text-xs font-semibold text-indigo-800">{t.name}</span>
+                      <button
+                        onClick={() => {
+                          const current = subj.teachers || (subj.teacherId ? [{ id: subj.teacherId, name: subj.teacherName }] : []);
+                          handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teachers: current.filter((x) => x.id !== t.id), teacherId: null, teacherName: null } : s) });
                         }}
-                        placeholder="Chercher un citoyen..."
-                      />
+                        className="text-red-400 hover:text-red-600 ml-2"
+                      ><X size={11} /></button>
                     </div>
-                    {subj.teacherId && (
-                      <button onClick={() => handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teacherId: null, teacherName: null } : s) })} className="text-xs text-red-500 border border-red-200 px-2 py-1 rounded hover:bg-red-50">Retirer</button>
-                    )}
-                  </div>
+                  ))}
+                  {/* Ajouter un prof */}
+                  <UserSearchSelect
+                    users={citizens.filter((c) => !(subj.teachers || (subj.teacherId ? [{ id: subj.teacherId }] : [])).some((t) => t.id === c.id))}
+                    value={null}
+                    onSelect={(selectedId) => {
+                      if (!selectedId) return;
+                      const citizen = citizens.find((c) => c.id === selectedId);
+                      if (!citizen) return;
+                      const current = subj.teachers || (subj.teacherId ? [{ id: subj.teacherId, name: subj.teacherName }] : []);
+                      if (current.some((t) => t.id === citizen.id)) return;
+                      handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teachers: [...current, { id: citizen.id, name: citizen.name }], teacherId: null, teacherName: null } : s) });
+                    }}
+                    placeholder="Ajouter un professeur..."
+                  />
                 </div>
               )}
             </Card>
@@ -234,7 +249,7 @@ export default function SchoolAdminView({
                 <div className="flex gap-2 pt-1">
                   <button onClick={() => {
                     if (!newSubjectName.trim()) return;
-                    const subj = { id: `subj_${Date.now()}`, name: newSubjectName.trim(), description: newSubjectDesc, icon: newSubjectIcon, year: newSubjectYear, teacherId: null, teacherName: null, color: newSubjectColor };
+                    const subj = { id: `subj_${Date.now()}`, name: newSubjectName.trim(), description: newSubjectDesc, icon: newSubjectIcon, year: newSubjectYear, teachers: [], color: newSubjectColor };
                     handleSave({ subjects: [...(school.subjects || []), subj] });
                     setNewSubjectName(""); setNewSubjectDesc(""); setNewSubjectIcon("📜"); setNewSubjectYear("all"); setShowNewSubject(false);
                   }} className="flex items-center gap-1 bg-indigo-600 text-white px-4 py-1.5 rounded text-xs font-bold"><Plus size={12} /> Créer</button>
