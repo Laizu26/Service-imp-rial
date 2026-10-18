@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import UserSearchSelect from "../ui/UserSearchSelect";
-import { DEFAULT_SCHOOL, SCHOOL_LIFE_EVENT_TYPES, SCHOOL_DAYS, SCHOOL_TIME_SLOTS } from "../../lib/constants";
+import { DEFAULT_SCHOOL, SCHOOL_LIFE_EVENT_TYPES, SCHOOL_DAYS, SCHOOL_TIME_SLOTS, SCHOOL_STAFF_ROLES } from "../../lib/constants";
 
 const SUBJECT_COLORS = [
   "#7C3AED", "#059669", "#DC2626", "#D97706", "#0891B2",
@@ -96,6 +96,7 @@ export default function SchoolAdminView({
     { id: "matieres",  label: "Matières",    icon: BookOpen },
     { id: "edt",       label: "EDT",          icon: Calendar },
     { id: "eleves",    label: "Élèves",       icon: Users },
+    { id: "personnel", label: "Personnel",    icon: Users },
     { id: "clubs",     label: "Clubs",        icon: Star },
     { id: "annonces",  label: "Annonces",     icon: Bell },
   ];
@@ -586,6 +587,53 @@ export default function SchoolAdminView({
       )}
 
       {/* ── ANNONCES ─────────────────────────────────────────────────────── */}
+      {/* ── PERSONNEL ────────────────────────────────────────────────────── */}
+      {activeTab === "personnel" && (
+        <div className="space-y-3">
+          {SCHOOL_STAFF_ROLES.map((role) => {
+            const assigned = (school.staff || []).filter((m) => m.role === role.id);
+            return (
+              <Card key={role.id} className="border border-stone-200">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xl">{role.icon}</span>
+                  <div>
+                    <p className="text-sm font-bold text-stone-800">{role.label}</p>
+                    <p className="text-[10px] text-stone-400">{role.description}</p>
+                  </div>
+                </div>
+                {/* Membres assignés */}
+                {assigned.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {assigned.map((m) => (
+                      <span key={m.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100 border border-stone-200 text-xs font-semibold text-stone-700">
+                        {m.citizenName}
+                        <button
+                          onClick={() => handleSave({ staff: (school.staff || []).filter((s) => s.id !== m.id) })}
+                          className="text-red-400 hover:text-red-600"
+                        ><X size={10} /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* Ajouter */}
+                <UserSearchSelect
+                  users={citizens.filter((c) => !assigned.some((m) => m.citizenId === c.id))}
+                  value={null}
+                  onSelect={(selectedId) => {
+                    if (!selectedId) return;
+                    const citizen = citizens.find((c) => c.id === selectedId);
+                    if (!citizen) return;
+                    const member = { id: `staff_${Date.now()}`, role: role.id, citizenId: citizen.id, citizenName: citizen.name, assignedAt: new Date().toLocaleDateString("fr-FR") };
+                    handleSave({ staff: [...(school.staff || []), member] });
+                  }}
+                  placeholder={`Assigner un(e) ${role.label.toLowerCase()}…`}
+                />
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
       {activeTab === "annonces" && (
         <div className="space-y-3">
           {(school.announcements || []).length === 0 && (

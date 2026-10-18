@@ -315,6 +315,7 @@ export const DEFAULT_SCHOOL = {
   schedule: [],
   clubs: [],
   announcements: [],
+  staff: [],
 };
 
 export const SCHOOL_LIFE_EVENT_TYPES = {
@@ -329,3 +330,14 @@ export const SCHOOL_LIFE_EVENT_TYPES = {
 
 export const SCHOOL_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 export const SCHOOL_TIME_SLOTS = ["Matin", "Après-midi", "Soir"];
+
+export const SCHOOL_STAFF_ROLES = [
+  { id: "directeur",    label: "Directeur",          icon: "🎓", description: "Dirige l'Académie et en définit les orientations" },
+  { id: "directeur_adj",label: "Directeur Adjoint",  icon: "📋", description: "Seconde le directeur et le remplace en son absence" },
+  { id: "surveillant",  label: "Surveillant",         icon: "👁️", description: "Assure l'ordre et la discipline dans les couloirs" },
+  { id: "infirmier",    label: "Infirmier / Infirmière", icon: "🏥", description: "Prend soin de la santé des élèves et du personnel" },
+  { id: "intendant",    label: "Intendant",           icon: "🔑", description: "Gère les ressources matérielles et financières" },
+  { id: "bibliothecaire",label: "Bibliothécaire",    icon: "📚", description: "Garde et organise les ouvrages de l'Académie" },
+  { id: "concierge",    label: "Concierge",           icon: "🧹", description: "Entretien des locaux et gestion des accès" },
+  { id: "conseiller",   label: "Conseiller",          icon: "💬", description: "Accompagne les élèves dans leur parcours scolaire" },
+];

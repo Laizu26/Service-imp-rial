@@ -4,7 +4,7 @@ import {
   TrendingUp, Plus,
 } from "lucide-react";
 import Card from "../ui/Card";
-import { DEFAULT_SCHOOL, SCHOOL_LIFE_EVENT_TYPES, SCHOOL_DAYS } from "../../lib/constants";
+import { DEFAULT_SCHOOL, SCHOOL_LIFE_EVENT_TYPES, SCHOOL_DAYS, SCHOOL_STAFF_ROLES } from "../../lib/constants";
 
 const YEAR_LABELS = { 1: "1re année", 2: "2e année", 3: "3e année" };
 
@@ -361,6 +361,29 @@ export default function SchoolCitizenView({
             </Card>
           )}
         </div>
+      )}
+
+      {/* ── PERSONNEL ────────────────────────────────────────────────────── */}
+      {activeTab === "profil" && (school.staff || []).length > 0 && (
+        <Card title="Personnel de l'Académie" icon={Users}>
+          <div className="space-y-1">
+            {SCHOOL_STAFF_ROLES.map((role) => {
+              const members = (school.staff || []).filter((m) => m.role === role.id);
+              if (!members.length) return null;
+              return (
+                <div key={role.id} className="flex items-start gap-2 py-1 border-b border-stone-50 last:border-0">
+                  <span className="text-sm w-6">{role.icon}</span>
+                  <span className="text-[10px] font-bold text-stone-400 uppercase w-28 shrink-0 mt-0.5">{role.label}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {members.map((m) => (
+                      <span key={m.id} className="text-xs font-semibold text-stone-700">{m.citizenName}</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
       {/* ── ANNONCES ─────────────────────────────────────────────────────── */}
