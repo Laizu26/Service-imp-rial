@@ -19,6 +19,7 @@ export default function SchoolAdminView({
   citizens = [],
   session,
   roleInfo,
+  gameDate,
   onUpdateSchool,
   onSchoolEnroll,
   onSchoolUnenroll,
@@ -30,6 +31,10 @@ export default function SchoolAdminView({
   notify,
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
+
+  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 6] : null;
+  const viewWeek = school.currentWeek || 1;
 
   const [activeTab, setActiveTab] = useState("matieres");
   const [expandedStudent, setExpandedStudent] = useState(null);
@@ -54,6 +59,7 @@ export default function SchoolAdminView({
   const [slotTime, setSlotTime] = useState("Matin");
   const [slotRoom, setSlotRoom] = useState("");
   const [slotNotes] = useState("");
+  const [slotWeekType, setSlotWeekType] = useState("recurring");
   const [slotYear, setSlotYear] = useState(1);
 
   // Élèves form
@@ -269,6 +275,40 @@ export default function SchoolAdminView({
       {/* ── EDT ──────────────────────────────────────────────────────────── */}
       {activeTab === "edt" && (
         <div className="space-y-4">
+          {/* Week navigation */}
+          <div className="flex items-center justify-between bg-stone-50 border border-stone-200 rounded-xl px-4 py-2 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-500 font-semibold uppercase tracking-wide">Semaine</span>
+              <span className="text-lg font-black text-indigo-700">{viewWeek}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleSave({ currentWeek: Math.max(1, viewWeek - 1) })}
+                className="px-3 py-1 rounded text-xs font-bold border border-stone-200 text-stone-600 hover:bg-stone-100 disabled:opacity-40"
+                disabled={viewWeek <= 1}
+              >← Préc.</button>
+              <button
+                onClick={() => {
+                  const nextWeek = viewWeek + 1;
+                  const copied = (school.schedule || [])
+                    .filter((s) => s.week === viewWeek)
+                    .map((s) => ({ ...s, id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`, week: nextWeek }));
+                  handleSave({ schedule: [...(school.schedule || []), ...copied], currentWeek: nextWeek });
+                }}
+                className="px-3 py-1 rounded text-xs font-bold border border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+              >Copier → Sem. suiv.</button>
+              <button
+                onClick={() => handleSave({ currentWeek: viewWeek + 1 })}
+                className="px-3 py-1 rounded text-xs font-bold border border-stone-200 text-stone-600 hover:bg-stone-100"
+              >Suiv. →</button>
+            </div>
+            {currentDay && (
+              <div className="text-xs text-stone-500">
+                Aujourd'hui : <strong className="text-indigo-700">{currentDay}</strong>
+              </div>
+            )}
+          </div>
+
           {/* Year filter */}
           <div className="flex gap-2">
             {[1, 2, 3].map((y) => (
@@ -281,10 +321,17 @@ export default function SchoolAdminView({
           {/* Weekly grid */}
           <div className="grid grid-cols-6 gap-2">
             {SCHOOL_DAYS.map((day) => {
-              const daySlots = (school.schedule || []).filter((s) => s.day === day && (s.year === edtYearFilter || s.year === "all"));
+              const isToday = day === currentDay;
+              const daySlots = (school.schedule || []).filter((s) =>
+                s.day === day &&
+                (s.year === edtYearFilter || s.year === "all") &&
+                (s.week == null || s.week === viewWeek)
+              );
               return (
-                <div key={day} className="min-h-[120px]">
-                  <div className="text-[10px] font-bold uppercase text-stone-500 mb-2 text-center">{day}</div>
+                <div key={day} className={`min-h-[120px] rounded-xl p-1.5 transition-colors ${isToday ? "bg-indigo-50 ring-2 ring-indigo-300" : ""}`}>
+                  <div className={`text-[10px] font-bold uppercase mb-2 text-center ${isToday ? "text-indigo-600" : "text-stone-500"}`}>
+                    {day}{isToday && " 📍"}
+                  </div>
                   {daySlots.length === 0 && <div className="text-[10px] text-stone-300 text-center mt-4">—</div>}
                   {daySlots.map((slot) => {
                     const subj = (school.subjects || []).find((s) => s.id === slot.subjectId);
@@ -294,6 +341,7 @@ export default function SchoolAdminView({
                         <div className="text-stone-500">{slot.timeSlot}</div>
                         {slot.room && <div className="text-stone-400 italic">{slot.room}</div>}
                         <div className="text-stone-400">{(slot.enrolledStudents || []).length} élève(s)</div>
+                        {slot.week != null && <div className="text-[9px] text-indigo-400 mt-0.5">Sem. {slot.week}</div>}
                         <button onClick={() => handleSave({ schedule: (school.schedule || []).filter((s) => s.id !== slot.id) })} className="absolute top-1 right-1 text-stone-300 hover:text-red-500 opacity-0 hover:opacity-100 transition-opacity">
                           <X size={10} />
                         </button>
@@ -335,16 +383,33 @@ export default function SchoolAdminView({
                     {SCHOOL_TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <label className="text-[10px] text-stone-500 block mb-1">Salle (optionnel)</label>
                   <input className="w-full p-1.5 border rounded text-xs" value={slotRoom} onChange={(e) => setSlotRoom(e.target.value)} placeholder="Ex: Salle des Lettres" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-stone-500 block mb-1">Semaine</label>
+                  <select className="w-full p-1.5 border rounded text-xs" value={slotWeekType} onChange={(e) => setSlotWeekType(e.target.value)}>
+                    <option value="recurring">Récurrent (toutes semaines)</option>
+                    <option value="specific">Semaine {viewWeek} seulement</option>
+                  </select>
                 </div>
               </div>
               <div className="flex gap-2 mt-3">
                 <button onClick={() => {
                   if (!slotSubjectId) return;
                   const subj = (school.subjects || []).find((s) => s.id === slotSubjectId);
-                  const slot = { id: `slot_${Date.now()}`, subjectId: slotSubjectId, subjectName: subj?.name || "", day: slotDay, timeSlot: slotTime, room: slotRoom, year: slotYear, enrolledStudents: [] };
+                  const slot = {
+                    id: `slot_${Date.now()}`,
+                    subjectId: slotSubjectId,
+                    subjectName: subj?.name || "",
+                    day: slotDay,
+                    timeSlot: slotTime,
+                    room: slotRoom,
+                    year: slotYear,
+                    week: slotWeekType === "specific" ? viewWeek : null,
+                    enrolledStudents: [],
+                  };
                   handleSave({ schedule: [...(school.schedule || []), slot] });
                   setSlotSubjectId(""); setSlotRoom(""); setShowNewSlot(false);
                 }} className="flex items-center gap-1 bg-indigo-600 text-white px-4 py-1.5 rounded text-xs font-bold"><Plus size={12} /> Créer</button>

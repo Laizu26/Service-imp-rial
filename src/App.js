@@ -1983,6 +1983,7 @@ export default function App() {
                       onSchoolDeleteNote={actions.onSchoolDeleteNote}
                       onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
                       onSchoolDeleteLifeEvent={actions.onSchoolDeleteLifeEvent}
+                      gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
                       notify={notify}
                     />
                   )}

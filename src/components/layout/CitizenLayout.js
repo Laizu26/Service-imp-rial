@@ -4723,6 +4723,7 @@ const CitizenLayout = (props) => {
                 onSchoolAddNote={onSchoolAddNote}
                 onSchoolAddLifeEvent={onSchoolAddLifeEvent}
                 onUpdateSchool={onUpdateSchool}
+                gameDate={gd}
                 notify={notify}
               />
             )}
