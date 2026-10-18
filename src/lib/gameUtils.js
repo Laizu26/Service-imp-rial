@@ -62,9 +62,18 @@ export function formatRPDate(date) {
 
 const WEEK_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
+function dayOfYear(date) {
+  return (date.month - 1) * 30 + date.day;
+}
+
 export function getDayOfWeek(date) {
   if (!date) return "";
-  return WEEK_DAYS[(date.day - 1) % 7];
+  return WEEK_DAYS[(dayOfYear(date) - 1) % 7];
+}
+
+export function getWeekOfYear(date) {
+  if (!date) return 1;
+  return Math.ceil(dayOfYear(date) / 7);
 }
 
 export function formatRPDateWithDay(date) {

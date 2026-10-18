@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Plus, Trash2, X, Save, GraduationCap, BookOpen, Calendar, Users,
   Star, Bell, Pencil, ChevronDown, ChevronUp,
@@ -36,8 +36,18 @@ export default function SchoolAdminView({
   const school = schoolProp || DEFAULT_SCHOOL;
 
   const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 7] : null;
-  const viewWeek = school.currentWeek || 1;
+  const currentWeekNum = useMemo(() => {
+    if (!gameDate) return 1;
+    const doy = (gameDate.month - 1) * 30 + gameDate.day;
+    return Math.ceil(doy / 7);
+  }, [gameDate]);
+  const currentDay = useMemo(() => {
+    if (!gameDate) return null;
+    const doy = (gameDate.month - 1) * 30 + gameDate.day;
+    return SCHOOL_DAYS_LOCAL[(doy - 1) % 7];
+  }, [gameDate]);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const viewWeek = currentWeekNum + weekOffset;
 
   const [activeTab, setActiveTab] = useState("matieres");
   const [expandedStudent, setExpandedStudent] = useState(null);
@@ -316,26 +326,32 @@ export default function SchoolAdminView({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleSave({ currentWeek: Math.max(1, viewWeek - 1) })}
+                onClick={() => setWeekOffset((o) => Math.max(1 - currentWeekNum, o - 1))}
                 disabled={viewWeek <= 1}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 transition-colors"
               >← Préc.</button>
+              <button
+                onClick={() => setWeekOffset(0)}
+                disabled={weekOffset === 0}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 transition-colors"
+              >Aujourd'hui</button>
               <button
                 onClick={() => {
                   const nextWeek = viewWeek + 1;
                   const copied = (school.schedule || [])
                     .filter((s) => s.week === viewWeek)
                     .map((s) => ({ ...s, id: `slot_${Date.now()}_${Math.random().toString(36).slice(2)}`, week: nextWeek }));
-                  handleSave({ schedule: [...(school.schedule || []), ...copied], currentWeek: nextWeek });
+                  handleSave({ schedule: [...(school.schedule || []), ...copied] });
+                  setWeekOffset((o) => o + 1);
                 }}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors"
               >Copier → Sem. suiv.</button>
               <button
-                onClick={() => handleSave({ currentWeek: viewWeek + 1 })}
+                onClick={() => setWeekOffset((o) => o + 1)}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-300 text-amber-800 hover:bg-amber-100 transition-colors"
               >Suiv. →</button>
             </div>
-            {currentDay && (
+            {currentDay && viewWeek === currentWeekNum && (
               <div className="text-xs text-stone-500">
                 Aujourd'hui : <strong className="text-indigo-800">{currentDay}</strong>
               </div>
@@ -360,7 +376,7 @@ export default function SchoolAdminView({
           {/* Weekly grid */}
           <div className="grid grid-cols-7 gap-1.5">
             {SCHOOL_DAYS.map((day) => {
-              const isToday = day === currentDay;
+              const isToday = viewWeek === currentWeekNum && day === currentDay;
               const daySlots = (school.schedule || []).filter((s) =>
                 s.day === day &&
                 (s.year === edtYearFilter || s.year === "all") &&

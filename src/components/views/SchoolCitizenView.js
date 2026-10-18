@@ -24,8 +24,8 @@ export default function SchoolCitizenView({
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
   const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 7] : null;
-  const viewWeek = school.currentWeek || 1;
+  const viewWeek = gameDate ? Math.ceil(((gameDate.month - 1) * 30 + gameDate.day) / 7) : 1;
+  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(((gameDate.month - 1) * 30 + gameDate.day) - 1) % 7] : null;
   const sp = user?.schoolProfile || {};
   const isEnrolled = sp.enrolled;
 
