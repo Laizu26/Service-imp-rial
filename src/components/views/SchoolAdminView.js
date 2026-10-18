@@ -187,7 +187,7 @@ export default function SchoolAdminView({
       {activeTab === "matieres" && (
         <div className="space-y-2">
           {(school.subjects || []).map((subj) => (
-            <div key={subj.id} className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden shadow-sm">
+            <div key={subj.id} className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
               <div className="flex items-start gap-3 p-4" style={{ borderLeft: `4px solid ${subj.color || "#64748B"}` }}>
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: (subj.color || "#64748B") + "22" }}>
                   {subj.icon}
@@ -538,7 +538,7 @@ export default function SchoolAdminView({
                   const avg = calcAvg(sp.notes);
                   const isExpanded = expandedStudent === student.id;
                   return (
-                    <div key={student.id} className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden shadow-sm mb-2">
+                    <div key={student.id} className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm mb-2">
                       <div className="flex items-center gap-3 px-4 py-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -696,8 +696,8 @@ export default function SchoolAdminView({
           {SCHOOL_STAFF_ROLES.map((role) => {
             const assigned = (school.staff || []).filter((m) => m.role === role.id);
             return (
-              <div key={role.id} className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden shadow-sm">
-                <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-amber-100">
+              <div key={role.id} className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
+                <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-amber-100 rounded-t-xl">
                   <span className="text-xl">{role.icon}</span>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-stone-800">{role.label}</p>
@@ -744,8 +744,8 @@ export default function SchoolAdminView({
       {activeTab === "clubs" && (
         <div className="space-y-2">
           {(school.clubs || []).map((club) => (
-            <div key={club.id} className="bg-amber-50 border border-amber-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-amber-100">
+            <div key={club.id} className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
+              <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-amber-100 rounded-t-xl">
                 <div className="w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-xl flex-shrink-0">
                   {club.icon}
                 </div>
