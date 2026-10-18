@@ -60,6 +60,18 @@ export function formatRPDate(date) {
   return `${date.day} ${months[(date.month - 1) % 12]} ${date.year}`;
 }
 
+const WEEK_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+export function getDayOfWeek(date) {
+  if (!date) return "";
+  return WEEK_DAYS[(date.day - 1) % 7];
+}
+
+export function formatRPDateWithDay(date) {
+  if (!date) return "—";
+  return `${getDayOfWeek(date)} ${formatRPDate(date)}`;
+}
+
 // ── Système monétaire : Écu (or) + Liar (cuivre, 1/10 écu) ────────────────
 
 /**

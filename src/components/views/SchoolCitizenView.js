@@ -23,8 +23,8 @@ export default function SchoolCitizenView({
   notify,
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
-  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 6] : null;
+  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 7] : null;
   const viewWeek = school.currentWeek || 1;
   const sp = user?.schoolProfile || {};
   const isEnrolled = sp.enrolled;
@@ -156,7 +156,7 @@ export default function SchoolCitizenView({
             {isEnrolled && <span className="text-xs text-stone-400 ml-auto">{YEAR_LABELS[myYear]}</span>}
             {!isEnrolled && isProf && <span className="text-xs text-stone-400 ml-auto">Vos créneaux</span>}
           </div>
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-7">
             {SCHOOL_DAYS.map((day) => {
               const isToday = day === currentDay;
               const allDaySlots = isProf && !isEnrolled

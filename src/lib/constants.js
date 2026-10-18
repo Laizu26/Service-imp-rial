@@ -329,7 +329,7 @@ export const SCHOOL_LIFE_EVENT_TYPES = {
   expulsion:  { label: "Expulsion",  color: "#1E1E1E", bg: "bg-stone-100", border: "border-stone-400",  text: "text-stone-900"  },
 };
 
-export const SCHOOL_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+export const SCHOOL_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 export const SCHOOL_TIME_SLOTS = ["Matin", "Après-midi", "Soir"];
 
 export const SCHOOL_STAFF_ROLES = [

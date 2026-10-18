@@ -66,7 +66,7 @@ import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
 import MagicResonanceModal from "../ui/MagicResonanceModal";
 import { ROLES, MARRIAGE_CONTRACT_TYPES, DEFAULT_SCHOOL } from "../../lib/constants";
-import { getCitizenAge, formatRPDate, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive, getActiveStaffLoan } from "../../lib/gameUtils";
+import { getCitizenAge, formatRPDate, formatRPDateWithDay, getDayOfWeek, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive, getActiveStaffLoan } from "../../lib/gameUtils";
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
@@ -1405,9 +1405,16 @@ const CitizenLayout = (props) => {
 
           <div className="hidden md:flex items-center gap-2 text-stone-400">
             <Scroll size={14} className="text-yellow-600/60" />
-            <span className="text-[10px] font-black uppercase tracking-widest">
-              {formatRPDate(gd)}
-            </span>
+            <div className="flex flex-col items-start">
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                {formatRPDate(gd)}
+              </span>
+              {gd && (
+                <span className="text-[9px] font-bold text-yellow-600/60 uppercase tracking-widest">
+                  {getDayOfWeek(gd)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-3 items-center font-sans">
@@ -1647,7 +1654,7 @@ const CitizenLayout = (props) => {
                   </div>
                   <div>
                     <div className="font-black text-sm text-stone-100 uppercase tracking-wider leading-tight">{user.name}</div>
-                    <div className="text-[9px] text-stone-500 font-mono">{formatRPDate(gd)}</div>
+                    <div className="text-[9px] text-stone-500 font-mono">{gd ? `${getDayOfWeek(gd)} — ${formatRPDate(gd)}` : "—"}</div>
                   </div>
                 </div>
                 <button onClick={() => setMobileDrawerOpen(false)} className="p-2 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors">

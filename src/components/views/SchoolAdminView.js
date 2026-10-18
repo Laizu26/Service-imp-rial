@@ -35,8 +35,8 @@ export default function SchoolAdminView({
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
 
-  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 6] : null;
+  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(gameDate.day - 1) % 7] : null;
   const viewWeek = school.currentWeek || 1;
 
   const [activeTab, setActiveTab] = useState("matieres");
@@ -358,7 +358,7 @@ export default function SchoolAdminView({
           </div>
 
           {/* Weekly grid */}
-          <div className="grid grid-cols-6 gap-1.5">
+          <div className="grid grid-cols-7 gap-1.5">
             {SCHOOL_DAYS.map((day) => {
               const isToday = day === currentDay;
               const daySlots = (school.schedule || []).filter((s) =>

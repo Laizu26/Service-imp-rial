@@ -41,7 +41,7 @@ import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
 import { ROLES, DEFAULT_RACE_CONFIG, MUSHTAGRAM_REPORT_REASONS, DEFAULT_SCHOOL } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
-import { ageToBirthDate } from "./lib/gameUtils";
+import { ageToBirthDate, getDayOfWeek, formatRPDate } from "./lib/gameUtils";
 import { useSettings } from "./hooks/useSettings";
 import { useVersionCheck } from "./hooks/useVersionCheck";
 import { usePushNotifications } from "./hooks/usePushNotifications";
@@ -1266,9 +1266,14 @@ export default function App() {
                     </span>
                     <div className="text-lg md:text-xl font-black uppercase text-stone-800 dark:text-stone-100 tracking-widest font-serif">
                       {state.gameDate
-                        ? `${state.gameDate.day}/${state.gameDate.month}/${state.gameDate.year}`
+                        ? formatRPDate(state.gameDate)
                         : `Cycle ${state.dayCycle}`}
                     </div>
+                    {state.gameDate && (
+                      <div className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest font-mono">
+                        {getDayOfWeek(state.gameDate)}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
