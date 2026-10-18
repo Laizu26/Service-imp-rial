@@ -15,7 +15,7 @@ const UserSearchSelect = ({
 
   useEffect(() => {
     const u = users.find((x) => x.id === value);
-    setQuery(u ? u.name : "");
+    setQuery(u ? (u.name || `${u.firstName || ""} ${u.lastName || ""}`.trim()) : "");
   }, [value, users]);
 
   useEffect(() => {
@@ -27,14 +27,18 @@ const UserSearchSelect = ({
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const filtered = (users || []).filter(
-    (u) =>
-      !excludeIds.includes(u.id) &&
-      (u.name?.toLowerCase().includes(query.toLowerCase()) ||
-        (ROLES[u.role]?.label || u.role)
-          .toLowerCase()
-          .includes(query.toLowerCase()))
-  );
+  const getName = (u) =>
+    u.name ||
+    `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+    String(u.id || "");
+
+  const filtered = (users || []).filter((u) => {
+    if (excludeIds.includes(u.id)) return false;
+    const q = query.toLowerCase();
+    const nameMatch = getName(u).toLowerCase().includes(q);
+    const roleLabel = (ROLES[u.role]?.label || u.role || "").toLowerCase();
+    return nameMatch || roleLabel.includes(q);
+  });
 
   return (
     <div className="relative font-sans w-full" ref={wrapperRef}>
@@ -67,13 +71,13 @@ const UserSearchSelect = ({
                 className="p-3 hover:bg-stone-50 cursor-pointer text-xs flex justify-between items-center border-b border-stone-50 last:border-0"
                 onClick={() => {
                   onSelect(u.id);
-                  setQuery(u.name);
+                  setQuery(getName(u));
                   setIsOpen(false);
                 }}
               >
-                <span className="font-bold text-stone-800">{u.name}</span>
+                <span className="font-bold text-stone-800">{getName(u)}</span>
                 <span className="text-stone-400 text-[9px] uppercase tracking-widest">
-                  {ROLES[u.role]?.label || u.role}
+                  {ROLES[u.role]?.label || u.role || ""}
                 </span>
               </div>
             ))
