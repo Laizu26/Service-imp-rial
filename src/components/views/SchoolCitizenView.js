@@ -4,6 +4,7 @@ import {
   TrendingUp, Plus,
 } from "lucide-react";
 import { DEFAULT_SCHOOL, SCHOOL_LIFE_EVENT_TYPES, SCHOOL_DAYS, SCHOOL_STAFF_ROLES } from "../../lib/constants";
+import { formatRPDate, getDayOfWeek, getWeekOfYear } from "../../lib/gameUtils";
 
 const YEAR_LABELS = { 1: "1re année", 2: "2e année", 3: "3e année" };
 
@@ -23,9 +24,8 @@ export default function SchoolCitizenView({
   notify,
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
-  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-  const viewWeek = gameDate ? Math.ceil(((gameDate.month - 1) * 30 + gameDate.day) / 7) : 1;
-  const currentDay = gameDate ? SCHOOL_DAYS_LOCAL[(((gameDate.month - 1) * 30 + gameDate.day) - 1) % 7] : null;
+  const viewWeek = getWeekOfYear(gameDate);
+  const currentDay = getDayOfWeek(gameDate);
   const sp = user?.schoolProfile || {};
   const isEnrolled = sp.enrolled;
 
@@ -560,7 +560,7 @@ export default function SchoolCitizenView({
                             subjectName: subj.name,
                             value: Number(profNoteValue),
                             comment: profNoteComment,
-                            date: new Date().toLocaleDateString("fr-FR"),
+                            date: formatRPDate(gameDate),
                             teacherId: user?.id || "",
                             teacherName: user?.name || "",
                           });
@@ -590,7 +590,7 @@ export default function SchoolCitizenView({
                           onSchoolAddLifeEvent && onSchoolAddLifeEvent(profEventStudentId, {
                             type: profEventType,
                             description: profEventDesc,
-                            date: new Date().toLocaleDateString("fr-FR"),
+                            date: formatRPDate(gameDate),
                             authorId: user?.id || "",
                             authorName: user?.name || "",
                           });

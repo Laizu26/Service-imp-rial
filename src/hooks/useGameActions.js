@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatMoney, toRoman, formatRPDate, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer, getApothecaryTreatments, getResearchCost } from "../lib/gameUtils";
+import { formatMoney, toRoman, formatRPDate, formatName, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer, getApothecaryTreatments, getResearchCost } from "../lib/gameUtils";
 import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS } from "../lib/constants";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
@@ -10741,17 +10741,19 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       },
 
       onSchoolEnroll: (citizenId, year) => {
+        const gd = state.gameDate;
         const citizens = (state.citizens || []).map((c) =>
           c.id === citizenId
             ? {
                 ...c,
                 schoolProfile: {
-                  enrolled: true,
-                  year,
-                  enrolledAt: new Date().toLocaleDateString("fr-FR"),
                   specialNote: "",
                   notes: [],
                   lifeEvents: [],
+                  ...(c.schoolProfile || {}),
+                  enrolled: true,
+                  year,
+                  enrolledAt: formatRPDate(gd),
                 },
               }
             : c
@@ -10858,12 +10860,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           if (already) return club;
           return { ...club, members: [...(club.members || []), { id: citizenId, name: citizenName }] };
         });
-        const citizens = (state.citizens || []).map((c) => {
-          if (c.id !== citizenId) return c;
-          const clubIds = [...(c.schoolProfile?.clubIds || []), clubId];
-          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), clubIds } };
-        });
-        saveState({ ...state, school: { ...school, clubs }, citizens });
+        saveState({ ...state, school: { ...school, clubs } });
         notify("Rejoint le club.", "success");
       },
 
@@ -10874,12 +10871,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
             ? club
             : { ...club, members: (club.members || []).filter((m) => m.id !== citizenId) }
         );
-        const citizens = (state.citizens || []).map((c) => {
-          if (c.id !== citizenId) return c;
-          const clubIds = (c.schoolProfile?.clubIds || []).filter((id) => id !== clubId);
-          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), clubIds } };
-        });
-        saveState({ ...state, school: { ...school, clubs }, citizens });
+        saveState({ ...state, school: { ...school, clubs } });
         notify("Quitté le club.", "info");
       },
       // ──────────────────────────────────────────────────────────────────────

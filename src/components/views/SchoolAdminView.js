@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   Plus, Trash2, X, Save, GraduationCap, BookOpen, Calendar, Users,
   Star, Bell, Pencil, ChevronDown, ChevronUp,
 } from "lucide-react";
 import UserSearchSelect from "../ui/UserSearchSelect";
 import { DEFAULT_SCHOOL, SCHOOL_LIFE_EVENT_TYPES, SCHOOL_DAYS, SCHOOL_TIME_SLOTS, SCHOOL_STAFF_ROLES } from "../../lib/constants";
+import { formatRPDate, getDayOfWeek, getWeekOfYear, formatName } from "../../lib/gameUtils";
 
 const SUBJECT_COLORS = [
   "#7C3AED", "#059669", "#DC2626", "#D97706", "#0891B2",
@@ -12,6 +13,15 @@ const SUBJECT_COLORS = [
 ];
 
 const YEAR_LABELS = { 1: "1re année", 2: "2e année", 3: "3e année" };
+
+const TABS = [
+  { id: "matieres",  label: "Matières",  icon: BookOpen },
+  { id: "edt",       label: "EDT",       icon: Calendar },
+  { id: "eleves",    label: "Élèves",    icon: Users },
+  { id: "personnel", label: "Personnel", icon: Users },
+  { id: "clubs",     label: "Clubs",     icon: Star },
+  { id: "annonces",  label: "Annonces",  icon: Bell },
+];
 
 const inputCls = "p-1.5 border border-amber-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 w-full";
 const btnPrimary = "flex items-center gap-1 bg-indigo-900 hover:bg-indigo-950 text-amber-300 px-4 py-1.5 rounded-lg text-xs font-bold uppercase disabled:opacity-50 transition-colors";
@@ -35,17 +45,8 @@ export default function SchoolAdminView({
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
 
-  const SCHOOL_DAYS_LOCAL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-  const currentWeekNum = useMemo(() => {
-    if (!gameDate) return 1;
-    const doy = (gameDate.month - 1) * 30 + gameDate.day;
-    return Math.ceil(doy / 7);
-  }, [gameDate]);
-  const currentDay = useMemo(() => {
-    if (!gameDate) return null;
-    const doy = (gameDate.month - 1) * 30 + gameDate.day;
-    return SCHOOL_DAYS_LOCAL[(doy - 1) % 7];
-  }, [gameDate]);
+  const currentWeekNum = getWeekOfYear(gameDate);
+  const currentDay = getDayOfWeek(gameDate);
   const [weekOffset, setWeekOffset] = useState(0);
   const viewWeek = currentWeekNum + weekOffset;
 
@@ -99,22 +100,16 @@ export default function SchoolAdminView({
   const handleSave = (updates) => onUpdateSchool({ ...school, ...updates });
 
   const getSubjectName = (id) => (school.subjects || []).find((s) => s.id === id)?.name || id;
-  const getCitizenName = (id) => (citizens || []).find((c) => c.id === id)?.name || id;
+  const getCitizenName = (id) => {
+    const c = (citizens || []).find((x) => x.id === id);
+    return c ? formatName(c) : id;
+  };
 
   const calcAvg = (notes) => {
     const nums = (notes || []).map((n) => Number(n.value)).filter((v) => !isNaN(v));
     if (!nums.length) return null;
     return (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1);
   };
-
-  const TABS = [
-    { id: "matieres",  label: "Matières",  icon: BookOpen },
-    { id: "edt",       label: "EDT",       icon: Calendar },
-    { id: "eleves",    label: "Élèves",    icon: Users },
-    { id: "personnel", label: "Personnel", icon: Users },
-    { id: "clubs",     label: "Clubs",     icon: Star },
-    { id: "annonces",  label: "Annonces",  icon: Bell },
-  ];
 
   return (
     <div className="p-3 max-w-6xl mx-auto space-y-3">
@@ -259,7 +254,7 @@ export default function SchoolAdminView({
                       if (!citizen) return;
                       const current = subj.teachers || (subj.teacherId ? [{ id: subj.teacherId, name: subj.teacherName }] : []);
                       if (current.some((t) => t.id === citizen.id)) return;
-                      handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teachers: [...current, { id: citizen.id, name: citizen.name }], teacherId: null, teacherName: null } : s) });
+                      handleSave({ subjects: (school.subjects || []).map((s) => s.id === subj.id ? { ...s, teachers: [...current, { id: citizen.id, name: formatName(citizen) }], teacherId: null, teacherName: null } : s) });
                     }}
                     placeholder="Ajouter un professeur..."
                   />
@@ -294,8 +289,8 @@ export default function SchoolAdminView({
                   <button
                     onClick={() => {
                       if (!newSubjectName.trim()) return;
-                      const subj = { id: `subj_${Date.now()}`, name: newSubjectName.trim(), description: newSubjectDesc, icon: newSubjectIcon, year: newSubjectYear, teachers: [], color: newSubjectColor };
-                      handleSave({ subjects: [...(school.subjects || []), subj] });
+                      const newSubj = { id: `subj_${Date.now()}`, name: newSubjectName.trim(), description: newSubjectDesc, icon: newSubjectIcon, year: newSubjectYear, teachers: [], color: newSubjectColor };
+                      handleSave({ subjects: [...(school.subjects || []), newSubj] });
                       setNewSubjectName(""); setNewSubjectDesc(""); setNewSubjectIcon("📜"); setNewSubjectYear("all"); setShowNewSubject(false);
                     }}
                     className={btnPrimary}
@@ -612,13 +607,13 @@ export default function SchoolAdminView({
                                 <button
                                   onClick={() => {
                                     if (!noteSubjectId || noteValue === "") return;
-                                    const subj = (school.subjects || []).find((s) => s.id === noteSubjectId);
+                                    const noteSubj = (school.subjects || []).find((s) => s.id === noteSubjectId);
                                     onSchoolAddNote(student.id, {
                                       subjectId: noteSubjectId,
-                                      subjectName: subj?.name || noteSubjectId,
+                                      subjectName: noteSubj?.name || noteSubjectId,
                                       value: Number(noteValue),
                                       comment: noteComment,
-                                      date: new Date().toLocaleDateString("fr-FR"),
+                                      date: formatRPDate(gameDate),
                                       teacherId: session?.id || "",
                                       teacherName: session?.name || "DCP",
                                     });
@@ -660,7 +655,7 @@ export default function SchoolAdminView({
                                     onSchoolAddLifeEvent(student.id, {
                                       type: lifeEventType,
                                       description: lifeEventDesc,
-                                      date: new Date().toLocaleDateString("fr-FR"),
+                                      date: formatRPDate(gameDate),
                                       authorId: session?.id || "",
                                       authorName: session?.name || "DCP",
                                     });
@@ -728,7 +723,7 @@ export default function SchoolAdminView({
                       if (!selectedId) return;
                       const citizen = citizens.find((c) => c.id === selectedId);
                       if (!citizen) return;
-                      const member = { id: `staff_${Date.now()}`, role: role.id, citizenId: citizen.id, citizenName: citizen.name, assignedAt: new Date().toLocaleDateString("fr-FR") };
+                      const member = { id: `staff_${Date.now()}`, role: role.id, citizenId: citizen.id, citizenName: formatName(citizen), assignedAt: formatRPDate(gameDate) };
                       handleSave({ staff: [...(school.staff || []), member] });
                     }}
                     placeholder={`Assigner un(e) ${role.label.toLowerCase()}…`}
@@ -775,7 +770,7 @@ export default function SchoolAdminView({
                     if (!selectedId) return;
                     const citizen = citizens.find((c) => c.id === selectedId);
                     if (!citizen) return;
-                    handleSave({ clubs: (school.clubs || []).map((c) => c.id === club.id ? { ...c, members: [...(c.members || []), { id: citizen.id, name: citizen.name }] } : c) });
+                    handleSave({ clubs: (school.clubs || []).map((c) => c.id === club.id ? { ...c, members: [...(c.members || []), { id: citizen.id, name: formatName(citizen) }] } : c) });
                   }}
                   placeholder="Ajouter un élève…"
                 />
@@ -859,8 +854,8 @@ export default function SchoolAdminView({
                   <button
                     onClick={() => {
                       if (!annonceContent.trim()) return;
-                      const ann = { id: Date.now(), content: annonceContent.trim(), date: new Date().toLocaleDateString("fr-FR"), authorId: session?.id || "", authorName: session?.name || "DCP", important: annonceImportant };
-                      handleSave({ announcements: [...(school.announcements || []), ann] });
+                      const newAnn = { id: `ann_${Date.now()}`, content: annonceContent.trim(), date: formatRPDate(gameDate), authorId: session?.id || "", authorName: session?.name || "DCP", important: annonceImportant };
+                      handleSave({ announcements: [...(school.announcements || []), newAnn] });
                       setAnnonceContent(""); setAnnonceImportant(false); setShowNewAnnonce(false);
                     }}
                     className={btnPrimary}
