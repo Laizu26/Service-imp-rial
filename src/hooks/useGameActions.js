@@ -10874,6 +10874,79 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         saveState({ ...state, school: { ...school, clubs } });
         notify("Quitté le club.", "info");
       },
+      onCreateQuiz: (quizData) => {
+        const school = state.school || {};
+        const quizzes = [...(school.quizzes || []), { ...quizData, id: `quiz_${Date.now()}`, createdAt: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }) }];
+        saveState({ ...state, school: { ...school, quizzes } });
+        notify("Devoir créé.", "success");
+      },
+
+      onUpdateQuiz: (quizId, updates) => {
+        const school = state.school || {};
+        const quizzes = (school.quizzes || []).map((q) => q.id === quizId ? { ...q, ...updates } : q);
+        saveState({ ...state, school: { ...school, quizzes } });
+        notify("Devoir mis à jour.", "success");
+      },
+
+      onDeleteQuiz: (quizId) => {
+        const school = state.school || {};
+        const quizzes = (school.quizzes || []).filter((q) => q.id !== quizId);
+        const quizSubmissions = (school.quizSubmissions || []).filter((s) => s.quizId !== quizId);
+        saveState({ ...state, school: { ...school, quizzes, quizSubmissions } });
+        notify("Devoir supprimé.", "info");
+      },
+
+      onSubmitQuiz: (quizId, answers, citizenId, citizenName, studentYear) => {
+        const school = state.school || {};
+        const already = (school.quizSubmissions || []).some((s) => s.quizId === quizId && s.studentId === citizenId);
+        if (already) { notify("Devoir déjà soumis.", "error"); return; }
+        const sub = {
+          id: `sub_${Date.now()}`,
+          quizId,
+          studentId: citizenId,
+          studentName: citizenName,
+          studentYear,
+          submittedAt: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }),
+          answers,
+          status: "pending",
+          grade: null,
+          comment: "",
+          gradedBy: "",
+          gradedByName: "",
+          gradedAt: "",
+        };
+        const quizSubmissions = [...(school.quizSubmissions || []), sub];
+        saveState({ ...state, school: { ...school, quizSubmissions } });
+        notify("Devoir soumis.", "success");
+      },
+
+      onGradeSubmission: (submissionId, grade, comment) => {
+        const school = state.school || {};
+        const sub = (school.quizSubmissions || []).find((s) => s.id === submissionId);
+        if (!sub) return;
+        const quiz = (school.quizzes || []).find((q) => q.id === sub.quizId);
+        const now = formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 });
+        const quizSubmissions = (school.quizSubmissions || []).map((s) =>
+          s.id !== submissionId ? s : { ...s, status: "graded", grade, comment, gradedBy: session.id, gradedByName: session.name, gradedAt: now }
+        );
+        const citizens = (state.citizens || []).map((c) => {
+          if (c.id !== sub.studentId) return c;
+          const note = {
+            id: `note_${Date.now()}`,
+            subjectId: quiz?.subjectId || "",
+            subjectName: quiz?.subjectName || "",
+            value: grade,
+            comment: comment || (quiz ? `Devoir : "${quiz.title}"` : "Devoir noté"),
+            date: now,
+            teacherId: session.id,
+            teacherName: formatName(session),
+          };
+          return { ...c, schoolProfile: { ...(c.schoolProfile || {}), notes: [...(c.schoolProfile?.notes || []), note] } };
+        });
+        saveState({ ...state, school: { ...school, quizSubmissions }, citizens });
+        notify(`Devoir corrigé — note ${grade}/20 ajoutée au profil.`, "success");
+      },
+
       // ──────────────────────────────────────────────────────────────────────
 
     }, notify);
