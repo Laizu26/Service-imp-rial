@@ -317,6 +317,8 @@ export const DEFAULT_SCHOOL = {
   announcements: [],
   staff: [],
   currentWeek: 1,
+  quizzes: [],
+  quizSubmissions: [],
 };
 
 export const SCHOOL_LIFE_EVENT_TYPES = {
