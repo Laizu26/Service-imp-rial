@@ -20,6 +20,7 @@ const TABS = [
   { id: "eleves",    label: "Élèves",    icon: Users },
   { id: "personnel", label: "Personnel", icon: Users },
   { id: "clubs",     label: "Clubs",     icon: Star },
+  { id: "devoirs",   label: "Devoirs",   icon: BookOpen },
   { id: "annonces",  label: "Annonces",  icon: Bell },
 ];
 
@@ -41,6 +42,10 @@ export default function SchoolAdminView({
   onSchoolDeleteNote,
   onSchoolAddLifeEvent,
   onSchoolDeleteLifeEvent,
+  onCreateQuiz,
+  onUpdateQuiz,
+  onDeleteQuiz,
+  onGradeSubmission,
   notify,
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
@@ -94,6 +99,14 @@ export default function SchoolAdminView({
   const [showNewAnnonce, setShowNewAnnonce] = useState(false);
   const [annonceContent, setAnnonceContent] = useState("");
   const [annonceImportant, setAnnonceImportant] = useState(false);
+
+  // Devoirs state
+  const [quizForm, setQuizForm] = useState({ title: "", subjectId: "", subjectName: "", description: "", targetYear: "all", questions: [], active: true });
+  const [quizQuestionForm, setQuizQuestionForm] = useState({ text: "", type: "qcm", choices: ["", "", "", ""] });
+  const [selectedQuizId, setSelectedQuizId] = useState(null);
+  const [gradingSubId, setGradingSubId] = useState(null);
+  const [gradeValue, setGradeValue] = useState("");
+  const [gradeComment, setGradeComment] = useState("");
 
   const enrolledStudents = citizens.filter((c) => c.schoolProfile?.enrolled);
 
@@ -871,6 +884,234 @@ export default function SchoolAdminView({
             >
               <Plus size={16} /> Rédiger une proclamation
             </button>
+          )}
+        </div>
+      )}
+
+      {activeTab === "devoirs" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-stone-200">
+            <div className="bg-stone-800 text-white rounded-t-xl px-4 py-3">
+              <span className="text-xs font-black uppercase tracking-widest">Nouveau devoir</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  className="border border-stone-200 rounded-lg px-3 py-2 text-sm col-span-2"
+                  placeholder="Titre du devoir"
+                  value={quizForm.title}
+                  onChange={(e) => setQuizForm((f) => ({ ...f, title: e.target.value }))}
+                />
+                <select
+                  className="border border-stone-200 rounded-lg px-3 py-2 text-sm"
+                  value={quizForm.subjectId}
+                  onChange={(e) => {
+                    const s = (school.subjects || []).find((x) => x.id === e.target.value);
+                    setQuizForm((f) => ({ ...f, subjectId: e.target.value, subjectName: s?.name || "" }));
+                  }}
+                >
+                  <option value="">— Matière —</option>
+                  {(school.subjects || []).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <select
+                  className="border border-stone-200 rounded-lg px-3 py-2 text-sm"
+                  value={quizForm.targetYear}
+                  onChange={(e) => setQuizForm((f) => ({ ...f, targetYear: e.target.value === "all" ? "all" : Number(e.target.value) }))}
+                >
+                  <option value="all">Toutes années</option>
+                  <option value="1">1re année</option>
+                  <option value="2">2e année</option>
+                  <option value="3">3e année</option>
+                </select>
+              </div>
+              <div className="border border-stone-100 rounded-lg p-3 space-y-2">
+                <div className="text-xs font-black uppercase tracking-widest text-stone-500">Questions ({quizForm.questions.length})</div>
+                {quizForm.questions.map((q, qi) => (
+                  <div key={qi} className="flex items-start gap-2 bg-stone-50 rounded p-2 text-xs">
+                    <span className="font-bold text-stone-600 min-w-[16px]">{qi + 1}.</span>
+                    <div className="flex-1">
+                      <div className="font-bold text-stone-800">{q.text}</div>
+                      {q.type === "qcm" && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(q.choices || []).filter(Boolean).map((c, ci) => (
+                            <span key={ci} className="bg-stone-200 text-stone-700 rounded px-1.5 py-0.5">{c}</span>
+                          ))}
+                        </div>
+                      )}
+                      {q.type === "open" && <span className="text-stone-400 italic">Réponse libre</span>}
+                    </div>
+                    <button onClick={() => setQuizForm((f) => ({ ...f, questions: f.questions.filter((_, i) => i !== qi) }))} className="text-red-400 hover:text-red-600 font-bold">×</button>
+                  </div>
+                ))}
+                <div className="border-t border-stone-100 pt-2 space-y-2">
+                  <input
+                    className="border border-stone-200 rounded px-2 py-1.5 text-xs w-full"
+                    placeholder="Texte de la question"
+                    value={quizQuestionForm.text}
+                    onChange={(e) => setQuizQuestionForm((f) => ({ ...f, text: e.target.value }))}
+                  />
+                  <div className="flex gap-2">
+                    <select
+                      className="border border-stone-200 rounded px-2 py-1.5 text-xs"
+                      value={quizQuestionForm.type}
+                      onChange={(e) => setQuizQuestionForm((f) => ({ ...f, type: e.target.value }))}
+                    >
+                      <option value="qcm">QCM (4 choix)</option>
+                      <option value="open">Réponse libre</option>
+                    </select>
+                    <button
+                      className="text-xs font-black uppercase px-3 py-1.5 rounded-lg bg-stone-700 text-white hover:bg-stone-600"
+                      onClick={() => {
+                        if (!quizQuestionForm.text.trim()) return;
+                        const q = { id: `q_${Date.now()}`, text: quizQuestionForm.text.trim(), type: quizQuestionForm.type, choices: quizQuestionForm.type === "qcm" ? quizQuestionForm.choices : [] };
+                        setQuizForm((f) => ({ ...f, questions: [...f.questions, q] }));
+                        setQuizQuestionForm({ text: "", type: "qcm", choices: ["", "", "", ""] });
+                      }}
+                    >
+                      + Ajouter
+                    </button>
+                  </div>
+                  {quizQuestionForm.type === "qcm" && (
+                    <div className="grid grid-cols-2 gap-1">
+                      {quizQuestionForm.choices.map((c, ci) => (
+                        <input
+                          key={ci}
+                          className="border border-stone-200 rounded px-2 py-1 text-xs"
+                          placeholder={`Choix ${ci + 1}`}
+                          value={c}
+                          onChange={(e) => setQuizQuestionForm((f) => { const ch = [...f.choices]; ch[ci] = e.target.value; return { ...f, choices: ch }; })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                className="text-xs font-black uppercase px-4 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-600 disabled:opacity-40"
+                disabled={!quizForm.title.trim() || !quizForm.subjectId || quizForm.questions.length === 0}
+                onClick={() => {
+                  onCreateQuiz({ ...quizForm, createdBy: session.id, createdByName: session.name });
+                  setQuizForm({ title: "", subjectId: "", subjectName: "", description: "", targetYear: "all", questions: [], active: true });
+                }}
+              >
+                Publier le devoir
+              </button>
+            </div>
+          </div>
+
+          {(school.quizzes || []).length === 0 ? (
+            <div className="text-center text-stone-400 text-sm italic py-8">Aucun devoir publié.</div>
+          ) : (
+            (school.quizzes || []).map((quiz) => {
+              const subs = (school.quizSubmissions || []).filter((s) => s.quizId === quiz.id);
+              const pending = subs.filter((s) => s.status === "pending");
+              const graded = subs.filter((s) => s.status === "graded");
+              const isOpen = selectedQuizId === quiz.id;
+              return (
+                <div key={quiz.id} className="bg-white rounded-xl shadow-sm border border-stone-200">
+                  <div
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-stone-50"
+                    onClick={() => setSelectedQuizId(isOpen ? null : quiz.id)}
+                  >
+                    <div>
+                      <div className="text-sm font-black text-stone-800">{quiz.title}</div>
+                      <div className="text-xs text-stone-400">{quiz.subjectName} · {quiz.targetYear === "all" ? "Toutes années" : `${quiz.targetYear}e année`} · {quiz.createdAt}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {pending.length > 0 && (
+                        <span className="text-[9px] font-black uppercase px-2 py-1 rounded-full bg-amber-100 text-amber-700">{pending.length} à corriger</span>
+                      )}
+                      <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-full ${quiz.active ? "bg-green-100 text-green-700" : "bg-stone-100 text-stone-500"}`}>
+                        {quiz.active ? "Actif" : "Fermé"}
+                      </span>
+                      <button
+                        className="text-[9px] font-black uppercase px-2 py-1 rounded bg-stone-100 hover:bg-stone-200 text-stone-600"
+                        onClick={(e) => { e.stopPropagation(); onUpdateQuiz(quiz.id, { active: !quiz.active }); }}
+                      >
+                        {quiz.active ? "Fermer" : "Rouvrir"}
+                      </button>
+                      <button
+                        className="text-[9px] font-black uppercase px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600"
+                        onClick={(e) => { e.stopPropagation(); if (window.confirm("Supprimer ce devoir ?")) onDeleteQuiz(quiz.id); }}
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div className="border-t border-stone-100 p-4 space-y-3">
+                      <div className="text-xs font-black uppercase tracking-widest text-stone-500">{subs.length} soumission(s) — {graded.length} corrigée(s)</div>
+                      {subs.length === 0 && <div className="text-xs text-stone-400 italic">Aucune soumission pour l'instant.</div>}
+                      {subs.map((sub) => (
+                        <div key={sub.id} className={`border rounded-lg p-3 space-y-2 ${sub.status === "graded" ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-xs font-black text-stone-800">{sub.studentName}</span>
+                              <span className="text-[9px] text-stone-400 ml-2">{sub.studentYear}e année · soumis le {sub.submittedAt}</span>
+                            </div>
+                            {sub.status === "graded" && (
+                              <span className="text-xs font-black text-green-700">{sub.grade}/20</span>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            {quiz.questions.map((q, qi) => (
+                              <div key={q.id} className="text-xs">
+                                <span className="font-bold text-stone-600">{qi + 1}. {q.text}</span>
+                                <div className="ml-3 text-stone-700 italic">{sub.answers[qi] || "—"}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {sub.status === "pending" && (
+                            gradingSubId === sub.id ? (
+                              <div className="flex gap-2 items-center pt-1 border-t border-amber-200">
+                                <input
+                                  type="number" min="0" max="20"
+                                  className="border border-stone-200 rounded px-2 py-1 text-xs w-20"
+                                  placeholder="Note /20"
+                                  value={gradeValue}
+                                  onChange={(e) => setGradeValue(e.target.value)}
+                                />
+                                <input
+                                  className="border border-stone-200 rounded px-2 py-1 text-xs flex-1"
+                                  placeholder="Commentaire (optionnel)"
+                                  value={gradeComment}
+                                  onChange={(e) => setGradeComment(e.target.value)}
+                                />
+                                <button
+                                  className="text-[9px] font-black uppercase px-3 py-1.5 rounded bg-green-700 text-white hover:bg-green-600 disabled:opacity-40"
+                                  disabled={gradeValue === "" || isNaN(Number(gradeValue))}
+                                  onClick={() => {
+                                    onGradeSubmission(sub.id, Number(gradeValue), gradeComment);
+                                    setGradingSubId(null);
+                                    setGradeValue("");
+                                    setGradeComment("");
+                                  }}
+                                >
+                                  Valider
+                                </button>
+                                <button className="text-[9px] text-stone-400 hover:text-stone-600" onClick={() => setGradingSubId(null)}>Annuler</button>
+                              </div>
+                            ) : (
+                              <button
+                                className="text-[9px] font-black uppercase px-3 py-1.5 rounded bg-amber-700 text-white hover:bg-amber-600"
+                                onClick={() => { setGradingSubId(sub.id); setGradeValue(""); setGradeComment(""); }}
+                              >
+                                Corriger
+                              </button>
+                            )
+                          )}
+                          {sub.status === "graded" && sub.comment && (
+                            <div className="text-xs text-green-700 italic border-t border-green-200 pt-1">"{sub.comment}" — {sub.gradedByName}, {sub.gradedAt}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}

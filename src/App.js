@@ -1007,6 +1007,8 @@ export default function App() {
             onSchoolAddNote={actions.onSchoolAddNote}
             onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
             onUpdateSchool={actions.onUpdateSchool}
+            onSubmitQuiz={actions.onSubmitQuiz}
+            onGradeSubmission={actions.onGradeSubmission}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">
@@ -1988,6 +1990,10 @@ export default function App() {
                       onSchoolDeleteNote={actions.onSchoolDeleteNote}
                       onSchoolAddLifeEvent={actions.onSchoolAddLifeEvent}
                       onSchoolDeleteLifeEvent={actions.onSchoolDeleteLifeEvent}
+                      onCreateQuiz={actions.onCreateQuiz}
+                      onUpdateQuiz={actions.onUpdateQuiz}
+                      onDeleteQuiz={actions.onDeleteQuiz}
+                      onGradeSubmission={actions.onGradeSubmission}
                       gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
                       notify={notify}
                     />

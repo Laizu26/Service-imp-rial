@@ -812,6 +812,8 @@ const CitizenLayout = (props) => {
     onSchoolAddNote,
     onSchoolAddLifeEvent,
     onUpdateSchool,
+    onSubmitQuiz,
+    onGradeSubmission,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -4730,6 +4732,8 @@ const CitizenLayout = (props) => {
                 onSchoolAddNote={onSchoolAddNote}
                 onSchoolAddLifeEvent={onSchoolAddLifeEvent}
                 onUpdateSchool={onUpdateSchool}
+                onSubmitQuiz={onSubmitQuiz}
+                onGradeSubmission={onGradeSubmission}
                 gameDate={gd}
                 notify={notify}
               />
