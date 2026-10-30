@@ -260,12 +260,15 @@ const TierListModal = ({ users = [], onClose }) => {
         backgroundColor: "#0c0a09",
         scale: 2,
         useCORS: true,
-        allowTaint: true,
+        imageTimeout: 15000,
+        logging: false,
       });
       const link = document.createElement("a");
       link.download = `${title.replace(/\s+/g, "-").toLowerCase()}.png`;
       link.href = canvas.toDataURL("image/png");
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (e) { console.error(e); }
     setExporting(false);
   };
@@ -405,12 +408,12 @@ const TierListModal = ({ users = [], onClose }) => {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
 
-        {/* Board */}
+        {/* Board — zoom wrapper séparé pour que html2canvas capture à 100% */}
+        <div style={{ zoom: zoom / 100 }}>
         <div
           ref={boardRef}
           className="rounded-2xl border border-stone-800/60 p-4 sm:p-5 space-y-1.5"
           style={{
-            zoom: zoom / 100,
             background: "linear-gradient(180deg, #1c1917 0%, #171412 100%)",
             boxShadow: "0 0 0 1px rgba(255,255,255,0.03) inset, 0 8px 40px rgba(0,0,0,0.6)",
           }}
@@ -570,6 +573,7 @@ const TierListModal = ({ users = [], onClose }) => {
             );
           })}
         </div>
+        </div>{/* fin zoom wrapper */}
 
         {/* Pool */}
         <div
