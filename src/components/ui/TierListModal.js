@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import html2canvas from "html2canvas";
-import { X, Download, RotateCcw, Plus, Trash2, Save, FolderOpen, Check } from "lucide-react";
+import { X, Download, RotateCcw, Plus, Trash2, Save, FolderOpen, Check, GripVertical } from "lucide-react";
 
 const DEFAULT_TIERS = [
   { id: "S", label: "S", color: "#ef4444" },
@@ -14,34 +14,56 @@ const DEFAULT_TIERS = [
 const LS_KEY = "hrp_tierlist_saves_v1";
 const LS_ACTIVE = "hrp_tierlist_active_v1";
 
+const hexToRgb = (hex) => ({
+  r: parseInt(hex.slice(1, 3), 16),
+  g: parseInt(hex.slice(3, 5), 16),
+  b: parseInt(hex.slice(5, 7), 16),
+});
+
 const colorToBg = (hex) => {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},0.12)`;
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r},${g},${b},0.08)`;
+};
+
+const colorToGlow = (hex) => {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r},${g},${b},0.25)`;
 };
 
 const loadSaves = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; } };
 const loadActive = () => { try { return JSON.parse(localStorage.getItem(LS_ACTIVE)) || null; } catch { return null; } };
 
-const CharCard = ({ user, draggable, onDragStart, onDragEnd, small }) => (
+const CharCard = ({ user, draggable, onDragStart, onDragEnd, small, isDragging }) => (
   <div
     draggable={draggable}
     onDragStart={onDragStart}
     onDragEnd={onDragEnd}
-    className={`flex flex-col items-center cursor-grab active:cursor-grabbing select-none shrink-0 ${small ? "w-14" : "w-16"}`}
+    className={`flex flex-col items-center cursor-grab active:cursor-grabbing select-none shrink-0 group/card transition-all duration-150 ${
+      small ? "w-14" : "w-[72px]"
+    } ${isDragging ? "opacity-30 scale-95" : "hover:scale-105 hover:-translate-y-0.5"}`}
     title={user.name || user.id}
   >
-    <div className={`rounded-lg overflow-hidden border-2 border-stone-600 bg-stone-700 ${small ? "w-12 h-12" : "w-14 h-14"}`}>
+    <div
+      className={`rounded-xl overflow-hidden bg-stone-800 shadow-lg group-hover/card:shadow-xl transition-shadow ${
+        small ? "w-11 h-11" : "w-14 h-14"
+      }`}
+      style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+    >
       {user.avatarUrl ? (
         <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-stone-600">
-          <span className="text-lg font-black text-stone-300 uppercase">{(user.name || user.id || "?")[0]}</span>
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-700 to-stone-800">
+          <span className={`font-black text-stone-200 uppercase ${small ? "text-base" : "text-xl"}`}>
+            {(user.name || user.id || "?")[0]}
+          </span>
         </div>
       )}
     </div>
-    <div className={`text-center mt-1 leading-tight ${small ? "text-[7px]" : "text-[8px]"} font-bold text-stone-200 uppercase tracking-wide w-full truncate px-0.5`}>
+    <div
+      className={`text-center mt-1 leading-tight font-bold text-stone-300 uppercase tracking-wide truncate px-0.5 w-full ${
+        small ? "text-[7px]" : "text-[8px]"
+      }`}
+    >
       {user.name || user.id}
     </div>
   </div>
@@ -57,23 +79,16 @@ const makeEmptyState = (users, title = "Service Impérial — Tier List") => ({
 const TierListModal = ({ users = [], onClose }) => {
   const allIds = (users || []).filter((u) => u.name || u.id).map((u) => u.id);
 
-  // Saves list
   const [saves, setSaves] = useState(loadSaves);
   const [showSaves, setShowSaves] = useState(false);
   const [saveNameInput, setSaveNameInput] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
 
-  // Active board state
   const [activeId, setActiveId] = useState(loadActive);
   const [tiers, setTiers] = useState(() => {
     const active = loadActive();
     const saved = loadSaves().find((s) => s.id === active);
-    if (saved) {
-      // Merge new users not yet placed
-      const placed = new Set([...saved.pool, ...saved.tiers.flatMap((t) => t.chars)]);
-      const newOnes = allIds.filter((id) => !placed.has(id));
-      return saved.tiers;
-    }
+    if (saved) return saved.tiers;
     return DEFAULT_TIERS.map((t) => ({ ...t, chars: [] }));
   });
   const [pool, setPool] = useState(() => {
@@ -81,8 +96,7 @@ const TierListModal = ({ users = [], onClose }) => {
     const saved = loadSaves().find((s) => s.id === active);
     if (saved) {
       const placed = new Set([...saved.pool, ...saved.tiers.flatMap((t) => t.chars)]);
-      const newOnes = allIds.filter((id) => !placed.has(id));
-      return [...saved.pool, ...newOnes];
+      return [...saved.pool, ...allIds.filter((id) => !placed.has(id))];
     }
     return allIds;
   });
@@ -104,7 +118,6 @@ const TierListModal = ({ users = [], onClose }) => {
   const boardRef = useRef(null);
   const colorRefs = useRef({});
 
-  // Auto-save active state
   useEffect(() => {
     if (!activeId) return;
     try {
@@ -138,8 +151,7 @@ const TierListModal = ({ users = [], onClose }) => {
   const loadSave = (save) => {
     setTiers(save.tiers);
     const placed = new Set([...save.pool, ...save.tiers.flatMap((t) => t.chars)]);
-    const newOnes = allIds.filter((id) => !placed.has(id));
-    setPool([...save.pool, ...newOnes]);
+    setPool([...save.pool, ...allIds.filter((id) => !placed.has(id))]);
     setTitle(save.title);
     setZoom(save.zoom || 100);
     setActiveId(save.id);
@@ -194,7 +206,12 @@ const TierListModal = ({ users = [], onClose }) => {
     if (!boardRef.current) return;
     setExporting(true);
     try {
-      const canvas = await html2canvas(boardRef.current, { backgroundColor: "#1c1917", scale: 2, useCORS: true, allowTaint: true });
+      const canvas = await html2canvas(boardRef.current, {
+        backgroundColor: "#0c0a09",
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+      });
       const link = document.createElement("a");
       link.download = `${title.replace(/\s+/g, "-").toLowerCase()}.png`;
       link.href = canvas.toDataURL("image/png");
@@ -204,38 +221,84 @@ const TierListModal = ({ users = [], onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[500] bg-stone-950/95 backdrop-blur-sm flex flex-col font-sans overflow-hidden">
+    <div className="fixed inset-0 z-[500] flex flex-col font-sans overflow-hidden" style={{ background: "radial-gradient(ellipse at 50% 0%, #1c1917 0%, #0c0a09 100%)" }}>
+
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-stone-800 shrink-0 gap-2 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-stone-400">HRP — Tier List</span>
-          {activeId && <span className="text-[8px] text-stone-600 italic">{saves.find((s) => s.id === activeId)?.name || ""}</span>}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-stone-800/80 shrink-0 gap-3 flex-wrap"
+        style={{ background: "rgba(28,25,23,0.95)", backdropFilter: "blur(12px)" }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-amber-400 to-amber-600"></div>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-300">HRP — Tier List</span>
+          </div>
+          {activeId && (
+            <span className="hidden sm:block text-[8px] text-stone-600 italic truncate max-w-[120px]">
+              {saves.find((s) => s.id === activeId)?.name || ""}
+            </span>
+          )}
         </div>
+
         <div className="flex items-center gap-2 flex-wrap">
           {/* Zoom */}
-          <div className="flex items-center gap-1 bg-stone-800 border border-stone-700 rounded-lg px-2 py-1">
-            <button onClick={() => setZoom((z) => Math.max(50, z - 10))} className="text-stone-400 hover:text-white text-xs font-black w-5 h-5 flex items-center justify-center">−</button>
-            <span className="text-[9px] font-black text-stone-400 w-8 text-center">{zoom}%</span>
-            <button onClick={() => setZoom((z) => Math.min(200, z + 10))} className="text-stone-400 hover:text-white text-xs font-black w-5 h-5 flex items-center justify-center">+</button>
+          <div className="flex items-center gap-0 bg-stone-900 border border-stone-700/60 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setZoom((z) => Math.max(50, z - 10))}
+              className="px-2.5 py-1.5 text-stone-400 hover:text-white hover:bg-stone-800 transition-colors text-sm font-black leading-none"
+            >−</button>
+            <span className="px-2 py-1.5 text-[9px] font-black text-stone-300 w-10 text-center border-x border-stone-700/60">{zoom}%</span>
+            <button
+              onClick={() => setZoom((z) => Math.min(200, z + 10))}
+              className="px-2.5 py-1.5 text-stone-400 hover:text-white hover:bg-stone-800 transition-colors text-sm font-black leading-none"
+            >+</button>
           </div>
-          {/* Saves panel toggle */}
-          <button onClick={() => setShowSaves((v) => !v)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-colors ${showSaves ? "bg-stone-600 text-white" : "bg-stone-800 hover:bg-stone-700 text-stone-300"}`}>
-            <FolderOpen size={10} /> Saves {saves.length > 0 && <span className="bg-stone-600 text-stone-200 rounded-full px-1.5 text-[8px]">{saves.length}</span>}
+
+          {/* Saves */}
+          <button
+            onClick={() => setShowSaves((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${
+              showSaves
+                ? "bg-amber-700/80 border border-amber-600/50 text-white"
+                : "bg-stone-900 border border-stone-700/60 text-stone-400 hover:text-stone-200 hover:border-stone-600"
+            }`}
+          >
+            <FolderOpen size={10} />
+            Saves
+            {saves.length > 0 && (
+              <span className="bg-stone-700 text-stone-300 rounded-full px-1.5 py-0.5 text-[7px] font-black">{saves.length}</span>
+            )}
           </button>
+
           {/* Add tier */}
-          <button onClick={addTier} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-[9px] font-black uppercase tracking-wide transition-colors">
+          <button
+            onClick={addTier}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-700/60 text-stone-400 hover:text-stone-200 hover:border-stone-600 text-[9px] font-black uppercase tracking-wide transition-all"
+          >
             <Plus size={10} /> Rang
           </button>
+
           {/* Reset */}
-          <button onClick={handleReset} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-[9px] font-black uppercase tracking-wide transition-colors">
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-700/60 text-stone-400 hover:text-red-400 hover:border-red-800/50 text-[9px] font-black uppercase tracking-wide transition-all"
+          >
             <RotateCcw size={10} /> Reset
           </button>
+
           {/* Export */}
-          <button onClick={handleExport} disabled={exporting} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[9px] font-black uppercase tracking-wide transition-colors disabled:opacity-50">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg, #b45309, #d97706)", color: "#fff", boxShadow: "0 1px 8px rgba(180,83,9,0.4)" }}
+          >
             <Download size={10} /> {exporting ? "Export..." : "Exporter"}
           </button>
+
           {/* Close */}
-          <button onClick={onClose} className="w-7 h-7 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white flex items-center justify-center transition-colors">
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg bg-stone-900 border border-stone-700/60 text-stone-500 hover:text-white hover:border-stone-500 flex items-center justify-center transition-all"
+          >
             <X size={14} />
           </button>
         </div>
@@ -243,125 +306,179 @@ const TierListModal = ({ users = [], onClose }) => {
 
       {/* Saves panel */}
       {showSaves && (
-        <div className="border-b border-stone-800 bg-stone-900/80 px-4 py-3 space-y-3 shrink-0">
-          {/* Save as */}
+        <div className="border-b border-stone-800/80 px-5 py-4 space-y-3 shrink-0" style={{ background: "rgba(20,18,17,0.97)" }}>
           <div className="flex items-center gap-2">
             <input
               value={saveNameInput}
               onChange={(e) => setSaveNameInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && saveAs()}
               placeholder={`Nom de la save (défaut : "${title}")`}
-              className="flex-1 bg-stone-800 border border-stone-700 rounded-lg px-3 py-1.5 text-xs text-stone-200 outline-none focus:border-amber-600/50 placeholder:text-stone-600"
+              className="flex-1 bg-stone-900 border border-stone-700/60 rounded-lg px-3 py-2 text-xs text-stone-200 outline-none focus:border-amber-600/60 placeholder:text-stone-600 transition-colors"
             />
             <button
               onClick={saveAs}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all ${savedFlash ? "bg-green-700 text-white" : "bg-amber-700 hover:bg-amber-600 text-white"}`}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all shrink-0 ${
+                savedFlash
+                  ? "bg-green-700 text-white"
+                  : "text-white"
+              }`}
+              style={savedFlash ? {} : { background: "linear-gradient(135deg, #b45309, #d97706)", boxShadow: "0 1px 6px rgba(180,83,9,0.4)" }}
             >
               {savedFlash ? <><Check size={10} /> Sauvegardé</> : <><Save size={10} /> Sauvegarder</>}
             </button>
           </div>
-          {/* List of saves */}
-          {saves.length > 0 && (
+
+          {saves.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {saves.map((s) => (
-                <div key={s.id} className={`flex items-center gap-1.5 pl-3 pr-1 py-1.5 rounded-lg border text-[9px] font-black uppercase ${s.id === activeId ? "bg-stone-700 border-stone-500 text-white" : "bg-stone-800 border-stone-700 text-stone-400 hover:border-stone-500 hover:text-stone-200"} transition-colors`}>
-                  <button onClick={() => loadSave(s)} className="tracking-wide">
-                    {s.name || s.title}
-                  </button>
-                  <button onClick={() => deleteSave(s.id)} className="text-stone-600 hover:text-red-400 ml-1 transition-colors">
-                    <X size={10} />
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all ${
+                    s.id === activeId
+                      ? "bg-amber-900/30 border-amber-700/60 text-amber-300"
+                      : "bg-stone-900 border-stone-700/60 text-stone-400 hover:border-stone-500 hover:text-stone-200"
+                  }`}
+                >
+                  <button onClick={() => loadSave(s)} className="tracking-wide">{s.name || s.title}</button>
+                  <button onClick={() => deleteSave(s.id)} className="text-stone-600 hover:text-red-400 transition-colors ml-0.5">
+                    <X size={9} />
                   </button>
                 </div>
               ))}
             </div>
+          ) : (
+            <p className="text-[8px] text-stone-700 italic">Aucune save — entre un nom et clique sur Sauvegarder.</p>
           )}
-          {saves.length === 0 && <div className="text-[8px] text-stone-700 italic">Aucune save — crée-en une ci-dessus.</div>}
         </div>
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+
         {/* Board */}
-        <div ref={boardRef} className="rounded-xl overflow-hidden border border-stone-800 bg-stone-900 p-3 space-y-1" style={{ zoom: zoom / 100 }}>
-          <div className="text-center pb-2">
+        <div
+          ref={boardRef}
+          className="rounded-2xl border border-stone-800/60 p-4 sm:p-5 space-y-1.5"
+          style={{
+            zoom: zoom / 100,
+            background: "linear-gradient(180deg, #1c1917 0%, #171412 100%)",
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.03) inset, 0 8px 40px rgba(0,0,0,0.6)",
+          }}
+        >
+          {/* Title */}
+          <div className="text-center pb-3 pt-1">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="bg-transparent text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 text-center outline-none border-b border-transparent hover:border-stone-600 focus:border-stone-500 transition-colors w-full max-w-xs"
+              className="bg-transparent text-sm font-black uppercase tracking-[0.25em] text-stone-300 text-center outline-none border-b border-transparent hover:border-stone-700 focus:border-stone-500 transition-colors w-full max-w-sm placeholder:text-stone-700"
               placeholder="Nom de la tier list"
             />
           </div>
-          {tiers.map((tier) => (
-            <div
-              key={tier.id}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(tier.id); }}
-              onDragLeave={() => setDragOver(null)}
-              onDrop={() => handleDrop(tier.id)}
-              className={`flex items-stretch gap-0 rounded-lg overflow-hidden border transition-all group/row ${dragOver === tier.id ? "border-white/30 scale-[1.01]" : "border-stone-700/50"}`}
-            >
-              {/* Color swatch */}
+
+          {/* Tier rows */}
+          {tiers.map((tier) => {
+            const isOver = dragOver === tier.id;
+            return (
               <div
-                className="w-2 shrink-0 cursor-pointer hover:brightness-125 transition-all"
-                style={{ backgroundColor: tier.color }}
-                onClick={() => colorRefs.current[tier.id]?.click()}
-                title="Changer la couleur"
+                key={tier.id}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(tier.id); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={() => handleDrop(tier.id)}
+                className="flex items-stretch gap-0 rounded-xl overflow-hidden border transition-all duration-150 group/row"
+                style={{
+                  borderColor: isOver ? tier.color : "rgba(255,255,255,0.06)",
+                  boxShadow: isOver ? `0 0 0 1px ${tier.color}40, 0 4px 20px ${colorToGlow(tier.color)}` : "0 1px 3px rgba(0,0,0,0.3)",
+                  transform: isOver ? "scale(1.005)" : "scale(1)",
+                }}
               >
-                <input
-                  ref={(el) => (colorRefs.current[tier.id] = el)}
-                  type="color"
-                  value={tier.color}
-                  onChange={(e) => recolorTier(tier.id, e.target.value)}
-                  className="opacity-0 w-0 h-0 absolute"
-                  tabIndex={-1}
-                />
-              </div>
-              {/* Label */}
-              <div
-                className="w-12 shrink-0 flex items-center justify-center font-black text-xl cursor-pointer relative group"
-                style={{ backgroundColor: tier.color, color: "#fff" }}
-                onClick={() => setEditingTierId(editingTierId === tier.id ? null : tier.id)}
-              >
-                {editingTierId === tier.id ? (
+                {/* Color swatch — clickable */}
+                <div
+                  className="w-2 shrink-0 cursor-pointer transition-all hover:brightness-125 hover:w-3"
+                  style={{ background: `linear-gradient(180deg, ${tier.color}, ${tier.color}cc)` }}
+                  onClick={() => colorRefs.current[tier.id]?.click()}
+                  title="Changer la couleur"
+                >
                   <input
-                    autoFocus
-                    value={tier.label}
-                    onChange={(e) => renameTier(tier.id, e.target.value)}
-                    onBlur={() => setEditingTierId(null)}
-                    onKeyDown={(e) => e.key === "Enter" && setEditingTierId(null)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-10 text-center bg-transparent outline-none font-black text-xl text-white"
-                    maxLength={8}
+                    ref={(el) => (colorRefs.current[tier.id] = el)}
+                    type="color"
+                    value={tier.color}
+                    onChange={(e) => recolorTier(tier.id, e.target.value)}
+                    className="opacity-0 w-0 h-0 absolute"
+                    tabIndex={-1}
                   />
-                ) : (
-                  <>
-                    <span className="truncate px-1 text-center leading-tight text-sm">{tier.label}</span>
-                    <span className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px]">✎</span>
-                  </>
-                )}
-              </div>
-              {/* Drop zone */}
-              <div className="flex-1 flex flex-wrap gap-2 p-2 min-h-[72px]" style={{ backgroundColor: colorToBg(tier.color) }}>
-                {tier.chars.map((id) => {
-                  const u = getUser(id);
-                  if (!u) return null;
-                  return (
-                    <CharCard key={id} user={u} small draggable
-                      onDragStart={() => handleDragStart(id, tier.id)}
-                      onDragEnd={() => { setDragging(null); setDragOver(null); }}
+                </div>
+
+                {/* Label */}
+                <div
+                  className="w-14 shrink-0 flex items-center justify-center cursor-pointer relative group/label"
+                  style={{ background: `linear-gradient(135deg, ${tier.color}dd, ${tier.color}99)` }}
+                  onClick={() => setEditingTierId(editingTierId === tier.id ? null : tier.id)}
+                >
+                  {editingTierId === tier.id ? (
+                    <input
+                      autoFocus
+                      value={tier.label}
+                      onChange={(e) => renameTier(tier.id, e.target.value)}
+                      onBlur={() => setEditingTierId(null)}
+                      onKeyDown={(e) => e.key === "Enter" && setEditingTierId(null)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-10 text-center bg-transparent outline-none font-black text-2xl text-white"
+                      maxLength={8}
+                      style={{ textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}
                     />
-                  );
-                })}
-                {tier.chars.length === 0 && <div className="flex-1 flex items-center justify-center text-[8px] text-stone-700 italic">Glisse ici</div>}
+                  ) : (
+                    <>
+                      <span
+                        className="font-black text-2xl text-white select-none leading-none"
+                        style={{ textShadow: "0 2px 6px rgba(0,0,0,0.4)" }}
+                      >
+                        {tier.label}
+                      </span>
+                      <span className="absolute inset-0 bg-black/0 group-hover/label:bg-black/20 transition-colors flex items-end justify-center pb-1">
+                        <span className="text-[7px] text-white/0 group-hover/label:text-white/60 transition-colors font-bold uppercase tracking-wider">✎</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Drop zone */}
+                <div
+                  className="flex-1 flex flex-wrap gap-2 p-2.5 min-h-[80px] transition-colors"
+                  style={{ backgroundColor: isOver ? `${tier.color}15` : colorToBg(tier.color) }}
+                >
+                  {tier.chars.map((id) => {
+                    const u = getUser(id);
+                    if (!u) return null;
+                    return (
+                      <CharCard
+                        key={id}
+                        user={u}
+                        small
+                        draggable
+                        isDragging={dragging?.userId === id}
+                        onDragStart={() => handleDragStart(id, tier.id)}
+                        onDragEnd={() => { setDragging(null); setDragOver(null); }}
+                      />
+                    );
+                  })}
+                  {tier.chars.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-[8px] text-stone-700 italic tracking-wide">Glisse ici</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Delete */}
+                <button
+                  onClick={() => deleteTier(tier.id)}
+                  className="w-9 shrink-0 flex items-center justify-center text-stone-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100"
+                  style={{ background: "rgba(0,0,0,0.2)" }}
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
-              {/* Delete button */}
-              <button
-                onClick={() => deleteTier(tier.id)}
-                className="w-8 shrink-0 flex items-center justify-center bg-stone-800 text-stone-600 hover:text-red-400 hover:bg-stone-700 opacity-0 group-hover/row:opacity-100 transition-all"
-              >
-                <Trash2 size={11} />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Pool */}
@@ -369,21 +486,44 @@ const TierListModal = ({ users = [], onClose }) => {
           onDragOver={(e) => { e.preventDefault(); setDragOver("pool"); }}
           onDragLeave={() => setDragOver(null)}
           onDrop={() => handleDrop("pool")}
-          className={`rounded-xl border p-3 min-h-[100px] transition-all ${dragOver === "pool" ? "border-stone-500 bg-stone-800/60" : "border-stone-800 bg-stone-900/60"}`}
+          className="rounded-2xl border transition-all duration-150 p-4"
+          style={{
+            borderColor: dragOver === "pool" ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)",
+            background: dragOver === "pool"
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(28,25,23,0.6)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+          }}
         >
-          <div className="text-[8px] font-black uppercase tracking-[0.25em] text-stone-600 mb-3">Non classés ({pool.length})</div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-600">Non classés</span>
+            <span
+              className="text-[7px] font-black px-1.5 py-0.5 rounded-full"
+              style={{ background: "rgba(255,255,255,0.06)", color: "#78716c" }}
+            >
+              {pool.length}
+            </span>
+          </div>
           <div className="flex flex-wrap gap-3">
             {pool.map((id) => {
               const u = getUser(id);
               if (!u) return null;
               return (
-                <CharCard key={id} user={u} draggable
+                <CharCard
+                  key={id}
+                  user={u}
+                  draggable
+                  isDragging={dragging?.userId === id}
                   onDragStart={() => handleDragStart(id, "pool")}
                   onDragEnd={() => { setDragging(null); setDragOver(null); }}
                 />
               );
             })}
-            {pool.length === 0 && <div className="text-[8px] text-stone-700 italic">Tous les personnages sont classés !</div>}
+            {pool.length === 0 && (
+              <div className="w-full text-center py-4 text-[8px] text-stone-700 italic tracking-wide">
+                Tous les personnages sont classés !
+              </div>
+            )}
           </div>
         </div>
       </div>
