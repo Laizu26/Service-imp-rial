@@ -2527,7 +2527,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
         </div>
         <button
           onClick={addIllness}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/60"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-100"
         >
           <Plus size={12} /> Ajouter une maladie
         </button>
@@ -2650,7 +2650,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
         </div>
         <button
           onClick={addTreatment}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/60"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-100"
         >
           <Plus size={12} /> Ajouter un traitement
         </button>
@@ -2930,7 +2930,7 @@ const GMRaces = ({ state, onUpdateState, notify }) => {
         </div>
         <button
           onClick={addRace}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-900/60"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-100"
         >
           <Plus size={12} /> Ajouter une race
         </button>
