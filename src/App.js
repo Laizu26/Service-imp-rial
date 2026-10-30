@@ -1009,6 +1009,8 @@ export default function App() {
             onUpdateSchool={actions.onUpdateSchool}
             onSubmitQuiz={actions.onSubmitQuiz}
             onGradeSubmission={actions.onGradeSubmission}
+            onSchoolEnrollInSlot={actions.onSchoolEnrollInSlot}
+            onSchoolLeaveSlot={actions.onSchoolLeaveSlot}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">

@@ -10947,6 +10947,33 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         notify(`Devoir corrigé — note ${grade}/20 ajoutée au profil.`, "success");
       },
 
+      onSchoolEnrollInSlot: (slotId) => {
+        const school = state.school || {};
+        const citizen = (state.citizens || []).find((c) => c.id === session.id);
+        if (!citizen) return;
+        const name = formatName(citizen);
+        const schedule = (school.schedule || []).map((slot) => {
+          if (slot.id !== slotId) return slot;
+          const already = (slot.enrolledStudents || []).some((s) => s.id === session.id);
+          if (already) { notify("Déjà inscrit à ce cours.", "error"); return slot; }
+          if ((slot.enrolledStudents || []).length >= (slot.maxStudents || 99)) { notify("Ce cours est complet.", "error"); return slot; }
+          return { ...slot, enrolledStudents: [...(slot.enrolledStudents || []), { id: session.id, name }] };
+        });
+        saveState({ ...state, school: { ...school, schedule } });
+        notify("Inscrit au cours.", "success");
+      },
+
+      onSchoolLeaveSlot: (slotId) => {
+        const school = state.school || {};
+        const schedule = (school.schedule || []).map((slot) =>
+          slot.id !== slotId
+            ? slot
+            : { ...slot, enrolledStudents: (slot.enrolledStudents || []).filter((s) => s.id !== session.id) }
+        );
+        saveState({ ...state, school: { ...school, schedule } });
+        notify("Désinscrit du cours.", "info");
+      },
+
       // ──────────────────────────────────────────────────────────────────────
 
     }, notify);

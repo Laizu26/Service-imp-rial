@@ -23,6 +23,8 @@ export default function SchoolCitizenView({
   onUpdateSchool,
   onSubmitQuiz,
   onGradeSubmission,
+  onSchoolEnrollInSlot,
+  onSchoolLeaveSlot,
   notify,
 }) {
   const school = schoolProp || DEFAULT_SCHOOL;
@@ -189,19 +191,47 @@ export default function SchoolCitizenView({
                   {daySlots.length === 0 && <div className="text-[10px] text-stone-300 text-center mt-3">—</div>}
                   {daySlots.map((slot) => {
                     const subj = getSubjectById(slot.subjectId);
+                    const isEnrolledInSlot = (slot.enrolledStudents || []).some((s) => s.id === user?.id);
+                    const isFull = (slot.enrolledStudents || []).length >= (slot.maxStudents || 99);
+                    const canEnroll = isEnrolled && onSchoolEnrollInSlot && !isEnrolledInSlot && !isFull;
+                    const canLeave = isEnrolled && onSchoolLeaveSlot && isEnrolledInSlot;
                     return (
                       <div
                         key={slot.id}
-                        className="rounded-lg p-1.5 mb-1 text-[10px]"
-                        style={{ background: (subj?.color || "#64748B") + "18", borderLeft: `3px solid ${subj?.color || "#64748B"}` }}
+                        className="rounded-lg p-1.5 mb-1 text-[10px] relative group"
+                        style={
+                          isEnrolledInSlot
+                            ? { background: (subj?.color || "#64748B") + "18", borderLeft: `3px solid ${subj?.color || "#64748B"}` }
+                            : { background: isFull ? "#f5f5f4" : "#fafaf9", borderLeft: "3px solid #e7e5e4", opacity: isFull ? 0.6 : 1 }
+                        }
                       >
-                        <div className="font-bold leading-tight" style={{ color: subj?.color || "#64748B" }}>
+                        <div className="font-bold leading-tight" style={{ color: isEnrolledInSlot ? (subj?.color || "#64748B") : "#78716c" }}>
                           {subj?.icon} {subj?.name || slot.subjectId}
                         </div>
                         <div className="text-stone-500 mt-0.5">{slot.timeSlot}</div>
                         {slot.room && <div className="text-stone-400 italic">{slot.room}</div>}
                         {(subj?.teachers?.length > 0 || subj?.teacherName) && (
                           <div className="text-stone-400 mt-0.5">↳ {subj.teachers?.map((t) => t.name).join(", ") || subj.teacherName}</div>
+                        )}
+                        {isFull && !isEnrolledInSlot && (
+                          <div className="text-[8px] text-red-400 mt-0.5 font-bold">Complet</div>
+                        )}
+                        {canEnroll && (
+                          <button
+                            onClick={() => onSchoolEnrollInSlot(slot.id)}
+                            className="mt-1 w-full text-[8px] font-black uppercase text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded px-1 py-0.5 transition-colors"
+                          >
+                            + S'inscrire
+                          </button>
+                        )}
+                        {canLeave && (
+                          <button
+                            onClick={() => onSchoolLeaveSlot(slot.id)}
+                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-[11px] leading-none transition-opacity"
+                            title="Se désinscrire"
+                          >
+                            ×
+                          </button>
                         )}
                       </div>
                     );
