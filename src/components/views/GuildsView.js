@@ -110,13 +110,13 @@ const MyGuildDashboard = ({
         </div>
 
         {/* Onglets */}
-        <div className="flex gap-1 overflow-x-auto bg-white border-t border-stone-200 px-2 pt-2">
+        <div className="flex border-b border-stone-200 overflow-x-auto">
           {TABS.map((tb) => (
             <button
               key={tb.id}
               onClick={() => setTab(tb.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-wide border-b-2 -mb-px whitespace-nowrap transition-all ${
-                tab === tb.id ? "border-stone-800 text-stone-800" : "border-transparent text-stone-400 hover:text-stone-600"
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-wide border-b-2 -mb-px whitespace-nowrap transition-all ${
+                tab === tb.id ? "border-stone-800 text-stone-900" : "border-transparent text-stone-400 hover:text-stone-600"
               }`}
             >
               <tb.icon size={12} /> {tb.label}

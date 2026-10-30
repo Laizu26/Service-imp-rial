@@ -330,7 +330,7 @@ const GeopoliticsView = ({
                       <h4 className="font-black text-sm text-stone-800 font-serif truncate">{c.name}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-stone-400">{cit} citoyen{cit !== 1 ? "s" : ""}</span>
-                        <span className="text-stone-200">·</span>
+                        <span className="text-stone-300">·</span>
                         <span className="text-[10px] text-stone-400">{regs} région{regs !== 1 ? "s" : ""}</span>
                       </div>
                     </div>
@@ -479,7 +479,7 @@ const GeopoliticsView = ({
             </div>
 
             {/* Tabs */}
-            <div className="flex bg-white/30 border-b border-black/5 px-3 pt-2 gap-1 font-sans font-bold text-[10px] uppercase overflow-x-auto shrink-0">
+            <div className="flex border-b border-stone-200 overflow-x-auto shrink-0">
               {[
                 { id: "info",    label: "Gouvernance", icon: Crown    },
                 { id: "laws",    label: "Législation",  icon: Gavel    },
@@ -488,10 +488,10 @@ const GeopoliticsView = ({
                 { id: "citizens",label: "Habitants",    icon: Users    },
               ].map((t) => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg tracking-widest transition-all whitespace-nowrap border-b-2 ${
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 -mb-px ${
                     activeTab === t.id
-                      ? "bg-white border-stone-800 text-stone-800 shadow-sm"
-                      : "border-transparent text-stone-500 hover:text-stone-700 hover:bg-white/40"
+                      ? "border-stone-800 text-stone-900"
+                      : "border-transparent text-stone-400 hover:text-stone-600"
                   }`}>
                   <t.icon size={11} />{t.label}
                 </button>

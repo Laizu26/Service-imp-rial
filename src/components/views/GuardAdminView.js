@@ -161,11 +161,11 @@ const GuardAdminView = ({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-stone-200 bg-white/40 px-4 pt-2 gap-1 overflow-x-auto shrink-0">
+        <div className="flex border-b border-stone-200 overflow-x-auto shrink-0">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-t-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 transition-all ${
-                tab === t.id ? "bg-white border-stone-800 text-stone-800" : "border-transparent text-stone-400 hover:text-stone-700"
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-all ${
+                tab === t.id ? "border-stone-800 text-stone-900" : "border-transparent text-stone-400 hover:text-stone-600"
               }`}>
               <t.icon size={11} />{t.label}
             </button>

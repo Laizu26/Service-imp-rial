@@ -289,90 +289,73 @@ const LibraryAdminView = ({ countries, onUpdate }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-stone-100 rounded-xl overflow-hidden border border-stone-300">
+    <div className="h-full flex flex-col bg-white rounded-xl overflow-hidden border border-stone-200">
       {/* HEADER */}
-      <div className="bg-stone-900 text-white p-6 shadow-md z-10">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <Library size={28} className="text-yellow-500" />
-            <h2 className="text-2xl font-black uppercase tracking-widest">
-              Administration des Archives
-            </h2>
-          </div>
-
-          <select
-            className="bg-stone-800 border border-stone-600 text-white p-2 rounded text-sm font-bold uppercase tracking-wide outline-none focus:border-yellow-500"
-            value={selectedCountryId}
-            onChange={(e) => {
-              setSelectedCountryId(e.target.value);
-              resetForm();
-              setListSearch("");
-            }}
-          >
-            {countries.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+      <div className="bg-stone-800 text-white px-6 py-4 flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <Library size={20} className="text-amber-400" />
+          <h2 className="text-sm font-black uppercase tracking-widest">
+            Administration des Archives
+          </h2>
         </div>
+        <select
+          className="bg-stone-700 border border-stone-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide outline-none focus:border-amber-400"
+          value={selectedCountryId}
+          onChange={(e) => {
+            setSelectedCountryId(e.target.value);
+            resetForm();
+            setListSearch("");
+          }}
+        >
+          {countries.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        {/* TABS */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => {
-              setActiveTab("decrees");
-              resetForm();
-              setListSearch("");
-            }}
-            className={`px-6 py-3 rounded-t-lg font-bold uppercase text-xs tracking-widest flex items-center gap-2 transition-colors ${
-              activeTab === "decrees"
-                ? "bg-stone-100 text-stone-900"
-                : "bg-stone-800 text-stone-500 hover:text-white"
-            }`}
-          >
-            <Scroll size={16} /> Gestion des Décrets
-            {(selectedCountry.decrees || []).length > 0 && (
-              <span className="bg-stone-600 text-stone-200 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                {(selectedCountry.decrees || []).length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("books");
-              resetForm();
-              setListSearch("");
-            }}
-            className={`px-6 py-3 rounded-t-lg font-bold uppercase text-xs tracking-widest flex items-center gap-2 transition-colors ${
-              activeTab === "books"
-                ? "bg-stone-100 text-stone-900"
-                : "bg-stone-800 text-stone-500 hover:text-white"
-            }`}
-          >
-            <Book size={16} /> Édition de Livres
-            {(selectedCountry.books || []).length > 0 && (
-              <span className="bg-stone-600 text-stone-200 text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                {(selectedCountry.books || []).length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setActiveTab("pending"); resetForm(); setListSearch(""); }}
-            className={`px-6 py-3 rounded-t-lg font-bold uppercase text-xs tracking-widest flex items-center gap-2 transition-colors ${
-              activeTab === "pending"
-                ? "bg-stone-100 text-stone-900"
-                : "bg-stone-800 text-stone-500 hover:text-white"
-            }`}
-          >
-            <PenLine size={16} /> Soumissions
-            {pendingBooks.length > 0 && (
-              <span className="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                {pendingBooks.length}
-              </span>
-            )}
-          </button>
-        </div>
+      {/* TABS */}
+      <div className="flex border-b border-stone-200 overflow-x-auto shrink-0">
+        <button
+          onClick={() => { setActiveTab("decrees"); resetForm(); setListSearch(""); }}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-colors ${
+            activeTab === "decrees" ? "border-stone-800 text-stone-900" : "border-transparent text-stone-400 hover:text-stone-600"
+          }`}
+        >
+          <Scroll size={13} /> Décrets
+          {(selectedCountry.decrees || []).length > 0 && (
+            <span className="bg-stone-200 text-stone-600 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+              {(selectedCountry.decrees || []).length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => { setActiveTab("books"); resetForm(); setListSearch(""); }}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-colors ${
+            activeTab === "books" ? "border-stone-800 text-stone-900" : "border-transparent text-stone-400 hover:text-stone-600"
+          }`}
+        >
+          <Book size={13} /> Livres
+          {(selectedCountry.books || []).length > 0 && (
+            <span className="bg-stone-200 text-stone-600 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+              {(selectedCountry.books || []).length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => { setActiveTab("pending"); resetForm(); setListSearch(""); }}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-colors ${
+            activeTab === "pending" ? "border-stone-800 text-stone-900" : "border-transparent text-stone-400 hover:text-stone-600"
+          }`}
+        >
+          <PenLine size={13} /> Soumissions
+          {pendingBooks.length > 0 && (
+            <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+              {pendingBooks.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* CONTENU */}

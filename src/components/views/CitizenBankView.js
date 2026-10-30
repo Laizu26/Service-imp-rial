@@ -400,23 +400,23 @@ const CitizenBankView = ({
           </div>
 
           {/* Navigation onglets */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex border-b border-stone-200 overflow-x-auto -mx-4 px-4">
             {tabs.map((tab) => {
               const TabIcon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                  className={`flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-colors ${
                     activeTab === tab.id
-                      ? "bg-yellow-600 text-stone-900 shadow-lg shadow-yellow-600/30 scale-105"
-                      : "bg-stone-700/50 text-stone-400 hover:bg-stone-700 hover:text-stone-200"
+                      ? "border-stone-800 text-stone-900"
+                      : "border-transparent text-stone-400 hover:text-stone-600"
                   }`}
                 >
-                  <TabIcon size={14} />
+                  <TabIcon size={13} />
                   {tab.label}
                   {tab.badge > 0 && (
-                    <span className="ml-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse font-mono">
+                    <span className="ml-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-mono">
                       {tab.badge}
                     </span>
                   )}
@@ -861,7 +861,7 @@ const CitizenBankView = ({
                       <button
                         onClick={() => onSignDebt(contract.id)}
                         disabled={creditLocked}
-                        className="flex-1 bg-stone-900 text-white py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-md active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-stone-900"
+                        className="flex-1 bg-stone-800 text-white py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-stone-700 transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <Stamp size={12} /> Accepter & Signer
                       </button>
