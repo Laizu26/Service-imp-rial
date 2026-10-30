@@ -612,7 +612,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
               const isDeleting = confirmDeleteId === c.id;
 
               return (
-                <Card key={c.id} className={`overflow-hidden transition-all ${isEditing ? "border-red-800/60" : "hover:border-stone-600"}`}>
+                <Card key={c.id} className={`overflow-hidden transition-all ${isEditing ? "border-red-300" : "hover:border-stone-300"}`}>
                   {/* Main row */}
                   <div className="p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 overflow-hidden">
@@ -1062,7 +1062,7 @@ const GMPendingChildren = ({ state, onUpdateState, notify }) => {
               </button>
               <button
                 onClick={() => rejectPending(req)}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-900/40 text-red-400 text-[9px] font-black uppercase rounded-lg border border-red-800/50 hover:bg-red-900/60 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 text-red-600 text-[9px] font-black uppercase rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
               >
                 <XCircle size={11} /> Rejeter
               </button>
@@ -1689,7 +1689,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                 )}
                 {form.objectives.map((obj, idx) => (
                   <div key={obj.id} className="flex items-center gap-2 bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-200">
-                    <div className="w-3 h-3 rounded-full border border-stone-600 shrink-0" />
+                    <div className="w-3 h-3 rounded-full border border-stone-300 shrink-0" />
                     <span className="flex-1 text-sm text-stone-600">{obj.text}</span>
                     <button onClick={() => removeObjective(idx)} className="text-stone-600 hover:text-red-400 transition-all"><X size={14} /></button>
                   </div>
@@ -1740,9 +1740,9 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
             {/* ─ Tab: Notes GM ─ */}
             {formTab === "notes" && (
               <div>
-                <div className="flex items-center gap-2 mb-3 p-3 bg-red-900/10 border border-red-900/30 rounded-lg">
-                  <Shield size={14} className="text-red-400 shrink-0" />
-                  <div className="text-[10px] text-red-400 font-bold">Notes confidentielles — Visibles uniquement par le GM</div>
+                <div className="flex items-center gap-2 mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <Shield size={14} className="text-red-600 shrink-0" />
+                  <div className="text-[10px] text-red-700 font-bold">Notes confidentielles — Visibles uniquement par le GM</div>
                 </div>
                 <textarea value={form.gmNotes} onChange={(e) => setForm({ ...form, gmNotes: e.target.value })}
                   className="w-full bg-stone-50 border border-red-200 rounded-lg p-3 text-sm text-stone-800 outline-none focus:border-red-400 min-h-[260px]"
@@ -1911,7 +1911,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                                   className="w-full flex items-center gap-2.5 text-left p-2 rounded-lg hover:bg-stone-50 transition-all group">
                                   {obj.completed
                                     ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
-                                    : <div className="w-3.5 h-3.5 rounded-full border border-stone-600 shrink-0 group-hover:border-stone-400 transition-all" />}
+                                    : <div className="w-3.5 h-3.5 rounded-full border border-stone-300 shrink-0 group-hover:border-stone-400 transition-all" />}
                                   <span className={`text-sm ${obj.completed ? "line-through text-stone-600" : "text-stone-600"}`}>{obj.text}</span>
                                 </button>
                               ))}
@@ -1943,7 +1943,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                                   </div>
                                   {npc.description && <p className="text-[11px] text-stone-400 leading-relaxed">{npc.description}</p>}
                                   {npc.secret && (
-                                    <div className="p-2 bg-red-900/10 border border-red-900/30 rounded-lg">
+                                    <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
                                       <div className="text-[8px] font-black uppercase tracking-widest text-red-500 mb-1 flex items-center gap-1"><Shield size={9} /> Secret GM</div>
                                       <p className="text-[11px] text-red-300/80 leading-relaxed">{npc.secret}</p>
                                     </div>
@@ -2172,7 +2172,7 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
 
               {/* En-tête citoyen */}
               <div className="px-4 py-3 border-b border-stone-200 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-red-900/30 border border-red-800/40 flex items-center justify-center text-xs font-black text-red-400">
+                <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-xs font-black text-red-600">
                   {selected.name?.[0]?.toUpperCase()}
                 </div>
                 <div>
