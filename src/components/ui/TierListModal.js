@@ -30,7 +30,7 @@ const CharCard = ({ user, draggable, onDragStart, onDragEnd, small }) => (
         </div>
       )}
     </div>
-    <div className={`text-center mt-1 leading-tight ${small ? "text-[7px]" : "text-[8px]"} font-bold text-stone-700 uppercase tracking-wide w-full truncate px-0.5`}>
+    <div className={`text-center mt-1 leading-tight ${small ? "text-[7px]" : "text-[8px]"} font-bold text-stone-200 uppercase tracking-wide w-full truncate px-0.5`}>
       {user.name || user.id}
     </div>
   </div>
