@@ -255,30 +255,33 @@ const TierListModal = ({ users = [], onClose }) => {
   const handleExport = async () => {
     if (!boardRef.current) return;
     setExporting(true);
+    let clone = null;
     try {
-      const node = boardRef.current;
-      const imgs = Array.from(node.querySelectorAll("img"));
-      const origSrcs = imgs.map((img) => img.getAttribute("src"));
+      // Cloner hors de React pour ne pas déclencher de re-render
+      clone = boardRef.current.cloneNode(true);
+      clone.style.cssText = "position:fixed;top:-9999px;left:-9999px;z-index:-1;";
+      document.body.appendChild(clone);
 
-      // Pré-convertir les images en data URL pour contourner le taint CORS du canvas
+      // Convertir les images du clone en data URL (bypass taint CORS)
       await Promise.allSettled(
-        imgs.map(async (img) => {
+        Array.from(clone.querySelectorAll("img")).map(async (img) => {
           try {
             const res = await fetch(img.src);
             if (!res.ok) return;
             const blob = await res.blob();
-            const dataUrl = await new Promise((resolve) => {
+            img.src = await new Promise((resolve) => {
               const reader = new FileReader();
               reader.onload = () => resolve(reader.result);
               reader.readAsDataURL(blob);
             });
-            img.src = dataUrl;
-            await new Promise((ok) => { if (img.complete) ok(); else { img.onload = ok; img.onerror = ok; } });
-          } catch { /* image indisponible, on garde le placeholder */ }
+          } catch { }
         })
       );
 
-      const canvas = await html2canvas(node, {
+      // Laisser le navigateur traiter les nouvelles src
+      await new Promise((ok) => setTimeout(ok, 150));
+
+      const canvas = await html2canvas(clone, {
         backgroundColor: "#0c0a09",
         scale: 2,
         allowTaint: true,
@@ -287,16 +290,14 @@ const TierListModal = ({ users = [], onClose }) => {
         logging: false,
       });
 
-      // Restaurer les src originaux
-      imgs.forEach((img, i) => { if (origSrcs[i]) img.src = origSrcs[i]; });
-
       const link = document.createElement("a");
       link.download = `${title.replace(/\s+/g, "-").toLowerCase()}.png`;
       link.href = canvas.toDataURL("image/png");
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Export error:", e); }
+    if (clone) document.body.removeChild(clone);
     setExporting(false);
   };
 
