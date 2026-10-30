@@ -256,13 +256,40 @@ const TierListModal = ({ users = [], onClose }) => {
     if (!boardRef.current) return;
     setExporting(true);
     try {
-      const canvas = await html2canvas(boardRef.current, {
+      const node = boardRef.current;
+      const imgs = Array.from(node.querySelectorAll("img"));
+      const origSrcs = imgs.map((img) => img.getAttribute("src"));
+
+      // Pré-convertir les images en data URL pour contourner le taint CORS du canvas
+      await Promise.allSettled(
+        imgs.map(async (img) => {
+          try {
+            const res = await fetch(img.src);
+            if (!res.ok) return;
+            const blob = await res.blob();
+            const dataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+            img.src = dataUrl;
+            await new Promise((ok) => { if (img.complete) ok(); else { img.onload = ok; img.onerror = ok; } });
+          } catch { /* image indisponible, on garde le placeholder */ }
+        })
+      );
+
+      const canvas = await html2canvas(node, {
         backgroundColor: "#0c0a09",
         scale: 2,
-        useCORS: true,
+        allowTaint: true,
+        useCORS: false,
         imageTimeout: 15000,
         logging: false,
       });
+
+      // Restaurer les src originaux
+      imgs.forEach((img, i) => { if (origSrcs[i]) img.src = origSrcs[i]; });
+
       const link = document.createElement("a");
       link.download = `${title.replace(/\s+/g, "-").toLowerCase()}.png`;
       link.href = canvas.toDataURL("image/png");
