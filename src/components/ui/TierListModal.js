@@ -282,7 +282,7 @@ const TierListModal = ({ users = [], onClose }) => {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {/* Board */}
-        <div ref={boardRef} className="rounded-xl overflow-hidden border border-stone-800 bg-stone-900 p-3 space-y-1" style={{ fontSize: `${zoom}%` }}>
+        <div ref={boardRef} className="rounded-xl overflow-hidden border border-stone-800 bg-stone-900 p-3 space-y-1" style={{ zoom: zoom / 100 }}>
           <div className="text-center pb-2">
             <input
               value={title}
