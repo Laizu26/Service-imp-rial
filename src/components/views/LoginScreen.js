@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Shield, Key, User, ArrowRight, LogIn, X, Wand2 } from "lucide-react";
+import { Shield, Key, User, ArrowRight, LogIn, X, Wand2, Trophy } from "lucide-react";
+import TierListModal from "../ui/TierListModal";
 
 const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], onSwitchAccount, onLogoutAccount, onCreateCharacter }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showTierList, setShowTierList] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,6 +20,17 @@ const LoginScreen = ({ onLogin, users, loading, notify, connectedAccounts = [], 
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-stone-950 font-sans relative overflow-hidden">
+      {/* Bouton HRP — top left */}
+      <button
+        onClick={() => setShowTierList(true)}
+        className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-900/80 border border-stone-700 hover:border-amber-600/50 hover:bg-stone-800 text-stone-400 hover:text-amber-400 text-[9px] font-black uppercase tracking-[0.2em] transition-all backdrop-blur-sm"
+      >
+        <Trophy size={12} /> HRP
+      </button>
+
+      {showTierList && (
+        <TierListModal users={users} onClose={() => setShowTierList(false)} />
+      )}
       <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 opacity-90"></div>
 
