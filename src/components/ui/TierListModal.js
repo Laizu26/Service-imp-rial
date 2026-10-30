@@ -488,6 +488,7 @@ const TierListModal = ({ users = [], onClose }) => {
           onDrop={() => handleDrop("pool")}
           className="rounded-2xl border transition-all duration-150 p-4"
           style={{
+            zoom: zoom / 100,
             borderColor: dragOver === "pool" ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)",
             background: dragOver === "pool"
               ? "rgba(255,255,255,0.04)"
