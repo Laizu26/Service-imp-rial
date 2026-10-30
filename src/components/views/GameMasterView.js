@@ -54,13 +54,13 @@ import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney, formatMoneySh
    ================================================ */
 const Badge = ({ children, color = "stone" }) => {
   const map = {
-    green: "bg-green-900/30 text-green-400 border-green-800/40",
-    red: "bg-red-900/30 text-red-400 border-red-800/40",
-    yellow: "bg-yellow-900/30 text-yellow-400 border-yellow-800/40",
-    orange: "bg-orange-900/30 text-orange-400 border-orange-800/40",
-    blue: "bg-blue-900/30 text-blue-400 border-blue-800/40",
-    purple: "bg-purple-900/30 text-purple-400 border-purple-800/40",
-    stone: "bg-stone-800 text-stone-400 border-stone-700",
+    green: "bg-green-50 text-green-700 border-green-200",
+    red: "bg-red-50 text-red-700 border-red-200",
+    yellow: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    orange: "bg-orange-50 text-orange-700 border-orange-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
+    purple: "bg-purple-50 text-purple-700 border-purple-200",
+    stone: "bg-stone-100 text-stone-600 border-stone-200",
   };
   return (
     <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${map[color] || map.stone}`}>
@@ -77,11 +77,11 @@ const Label = ({ children }) => (
 );
 
 const Input = (props) => (
-  <input {...props} className={`w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 ${props.className || ""}`} />
+  <input {...props} className={`w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 ${props.className || ""}`} />
 );
 
 const Select = ({ children, ...props }) => (
-  <select {...props} className={`w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 ${props.className || ""}`}>
+  <select {...props} className={`w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 ${props.className || ""}`}>
     {children}
   </select>
 );
@@ -99,18 +99,18 @@ const BtnPrimary = ({ children, onClick, disabled, className = "" }) => (
 const BtnSecondary = ({ children, onClick, className = "" }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 hover:text-stone-200 transition-all ${className}`}
+    className={`px-4 py-2 bg-stone-100 text-stone-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-200 hover:text-stone-800 transition-all ${className}`}
   >
     {children}
   </button>
 );
 
 const Card = ({ children, className = "" }) => (
-  <div className={`bg-stone-900 border border-stone-800 rounded-xl ${className}`}>{children}</div>
+  <div className={`bg-white border border-stone-200 rounded-xl ${className}`}>{children}</div>
 );
 
 const SectionTitle = ({ icon: Icon, children }) => (
-  <h2 className="text-lg font-black uppercase tracking-widest text-stone-200 flex items-center gap-3 font-serif">
+  <h2 className="text-lg font-black uppercase tracking-widest text-stone-800 flex items-center gap-3 font-serif">
     <Icon size={20} className="text-red-400" />
     {children}
   </h2>
@@ -125,13 +125,13 @@ const Toggle = ({ checked, onChange, label, description }) => (
     <button
       onClick={() => onChange(!checked)}
       className={`mt-0.5 w-9 h-5 rounded-full transition-all duration-200 flex items-center shrink-0 ${
-        checked ? "bg-red-600 justify-end" : "bg-stone-700 justify-start"
+        checked ? "bg-red-600 justify-end" : "bg-stone-200 justify-start"
       }`}
     >
-      <span className={`block w-4 h-4 rounded-full mx-0.5 transition-all ${checked ? "bg-white" : "bg-stone-500"}`} />
+      <span className={`block w-4 h-4 rounded-full mx-0.5 transition-all ${checked ? "bg-white" : "bg-stone-400"}`} />
     </button>
     <div className="min-w-0">
-      <div className="text-xs font-bold text-stone-200">{label}</div>
+      <div className="text-xs font-bold text-stone-800">{label}</div>
       {description && <div className="text-[10px] text-stone-500 mt-0.5">{description}</div>}
     </div>
   </div>
@@ -156,8 +156,8 @@ const GMDashboard = ({ state }) => {
     { label: "Pays", value: countries.length, color: "text-emerald-400", icon: Globe },
     { label: "Entreprises", value: companies.length, color: "text-purple-400", icon: Landmark },
     { label: "Tresor Imperial", value: `${formatMoneyShort((state.treasury || 0))}`, color: "text-yellow-400", icon: Crown },
-    { label: "Cycle de jeu", value: state.dayCycle || 0, color: "text-stone-300", icon: RefreshCw },
-    { label: "Date RP", value: state.gameDate ? `${state.gameDate.day}/${state.gameDate.month}/${state.gameDate.year}` : "\u2014", color: "text-stone-200", icon: Calendar },
+    { label: "Cycle de jeu", value: state.dayCycle || 0, color: "text-stone-700", icon: RefreshCw },
+    { label: "Date RP", value: state.gameDate ? `${state.gameDate.day}/${state.gameDate.month}/${state.gameDate.year}` : "\u2014", color: "text-stone-700", icon: Calendar },
   ];
 
   const roleDistribution = {};
@@ -211,17 +211,17 @@ const GMDashboard = ({ state }) => {
           </div>
           <div className="text-2xl font-black text-yellow-400 mb-3">{formatMoneyShort(totalWealth)}</div>
           <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-stone-400">
-              <span>Tresor Imperial</span><span className="font-mono text-stone-300">{formatMoneyShort((state.treasury || 0))}</span>
+            <div className="flex justify-between text-stone-500">
+              <span>Tresor Imperial</span><span className="font-mono text-stone-700">{formatMoneyShort((state.treasury || 0))}</span>
             </div>
-            <div className="flex justify-between text-stone-400">
-              <span>Citoyens</span><span className="font-mono text-stone-300">{formatMoneyShort(totalCitizenWealth)}</span>
+            <div className="flex justify-between text-stone-500">
+              <span>Citoyens</span><span className="font-mono text-stone-700">{formatMoneyShort(totalCitizenWealth)}</span>
             </div>
-            <div className="flex justify-between text-stone-400">
-              <span>Pays</span><span className="font-mono text-stone-300">{formatMoneyShort(totalCountryWealth)}</span>
+            <div className="flex justify-between text-stone-500">
+              <span>Pays</span><span className="font-mono text-stone-700">{formatMoneyShort(totalCountryWealth)}</span>
             </div>
-            <div className="flex justify-between text-stone-400">
-              <span>Entreprises</span><span className="font-mono text-stone-300">{formatMoneyShort(totalCompanyWealth)}</span>
+            <div className="flex justify-between text-stone-500">
+              <span>Entreprises</span><span className="font-mono text-stone-700">{formatMoneyShort(totalCompanyWealth)}</span>
             </div>
           </div>
         </Card>
@@ -242,7 +242,7 @@ const GMDashboard = ({ state }) => {
             <div className="text-stone-600 text-sm">Aucune alerte active.</div>
           )}
           {topWealth.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-stone-800">
+            <div className="mt-4 pt-3 border-t border-stone-100">
               <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Top fortunes</div>
               {topWealth.map((c) => (
                 <div key={c.id} className="flex justify-between text-xs py-0.5">
@@ -262,9 +262,9 @@ const GMDashboard = ({ state }) => {
           <div className="space-y-2">
             {Object.entries(roleDistribution).sort((a, b) => b[1] - a[1]).map(([role, count]) => (
               <div key={role} className="flex items-center justify-between">
-                <span className="text-xs text-stone-300 truncate mr-2">{role}</span>
+                <span className="text-xs text-stone-700 truncate mr-2">{role}</span>
                 <div className="flex items-center gap-2 shrink-0">
-                  <div className="w-20 bg-stone-800 rounded-full h-1.5 overflow-hidden">
+                  <div className="w-20 bg-stone-200 rounded-full h-1.5 overflow-hidden">
                     <div className="bg-red-500/60 h-full rounded-full" style={{ width: `${(count / citizens.length) * 100}%` }} />
                   </div>
                   <span className="text-[10px] font-mono text-stone-500 w-6 text-right">{count}</span>
@@ -281,9 +281,9 @@ const GMDashboard = ({ state }) => {
               const color = status === "Actif" ? "bg-green-500/60" : status === "Esclave" ? "bg-red-500/60" : status === "Prisonnier" ? "bg-orange-500/60" : status === "Banni" ? "bg-stone-500/60" : "bg-yellow-500/60";
               return (
                 <div key={status} className="flex items-center justify-between">
-                  <span className="text-xs text-stone-300">{status}</span>
+                  <span className="text-xs text-stone-700">{status}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-20 bg-stone-800 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-20 bg-stone-200 rounded-full h-1.5 overflow-hidden">
                       <div className={`${color} h-full rounded-full`} style={{ width: `${(count / citizens.length) * 100}%` }} />
                     </div>
                     <span className="text-[10px] font-mono text-stone-500 w-6 text-right">{count}</span>
@@ -303,10 +303,10 @@ const GMDashboard = ({ state }) => {
           </h3>
           <div className="space-y-1.5">
             {recentLedger.map((e, i) => (
-              <div key={e.id || i} className="flex items-center justify-between text-xs py-1 border-b border-stone-800/50 last:border-0">
+              <div key={e.id || i} className="flex items-center justify-between text-xs py-1 border-b border-stone-100 last:border-0">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className="text-stone-500 font-mono text-[9px] shrink-0">{new Date(e.timestamp).toLocaleDateString("fr-FR")}</span>
-                  <span className="text-stone-400 truncate">{e.fromName || "?"} &rarr; {e.toName || "?"}</span>
+                  <span className="text-stone-500 truncate">{e.fromName || "?"} &rarr; {e.toName || "?"}</span>
                 </div>
                 <span className="font-mono font-bold text-yellow-500 shrink-0 ml-2">{formatMoneyShort((e.amount || 0))}</span>
               </div>
@@ -487,7 +487,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
         <button
           onClick={() => { setView(view === "create" ? "list" : "create"); setCreatedAccount(null); }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-            view === "create" ? "bg-stone-800 text-stone-300 hover:bg-stone-700" : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
+            view === "create" ? "bg-stone-100 text-stone-600 hover:bg-stone-200" : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
           }`}
         >
           {view === "create" ? <><ArrowLeft size={14} /> Liste</> : <><Plus size={14} /> Nouveau</>}
@@ -498,33 +498,33 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
       {view === "create" && (
         <Card className="p-6 space-y-5 max-w-xl">
           {createdAccount && (
-            <div className="bg-green-900/20 border border-green-800/50 rounded-xl p-4 space-y-2">
-              <div className="flex items-center gap-2 text-green-400 text-xs font-black uppercase tracking-widest">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2 text-green-700 text-xs font-black uppercase tracking-widest">
                 <CheckCircle size={14} /> Compte cree
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-[9px] text-stone-500 uppercase tracking-widest block">Identifiant</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-stone-200 font-mono font-bold">{createdAccount.id}</span>
+                    <span className="text-stone-800 font-mono font-bold">{createdAccount.id}</span>
                     <button onClick={() => clip(createdAccount.id, notify)} className="text-stone-500 hover:text-white"><Copy size={12} /></button>
                   </div>
                 </div>
                 <div>
                   <span className="text-[9px] text-stone-500 uppercase tracking-widest block">Nom</span>
-                  <span className="text-stone-200 font-bold">{createdAccount.name}</span>
+                  <span className="text-stone-800 font-bold">{createdAccount.name}</span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-[9px] text-stone-500 uppercase tracking-widest block">Mot de passe</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-stone-200 font-mono font-bold">{createdAccount.password}</span>
+                    <span className="text-stone-800 font-mono font-bold">{createdAccount.password}</span>
                     <button onClick={() => clip(createdAccount.password, notify)} className="text-stone-500 hover:text-white"><Copy size={12} /></button>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => clip(`Identifiant: ${createdAccount.id}\nNom: ${createdAccount.name}\nMot de passe: ${createdAccount.password}`, notify)}
-                className="w-full mt-2 py-2 bg-green-800/30 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-800/50 transition-all flex items-center justify-center gap-2"
+                className="w-full mt-2 py-2 bg-green-800/30 text-green-700 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-800/50 transition-all flex items-center justify-center gap-2"
               >
                 <Copy size={12} /> Copier tout
               </button>
@@ -547,7 +547,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
               <div className="flex gap-2">
                 <div className="flex-1 relative">
                   <Input type={showPassword ? "text" : "password"} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Sceau..." className="pr-10" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300">
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-600">
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
@@ -565,7 +565,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
               </div>
               <div className="text-[9px] text-stone-500 mt-1">Age : {getCitizenAge({ birthDate: { day: parseInt(form.birthDay) || 1, month: parseInt(form.birthMonth) || 1, year: parseInt(form.birthYear) || (gd.year - 20) } }, gd)} ans</div>
             </div>
-            <div><Label>Solde initial (Écus)</Label><div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed">0 — géré par la frappe impériale</div></div>
+            <div><Label>Solde initial (Écus)</Label><div className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-sm font-mono text-yellow-600 opacity-70 cursor-not-allowed">0 — géré par la frappe impériale</div></div>
             <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{Object.entries(ROLES).map(([key, val]) => <option key={key} value={key}>{val.label}</option>)}</Select></div>
             <div><Label>Pays</Label><Select value={form.countryId} onChange={(e) => setForm({ ...form, countryId: e.target.value })}>{safeCountries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
             <div><Label>Occupation</Label><Input value={form.occupation} onChange={(e) => setForm({ ...form, occupation: e.target.value })} placeholder="Metier..." /></div>
@@ -581,7 +581,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
           {/* Search */}
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-stone-600" placeholder="Rechercher un citoyen..." />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-white border border-stone-200 rounded-lg text-sm text-stone-800 outline-none focus:border-stone-400" placeholder="Rechercher un citoyen..." />
           </div>
 
           {/* Status filter chips */}
@@ -591,7 +591,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                 key={s}
                 onClick={() => setFilterStatus(s)}
                 className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
-                  filterStatus === s ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
+                  filterStatus === s ? "bg-red-50 text-red-700 border-red-200" : "bg-white text-stone-500 border-stone-200 hover:text-stone-700"
                 }`}
               >
                 {s === "ALL" ? "Tous" : s} ({statusCounts[s] || 0})
@@ -615,12 +615,12 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                 <Card key={c.id} className={`overflow-hidden transition-all ${isEditing ? "border-red-800/60" : "hover:border-stone-600"}`}>
                   {/* Main row */}
                   <div className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-stone-800 border border-stone-700 flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-10 h-10 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 overflow-hidden">
                       {c.avatarUrl ? <img src={c.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-stone-500 text-xs font-black">{(c.name || "?")[0]}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-stone-200 truncate">{c.name}</span>
+                        <span className="text-sm font-bold text-stone-800 truncate">{c.name}</span>
                         <Badge color={statusColor(c.status)}>{c.status || "Actif"}</Badge>
                       </div>
                       <div className="text-[10px] text-stone-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -637,14 +637,14 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                       <div className="text-[9px] text-stone-600 font-mono mt-0.5">mdp: {c.password || "???"}</div>
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={() => clip(`ID: ${c.id}\nMDP: ${c.password}`, notify)} className="text-stone-600 hover:text-stone-300 p-1.5 rounded hover:bg-stone-800 transition-all" title="Copier identifiants"><Copy size={14} /></button>
-                      <button onClick={() => isEditing ? setEditingId(null) : startEdit(c)} className={`p-1.5 rounded transition-all ${isEditing ? "text-red-400 bg-red-900/20" : "text-stone-600 hover:text-stone-300 hover:bg-stone-800"}`} title="Modifier"><Edit3 size={14} /></button>
+                      <button onClick={() => clip(`ID: ${c.id}\nMDP: ${c.password}`, notify)} className="text-stone-600 hover:text-stone-600 p-1.5 rounded hover:bg-stone-100 transition-all" title="Copier identifiants"><Copy size={14} /></button>
+                      <button onClick={() => isEditing ? setEditingId(null) : startEdit(c)} className={`p-1.5 rounded transition-all ${isEditing ? "text-red-500 bg-red-50" : "text-stone-500 hover:text-stone-700 hover:bg-stone-100"}`} title="Modifier"><Edit3 size={14} /></button>
                     </div>
                   </div>
 
                   {/* Inline edit form */}
                   {isEditing && (
-                    <div className="border-t border-stone-800 p-4 bg-stone-950/50 space-y-3">
+                    <div className="border-t border-stone-100 p-4 bg-stone-50 space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div><Label>Prénom</Label><Input value={editForm.firstName || ""} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} placeholder="Prénom..." /></div>
                         <div><Label>Nom de famille</Label><Input value={editForm.lastName || ""} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} placeholder="Nom..." /></div>
@@ -652,7 +652,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                         <div><Label>Role</Label><Select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>{Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</Select></div>
                         <div><Label>Pays</Label><Select value={editForm.countryId} onChange={(e) => setEditForm({ ...editForm, countryId: e.target.value })}>{safeCountries.map((ct) => <option key={ct.id} value={ct.id}>{ct.name}</option>)}</Select></div>
                         <div><Label>Statut</Label><Select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>{(BASE_STATUSES || ["Actif", "Esclave", "Prisonnier", "Malade", "Banni"]).map((s) => <option key={s} value={s}>{s}</option>)}</Select></div>
-                        <div><Label>Solde</Label><div className="w-full bg-stone-900 border border-stone-700 rounded-lg p-2.5 text-sm font-mono text-yellow-400 opacity-70 cursor-not-allowed">{formatMoney((editForm.balance || 0))} — frappe impériale</div></div>
+                        <div><Label>Solde</Label><div className="w-full bg-stone-50 border border-stone-200 rounded-lg p-2.5 text-sm font-mono text-yellow-600 opacity-70 cursor-not-allowed">{formatMoney((editForm.balance || 0))} — frappe impériale</div></div>
                         <div><Label>Occupation</Label><Input value={editForm.occupation} onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })} /></div>
                         <div className="md:col-span-2">
                           <Label>Date de naissance (RP)</Label>
@@ -680,7 +680,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                             description="Active le badge sur le profil et les privilèges associés."
                           />
                           {editForm.bagueImperiale && (
-                            <div className="mt-3 bg-stone-950/60 border border-stone-800 rounded-lg p-3 space-y-1">
+                            <div className="mt-3 bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-1">
                               <div className="text-[9px] font-black uppercase tracking-widest text-red-500/80 mb-2 flex items-center gap-1">
                                 <ShieldAlert size={10} /> Restrictions actives (non divulguées au porteur)
                               </div>
@@ -703,7 +703,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                       )}
 
                       {/* ── ÉTATS DU PERSONNAGE — Physique & Magique ── */}
-                      <div className="border-t border-stone-800 pt-3 mt-1">
+                      <div className="border-t border-stone-100 pt-3 mt-1">
                         <div className="flex items-center gap-2 mb-3">
                           <span className="text-base">🎭</span>
                           <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">États du personnage</span>
@@ -713,7 +713,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                             { key: "physique", label: "Physiques", icon: "💪" },
                             { key: "magique",  label: "Magiques",  icon: "✨" },
                           ].map(({ key, label, icon }) => (
-                            <div key={key} className="bg-stone-950/60 border border-stone-800 rounded-lg p-3">
+                            <div key={key} className="bg-stone-50 border border-stone-200 rounded-lg p-3">
                               <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-1">
                                 <span>{icon}</span> {label}
                               </div>
@@ -733,7 +733,7 @@ const GMAccounts = ({ state, onUpdateState, notify, session }) => {
                                       className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-bold transition-all ${
                                         active
                                           ? "bg-red-900/60 border-red-700 text-red-300 ring-1 ring-red-600"
-                                          : "bg-stone-900 border-stone-700 text-stone-500 hover:text-stone-300 hover:border-stone-500"
+                                          : "bg-stone-50 border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300"
                                       }`}
                                     >
                                       <span>{eff.icon}</span>
@@ -791,14 +791,14 @@ const GMLore = ({ state, onUpdateState, notify }) => {
 
   const categories = ["Histoire", "Geographie", "Religion", "Politique", "Culture", "Bestiaire", "Magie", "Autre"];
   const categoryColors = {
-    Histoire: "bg-amber-900/30 text-amber-400 border-amber-800/50",
-    "Geographie": "bg-emerald-900/30 text-emerald-400 border-emerald-800/50",
-    Religion: "bg-purple-900/30 text-purple-400 border-purple-800/50",
-    Politique: "bg-blue-900/30 text-blue-400 border-blue-800/50",
-    Culture: "bg-rose-900/30 text-rose-400 border-rose-800/50",
-    Bestiaire: "bg-orange-900/30 text-orange-400 border-orange-800/50",
-    Magie: "bg-indigo-900/30 text-indigo-400 border-indigo-800/50",
-    Autre: "bg-stone-800 text-stone-400 border-stone-700",
+    Histoire: "bg-amber-50 text-amber-700 border-amber-200",
+    "Geographie": "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Religion: "bg-purple-50 text-purple-700 border-purple-200",
+    Politique: "bg-blue-50 text-blue-700 border-blue-200",
+    Culture: "bg-rose-50 text-rose-700 border-rose-200",
+    Bestiaire: "bg-orange-50 text-orange-700 border-orange-200",
+    Magie: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    Autre: "bg-stone-100 text-stone-600 border-stone-200",
   };
 
   const handleSave = () => {
@@ -857,7 +857,7 @@ const GMLore = ({ state, onUpdateState, notify }) => {
             <Label>Contenu</Label>
             <span className="text-[9px] text-stone-600 font-mono">{wordCount} mot{wordCount > 1 ? "s" : ""}</span>
           </div>
-          <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="w-full bg-stone-800 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[160px] font-serif" placeholder="Ecrivez votre article de lore ici..." />
+          <textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} className="w-full bg-white border border-stone-200 rounded-lg p-3 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[160px] font-serif" placeholder="Ecrivez votre article de lore ici..." />
         </div>
         <div className="flex gap-2">
           {editing && <BtnSecondary onClick={() => { setEditing(null); setForm({ title: "", category: "Histoire", content: "" }); }}>Annuler</BtnSecondary>}
@@ -870,18 +870,18 @@ const GMLore = ({ state, onUpdateState, notify }) => {
       {/* Search + Filters */}
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-stone-600" placeholder="Rechercher dans le lore..." />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-white border border-stone-200 rounded-lg text-sm text-stone-800 outline-none focus:border-stone-400" placeholder="Rechercher dans le lore..." />
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        <button onClick={() => setFilterCat("ALL")} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${filterCat === "ALL" ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"}`}>
+        <button onClick={() => setFilterCat("ALL")} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${filterCat === "ALL" ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-white text-stone-500 border-stone-200 hover:text-stone-700"}`}>
           Tout ({loreEntries.length})
         </button>
         {categories.map((cat) => {
           const count = loreEntries.filter((e) => e.category === cat).length;
           if (count === 0) return null;
           return (
-            <button key={cat} onClick={() => setFilterCat(cat)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${filterCat === cat ? categoryColors[cat] : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"}`}>
+            <button key={cat} onClick={() => setFilterCat(cat)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${filterCat === cat ? categoryColors[cat] : "bg-white text-stone-500 border-stone-200 hover:text-stone-700"}`}>
               {cat} ({count})
             </button>
           );
@@ -898,25 +898,25 @@ const GMLore = ({ state, onUpdateState, notify }) => {
       ) : (
         <div className="space-y-3">
           {filtered.map((entry) => (
-            <Card key={entry.id} className={`overflow-hidden hover:border-stone-700 transition-all`}>
+            <Card key={entry.id} className={`overflow-hidden hover:border-stone-300 transition-all`}>
               <button onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)} className="w-full text-left p-4 flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${categoryColors[entry.category] || categoryColors.Autre}`}>{entry.category}</span>
                   </div>
-                  <h4 className="text-sm font-bold text-stone-200 font-serif">{entry.title}</h4>
+                  <h4 className="text-sm font-bold text-stone-800 font-serif">{entry.title}</h4>
                   {expandedId !== entry.id && <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">{entry.content}</p>}
                 </div>
                 {expandedId === entry.id ? <ChevronUp size={16} className="text-stone-500 shrink-0 mt-1" /> : <ChevronDown size={16} className="text-stone-500 shrink-0 mt-1" />}
               </button>
               {expandedId === entry.id && (
-                <div className="px-4 pb-4 border-t border-stone-800 pt-3">
-                  <div className="text-sm text-stone-300 whitespace-pre-wrap font-serif leading-relaxed mb-4">{entry.content}</div>
+                <div className="px-4 pb-4 border-t border-stone-100 pt-3">
+                  <div className="text-sm text-stone-600 whitespace-pre-wrap font-serif leading-relaxed mb-4">{entry.content}</div>
                   <div className="flex items-center justify-between">
                     <div className="text-[9px] text-stone-600 font-mono">Modifie le {new Date(entry.updatedAt || entry.createdAt).toLocaleDateString("fr-FR")}</div>
                     <div className="flex gap-2">
                       <BtnSecondary onClick={() => startLoreEdit(entry)}>Modifier</BtnSecondary>
-                      <button onClick={() => handleDelete(entry.id)} className="px-3 py-1.5 bg-stone-800 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-900/30 transition-all"><Trash2 size={12} /></button>
+                      <button onClick={() => handleDelete(entry.id)} className="px-3 py-1.5 bg-stone-100 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-50 transition-all"><Trash2 size={12} /></button>
                     </div>
                   </div>
                 </div>
@@ -1034,15 +1034,15 @@ const GMPendingChildren = ({ state, onUpdateState, notify }) => {
         const linkedCitizen = child.citizenId ? citizens.find((c) => c.id === child.citizenId) : null;
         const otherParent = child.otherParentId ? citizens.find((c) => c.id === child.otherParentId) : null;
         return (
-          <div key={req.id} className="bg-stone-900 rounded-xl border border-stone-800 p-3 flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-amber-900/40 flex items-center justify-center border border-amber-800/50 shrink-0" style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}>
+          <div key={req.id} className="bg-white rounded-xl border border-stone-200 p-3 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 shrink-0" style={{ width: 36, height: 36, minWidth: 36, minHeight: 36 }}>
               <Baby size={16} className="text-amber-400" />
             </div>
             <div className="flex-1 min-w-0 space-y-0.5">
-              <div className="font-black text-stone-200 text-sm">{linkedCitizen?.name || child.name}</div>
+              <div className="font-black text-stone-800 text-sm">{linkedCitizen?.name || child.name}</div>
               <div className="text-[9px] text-stone-500">
-                Déclaré par <span className="text-stone-300 font-bold">{req.requestedByName}</span>
-                {otherParent && <> · Autre parent : <span className="text-stone-300 font-bold">{otherParent.name}</span></>}
+                Déclaré par <span className="text-stone-600 font-bold">{req.requestedByName}</span>
+                {otherParent && <> · Autre parent : <span className="text-stone-600 font-bold">{otherParent.name}</span></>}
               </div>
               {child.birthDate && (
                 <div className="text-[9px] text-stone-500 italic">
@@ -1056,7 +1056,7 @@ const GMPendingChildren = ({ state, onUpdateState, notify }) => {
             <div className="flex gap-2 shrink-0">
               <button
                 onClick={() => approvePending(req)}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-900/40 text-green-400 text-[9px] font-black uppercase rounded-lg border border-green-800/50 hover:bg-green-900/60 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 text-green-700 text-[9px] font-black uppercase rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
               >
                 <CheckCircle2 size={11} /> Valider
               </button>
@@ -1113,7 +1113,7 @@ const GMLois = ({ state, onUpdateState, notify }) => {
               key={c.id}
               onClick={() => setSelectedId(c.id)}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border ${
-                selectedId === c.id ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
+                selectedId === c.id ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-white text-stone-500 border-stone-200 hover:text-stone-700"
               }`}
             >
               {c.name}
@@ -1128,7 +1128,7 @@ const GMLois = ({ state, onUpdateState, notify }) => {
           <Card className="p-5">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <div className="text-lg font-black text-stone-200 font-serif">{country.name}</div>
+                <div className="text-lg font-black text-stone-800 font-serif">{country.name}</div>
                 <div className="text-[10px] text-stone-500 mt-0.5">
                   {country.rulerName || "Sans souverain"} &middot; {activeLawCount} loi{activeLawCount > 1 ? "s" : ""} active{activeLawCount > 1 ? "s" : ""}
                 </div>
@@ -1172,7 +1172,7 @@ const GMLois = ({ state, onUpdateState, notify }) => {
               <h3 className="text-[10px] font-black uppercase tracking-widest text-stone-500 mb-2 flex items-center gap-2">
                 <cat.icon size={12} /> {cat.label}
               </h3>
-              <div className="divide-y divide-stone-800/50">
+              <div className="divide-y divide-stone-100">
                 {cat.laws.map((law) => (
                   <Toggle
                     key={law.key}
@@ -1259,7 +1259,7 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
       <Card className="p-6">
         <div className="text-center">
           <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Date actuelle du jeu de role</div>
-          <div className="text-4xl font-black text-stone-100 font-serif mb-1">
+          <div className="text-4xl font-black text-stone-800 font-serif mb-1">
             {gd.day} {monthNames[(gd.month - 1) % 12]} {gd.year}
           </div>
           <div className="text-sm text-stone-500">
@@ -1273,7 +1273,7 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
           <BtnSecondary onClick={() => advanceDate(7)}>+7 Jours</BtnSecondary>
           <BtnSecondary onClick={() => advanceDate(30)}>+30 Jours</BtnSecondary>
         </div>
-        <div className="mt-5 pt-5 border-t border-stone-800">
+        <div className="mt-5 pt-5 border-t border-stone-100">
           <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-3 flex items-center gap-2">
             <Edit3 size={10} /> Définir manuellement
           </div>
@@ -1324,9 +1324,9 @@ const GMCalendrier = ({ state, onUpdateState, notify }) => {
         {activeContracts.length > 0 ? (
           <div className="space-y-2">
             {activeContracts.map((j) => (
-              <div key={j.id} className="flex items-center justify-between p-3 bg-stone-800/50 rounded-lg border border-stone-800">
+              <div key={j.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg border border-stone-200">
                 <div>
-                  <div className="text-sm font-bold text-stone-200">{j.name}</div>
+                  <div className="text-sm font-bold text-stone-800">{j.name}</div>
                   <div className="text-[10px] text-stone-500">{j.frequency} &middot; {j.recipients?.length || 0} beneficiaire{(j.recipients?.length || 0) > 1 ? "s" : ""}</div>
                 </div>
                 <div className="text-sm font-bold text-yellow-500">{formatMoneyShort((j.amount || 0))}</div>
@@ -1381,12 +1381,12 @@ const EMPTY_REB = { title: "", description: "", condition: "", consequence: "", 
 const NPCFormRow = ({ npc, onChange, onRemove }) => {
   const [showSecret, setShowSecret] = useState(false);
   return (
-    <div className="border border-stone-700 rounded-xl p-4 space-y-3 bg-stone-800/30">
+    <div className="border border-stone-200 rounded-xl p-4 space-y-3 bg-stone-50">
       <div className="flex items-center gap-2">
         <select
           value={npc.emoji}
           onChange={(e) => onChange({ ...npc, emoji: e.target.value })}
-          className="w-12 h-10 bg-stone-800 border border-stone-700 rounded-lg text-center text-base outline-none shrink-0"
+          className="w-12 h-10 bg-white border border-stone-200 rounded-lg text-center text-base outline-none shrink-0"
         >
           {NPC_EMOJIS.map((em) => <option key={em} value={em}>{em}</option>)}
         </select>
@@ -1411,18 +1411,18 @@ const NPCFormRow = ({ npc, onChange, onRemove }) => {
       <div>
         <Label>Description (visible par les joueurs)</Label>
         <textarea value={npc.description} onChange={(e) => onChange({ ...npc, description: e.target.value })}
-          className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[60px]"
+          className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[60px]"
           placeholder="Ce que les joueurs savent de ce personnage…" />
       </div>
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Label>Secrets GM</Label>
-          <button onClick={() => setShowSecret(!showSecret)} className="text-stone-500 hover:text-stone-300 transition-all mb-1">
+          <button onClick={() => setShowSecret(!showSecret)} className="text-stone-500 hover:text-stone-600 transition-all mb-1">
             {showSecret ? <EyeOff size={11} /> : <Eye size={11} />}
           </button>
         </div>
         <textarea value={npc.secret} onChange={(e) => onChange({ ...npc, secret: e.target.value })}
-          className={`w-full bg-stone-900 border border-red-900/50 rounded-lg p-2.5 text-sm outline-none focus:border-red-500/50 min-h-[50px] transition-colors ${showSecret ? "text-red-300" : "text-stone-900 select-none"}`}
+          className={`w-full bg-stone-50 border border-red-200 rounded-lg p-2.5 text-sm outline-none focus:border-red-400 min-h-[50px] transition-colors ${showSecret ? "text-red-700" : "text-stone-50 select-none"}`}
           placeholder="Informations confidentielles GM…" />
       </div>
     </div>
@@ -1431,7 +1431,7 @@ const NPCFormRow = ({ npc, onChange, onRemove }) => {
 
 /* — Rebondissement sub-form — */
 const RebForm = ({ item, onChange, onRemove }) => (
-  <div className="border border-amber-900/40 rounded-xl p-4 space-y-3 bg-amber-900/5">
+  <div className="border border-amber-200 rounded-xl p-4 space-y-3 bg-amber-50/50">
     <div className="flex items-center gap-2">
       <span className="text-xl shrink-0">⚡</span>
       <Input value={item.title} onChange={(e) => onChange({ ...item, title: e.target.value })} placeholder="Titre du rebondissement…" className="flex-1" />
@@ -1440,20 +1440,20 @@ const RebForm = ({ item, onChange, onRemove }) => (
     <div>
       <Label>Description de l'événement</Label>
       <textarea value={item.description} onChange={(e) => onChange({ ...item, description: e.target.value })}
-        className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50 min-h-[80px]"
+        className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[80px]"
         placeholder="Que se passe-t-il lors de ce rebondissement ?" />
     </div>
     <div className="grid grid-cols-2 gap-2">
       <div>
         <Label>Condition de déclenchement</Label>
         <textarea value={item.condition} onChange={(e) => onChange({ ...item, condition: e.target.value })}
-          className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50 min-h-[60px]"
+          className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[60px]"
           placeholder="Quand déclencher cet événement ?" />
       </div>
       <div>
         <Label>Conséquences</Label>
         <textarea value={item.consequence} onChange={(e) => onChange({ ...item, consequence: e.target.value })}
-          className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-amber-500/50 min-h-[60px]"
+          className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[60px]"
           placeholder="Impact sur la quête ou l'histoire…" />
       </div>
     </div>
@@ -1594,7 +1594,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
         <button
           onClick={view !== "list" ? closeForm : openForm}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-            view !== "list" ? "bg-stone-800 text-stone-300 hover:bg-stone-700" : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
+            view !== "list" ? "bg-stone-100 text-stone-600 hover:bg-stone-200" : "bg-red-900/50 border border-red-800/50 text-red-300 hover:bg-red-900/70"
           }`}
         >
           {view !== "list" ? <><ArrowLeft size={14} /> Liste</> : <><Plus size={14} /> Nouvelle quête</>}
@@ -1605,13 +1605,13 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
       {view === "form" && (
         <Card className="overflow-hidden">
           {/* Form tab bar */}
-          <div className="flex border-b border-stone-800 overflow-x-auto">
+          <div className="flex border-b border-stone-100 overflow-x-auto">
             {FORM_TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setFormTab(tab.id)}
                 className={`shrink-0 px-4 py-3 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${
-                  formTab === tab.id ? "text-red-300 border-red-600 bg-stone-800/30" : "text-stone-500 hover:text-stone-300 border-transparent"
+                  formTab === tab.id ? "text-stone-900 border-stone-800 bg-white" : "text-stone-500 hover:text-stone-700 border-transparent"
                 }`}
               >
                 {tab.label}
@@ -1639,7 +1639,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
               </div>
               <div><Label>Description narrative</Label>
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full bg-stone-800 border border-stone-700 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[120px] font-serif"
+                  className="w-full bg-white border border-stone-200 rounded-lg p-3 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[120px] font-serif"
                   placeholder="Décrivez la quête, son contexte et ses enjeux…" />
               </div>
               <div><Label>Récompense</Label>
@@ -1668,7 +1668,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                 <Label>Citoyens assignés</Label>
                 <select multiple value={form.assignedCitizens}
                   onChange={(e) => setForm({ ...form, assignedCitizens: Array.from(e.target.selectedOptions, (o) => o.value) })}
-                  className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[90px]">
+                  className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 min-h-[90px]">
                   {citizens.filter((c) => c.status !== "Décédé").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <div className="text-[9px] text-stone-500 mt-1">Ctrl+clic pour sélectionner plusieurs</div>
@@ -1688,9 +1688,9 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                   </div>
                 )}
                 {form.objectives.map((obj, idx) => (
-                  <div key={obj.id} className="flex items-center gap-2 bg-stone-800/50 rounded-lg px-3 py-2.5 border border-stone-700">
+                  <div key={obj.id} className="flex items-center gap-2 bg-stone-50 rounded-lg px-3 py-2.5 border border-stone-200">
                     <div className="w-3 h-3 rounded-full border border-stone-600 shrink-0" />
-                    <span className="flex-1 text-sm text-stone-300">{obj.text}</span>
+                    <span className="flex-1 text-sm text-stone-600">{obj.text}</span>
                     <button onClick={() => removeObjective(idx)} className="text-stone-600 hover:text-red-400 transition-all"><X size={14} /></button>
                   </div>
                 ))}
@@ -1745,12 +1745,12 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                   <div className="text-[10px] text-red-400 font-bold">Notes confidentielles — Visibles uniquement par le GM</div>
                 </div>
                 <textarea value={form.gmNotes} onChange={(e) => setForm({ ...form, gmNotes: e.target.value })}
-                  className="w-full bg-stone-900 border border-red-900/40 rounded-lg p-3 text-sm text-stone-200 outline-none focus:border-red-500/50 min-h-[260px]"
+                  className="w-full bg-stone-50 border border-red-200 rounded-lg p-3 text-sm text-stone-800 outline-none focus:border-red-400 min-h-[260px]"
                   placeholder="Notes secrètes, indices cachés, développements alternatifs, intentions narratives…" />
               </div>
             )}
 
-            <div className="flex gap-2 pt-2 border-t border-stone-800">
+            <div className="flex gap-2 pt-2 border-t border-stone-100">
               <BtnSecondary onClick={closeForm}>Annuler</BtnSecondary>
               <BtnPrimary onClick={handleSave} className="flex-1">
                 {editingId ? <><Save size={14} /> Sauvegarder</> : <><Plus size={14} /> Créer la quête</>}
@@ -1770,9 +1770,9 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
               return (
                 <button key={s} onClick={() => setFilterStatus(filterStatus === s ? "ALL" : s)}
                   className={`p-3 rounded-xl border text-center transition-all ${
-                    filterStatus === s ? "bg-red-900/30 border-red-800/50" : "bg-stone-900 border-stone-800 hover:border-stone-700"
+                    filterStatus === s ? "bg-red-50 border-red-200" : "bg-white border-stone-200 hover:border-stone-300"
                   }`}>
-                  <div className="text-lg font-black text-stone-200">{count}</div>
+                  <div className="text-lg font-black text-stone-800">{count}</div>
                   <div className="text-[8px] font-black uppercase tracking-widest mt-0.5 text-stone-500">{s}</div>
                 </button>
               );
@@ -1783,7 +1783,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 bg-stone-900 border border-stone-800 rounded-lg text-sm text-stone-200 outline-none focus:border-stone-600"
+              className="w-full pl-9 pr-3 py-2.5 bg-white border border-stone-200 rounded-lg text-sm text-stone-800 outline-none focus:border-stone-400"
               placeholder="Rechercher une quête…" />
           </div>
 
@@ -1792,7 +1792,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
             {["ALL", ...QUEST_STATUSES].map((s) => (
               <button key={s} onClick={() => setFilterStatus(s === filterStatus ? "ALL" : s)}
                 className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${
-                  filterStatus === s ? "bg-red-900/50 text-red-300 border-red-800/50" : "bg-stone-900 text-stone-500 border-stone-800 hover:text-stone-300"
+                  filterStatus === s ? "bg-red-50 text-red-700 border-red-200" : "bg-white text-stone-500 border-stone-200 hover:text-stone-700"
                 }`}>
                 {s === "ALL" ? `Toutes (${quests.length})` : `${s} (${quests.filter((q) => q.status === s).length})`}
               </button>
@@ -1832,7 +1832,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                 const curTab = expandedId === quest.id ? expandedTab : "resume";
 
                 return (
-                  <Card key={quest.id} className={`overflow-hidden transition-all ${isExpanded ? "border-red-800/60" : "hover:border-stone-700"}`}>
+                  <Card key={quest.id} className={`overflow-hidden transition-all ${isExpanded ? "border-red-300" : "hover:border-stone-300"}`}>
                     {/* Card header row */}
                     <button onClick={() => { setExpandedId(isExpanded ? null : quest.id); setExpandedTab("resume"); }}
                       className="w-full text-left p-4 flex items-start gap-3">
@@ -1846,13 +1846,13 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                           {totalRebs > 0 && <Badge color={triggeredRebs > 0 ? "orange" : "stone"}>⚡ {triggeredRebs}/{totalRebs}</Badge>}
                           {hasNotes && <Badge color="red">📝 GM</Badge>}
                         </div>
-                        <h4 className="text-sm font-bold text-stone-200 font-serif">{quest.title}</h4>
+                        <h4 className="text-sm font-bold text-stone-800 font-serif">{quest.title}</h4>
                         {!isExpanded && quest.description && (
                           <p className="text-[11px] text-stone-500 mt-1 line-clamp-2">{quest.description}</p>
                         )}
                         {totalCount > 0 && (
                           <div className="mt-2 flex items-center gap-2">
-                            <div className="flex-1 bg-stone-800 rounded-full h-1">
+                            <div className="flex-1 bg-stone-200 rounded-full h-1">
                               <div className="bg-red-600 h-1 rounded-full transition-all" style={{ width: `${(completedCount / totalCount) * 100}%` }} />
                             </div>
                             <span className="text-[9px] text-stone-500 font-mono">{completedCount}/{totalCount}</span>
@@ -1864,14 +1864,14 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
 
                     {/* Expanded panel */}
                     {isExpanded && (
-                      <div className="border-t border-stone-800">
+                      <div className="border-t border-stone-100">
                         {/* Inner tab bar */}
                         {cardTabs.length > 1 && (
-                          <div className="flex border-b border-stone-800/60 bg-stone-900/50 overflow-x-auto">
+                          <div className="flex border-b border-stone-100 bg-stone-50 overflow-x-auto">
                             {cardTabs.map((tab) => (
                               <button key={tab.id} onClick={() => setExpandedTab(tab.id)}
                                 className={`shrink-0 px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 ${
-                                  curTab === tab.id ? "text-red-300 border-red-600" : "text-stone-500 hover:text-stone-300 border-transparent"
+                                  curTab === tab.id ? "text-stone-900 border-stone-800" : "text-stone-500 hover:text-stone-700 border-transparent"
                                 }`}>
                                 {tab.label}
                               </button>
@@ -1882,13 +1882,13 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                         <div className="p-4 space-y-4">
                           {/* ─ Résumé ─ */}
                           {curTab === "resume" && (<>
-                            {quest.description && <p className="text-sm text-stone-300 font-serif leading-relaxed">{quest.description}</p>}
+                            {quest.description && <p className="text-sm text-stone-600 font-serif leading-relaxed">{quest.description}</p>}
                             {(quest.reward?.money > 0 || quest.reward?.description) && (
                               <div className="flex items-center gap-3 p-2.5 bg-yellow-900/10 border border-yellow-900/30 rounded-lg">
                                 {quest.reward?.money > 0 && (
                                   <span className="text-sm font-bold text-yellow-400 flex items-center gap-1"><Coins size={12} /> {formatMoney(quest.reward.money)}</span>
                                 )}
-                                {quest.reward?.description && <span className="text-sm text-stone-300">{quest.reward.description}</span>}
+                                {quest.reward?.description && <span className="text-sm text-stone-600">{quest.reward.description}</span>}
                               </div>
                             )}
                             {assignedNames.length > 0 && (
@@ -1896,7 +1896,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                                 <div className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-2">Participants</div>
                                 <div className="flex flex-wrap gap-1.5">
                                   {assignedNames.map((name) => (
-                                    <span key={name} className="px-2.5 py-1 bg-stone-800 text-stone-300 text-[10px] font-bold rounded-lg border border-stone-700">{name}</span>
+                                    <span key={name} className="px-2.5 py-1 bg-stone-100 text-stone-700 text-[10px] font-bold rounded-lg border border-stone-200">{name}</span>
                                   ))}
                                 </div>
                               </div>
@@ -1908,11 +1908,11 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                             <div className="space-y-1.5">
                               {quest.objectives.map((obj) => (
                                 <button key={obj.id} onClick={() => toggleObjective(quest.id, obj.id)}
-                                  className="w-full flex items-center gap-2.5 text-left p-2 rounded-lg hover:bg-stone-800/50 transition-all group">
+                                  className="w-full flex items-center gap-2.5 text-left p-2 rounded-lg hover:bg-stone-50 transition-all group">
                                   {obj.completed
                                     ? <CheckCircle2 size={14} className="text-green-500 shrink-0" />
                                     : <div className="w-3.5 h-3.5 rounded-full border border-stone-600 shrink-0 group-hover:border-stone-400 transition-all" />}
-                                  <span className={`text-sm ${obj.completed ? "line-through text-stone-600" : "text-stone-300"}`}>{obj.text}</span>
+                                  <span className={`text-sm ${obj.completed ? "line-through text-stone-600" : "text-stone-600"}`}>{obj.text}</span>
                                 </button>
                               ))}
                             </div>
@@ -1922,12 +1922,12 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                           {curTab === "npcs" && (
                             <div className="space-y-3">
                               {(quest.npcs || []).map((npc) => (
-                                <div key={npc.id} className="p-3 bg-stone-800/40 rounded-xl border border-stone-700/50 space-y-2">
+                                <div key={npc.id} className="p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2">
                                   <div className="flex items-center gap-3">
                                     <span className="text-2xl shrink-0">{npc.emoji || "👤"}</span>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-bold text-stone-200">{npc.name}</span>
+                                        <span className="text-sm font-bold text-stone-800">{npc.name}</span>
                                         {npc.role && <span className="text-[9px] text-stone-500 italic">{npc.role}</span>}
                                       </div>
                                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -1958,13 +1958,13 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                             <div className="space-y-3">
                               {(quest.rebondissements || []).map((reb) => (
                                 <div key={reb.id} className={`p-3 rounded-xl border transition-all ${
-                                  reb.isTriggered ? "bg-amber-900/20 border-amber-800/50" : "bg-stone-800/30 border-stone-700/50"
+                                  reb.isTriggered ? "bg-amber-50 border-amber-200" : "bg-stone-50 border-stone-200"
                                 }`}>
                                   <div className="flex items-start gap-3">
                                     <span className={`text-xl shrink-0 mt-0.5 ${reb.isTriggered ? "" : "opacity-30"}`}>⚡</span>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                        <span className={`text-sm font-bold ${reb.isTriggered ? "text-amber-300" : "text-stone-300"}`}>
+                                        <span className={`text-sm font-bold ${reb.isTriggered ? "text-amber-700" : "text-stone-600"}`}>
                                           {reb.title || "Sans titre"}
                                         </span>
                                         {reb.isTriggered && <Badge color="orange">Déclenché</Badge>}
@@ -1972,13 +1972,13 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                                       {reb.description && <p className="text-[11px] text-stone-400 leading-relaxed mb-2">{reb.description}</p>}
                                       <div className="grid grid-cols-2 gap-2">
                                         {reb.condition && (
-                                          <div className="p-2 bg-stone-900/50 rounded-lg border border-stone-700/30">
+                                          <div className="p-2 bg-stone-50 rounded-lg border border-stone-100">
                                             <div className="text-[8px] font-black uppercase tracking-widest text-stone-500 mb-1">Condition</div>
                                             <p className="text-[11px] text-stone-400">{reb.condition}</p>
                                           </div>
                                         )}
                                         {reb.consequence && (
-                                          <div className="p-2 bg-stone-900/50 rounded-lg border border-stone-700/30">
+                                          <div className="p-2 bg-stone-50 rounded-lg border border-stone-100">
                                             <div className="text-[8px] font-black uppercase tracking-widest text-stone-500 mb-1">Conséquences</div>
                                             <p className="text-[11px] text-stone-400">{reb.consequence}</p>
                                           </div>
@@ -1994,8 +1994,8 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                                       onClick={() => triggerRebondissement(quest.id, reb.id)}
                                       className={`shrink-0 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
                                         reb.isTriggered
-                                          ? "bg-amber-900/30 border-amber-800/50 text-amber-400 hover:bg-amber-900/50"
-                                          : "bg-stone-800 border-stone-700 text-stone-400 hover:text-stone-200 hover:bg-stone-700"
+                                          ? "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+                                          : "bg-stone-100 border-stone-200 text-stone-500 hover:text-stone-700 hover:bg-stone-200"
                                       }`}>
                                       {reb.isTriggered ? "Annuler" : "Déclencher"}
                                     </button>
@@ -2013,17 +2013,17 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                                 <div className="text-[9px] font-black uppercase tracking-widest text-red-400">Notes confidentielles GM</div>
                               </div>
                               <div className="p-3 bg-red-900/5 border border-red-900/30 rounded-lg">
-                                <p className="text-sm text-stone-300 whitespace-pre-wrap leading-relaxed">{quest.gmNotes}</p>
+                                <p className="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">{quest.gmNotes}</p>
                               </div>
                             </div>
                           )}
 
                           {/* Footer actions */}
-                          <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-stone-800">
+                          <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-stone-100">
                             <div className="flex gap-1.5 flex-wrap">
                               {QUEST_STATUSES.filter((s) => s !== quest.status).map((s) => (
                                 <button key={s} onClick={() => handleStatusChange(quest.id, s)}
-                                  className="px-2.5 py-1 bg-stone-800 text-stone-400 text-[9px] font-black uppercase tracking-widest rounded hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700">
+                                  className="px-2.5 py-1 bg-stone-100 text-stone-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-stone-200 hover:text-stone-700 transition-all border border-stone-200">
                                   → {s}
                                 </button>
                               ))}
@@ -2031,7 +2031,7 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
                             <div className="flex gap-2">
                               <BtnSecondary onClick={() => startEdit(quest)}><Edit3 size={12} /></BtnSecondary>
                               <button onClick={() => handleDelete(quest.id)}
-                                className="px-3 py-1.5 bg-stone-800 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-900/30 transition-all border border-stone-700">
+                                className="px-3 py-1.5 bg-stone-100 text-red-500 text-[9px] font-black uppercase tracking-widest rounded hover:bg-red-50 transition-all border border-stone-200">
                                 <Trash2 size={12} />
                               </button>
                             </div>
@@ -2058,12 +2058,12 @@ const GMQuests = ({ state, onUpdateState, notify }) => {
    6. PHYSIQUE & MAGIE
    ================================================ */
 const INJURY_STATES_GM = [
-  { id: "sain",            label: "Sain",          color: "bg-stone-700 text-stone-300 border-stone-600" },
-  { id: "contusion",       label: "Contusion",      color: "bg-amber-900/50 text-amber-300 border-amber-700" },
-  { id: "blessure_legere", label: "Blessé léger",   color: "bg-orange-900/50 text-orange-300 border-orange-700" },
-  { id: "blessure_grave",  label: "Blessé grave",   color: "bg-red-900/60 text-red-300 border-red-700" },
-  { id: "fracture",        label: "Fracture",        color: "bg-violet-900/50 text-violet-300 border-violet-700" },
-  { id: "critique",        label: "État critique",   color: "bg-slate-800 text-slate-200 border-slate-600" },
+  { id: "sain",            label: "Sain",          color: "bg-stone-100 text-stone-600 border-stone-200" },
+  { id: "contusion",       label: "Contusion",      color: "bg-amber-50 text-amber-700 border-amber-200" },
+  { id: "blessure_legere", label: "Blessé léger",   color: "bg-orange-50 text-orange-700 border-orange-200" },
+  { id: "blessure_grave",  label: "Blessé grave",   color: "bg-red-50 text-red-700 border-red-200" },
+  { id: "fracture",        label: "Fracture",        color: "bg-violet-50 text-violet-700 border-violet-200" },
+  { id: "critique",        label: "État critique",   color: "bg-slate-100 text-slate-700 border-slate-300" },
 ];
 
 const BODY_ZONES_GM = [
@@ -2130,7 +2130,7 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Chercher un citoyen…"
-              className="w-full bg-stone-800 border border-stone-700 rounded-lg pl-8 pr-3 py-2 text-xs text-stone-200 outline-none focus:border-red-500/50"
+              className="w-full bg-white border border-stone-200 rounded-lg pl-8 pr-3 py-2 text-xs text-stone-800 outline-none focus:border-stone-400"
             />
           </div>
           <div className="space-y-1 max-h-[70vh] overflow-y-auto pr-1">
@@ -2144,8 +2144,8 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                   onClick={() => setSelectedId(c.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-lg border transition-all flex items-center gap-2 ${
                     selectedId === c.id
-                      ? "bg-red-900/30 border-red-800/50 text-red-300"
-                      : "bg-stone-800/50 border-stone-700/50 text-stone-300 hover:bg-stone-800 hover:border-stone-600"
+                      ? "bg-red-50 border-red-200 text-red-700"
+                      : "bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100 hover:border-stone-300"
                   }`}
                 >
                   <span className="text-xs font-bold flex-1 truncate">{c.name}</span>
@@ -2163,20 +2163,20 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
         {/* ─ Panneau d'édition ─ */}
         <div className="md:col-span-2">
           {!selected ? (
-            <div className="flex flex-col items-center justify-center h-64 text-stone-600 gap-3 border border-dashed border-stone-700 rounded-xl">
+            <div className="flex flex-col items-center justify-center h-64 text-stone-600 gap-3 border border-dashed border-stone-300 rounded-xl">
               <Activity size={32} className="opacity-40" />
               <div className="text-xs font-bold uppercase tracking-widest">Sélectionner un citoyen</div>
             </div>
           ) : (
-            <div className="bg-stone-900/60 border border-stone-700 rounded-xl overflow-hidden">
+            <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
 
               {/* En-tête citoyen */}
-              <div className="px-4 py-3 border-b border-stone-700 flex items-center gap-3">
+              <div className="px-4 py-3 border-b border-stone-200 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-red-900/30 border border-red-800/40 flex items-center justify-center text-xs font-black text-red-400">
                   {selected.name?.[0]?.toUpperCase()}
                 </div>
                 <div>
-                  <div className="text-sm font-black text-stone-200">{selected.name}</div>
+                  <div className="text-sm font-black text-stone-800">{selected.name}</div>
                   <div className="text-[9px] text-stone-500 uppercase tracking-widest">{selected.occupation || "Citoyen"}</div>
                 </div>
               </div>
@@ -2193,12 +2193,12 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                         const currentId = selected?.physicalStats?.injuries?.[zone.id] || "sain";
                         const current   = INJURY_STATES_GM.find((s) => s.id === currentId) || INJURY_STATES_GM[0];
                         return (
-                          <div key={zone.id} className="bg-stone-800/60 border border-stone-700 rounded-lg p-2">
+                          <div key={zone.id} className="bg-stone-50 border border-stone-200 rounded-lg p-2">
                             <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-1.5">{zone.label}</div>
                             <select
                               value={currentId}
                               onChange={(e) => { setInjury(zone.id, e.target.value); notify(`${zone.label} → ${e.target.options[e.target.selectedIndex].text}`, "success"); }}
-                              className="w-full bg-stone-900 border border-stone-700 rounded text-[10px] text-stone-200 p-1 outline-none focus:border-red-500/50"
+                              className="w-full bg-white border border-stone-200 rounded text-[10px] text-stone-800 p-1 outline-none focus:border-stone-400"
                             >
                               {INJURY_STATES_GM.map((s) => (
                                 <option key={s.id} value={s.id}>{s.label}</option>
@@ -2221,7 +2221,7 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                     </button>
 
                   {/* ── MAGIE & ÉTATS ── */}
-                  <div className="space-y-4 pt-4 border-t border-stone-700">
+                  <div className="space-y-4 pt-4 border-t border-stone-200">
                     {[
                       { key: "physique", label: "États physiques", icon: "💪" },
                       { key: "magique",  label: "États magiques",  icon: "✨" },
@@ -2242,7 +2242,7 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full border text-[10px] font-bold transition-all ${
                                   active
                                     ? "bg-red-900/60 border-red-700 text-red-300 ring-1 ring-red-600"
-                                    : "bg-stone-800 border-stone-700 text-stone-500 hover:text-stone-200 hover:border-stone-500"
+                                    : "bg-stone-50 border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300"
                                 }`}
                               >
                                 <span>{eff.icon}</span>
@@ -2255,7 +2255,7 @@ const GMPhysicsMagic = ({ state, onUpdateState, notify }) => {
                     ))}
 
                     {(selected.statusEffects || []).length > 0 && (
-                      <div className="pt-2 border-t border-stone-700">
+                      <div className="pt-2 border-t border-stone-200">
                         <div className="text-[9px] text-stone-500 mb-2 font-bold uppercase tracking-widest">
                           {(selected.statusEffects || []).length} état{(selected.statusEffects || []).length > 1 ? "s" : ""} actif{(selected.statusEffects || []).length > 1 ? "s" : ""}
                         </div>
@@ -2511,7 +2511,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
           description={`Actuellement ${sickCount} citoyen${sickCount > 1 ? "s" : ""} malade${sickCount > 1 ? "s" : ""} dans le monde.`}
         />
 
-        <div className="mt-5 pt-5 border-t border-stone-800 max-w-xs">
+        <div className="mt-5 pt-5 border-t border-stone-100 max-w-xs">
           <Label>Chance quotidienne par citoyen (%)</Label>
           <Input
             type="number" min="0" max="100" step="0.1"
@@ -2570,7 +2570,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                 onChange={(e) => updateIllness(ill.id, "description", e.target.value)}
                 placeholder="Symptômes, ton, ambiance..."
                 rows={2}
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
+                className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 resize-none"
               />
             </div>
 
@@ -2609,7 +2609,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-stone-800">
+            <div className="mt-3 pt-3 border-t border-stone-100">
               <Label>Statuts infligés (visibles sur la fiche Physique & Magie, retirés à la guérison)</Label>
               {["physique", "magique"].map((key) => (
                 <div key={key} className="flex flex-wrap gap-1.5 mt-1.5">
@@ -2624,7 +2624,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                         className={`flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-bold transition-all ${
                           active
                             ? "bg-red-900/60 border-red-700 text-red-300 ring-1 ring-red-600"
-                            : "bg-stone-800 border-stone-700 text-stone-500 hover:text-stone-200 hover:border-stone-500"
+                            : "bg-stone-50 border-stone-200 text-stone-500 hover:text-stone-700 hover:border-stone-300"
                         }`}
                       >
                         <span>{eff.icon}</span>
@@ -2638,7 +2638,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
           </Card>
         ))}
         {illnesses.length === 0 && (
-          <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-700 rounded-xl">
+          <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-300 rounded-xl">
             Aucune maladie définie — les maladies aléatoires n'auront aucun effet même si activées.
           </div>
         )}
@@ -2678,7 +2678,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                 value={t.description}
                 onChange={(e) => updateTreatment(t.id, "description", e.target.value)}
                 rows={2}
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
+                className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 resize-none"
               />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
@@ -2704,7 +2704,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
           </Card>
         ))}
         {treatments.length === 0 && (
-          <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-700 rounded-xl">
+          <div className="text-center py-8 text-stone-600 text-xs italic border border-dashed border-stone-300 rounded-xl">
             Aucun traitement défini — l'onglet Apothicaire n'aura rien à proposer.
           </div>
         )}
@@ -2719,11 +2719,11 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
             {sickCitizens.map((c) => {
               const remaining = Math.max(0, (c.illness.durationDays || 0) - (c.illness.daysElapsed || 0));
               return (
-                <div key={c.id} className="flex items-center justify-between gap-3 bg-stone-800/50 border border-stone-700/50 rounded-lg p-3">
+                <div key={c.id} className="flex items-center justify-between gap-3 bg-stone-50 border border-stone-200 rounded-lg p-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-xl shrink-0">{c.illness.icon || "🤒"}</span>
                     <div className="min-w-0">
-                      <div className="text-sm font-bold text-stone-200 truncate">{c.name}</div>
+                      <div className="text-sm font-bold text-stone-800 truncate">{c.name}</div>
                       <div className="text-[10px] text-stone-500">
                         {c.illness.name || c.illness.severityLabel || "Maladie"} — {remaining} jour{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""}
                       </div>
@@ -2731,7 +2731,7 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                   </div>
                   <button
                     onClick={() => cureCitizen(c.id)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg bg-green-900/40 border border-green-800/50 text-green-300 text-[10px] font-black uppercase tracking-widest hover:bg-green-900/60"
+                    className="shrink-0 px-3 py-1.5 rounded-lg bg-green-50 border border-green-200 text-green-700 text-[10px] font-black uppercase tracking-widest hover:bg-green-100"
                   >
                     Guérir
                   </button>
@@ -2760,12 +2760,12 @@ const GMIllness = ({ state, onUpdateState, notify }) => {
                   placeholder="Chercher un citoyen…"
                 />
                 {inflictSearch && !inflictCitizenId && inflictMatches.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full max-h-40 overflow-y-auto bg-stone-800 border border-stone-700 rounded-lg shadow-xl">
+                  <div className="absolute z-10 mt-1 w-full max-h-40 overflow-y-auto bg-white border border-stone-200 rounded-lg shadow-xl">
                     {inflictMatches.map((c) => (
                       <button
                         key={c.id}
                         onClick={() => { setInflictCitizenId(c.id); setInflictSearch(c.name); }}
-                        className="w-full text-left px-3 py-2 text-xs text-stone-200 hover:bg-stone-700 flex items-center justify-between"
+                        className="w-full text-left px-3 py-2 text-xs text-stone-800 hover:bg-stone-50 flex items-center justify-between"
                       >
                         {c.name}
                         {c.illness && <span className="text-[9px] text-yellow-500">déjà malade</span>}
@@ -2972,7 +2972,7 @@ const GMRaces = ({ state, onUpdateState, notify }) => {
                 onChange={(e) => updateRace(r.id, "description", e.target.value)}
                 placeholder="Particularités anatomiques, magiques, culturelles..."
                 rows={2}
-                className="w-full bg-stone-800 border border-stone-700 rounded-lg p-2.5 text-sm text-stone-200 outline-none focus:border-red-500/50 resize-none"
+                className="w-full bg-white border border-stone-200 rounded-lg p-2.5 text-sm text-stone-800 outline-none focus:border-stone-400 resize-none"
               />
             </div>
             <div className="mt-3 max-w-xs">
@@ -2987,7 +2987,7 @@ const GMRaces = ({ state, onUpdateState, notify }) => {
               </p>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-stone-800">
+            <div className="mt-3 pt-3 border-t border-stone-100">
               <button
                 type="button"
                 onClick={() => setExpandedCircuitId(expandedCircuitId === r.id ? null : r.id)}
@@ -3037,10 +3037,10 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden bg-stone-950 font-sans text-stone-200">
+    <div className="flex h-screen overflow-hidden bg-stone-50 font-sans text-stone-800">
       {/* Sidebar */}
-      <aside className="hidden md:flex flex-col w-72 bg-stone-900 border-r border-stone-800 z-30 shrink-0 shadow-2xl">
-        <div className="p-6 pb-5 flex flex-col items-center border-b border-stone-800/50 bg-stone-900/50">
+      <aside className="hidden md:flex flex-col w-72 bg-white border-r border-stone-200 z-30 shrink-0 shadow-sm">
+        <div className="p-6 pb-5 flex flex-col items-center border-b border-stone-100 bg-white">
           <div className="w-14 h-14 rounded-xl bg-red-900/20 border-2 border-red-800/40 flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(220,38,38,0.1)]">
             <Shield size={28} className="text-red-400" />
           </div>
@@ -3055,11 +3055,11 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
               onClick={() => setActiveSection(item.id)}
               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
                 activeSection === item.id
-                  ? "bg-red-900/30 text-red-300 border border-red-800/40 shadow-lg"
-                  : "text-stone-400 hover:bg-stone-800 hover:text-stone-100"
+                  ? "bg-red-50 text-red-700 border border-red-200 shadow-sm"
+                  : "text-stone-500 hover:bg-stone-50 hover:text-stone-800"
               }`}
             >
-              <item.icon size={18} className={activeSection === item.id ? "text-red-400" : "text-stone-500 group-hover:text-stone-300"} />
+              <item.icon size={18} className={activeSection === item.id ? "text-red-500" : "text-stone-400 group-hover:text-stone-600"} />
               <span className="text-[10px] font-black uppercase tracking-widest flex-1">{item.label}</span>
               {item.badge && (
                 <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-amber-500 text-stone-900 text-[9px] font-black px-1">
@@ -3070,8 +3070,8 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-stone-800 space-y-2">
-          <button onClick={onClose} className="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-stone-800 text-stone-400 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-stone-700 hover:border-stone-600">
+        <div className="p-4 border-t border-stone-100 space-y-2">
+          <button onClick={onClose} className="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-stone-100 text-stone-600 hover:text-stone-800 transition-all text-[10px] font-black uppercase tracking-widest border border-stone-200 hover:border-stone-300">
             <ArrowLeft size={16} /> Retour au Jeu
           </button>
           <button
@@ -3120,7 +3120,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowReset(false)}
-                  className="flex-1 py-2.5 bg-stone-800 text-stone-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-700 hover:text-stone-200 transition-all border border-stone-700"
+                  className="flex-1 py-2.5 bg-stone-100 text-stone-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-stone-200 hover:text-stone-800 transition-all border border-stone-200"
                 >
                   Annuler
                 </button>
@@ -3159,7 +3159,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 bg-stone-900/95 backdrop-blur border-b border-stone-800 flex items-center justify-between px-4 md:px-8 shadow-xl shrink-0 z-20">
+        <header className="h-14 bg-white/95 backdrop-blur border-b border-stone-200 flex items-center justify-between px-4 md:px-8 shadow-sm shrink-0 z-20">
           <div className="flex items-center gap-3">
             <Shield size={20} className="text-red-400" />
             <span className="text-xs font-black uppercase tracking-widest text-red-400">Game Master</span>
@@ -3170,7 +3170,7 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
                 key={item.id}
                 onClick={() => setActiveSection(item.id)}
                 className={`p-2 rounded-lg transition-all shrink-0 relative ${
-                  activeSection === item.id ? "bg-red-900/30 text-red-400" : "text-stone-500 hover:text-stone-300"
+                  activeSection === item.id ? "bg-red-50 text-red-500" : "text-stone-400 hover:text-stone-600"
                 }`}
               >
                 <item.icon size={18} />
@@ -3182,12 +3182,12 @@ const GameMasterView = ({ state, onUpdateState, notify, onClose, session }) => {
               </button>
             ))}
           </div>
-          <button onClick={onClose} className="bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white transition-all flex items-center justify-center px-3 py-1.5 rounded-lg border border-stone-700 text-[10px] font-black uppercase tracking-widest gap-2">
+          <button onClick={onClose} className="bg-stone-100 hover:bg-stone-200 text-stone-600 hover:text-stone-800 transition-all flex items-center justify-center px-3 py-1.5 rounded-lg border border-stone-200 text-[10px] font-black uppercase tracking-widest gap-2">
             <ArrowLeft size={14} /> <span className="hidden sm:inline">Retour</span>
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-700 scrollbar-track-stone-900">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin scrollbar-thumb-stone-300 scrollbar-track-stone-50">
           <div className="max-w-5xl mx-auto pb-10">
             {activeSection === "dashboard" && <GMDashboard state={state} />}
             {activeSection === "accounts" && (

@@ -68,7 +68,7 @@ const StatNum = ({ label, value, onChange, min = 0, max = 9999, dim = false }) =
     <input
       type="number" min={min} max={max} value={value}
       onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
-      className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500 transition-colors"
+      className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500 transition-colors"
     />
   </div>
 );
@@ -77,7 +77,7 @@ const StatNum = ({ label, value, onChange, min = 0, max = 9999, dim = false }) =
 const StatFormula = ({ label, base, bonus, bonusLabel, onBase, onBonus }) => {
   const total = (base || 0) + (bonus || 0);
   return (
-    <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 space-y-2">
+    <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[9px] font-black uppercase tracking-widest text-stone-300">{label}</span>
         <span className="text-sm font-black text-amber-400 font-mono">= {total}</span>
@@ -94,7 +94,7 @@ const StatFormula = ({ label, base, bonus, bonusLabel, onBase, onBonus }) => {
 const TechCard = ({ tech, onEdit, onDelete }) => {
   const isSort = tech.type === "sort";
   return (
-    <div className="bg-stone-800 border border-stone-700 rounded-xl overflow-hidden">
+    <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
       {/* En-tête */}
       <div className={`flex items-center gap-3 px-4 py-3 border-b ${isSort ? "border-blue-900/50 bg-blue-950/20" : "border-red-900/50 bg-red-950/20"}`}>
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSort ? "bg-blue-900/60 text-blue-300" : "bg-red-900/60 text-red-300"}`}>
@@ -109,7 +109,7 @@ const TechCard = ({ tech, onEdit, onDelete }) => {
         <div className="flex gap-1 shrink-0">
           <button
             onClick={onEdit}
-            className="p-1.5 rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all"
+            className="p-1.5 rounded hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all"
           >
             <Edit3 size={12} />
           </button>
@@ -123,7 +123,7 @@ const TechCard = ({ tech, onEdit, onDelete }) => {
       </div>
 
       {/* Statistiques */}
-      <div className="px-4 py-3 border-b border-stone-700/60">
+      <div className="px-4 py-3 border-b border-stone-200">
         <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-400 mb-2.5">Statistiques</div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
@@ -465,7 +465,7 @@ export default function CombatAdminView({
                     <button key={c.id} onClick={() => selectCitizen(c.id)}
                       className={`w-full text-left px-4 py-3 border-b border-stone-50 flex items-center gap-3 transition-colors hover:bg-stone-50 ${isSel ? "bg-amber-50 border-l-2 border-l-amber-500" : ""}`}
                     >
-                      <div className="w-8 h-8 rounded-full bg-stone-700 text-white text-xs font-black flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
+                      <div className="w-8 h-8 rounded-full bg-stone-200 text-stone-800 text-xs font-black flex items-center justify-center shrink-0" style={{ width: 32, height: 32, minWidth: 32, minHeight: 32 }}>
                         {c.name?.[0]?.toUpperCase() || "?"}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -492,9 +492,9 @@ export default function CombatAdminView({
               return (
                 <>
                   {/* Fiche stats — fond sombre pour cohérence avec les inputs */}
-                  <div className="bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-700">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200">
                       <div className="flex items-center gap-2">
                         <Swords size={15} className="text-red-400" />
                         <span className="text-xs font-black uppercase tracking-widest text-stone-200">
@@ -503,7 +503,7 @@ export default function CombatAdminView({
                       </div>
                       <div className="flex gap-2">
                         <button onClick={handleResetVitals}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-700 text-stone-200 hover:bg-stone-600 rounded-lg transition-all">
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-all">
                           <RefreshCw size={11} /> PV/Mana max
                         </button>
                         <button onClick={handleSaveFiche}
@@ -551,7 +551,7 @@ export default function CombatAdminView({
                       {/* Mana + récap */}
                       <div className="grid grid-cols-2 gap-3">
                         <StatNum label="Mana Maximum" value={editStats.maxMana} onChange={sc("maxMana")} />
-                        <div className="bg-stone-800 border border-stone-600 rounded-xl p-3 flex items-center">
+                        <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 flex items-center">
                           <div>
                             <div className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-1">Récapitulatif</div>
                             <div className="text-[10px] text-stone-200 space-y-0.5 font-mono">
@@ -565,8 +565,8 @@ export default function CombatAdminView({
                   </div>
 
                   {/* Compétences */}
-                  <div className="bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-700">
+                  <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200">
                       <div className="flex items-center gap-2">
                         <Zap size={14} className="text-amber-400" />
                         <span className="text-xs font-black uppercase tracking-widest text-stone-200">Compétences ({editTechs.length})</span>
@@ -574,7 +574,7 @@ export default function CombatAdminView({
                       {!techForm && (
                         <button
                           onClick={() => { setTechForm({ ...DEFAULT_TECH }); setTechEditId(null); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-700 text-stone-200 hover:bg-stone-600 rounded-lg transition-all"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-stone-100 text-stone-700 hover:bg-stone-200 rounded-lg transition-all"
                         >
                           <Plus size={11} /> Ajouter
                         </button>
@@ -584,7 +584,7 @@ export default function CombatAdminView({
                     <div className="p-4 space-y-3">
                       {/* Formulaire d'ajout */}
                       {techForm && (
-                        <div className="bg-stone-800 rounded-xl border border-stone-600 p-4 space-y-3">
+                        <div className="bg-stone-50 rounded-xl border border-stone-200 p-4 space-y-3">
                           <div className="text-[9px] font-black uppercase tracking-widest text-amber-400">
                             {techEditId ? "Modifier la compétence" : "Nouvelle compétence"}
                           </div>
@@ -592,13 +592,13 @@ export default function CombatAdminView({
                             <div className="col-span-2">
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Nom</label>
                               <input value={techForm.name} onChange={e => setTechForm(p => ({ ...p, name: e.target.value }))}
-                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500"
                                 placeholder="Nom de la compétence" />
                             </div>
                             <div>
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Type</label>
                               <select value={techForm.type} onChange={e => setTechForm(p => ({ ...p, type: e.target.value }))}
-                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500">
                                 <option value="technique">Technique</option>
                                 <option value="sort">Sort</option>
                               </select>
@@ -607,46 +607,46 @@ export default function CombatAdminView({
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Dégâts bonus</label>
                               <input type="number" min={0} value={techForm.bonusDamage}
                                 onChange={e => setTechForm(p => ({ ...p, bonusDamage: Number(e.target.value) }))}
-                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500" />
                             </div>
                             {techForm.type === "technique" ? (
                               <div>
                                 <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Recharge (tours)</label>
                                 <input type="number" min={0} value={techForm.cooldown}
                                   onChange={e => setTechForm(p => ({ ...p, cooldown: Number(e.target.value) }))}
-                                  className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
+                                  className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500" />
                               </div>
                             ) : (
                               <div>
                                 <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Coût Mana</label>
                                 <input type="number" min={0} value={techForm.manaCost}
                                   onChange={e => setTechForm(p => ({ ...p, manaCost: Number(e.target.value) }))}
-                                  className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
+                                  className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500" />
                               </div>
                             )}
                             <div>
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Effet</label>
                               <input value={techForm.effect} onChange={e => setTechForm(p => ({ ...p, effect: e.target.value }))}
-                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500"
                                 placeholder="Ralentit, brûle…" />
                             </div>
                             <div>
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Chance d'effet (%)</label>
                               <input type="number" min={0} max={100} value={techForm.effectChance}
                                 onChange={e => setTechForm(p => ({ ...p, effectChance: Math.max(0, Math.min(100, Number(e.target.value))) }))}
-                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500" />
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500" />
                             </div>
                             <div className="col-span-2">
                               <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Description narrative</label>
                               <textarea value={techForm.description}
                                 onChange={e => setTechForm(p => ({ ...p, description: e.target.value }))} rows={2}
-                                className="w-full bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500 resize-none"
+                                className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500 resize-none"
                                 placeholder="Description narrative de la compétence…" />
                             </div>
                           </div>
                           <div className="flex gap-2 justify-end">
                             <button onClick={() => { setTechForm(null); setTechEditId(null); }}
-                              className="px-3 py-1.5 text-[10px] font-bold text-stone-400 hover:text-stone-200 rounded-lg hover:bg-stone-700 transition-all">
+                              className="px-3 py-1.5 text-[10px] font-bold text-stone-500 hover:text-stone-800 rounded-lg hover:bg-stone-100 transition-all">
                               Annuler
                             </button>
                             <button onClick={saveTech}
@@ -676,8 +676,8 @@ export default function CombatAdminView({
                   </div>
 
                   {/* Talent */}
-                  <div className="bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-700">
+                  <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-200">
                       <span className="text-base">✦</span>
                       <span className="text-xs font-black uppercase tracking-widest text-stone-200">Talent</span>
                     </div>
@@ -688,7 +688,7 @@ export default function CombatAdminView({
                           rows={3}
                           value={editTalent.description}
                           onChange={e => setEditTalent(p => ({ ...p, description: e.target.value }))}
-                          className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500 resize-none"
+                          className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500 resize-none"
                           placeholder="Description du talent passif ou actif…"
                         />
                       </div>
@@ -699,7 +699,7 @@ export default function CombatAdminView({
                             type="number" min={0} max={100}
                             value={editTalent.chance}
                             onChange={e => setEditTalent(p => ({ ...p, chance: Math.max(0, Math.min(100, Number(e.target.value))) }))}
-                            className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500"
+                            className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500"
                           />
                         </div>
                         <div>
@@ -708,7 +708,7 @@ export default function CombatAdminView({
                             type="number" min={0}
                             value={editTalent.cooldown}
                             onChange={e => setEditTalent(p => ({ ...p, cooldown: Number(e.target.value) }))}
-                            className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500"
+                            className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500"
                           />
                         </div>
                       </div>
@@ -801,7 +801,7 @@ export default function CombatAdminView({
                       <button
                         onClick={() => setHideCreatureStats(v => !v)}
                         title={hideCreatureStats ? "Afficher les stats des créatures" : "Masquer les stats des créatures"}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${hideCreatureStats ? "bg-stone-800 text-stone-200 border-stone-700" : "bg-stone-100 text-stone-500 border-stone-200 hover:border-stone-400"}`}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${hideCreatureStats ? "bg-stone-800 text-white border-stone-700" : "bg-stone-100 text-stone-500 border-stone-200 hover:border-stone-400"}`}
                       >
                         {hideCreatureStats ? <EyeOff size={11} /> : <Eye size={11} />}
                         Créatures
@@ -859,7 +859,7 @@ export default function CombatAdminView({
                                 .slice(0, 8).map(c => (
                                   <button key={c.id} onClick={() => { addParticipant(c.id); }}
                                     className="w-full text-left px-3 py-2 text-xs hover:bg-stone-50 flex items-center gap-2 border-b border-stone-50 transition-colors">
-                                    <span className="w-5 h-5 rounded-full bg-stone-700 text-white text-[9px] flex items-center justify-center font-black shrink-0" style={{ width: 20, height: 20, minWidth: 20, minHeight: 20 }}>
+                                    <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-800 text-[9px] flex items-center justify-center font-black shrink-0" style={{ width: 20, height: 20, minWidth: 20, minHeight: 20 }}>
                                       {c.name?.[0]?.toUpperCase()}
                                     </span>
                                     <span className="font-semibold text-stone-800 flex-1">{c.name}</span>
@@ -942,7 +942,7 @@ export default function CombatAdminView({
                                     : hpPct > 33 ? { label: "Blessé", cls: "bg-amber-900/60 text-amber-300" }
                                     : { label: "Critique", cls: "bg-red-900/60 text-red-300" };
                                   return (
-                                    <div key={p.citizenId} className={`bg-stone-900/70 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""} cursor-pointer hover:bg-stone-800/80 transition-colors`}
+                                    <div key={p.citizenId} className={`bg-white border border-stone-200 rounded-lg p-2.5 ${isDead ? "opacity-40" : ""} cursor-pointer hover:bg-stone-50 transition-colors`}
                                       onClick={() => { setStatPopup(String(p.citizenId)); setPopupEdits({}); }}>
                                       <div className="flex items-center justify-between gap-2 mb-1">
                                         <div className="flex items-center gap-1.5 min-w-0">
@@ -968,7 +968,7 @@ export default function CombatAdminView({
                                       ) : (
                                         <div className="flex items-center gap-1.5">
                                           <Heart size={8} className="text-red-400 shrink-0" />
-                                          <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
+                                          <div className="flex-1 h-1 bg-stone-200 rounded-full overflow-hidden">
                                             <div className={`h-full rounded-full ${hpColor}`} style={{ width: `${hpPct}%` }} />
                                           </div>
                                           <input type="number" min={0} max={p.maxHp}
@@ -977,7 +977,7 @@ export default function CombatAdminView({
                                             onBlur={() => applyHpChange(p.citizenId)}
                                             onKeyDown={e => e.key === "Enter" && applyHpChange(p.citizenId)}
                                             onClick={e => e.stopPropagation()}
-                                            className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500" />
+                                            className="w-9 text-[9px] font-mono bg-white border border-stone-200 rounded px-1 py-0.5 text-center text-stone-800 outline-none focus:border-amber-500" />
                                           <span className="text-[8px] text-stone-400">/{p.maxHp}</span>
                                         </div>
                                       )}
@@ -985,7 +985,7 @@ export default function CombatAdminView({
                                       {p.maxMana > 0 && !masked && (
                                         <div className="flex items-center gap-1.5 mt-1">
                                           <Zap size={8} className="text-blue-400 shrink-0" />
-                                          <div className="flex-1 h-1 bg-stone-700 rounded-full overflow-hidden">
+                                          <div className="flex-1 h-1 bg-stone-200 rounded-full overflow-hidden">
                                             <div className="h-full rounded-full bg-blue-500" style={{ width: `${p.maxMana > 0 ? Math.max(0, (p.currentMana / p.maxMana) * 100) : 0}%` }} />
                                           </div>
                                           <input type="number" min={0} max={p.maxMana}
@@ -994,7 +994,7 @@ export default function CombatAdminView({
                                             onBlur={() => applyManaChange(p.citizenId)}
                                             onKeyDown={e => e.key === "Enter" && applyManaChange(p.citizenId)}
                                             onClick={e => e.stopPropagation()}
-                                            className="w-9 text-[9px] font-mono bg-stone-800 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-blue-500" />
+                                            className="w-9 text-[9px] font-mono bg-white border border-stone-200 rounded px-1 py-0.5 text-center text-stone-800 outline-none focus:border-blue-500" />
                                           <span className="text-[8px] text-stone-400">/{p.maxMana}</span>
                                         </div>
                                       )}
@@ -1048,7 +1048,7 @@ export default function CombatAdminView({
                                       <button
                                         onClick={(e) => { e.stopPropagation(); updateParticipant(p.citizenId, { initiativeRoll: null }); }}
                                         title="Réinitialiser le roll"
-                                        className="p-0.5 rounded hover:bg-stone-700 text-stone-500 hover:text-amber-400 transition-all text-xs"
+                                        className="p-0.5 rounded hover:bg-stone-100 text-stone-500 hover:text-amber-600 transition-all text-xs"
                                       >🔓</button>
                                     </>
                                   ) : (
@@ -1143,8 +1143,8 @@ export default function CombatAdminView({
       {tab === "effets" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Formulaire création/édition */}
-          <div className="md:col-span-1 bg-stone-900 border border-stone-700 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-700">
+          <div className="md:col-span-1 bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-stone-200">
               <Zap size={14} className="text-amber-400" />
               <span className="text-xs font-black uppercase tracking-widest text-stone-200">
                 {editEffectId ? "Modifier l'effet" : "Nouvel effet"}
@@ -1155,20 +1155,20 @@ export default function CombatAdminView({
                 <div>
                   <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Icône</label>
                   <input value={effectForm.emoji} onChange={e => setEffectForm(p => ({ ...p, emoji: e.target.value }))}
-                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-sm text-center text-stone-100 outline-none focus:border-amber-500" />
+                    className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center text-stone-800 outline-none focus:border-amber-500" />
                 </div>
                 <div className="col-span-3">
                   <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Nom</label>
                   <input value={effectForm.name} onChange={e => setEffectForm(p => ({ ...p, name: e.target.value }))}
                     placeholder="Poison, Brûlure, Terreur…"
-                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500" />
+                    className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500" />
                 </div>
               </div>
               <div>
                 <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Statistique affectée</label>
                 <select value={effectForm.stat} onChange={e => setEffectForm(p => ({ ...p, stat: e.target.value }))}
-                  className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500">
-                  {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-stone-800 text-stone-100">{o.label}</option>)}
+                  className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500">
+                  {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-white text-stone-800">{o.label}</option>)}
                 </select>
                 {DRAIN_STATS.has(effectForm.stat) && (
                   <p className="text-[8px] text-amber-400/80 mt-1 italic">
@@ -1181,25 +1181,25 @@ export default function CombatAdminView({
                   <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Malus</label>
                   <input type="number" max={0} value={effectForm.value}
                     onChange={e => setEffectForm(p => ({ ...p, value: parseInt(e.target.value) || -1 }))}
-                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
+                    className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-red-500 text-center" />
                 </div>
                 <div>
                   <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Tours (0=∞)</label>
                   <input type="number" min={0} value={effectForm.turns}
                     onChange={e => setEffectForm(p => ({ ...p, turns: parseInt(e.target.value) || 0 }))}
-                    className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 font-mono outline-none focus:border-amber-500 text-center" />
+                    className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 font-mono outline-none focus:border-amber-500 text-center" />
                 </div>
               </div>
               <div>
                 <label className="text-[8px] font-black uppercase tracking-widest text-stone-300 block mb-0.5">Description</label>
                 <textarea value={effectForm.description} onChange={e => setEffectForm(p => ({ ...p, description: e.target.value }))}
                   rows={2} placeholder="Description narrative de l'effet…"
-                  className="w-full bg-stone-800 border border-stone-600 rounded-lg px-2 py-1.5 text-xs text-stone-100 outline-none focus:border-amber-500 resize-none" />
+                  className="w-full bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs text-stone-800 outline-none focus:border-amber-500 resize-none" />
               </div>
               <div className="flex gap-2">
                 {editEffectId && (
                   <button onClick={() => { setEditEffectId(null); setEffectForm({ name: "", emoji: "⚡", description: "", stat: "attackBase", value: -1, turns: 0 }); }}
-                    className="px-3 py-1.5 text-[10px] font-bold text-stone-400 hover:text-stone-200 rounded-lg hover:bg-stone-700 transition-all">
+                    className="px-3 py-1.5 text-[10px] font-bold text-stone-500 hover:text-stone-800 rounded-lg hover:bg-stone-100 transition-all">
                     Annuler
                   </button>
                 )}
@@ -1214,7 +1214,7 @@ export default function CombatAdminView({
           {/* Liste des effets */}
           <div className="md:col-span-2">
             {combatEffects.length === 0 ? (
-              <div className="bg-stone-900 border border-stone-700 rounded-2xl p-12 text-center text-stone-500 italic text-sm">
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-12 text-center text-stone-400 italic text-sm">
                 Aucun effet créé — utilisez le formulaire pour en créer
               </div>
             ) : (
@@ -1223,9 +1223,9 @@ export default function CombatAdminView({
                   const statLabel = EFFECT_STAT_OPTIONS.find(o => o.key === effect.stat)?.label || effect.stat;
                   const isApplying = applyingEffectId === effect.id;
                   return (
-                    <div key={effect.id} className="bg-stone-900 border border-stone-700 rounded-xl overflow-hidden">
+                    <div key={effect.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden">
                       <div className="flex items-center gap-3 px-4 py-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-stone-800 border border-stone-700 shrink-0">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xl bg-stone-100 border border-stone-200 shrink-0">
                           {effect.emoji || "⚡"}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1238,7 +1238,7 @@ export default function CombatAdminView({
                         </div>
                         <div className="flex gap-1 shrink-0">
                           <button onClick={() => startEditEffect(effect)}
-                            className="p-1.5 rounded hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all">
+                            className="p-1.5 rounded hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all">
                             <Edit3 size={12} />
                           </button>
                           <button onClick={() => { onDeleteCombatEffect(effect.id); if (editEffectId === effect.id) { setEditEffectId(null); } }}
@@ -1248,20 +1248,20 @@ export default function CombatAdminView({
                         </div>
                       </div>
                       {effect.description && (
-                        <div className="px-4 py-2 border-t border-stone-700/50 text-[9px] text-stone-400 italic">
+                        <div className="px-4 py-2 border-t border-stone-200 text-[9px] text-stone-400 italic">
                           {effect.description}
                         </div>
                       )}
                       {/* Appliquer à un participant */}
                       {selSession && selSession.participants.length > 0 && (
-                        <div className="px-4 py-2 border-t border-stone-700/50">
+                        <div className="px-4 py-2 border-t border-stone-200">
                           {isApplying ? (
                             <div className="space-y-1.5">
                               <div className="text-[8px] font-black uppercase text-stone-400">Appliquer à :</div>
                               <div className="flex flex-wrap gap-1">
                                 {selSession.participants.map(p => (
                                   <button key={p.citizenId} onClick={() => applyEffect(effect, p.citizenId)}
-                                    className="text-[8px] font-bold bg-stone-700 text-stone-200 px-2 py-0.5 rounded hover:bg-red-900/60 hover:text-red-200 transition-all">
+                                    className="text-[8px] font-bold bg-stone-100 text-stone-600 px-2 py-0.5 rounded hover:bg-red-100 hover:text-red-600 transition-all">
                                     {p.name}
                                   </button>
                                 ))}
@@ -1328,7 +1328,7 @@ export default function CombatAdminView({
         const techs = citizenRecord ? (Array.isArray(citizenRecord.techniques) ? citizenRecord.techniques : []) : [];
         const talentPopup = citizenRecord?.talent || null;
 
-        const inputCls = "w-10 text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1 py-0.5 text-center text-stone-100 outline-none focus:border-amber-500";
+        const inputCls = "w-10 text-[10px] font-mono bg-white border border-stone-200 rounded px-1 py-0.5 text-center text-stone-800 outline-none focus:border-amber-500";
 
         const statDefs = [
           { label: "Attaque",    icon: "⚔",  base: "attackBase",       bonus: "weaponBonus",       bonusLbl: "Arme"    },
@@ -1342,11 +1342,11 @@ export default function CombatAdminView({
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={closePopup}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <div className="relative w-full max-w-sm bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            <div className="relative w-full max-w-sm bg-white border border-stone-200 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
               onClick={e => e.stopPropagation()}>
 
               {/* En-tête */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-stone-800 shrink-0">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center border shrink-0 ${campStyle.bg} ${campStyle.border}`}>
                     <Swords size={16} className="text-stone-300" />
@@ -1360,7 +1360,7 @@ export default function CombatAdminView({
                     </div>
                   </div>
                 </div>
-                <button onClick={closePopup} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-500 hover:text-stone-200 transition-all shrink-0">
+                <button onClick={closePopup} className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-stone-800 transition-all shrink-0">
                   <X size={15} />
                 </button>
               </div>
@@ -1369,7 +1369,7 @@ export default function CombatAdminView({
                 {/* ── Barres vitales éditables ── */}
                 <div className="space-y-3">
                   {/* PV */}
-                  <div className="bg-stone-800/60 rounded-xl p-3 space-y-2">
+                  <div className="bg-stone-50 rounded-xl border border-stone-200 p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         <Heart size={11} className="text-red-400" />
@@ -1389,13 +1389,13 @@ export default function CombatAdminView({
                           className={inputCls} />
                       </div>
                     </div>
-                    <div className="h-2 bg-stone-700 rounded-full overflow-hidden">
+                    <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
                       <div className={`h-full rounded-full transition-all ${hpColor}`} style={{ width: `${hpPct}%` }} />
                     </div>
                   </div>
 
                   {/* Mana */}
-                  <div className="bg-stone-800/60 rounded-xl p-3 space-y-2">
+                  <div className="bg-stone-50 rounded-xl border border-stone-200 p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         <Zap size={11} className="text-blue-400" />
@@ -1415,7 +1415,7 @@ export default function CombatAdminView({
                           className={inputCls} />
                       </div>
                     </div>
-                    <div className="h-2 bg-stone-700 rounded-full overflow-hidden">
+                    <div className="h-2 bg-stone-200 rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${manaPct}%` }} />
                     </div>
                   </div>
@@ -1429,7 +1429,7 @@ export default function CombatAdminView({
                     const malusTotal = (p.malus || []).filter(m => m.stat === base || (bonus && m.stat === bonus)).reduce((sum, m) => sum + (m.value || 0), 0);
                     const total = baseVal + bonusVal + malusTotal;
                     return (
-                      <div key={label} className={`bg-stone-800 border rounded-xl p-3 ${malusTotal < 0 ? "border-red-800/50" : "border-stone-700/60"}`}>
+                      <div key={label} className={`bg-white border rounded-xl p-3 ${malusTotal < 0 ? "border-red-400/50" : "border-stone-200"}`}>
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-1.5">
                             <span>{icon}</span>
@@ -1447,7 +1447,7 @@ export default function CombatAdminView({
                               onChange={e => set(base, e.target.value)}
                               onBlur={() => save(base)}
                               onKeyDown={e => e.key === "Enter" && save(base)}
-                              className="w-full text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-center text-stone-100 outline-none focus:border-amber-500" />
+                              className="w-full text-[10px] font-mono bg-white border border-stone-200 rounded px-1.5 py-1 text-center text-stone-800 outline-none focus:border-amber-500" />
                           </div>
                           {bonus && (
                             <>
@@ -1458,7 +1458,7 @@ export default function CombatAdminView({
                                   onChange={e => set(bonus, e.target.value)}
                                   onBlur={() => save(bonus)}
                                   onKeyDown={e => e.key === "Enter" && save(bonus)}
-                                  className="w-full text-[10px] font-mono bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-center text-stone-100 outline-none focus:border-amber-500" />
+                                  className="w-full text-[10px] font-mono bg-white border border-stone-200 rounded px-1.5 py-1 text-center text-stone-800 outline-none focus:border-amber-500" />
                               </div>
                             </>
                           )}
@@ -1479,7 +1479,7 @@ export default function CombatAdminView({
                         const noHp   = (p.currentHp || 0) <= 0;
                         const blocked = noHp || (isSort && noMana);
                         return (
-                          <div key={tech.id} className={`bg-stone-800 border rounded-lg px-3 py-2 flex items-start gap-2.5 ${blocked ? "opacity-40 border-stone-700/30" : "border-stone-700/50"}`}>
+                          <div key={tech.id} className={`bg-white border rounded-lg px-3 py-2 flex items-start gap-2.5 ${blocked ? "opacity-40 border-stone-200/50" : "border-stone-200"}`}>
                             <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${isSort ? "bg-blue-900/60 text-blue-300" : "bg-red-900/60 text-red-300"}`}>
                               {isSort ? <Zap size={11} /> : <Sword size={11} />}
                             </div>
@@ -1510,7 +1510,7 @@ export default function CombatAdminView({
                 {talentPopup?.description && (
                   <div>
                     <div className="text-[8px] font-black uppercase tracking-[0.2em] text-stone-500 mb-2">Talent</div>
-                    <div className="bg-stone-800 border border-amber-700/30 rounded-lg px-3 py-2 flex items-start gap-2.5">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2.5">
                       <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 bg-amber-900/50 text-amber-300 text-xs font-black">✦</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-stone-200 leading-relaxed">{talentPopup.description}</p>
@@ -1551,7 +1551,7 @@ export default function CombatAdminView({
                           {malus.map(m => {
                             const statLabel = EFFECT_STAT_OPTIONS.find(o => o.key === m.stat)?.label || m.stat;
                             return (
-                              <div key={m.id} className="bg-stone-800 border border-red-800/40 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                              <div key={m.id} className="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 flex items-center gap-2">
                                 <div className="flex-1 min-w-0">
                                   <span className="text-[9px] font-bold text-red-300">{statLabel}: {m.value}</span>
                                   <span className="text-[7px] font-mono text-stone-500 ml-1.5">{m.turns > 0 ? `${m.turns}t` : "∞"}</span>
@@ -1565,15 +1565,15 @@ export default function CombatAdminView({
                           })}
                         </div>
                       )}
-                      <div className="bg-stone-800/60 border border-stone-700 rounded-xl p-3 space-y-2">
+                      <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
                         <div className="text-[7px] font-black uppercase tracking-widest text-stone-500">Ajouter un malus</div>
                         <div className="grid grid-cols-3 gap-2">
                           <div className="col-span-1">
                             <label className="text-[7px] text-stone-500 block mb-0.5">Statistique</label>
                             <select value={malusForm.stat}
                               onChange={e => setMalusForm(prev => ({ ...prev, stat: e.target.value }))}
-                              className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 outline-none focus:border-red-500">
-                              {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-stone-800 text-stone-100">{o.label}</option>)}
+                              className="w-full bg-white border border-stone-200 rounded px-1.5 py-1 text-[9px] text-stone-800 outline-none focus:border-red-500">
+                              {EFFECT_STAT_OPTIONS.map(o => <option key={o.key} value={o.key} className="bg-white text-stone-800">{o.label}</option>)}
                             </select>
                           </div>
                           <div>
@@ -1581,14 +1581,14 @@ export default function CombatAdminView({
                             <input type="number" max={0}
                               value={malusForm.value}
                               onChange={e => setMalusForm(prev => ({ ...prev, value: parseInt(e.target.value) || -1 }))}
-                              className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
+                              className="w-full bg-white border border-stone-200 rounded px-1.5 py-1 text-[9px] text-stone-800 font-mono outline-none focus:border-red-500 text-center" />
                           </div>
                           <div>
                             <label className="text-[7px] text-stone-500 block mb-0.5">Tours (0=∞)</label>
                             <input type="number" min={0}
                               value={malusForm.turns}
                               onChange={e => setMalusForm(prev => ({ ...prev, turns: parseInt(e.target.value) || 0 }))}
-                              className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 font-mono outline-none focus:border-red-500 text-center" />
+                              className="w-full bg-white border border-stone-200 rounded px-1.5 py-1 text-[9px] text-stone-800 font-mono outline-none focus:border-red-500 text-center" />
                           </div>
                         </div>
                         <div>
@@ -1597,7 +1597,7 @@ export default function CombatAdminView({
                             onChange={e => setMalusForm(prev => ({ ...prev, reason: e.target.value }))}
                             onKeyDown={e => e.key === "Enter" && addMalus()}
                             placeholder="Blessure, poison, malédiction…"
-                            className="w-full bg-stone-700 border border-stone-600 rounded px-1.5 py-1 text-[9px] text-stone-100 outline-none focus:border-red-500" />
+                            className="w-full bg-white border border-stone-200 rounded px-1.5 py-1 text-[9px] text-stone-800 outline-none focus:border-red-500" />
                         </div>
                         <button onClick={addMalus}
                           disabled={!malusForm.reason.trim()}
@@ -1622,7 +1622,7 @@ export default function CombatAdminView({
                                 }
                                 notify(`${eff.emoji || ""} ${eff.name} appliqué.`, "success");
                               }}
-                                className={`flex items-center gap-1 text-[8px] font-bold px-2 py-0.5 rounded transition-all ${DRAIN_STATS.has(eff.stat) ? "bg-red-900/60 hover:bg-red-800 text-red-200" : "bg-stone-700 hover:bg-red-900/50 text-stone-200 hover:text-red-200"}`}>
+                                className={`flex items-center gap-1 text-[8px] font-bold px-2 py-0.5 rounded transition-all ${DRAIN_STATS.has(eff.stat) ? "bg-red-100 hover:bg-red-200 text-red-700" : "bg-stone-100 hover:bg-red-100 text-stone-600 hover:text-red-700"}`}>
                                 {eff.emoji} {eff.name}
                               </button>
                             ))}
