@@ -162,16 +162,16 @@ const GazetteAdminView = ({ state, roleInfo, session, onUpdateState, notify }) =
   return (
     <div className="space-y-5">
       {/* En-tête */}
-      <div className="relative overflow-hidden rounded-2xl border border-stone-700 bg-gradient-to-br from-stone-900 via-stone-900 to-stone-800 p-5">
-        <Newspaper size={110} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-5 text-stone-400 select-none pointer-events-none" />
+      <div className="relative overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm p-5">
+        <Newspaper size={110} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-[0.04] text-stone-800 select-none pointer-events-none" />
         <div className="relative flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-stone-500 mb-1">Chancellerie Impériale</div>
-            <h2 className="text-2xl font-black font-serif text-stone-100 flex items-center gap-2">
-              <Newspaper size={20} className="text-amber-400" /> Gazette Impériale — Rédaction
+            <div className="text-[10px] uppercase font-bold tracking-[0.3em] text-stone-400 mb-1">Chancellerie Impériale</div>
+            <h2 className="text-2xl font-black font-serif text-stone-900 flex items-center gap-2">
+              <Newspaper size={20} className="text-amber-600" /> Gazette Impériale — Rédaction
             </h2>
           </div>
-          <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border shrink-0 ${isGlobal ? "bg-yellow-900/20 text-yellow-400 border-yellow-800/40" : "bg-blue-900/20 text-blue-400 border-blue-800/40"}`}>
+          <span className={`text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border shrink-0 ${isGlobal ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>
             {isGlobal ? "⚜️ Portée Impériale" : "🏴 Portée Locale"}
           </span>
         </div>

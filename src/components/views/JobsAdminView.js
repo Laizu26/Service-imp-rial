@@ -401,7 +401,7 @@ const JobsAdminView = ({
             </button>
 
             {/* En-tête formulaire */}
-            <div className="bg-stone-900 text-stone-100 rounded-xl p-5 flex items-center justify-between shadow-lg">
+            <div className="bg-stone-800 text-white rounded-xl p-5 flex items-center justify-between shadow-sm">
               <div>
                 <div className="text-[9px] uppercase tracking-widest text-stone-400 mb-1">
                   {selectedJob ? "Modifier le contrat" : "Nouveau contrat"}
@@ -761,8 +761,8 @@ const JobsAdminView = ({
 
                 {/* Simulation */}
                 {(isParTache || form.amount > 0) && form.recipients.length > 0 && totalPercent === 100 && (
-                  <div className="bg-stone-900 rounded-xl p-4 text-stone-200">
-                    <div className="text-[9px] uppercase tracking-widest text-stone-400 mb-3 font-black">
+                  <div className="bg-stone-50 border border-stone-200 rounded-xl p-4">
+                    <div className="text-[9px] uppercase tracking-widest text-stone-500 mb-3 font-black">
                       {isParTache
                         ? "Répartition — appliquée à chaque session (montant = prix du worker)"
                         : `Simulation — par versement (${FREQUENCIES.find((f) => f.value === form.frequency)?.label})`}
@@ -770,15 +770,15 @@ const JobsAdminView = ({
                     <div className="space-y-1.5">
                       {form.recipients.map((r) => (
                         <div key={r.id} className="flex justify-between text-sm">
-                          <span className="text-stone-300">{r.name}</span>
-                          <span className="font-black font-mono text-yellow-400">
+                          <span className="text-stone-600">{r.name}</span>
+                          <span className="font-black font-mono text-amber-700">
                             +{formatMoney(Math.floor(form.amount * r.percent / 100))}
                           </span>
                         </div>
                       ))}
-                      <div className="border-t border-stone-700 pt-2 mt-2 flex justify-between text-xs font-black">
+                      <div className="border-t border-stone-200 pt-2 mt-2 flex justify-between text-xs font-black">
                         <span className="text-stone-400 uppercase tracking-widest">Total prélevé</span>
-                        <span className="text-white font-mono">{formatMoney(form.amount)}</span>
+                        <span className="text-stone-800 font-mono">{formatMoney(form.amount)}</span>
                       </div>
                     </div>
                   </div>

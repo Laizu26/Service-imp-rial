@@ -135,7 +135,7 @@ const EspionageView = ({ citizens, session, roleInfo, onUpdateCitizen }) => {
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col font-sans animate-in fade-in bg-stone-100 rounded-xl overflow-hidden border border-stone-300 shadow-2xl">
       {/* HEADER TACTIQUE */}
-      <div className="bg-stone-900 text-stone-300 p-4 flex justify-between items-center border-b border-stone-700 shrink-0">
+      <div className="bg-stone-800 text-stone-300 p-4 flex justify-between items-center border-b border-stone-700 shrink-0">
         <div className="flex items-center gap-4">
           <div className="p-2 bg-stone-800 rounded-lg border border-stone-600">
             <EyeOff size={24} className="text-red-500" />
@@ -181,9 +181,9 @@ const EspionageView = ({ citizens, session, roleInfo, onUpdateCitizen }) => {
       {/* CONTENU PRINCIPAL */}
       <div className="flex flex-1 overflow-hidden">
         {/* COLONNE GAUCHE : LISTE */}
-        <div className="w-1/3 bg-stone-200 border-r border-stone-300 flex flex-col">
+        <div className="w-1/3 bg-stone-50 border-r border-stone-200 flex flex-col">
           {/* Filtres Rapides */}
-          <div className="p-2 flex gap-2 border-b border-stone-300 bg-stone-100">
+          <div className="p-2 flex gap-2 border-b border-stone-200 bg-white">
             <button
               onClick={() => setFilterRisk("ALL")}
               className={`flex-1 py-1 text-[10px] font-black uppercase tracking-wider rounded ${
@@ -222,10 +222,10 @@ const EspionageView = ({ citizens, session, roleInfo, onUpdateCitizen }) => {
               <div
                 key={mail.id}
                 onClick={() => setSelectedMail(mail)}
-                className={`p-4 border-b border-stone-300 cursor-pointer transition-all hover:bg-white group relative ${
+                className={`p-4 border-b border-stone-200 cursor-pointer transition-all hover:bg-white group relative ${
                   selectedMail?.id === mail.id
                     ? "bg-white border-l-4 border-l-stone-800"
-                    : "bg-stone-50/50"
+                    : "bg-white/60"
                 }`}
               >
                 <div className="flex justify-between items-start mb-1">
