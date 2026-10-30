@@ -316,7 +316,6 @@ export const DEFAULT_SCHOOL = {
   clubs: [],
   announcements: [],
   staff: [],
-  currentWeek: 1,
   quizzes: [],
   quizSubmissions: [],
 };
