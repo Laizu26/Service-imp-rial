@@ -113,6 +113,9 @@ const TierListModal = ({ users = [], onClose }) => {
 
   const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [dragOverPos, setDragOverPos] = useState(null); // { tierId, index }
+  const [tierDragging, setTierDragging] = useState(null); // id du rang déplacé
+  const [tierDragOver, setTierDragOver] = useState(null); // id du rang cible
   const [exporting, setExporting] = useState(false);
   const [editingTierId, setEditingTierId] = useState(null);
   const boardRef = useRef(null);
@@ -178,6 +181,21 @@ const TierListModal = ({ users = [], onClose }) => {
     try { localStorage.removeItem(LS_ACTIVE); } catch {}
   };
 
+  const handleTierReorder = (toId) => {
+    if (!tierDragging || tierDragging === toId) { setTierDragging(null); setTierDragOver(null); return; }
+    setTiers((ts) => {
+      const fromIdx = ts.findIndex((t) => t.id === tierDragging);
+      const toIdx = ts.findIndex((t) => t.id === toId);
+      if (fromIdx === -1 || toIdx === -1) return ts;
+      const next = [...ts];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+    setTierDragging(null);
+    setTierDragOver(null);
+  };
+
   const renameTier = (id, label) => setTiers((ts) => ts.map((t) => t.id === id ? { ...t, label } : t));
   const recolorTier = (id, color) => setTiers((ts) => ts.map((t) => t.id === id ? { ...t, color } : t));
   const addTier = () => setTiers((ts) => [...ts, { id: `tier_${Date.now()}`, label: "?", color: "#6b7280", chars: [] }]);
@@ -190,16 +208,48 @@ const TierListModal = ({ users = [], onClose }) => {
   const getUser = useCallback((id) => users.find((u) => u.id === id), [users]);
 
   const handleDragStart = (userId, from) => setDragging({ userId, from });
+
   const handleDrop = (to) => {
     if (!dragging) return;
     const { userId, from } = dragging;
-    if (from === to) { setDragging(null); setDragOver(null); return; }
-    if (from === "pool") setPool((p) => p.filter((id) => id !== userId));
-    else setTiers((ts) => ts.map((t) => t.id === from ? { ...t, chars: t.chars.filter((id) => id !== userId) } : t));
-    if (to === "pool") setPool((p) => [...p, userId]);
-    else setTiers((ts) => ts.map((t) => t.id === to ? { ...t, chars: [...t.chars, userId] } : t));
+    const pos = dragOverPos;
     setDragging(null);
     setDragOver(null);
+    setDragOverPos(null);
+
+    if (from === to) {
+      if (from === "pool") return;
+      // Reorder within same tier
+      setTiers((ts) => ts.map((t) => {
+        if (t.id !== to) return t;
+        const withoutUser = t.chars.filter((id) => id !== userId);
+        const origIdx = t.chars.indexOf(userId);
+        let insertIdx = pos?.tierId === to ? pos.index : withoutUser.length;
+        if (origIdx < insertIdx) insertIdx--;
+        insertIdx = Math.max(0, Math.min(insertIdx, withoutUser.length));
+        const chars = [...withoutUser];
+        chars.splice(insertIdx, 0, userId);
+        return { ...t, chars };
+      }));
+      return;
+    }
+
+    // Remove from source
+    if (from === "pool") setPool((p) => p.filter((id) => id !== userId));
+    else setTiers((ts) => ts.map((t) => t.id === from ? { ...t, chars: t.chars.filter((id) => id !== userId) } : t));
+
+    // Add to destination
+    if (to === "pool") {
+      setPool((p) => [...p, userId]);
+    } else {
+      setTiers((ts) => ts.map((t) => {
+        if (t.id !== to) return t;
+        const chars = [...t.chars];
+        const insertIdx = pos?.tierId === to ? Math.min(pos.index, chars.length) : chars.length;
+        chars.splice(insertIdx, 0, userId);
+        return { ...t, chars };
+      }));
+    }
   };
 
   const handleExport = async () => {
@@ -381,16 +431,36 @@ const TierListModal = ({ users = [], onClose }) => {
             return (
               <div
                 key={tier.id}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(tier.id); }}
-                onDragLeave={() => setDragOver(null)}
-                onDrop={() => handleDrop(tier.id)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (tierDragging) {
+                    setTierDragOver(tier.id);
+                  } else {
+                    setDragOver(tier.id);
+                    if (!dragOverPos || dragOverPos.tierId !== tier.id) setDragOverPos({ tierId: tier.id, index: tier.chars.length });
+                  }
+                }}
+                onDragLeave={() => { setDragOver(null); setDragOverPos(null); setTierDragOver(null); }}
+                onDrop={() => tierDragging ? handleTierReorder(tier.id) : handleDrop(tier.id)}
                 className="flex items-stretch gap-0 rounded-xl overflow-hidden border transition-all duration-150 group/row"
                 style={{
-                  borderColor: isOver ? tier.color : "rgba(255,255,255,0.06)",
-                  boxShadow: isOver ? `0 0 0 1px ${tier.color}40, 0 4px 20px ${colorToGlow(tier.color)}` : "0 1px 3px rgba(0,0,0,0.3)",
+                  borderColor: tierDragOver === tier.id ? "#ffffff55" : isOver ? tier.color : "rgba(255,255,255,0.06)",
+                  boxShadow: tierDragOver === tier.id ? "0 0 0 2px #ffffff22" : isOver ? `0 0 0 1px ${tier.color}40, 0 4px 20px ${colorToGlow(tier.color)}` : "0 1px 3px rgba(0,0,0,0.3)",
                   transform: isOver ? "scale(1.005)" : "scale(1)",
+                  opacity: tierDragging === tier.id ? 0.35 : 1,
                 }}
               >
+                {/* Grip handle — réordonne les rangs */}
+                <div
+                  draggable
+                  onDragStart={(e) => { e.stopPropagation(); setTierDragging(tier.id); }}
+                  onDragEnd={() => { setTierDragging(null); setTierDragOver(null); }}
+                  className="w-6 shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-stone-700 hover:text-stone-400 bg-stone-900/40 opacity-0 group-hover/row:opacity-100 transition-all"
+                  title="Déplacer ce rang"
+                >
+                  <GripVertical size={12} />
+                </div>
+
                 {/* Color swatch — clickable */}
                 <div
                   className="w-2 shrink-0 cursor-pointer transition-all hover:brightness-125 hover:w-3"
@@ -443,22 +513,42 @@ const TierListModal = ({ users = [], onClose }) => {
 
                 {/* Drop zone */}
                 <div
-                  className="flex-1 flex flex-wrap gap-2 p-2.5 min-h-[80px] transition-colors"
+                  className="flex-1 flex flex-wrap items-center gap-1 p-2.5 min-h-[80px] transition-colors"
                   style={{ backgroundColor: isOver ? `${tier.color}15` : colorToBg(tier.color) }}
                 >
-                  {tier.chars.map((id) => {
+                  {tier.chars.map((id, idx) => {
                     const u = getUser(id);
                     if (!u) return null;
+                    const insertBefore = dragOverPos?.tierId === tier.id && dragOverPos?.index === idx;
+                    const insertAfter = dragOverPos?.tierId === tier.id && dragOverPos?.index === idx + 1 && idx === tier.chars.length - 1;
                     return (
-                      <CharCard
-                        key={id}
-                        user={u}
-                        small
-                        draggable
-                        isDragging={dragging?.userId === id}
-                        onDragStart={() => handleDragStart(id, tier.id)}
-                        onDragEnd={() => { setDragging(null); setDragOver(null); }}
-                      />
+                      <React.Fragment key={id}>
+                        {insertBefore && (
+                          <div className="w-0.5 self-stretch rounded-full mx-0.5 shrink-0" style={{ background: tier.color, boxShadow: `0 0 6px ${tier.color}` }} />
+                        )}
+                        <div
+                          onDragStart={(e) => e.stopPropagation()}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOver(tier.id);
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setDragOverPos({ tierId: tier.id, index: e.clientX < rect.left + rect.width / 2 ? idx : idx + 1 });
+                          }}
+                        >
+                          <CharCard
+                            user={u}
+                            small
+                            draggable
+                            isDragging={dragging?.userId === id}
+                            onDragStart={() => handleDragStart(id, tier.id)}
+                            onDragEnd={() => { setDragging(null); setDragOver(null); setDragOverPos(null); }}
+                          />
+                        </div>
+                        {insertAfter && (
+                          <div className="w-0.5 self-stretch rounded-full mx-0.5 shrink-0" style={{ background: tier.color, boxShadow: `0 0 6px ${tier.color}` }} />
+                        )}
+                      </React.Fragment>
                     );
                   })}
                   {tier.chars.length === 0 && (
