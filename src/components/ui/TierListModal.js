@@ -43,10 +43,16 @@ const TierListModal = ({ users = [], onClose }) => {
   const [pool, setPool] = useState(() =>
     (users || []).filter((u) => u.name || u.id).map((u) => u.id)
   );
-  const [dragging, setDragging] = useState(null); // { userId, from: "pool"|tierId }
+  const [dragging, setDragging] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [title, setTitle] = useState("Service Impérial — Tier List");
+  const [editingTierId, setEditingTierId] = useState(null);
+  const [zoom, setZoom] = useState(100);
   const boardRef = useRef(null);
+
+  const renameTier = (id, newLabel) =>
+    setTiers((ts) => ts.map((t) => t.id === id ? { ...t, label: newLabel } : t));
 
   const getUser = useCallback((id) => users.find((u) => u.id === id), [users]);
 
@@ -109,6 +115,11 @@ const TierListModal = ({ users = [], onClose }) => {
           <span className="text-[8px] text-stone-600 italic">Glisse les personnages dans les rangs</span>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-stone-800 border border-stone-700 rounded-lg px-2 py-1">
+            <button onClick={() => setZoom((z) => Math.max(50, z - 10))} className="text-stone-400 hover:text-white text-xs font-black w-5 h-5 flex items-center justify-center">−</button>
+            <span className="text-[9px] font-black text-stone-400 w-8 text-center">{zoom}%</span>
+            <button onClick={() => setZoom((z) => Math.min(200, z + 10))} className="text-stone-400 hover:text-white text-xs font-black w-5 h-5 flex items-center justify-center">+</button>
+          </div>
           <button
             onClick={handleReset}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-[9px] font-black uppercase tracking-wide transition-colors"
@@ -134,9 +145,14 @@ const TierListModal = ({ users = [], onClose }) => {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {/* Tier board — captured for export */}
-        <div ref={boardRef} className="rounded-xl overflow-hidden border border-stone-800 bg-stone-900 p-3 space-y-1">
-          <div className="text-[8px] font-black uppercase tracking-[0.3em] text-stone-600 text-center pb-2">
-            ⚔️ Service Impérial — Tier List
+        <div ref={boardRef} className="rounded-xl overflow-hidden border border-stone-800 bg-stone-900 p-3 space-y-1" style={{ fontSize: `${zoom}%` }}>
+          <div className="text-center pb-2">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="bg-transparent text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 text-center outline-none border-b border-transparent hover:border-stone-600 focus:border-stone-500 transition-colors w-full max-w-xs"
+              placeholder="Nom de la tier list"
+            />
           </div>
           {tiers.map((tier) => (
             <div
@@ -146,12 +162,30 @@ const TierListModal = ({ users = [], onClose }) => {
               onDrop={() => handleDrop(tier.id)}
               className={`flex items-stretch gap-0 rounded-lg overflow-hidden border transition-all ${dragOver === tier.id ? "border-white/30 scale-[1.01]" : "border-stone-700/50"}`}
             >
-              {/* Tier label */}
+              {/* Tier label — click to rename */}
               <div
-                className="w-12 shrink-0 flex items-center justify-center font-black text-xl"
+                className="w-12 shrink-0 flex items-center justify-center font-black text-xl cursor-pointer relative group"
                 style={{ backgroundColor: tier.color, color: "#fff" }}
+                onClick={() => setEditingTierId(editingTierId === tier.id ? null : tier.id)}
+                title="Cliquer pour renommer"
               >
-                {tier.label}
+                {editingTierId === tier.id ? (
+                  <input
+                    autoFocus
+                    value={tier.label}
+                    onChange={(e) => renameTier(tier.id, e.target.value)}
+                    onBlur={() => setEditingTierId(null)}
+                    onKeyDown={(e) => e.key === "Enter" && setEditingTierId(null)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-10 text-center bg-transparent outline-none font-black text-xl text-white placeholder:text-white/50"
+                    maxLength={6}
+                  />
+                ) : (
+                  <>
+                    {tier.label}
+                    <span className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[8px] tracking-wide">✎</span>
+                  </>
+                )}
               </div>
               {/* Chars drop zone */}
               <div
