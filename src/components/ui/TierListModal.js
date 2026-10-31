@@ -69,9 +69,10 @@ const CharCard = ({ user, draggable, onDragStart, onDragEnd, small, isDragging }
       )}
     </div>
     <div
-      className={`text-center mt-1 leading-tight font-bold text-stone-300 uppercase tracking-wide truncate px-0.5 w-full ${
-        small ? "text-[7px]" : "text-[8px]"
+      className={`text-center mt-1.5 leading-tight font-bold text-white uppercase tracking-wide truncate px-0.5 w-full ${
+        small ? "text-[9px]" : "text-[11px]"
       }`}
+      style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}
     >
       {user.name || user.id}
     </div>
