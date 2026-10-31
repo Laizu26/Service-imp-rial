@@ -323,18 +323,20 @@ const RegistryView = ({
             <div className="flex justify-between items-start mb-10 border-b-4 border-stone-800 pb-6 font-serif">
               <div className="flex items-center gap-6">
                 {editForm?.avatarUrl || selected?.avatarUrl ? (
-                  <img
-                    src={editForm?.avatarUrl || selected?.avatarUrl}
-                    className="w-24 h-24 rounded-xl object-cover border-4 border-stone-800 shadow-lg"
-                    style={{
-                      objectPosition: editForm?.avatarPosition || selected?.avatarPosition || "50% 50%",
-                      transform: `scale(${editForm?.avatarZoom || selected?.avatarZoom || 1})`,
-                      transformOrigin: editForm?.avatarPosition || selected?.avatarPosition || "50% 50%",
-                    }}
-                    alt=""
-                  />
+                  <div className="w-24 h-24 rounded-xl overflow-hidden border-4 border-stone-800 shadow-lg shrink-0">
+                    <img
+                      src={editForm?.avatarUrl || selected?.avatarUrl}
+                      className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: editForm?.avatarPosition || selected?.avatarPosition || "50% 50%",
+                        transform: `scale(${editForm?.avatarZoom || selected?.avatarZoom || 1})`,
+                        transformOrigin: editForm?.avatarPosition || selected?.avatarPosition || "50% 50%",
+                      }}
+                      alt=""
+                    />
+                  </div>
                 ) : (
-                  <div className="w-24 h-24 rounded-xl bg-stone-200 flex items-center justify-center border-4 border-stone-300">
+                  <div className="w-24 h-24 rounded-xl bg-stone-200 flex items-center justify-center border-4 border-stone-300 shrink-0">
                     <User size={48} className="text-stone-400" />
                   </div>
                 )}
