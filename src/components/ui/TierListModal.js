@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { toPng } from "html-to-image";
+import html2canvas from "html2canvas";
 import { X, Download, RotateCcw, Plus, Trash2, Save, FolderOpen, Check, GripVertical } from "lucide-react";
 
 const DEFAULT_TIERS = [
@@ -264,19 +264,46 @@ const TierListModal = ({ users = [], onClose }) => {
   const handleExport = async () => {
     if (!boardRef.current) return;
     setExporting(true);
+
+    // Pré-convertir les images en data URL (bypass CORS canvas taint)
+    // On mute le DOM live — React ne re-render pas sur mutation DOM brute
+    const imgs = Array.from(boardRef.current.querySelectorAll("img"));
+    const origSrcs = new Map();
+    await Promise.allSettled(imgs.map(async (img) => {
+      origSrcs.set(img, img.src);
+      try {
+        const res = await fetch(img.src);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const dataUrl = await new Promise((ok) => {
+          const reader = new FileReader();
+          reader.onload = () => ok(reader.result);
+          reader.readAsDataURL(blob);
+        });
+        img.src = dataUrl;
+        if (!img.complete) await new Promise((ok) => { img.onload = ok; img.onerror = ok; setTimeout(ok, 1500); });
+      } catch { /* garde l'image originale */ }
+    }));
+
     try {
-      const dataUrl = await toPng(boardRef.current, {
+      const canvas = await html2canvas(boardRef.current, {
         backgroundColor: "#0c0a09",
-        pixelRatio: 2,
-        cacheBust: true,
+        scale: 2,
+        allowTaint: true,
+        useCORS: false,
+        imageTimeout: 0,
+        logging: false,
       });
       const link = document.createElement("a");
       link.download = `${title.replace(/\s+/g, "-").toLowerCase()}.png`;
-      link.href = dataUrl;
+      link.href = canvas.toDataURL("image/png");
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (e) { console.error("Export error:", e); }
+
+    // Restaurer les src originaux
+    origSrcs.forEach((src, img) => { img.src = src; });
     setExporting(false);
   };
 
