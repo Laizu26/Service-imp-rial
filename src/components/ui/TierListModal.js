@@ -261,29 +261,65 @@ const TierListModal = ({ users = [], onClose }) => {
     }
   };
 
+  // Génère un carré stone avec l'initiale — utilisé quand l'image est inaccessible en CORS
+  const makeInitialDataUrl = (text) => {
+    const initial = (text || "?")[0].toUpperCase();
+    const s = 112;
+    const c = document.createElement("canvas");
+    c.width = c.height = s;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#44403c";
+    ctx.fillRect(0, 0, s, s);
+    ctx.fillStyle = "#e7e5e4";
+    ctx.font = `bold ${Math.round(s * 0.5)}px system-ui,sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(initial, s / 2, s / 2);
+    return c.toDataURL();
+  };
+
   const handleExport = async () => {
     if (!boardRef.current) return;
     setExporting(true);
 
-    // Avant la capture, forcer crossOrigin sur tous les img pour que html2canvas
-    // puisse les recharger avec CORS (Firebase Storage sert Access-Control-Allow-Origin: *).
+    // Tenter de charger chaque image avec crossOrigin="anonymous".
+    // Firebase Storage sert des headers CORS → data URL réelle.
+    // Pinterest/autres sans CORS → fallback initiale (meilleur que carré noir).
     const imgs = Array.from(boardRef.current.querySelectorAll("img"));
-    const origCO = new Map();
-    imgs.forEach((img) => {
-      origCO.set(img, img.crossOrigin);
-      if (!img.crossOrigin) img.crossOrigin = "anonymous";
+    const origSrcs = new Map();
+
+    const tryDataUrl = (src) => new Promise((resolve) => {
+      const tmp = new Image();
+      tmp.crossOrigin = "anonymous";
+      const timer = setTimeout(() => resolve(null), 8000);
+      tmp.onload = () => {
+        clearTimeout(timer);
+        try {
+          const c = document.createElement("canvas");
+          c.width = tmp.naturalWidth || 112;
+          c.height = tmp.naturalHeight || 112;
+          c.getContext("2d").drawImage(tmp, 0, 0);
+          resolve(c.toDataURL());
+        } catch { resolve(null); }
+      };
+      tmp.onerror = () => { clearTimeout(timer); resolve(null); };
+      tmp.src = src;
     });
 
-    // Petit délai pour laisser le navigateur initier les requêtes CORS si nécessaire
-    await new Promise((r) => setTimeout(r, 100));
+    await Promise.allSettled(imgs.map(async (img) => {
+      origSrcs.set(img, img.src);
+      const dataUrl = await tryDataUrl(img.src);
+      img.src = dataUrl || makeInitialDataUrl(img.alt);
+      if (!img.complete) await new Promise((r) => { img.onload = r; img.onerror = r; setTimeout(r, 500); });
+    }));
 
     try {
       const canvas = await html2canvas(boardRef.current, {
         backgroundColor: "#0c0a09",
         scale: 2,
-        useCORS: true,
         allowTaint: false,
-        imageTimeout: 15000,
+        useCORS: false,
+        imageTimeout: 0,
         logging: false,
       });
       const link = document.createElement("a");
@@ -294,7 +330,7 @@ const TierListModal = ({ users = [], onClose }) => {
       document.body.removeChild(link);
     } catch (e) { console.error("Export error:", e); }
 
-    origCO.forEach((co, img) => { img.crossOrigin = co || null; });
+    origSrcs.forEach((src, img) => { img.src = src; });
     setExporting(false);
   };
 
