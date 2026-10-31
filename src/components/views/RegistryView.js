@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Card from "../ui/Card";
 import SecureDeleteButton from "../ui/SecureDeleteButton";
+import AvatarEditor from "../ui/AvatarEditor";
 import { ROLES, BASE_STATUSES, MARRIAGE_CONTRACT_TYPES } from "../../lib/constants";
 import { getCitizenAge, ageToBirthDate, formatRPDate, formatMoney } from "../../lib/gameUtils";
 
@@ -325,6 +326,11 @@ const RegistryView = ({
                   <img
                     src={editForm?.avatarUrl || selected?.avatarUrl}
                     className="w-24 h-24 rounded-xl object-cover border-4 border-stone-800 shadow-lg"
+                    style={{
+                      objectPosition: editForm?.avatarPosition || selected?.avatarPosition || "50% 50%",
+                      transform: `scale(${editForm?.avatarZoom || selected?.avatarZoom || 1})`,
+                      transformOrigin: editForm?.avatarPosition || selected?.avatarPosition || "50% 50%",
+                    }}
                     alt=""
                   />
                 ) : (
@@ -441,35 +447,12 @@ const RegistryView = ({
                 <Card title="Dossier Civil" icon={User}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Portrait */}
-                    <div className="col-span-1 md:col-span-2 space-y-1">
-                      <label className="text-[10px] font-bold text-stone-400 uppercase block tracking-widest ml-1 font-sans">
-                        Portrait (URL)
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          className="w-full p-3 border-2 border-stone-200 rounded-xl bg-white outline-none shadow-sm focus:border-stone-800 transition-all font-bold"
-                          value={editForm.avatarUrl || ""}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              avatarUrl: e.target.value,
-                            })
-                          }
-                          placeholder="https://..."
-                        />
-                        <div className="w-12 h-12 bg-stone-100 rounded-lg flex-shrink-0 border border-stone-200 overflow-hidden flex items-center justify-center">
-                          {editForm.avatarUrl ? (
-                            <img
-                              src={editForm.avatarUrl}
-                              className="w-full h-full object-cover"
-                              alt=""
-                              onError={(e) => (e.target.style.display = "none")}
-                            />
-                          ) : (
-                            <ImageIcon size={20} className="text-stone-300" />
-                          )}
-                        </div>
-                      </div>
+                    <div className="col-span-1 md:col-span-2">
+                      <AvatarEditor
+                        value={{ url: editForm.avatarUrl || "", position: editForm.avatarPosition || "50% 50%", zoom: editForm.avatarZoom || 1 }}
+                        onChange={(v) => setEditForm({ ...editForm, avatarUrl: v.url, avatarPosition: v.position, avatarZoom: v.zoom })}
+                        shape="circle"
+                      />
                     </div>
 
                     {/* Prénom + Nom de famille */}

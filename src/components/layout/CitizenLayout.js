@@ -64,6 +64,7 @@ import {
 import NotificationCenter from "../ui/NotificationCenter";
 import { TabErrorBoundary } from "../ui/ErrorBoundary";
 import Avatar from "../ui/Avatar";
+import AvatarEditor from "../ui/AvatarEditor";
 import MagicResonanceModal from "../ui/MagicResonanceModal";
 import { ROLES, MARRIAGE_CONTRACT_TYPES, DEFAULT_SCHOOL } from "../../lib/constants";
 import { getCitizenAge, formatRPDate, formatRPDateWithDay, getDayOfWeek, formatMoney, getRoleTheme, logEntryColor, logEntrySign, logEntryIsPositive, getActiveStaffLoan } from "../../lib/gameUtils";
@@ -872,7 +873,7 @@ const CitizenLayout = (props) => {
   // Formulaires (avec valeurs par défaut vides)
   const [editOccupation, setEditOccupation] = useState("");
   const [editBio, setEditBio] = useState("");
-  const [editAvatar, setEditAvatar] = useState("");
+  const [editAvatar, setEditAvatar] = useState({ url: "", position: "50% 50%", zoom: 1 });
   const [editMotto, setEditMotto] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editReligion, setEditReligion] = useState("");
@@ -915,7 +916,7 @@ const CitizenLayout = (props) => {
     if (user) {
       setEditOccupation(user.occupation || "");
       setEditBio(user.bio || "");
-      setEditAvatar(user.avatarUrl || "");
+      setEditAvatar({ url: user.avatarUrl || "", position: user.avatarPosition || "50% 50%", zoom: user.avatarZoom || 1 });
       setEditMotto(user.motto || "");
       setEditTitle(user.title || "");
       setEditReligion(user.religion || "");
@@ -2445,11 +2446,16 @@ const CitizenLayout = (props) => {
                     {/* Avatar preview */}
                     <div className="shrink-0">
                       <div className={`w-32 h-32 rounded-xl border-4 ${theme.border} bg-stone-100 overflow-hidden shadow-lg`}>
-                        {(editAvatar || user.avatarUrl) ? (
+                        {(editAvatar.url || user.avatarUrl) ? (
                           <img
-                            src={editAvatar || user.avatarUrl}
+                            src={editAvatar.url || user.avatarUrl}
                             className="w-full h-full object-cover"
                             alt="Portrait"
+                            style={{
+                              objectPosition: editAvatar.url ? editAvatar.position : (user.avatarPosition || "50% 50%"),
+                              transform: `scale(${editAvatar.url ? editAvatar.zoom : (user.avatarZoom || 1)})`,
+                              transformOrigin: editAvatar.url ? editAvatar.position : (user.avatarPosition || "50% 50%"),
+                            }}
                             onError={(e) => { e.target.style.display = "none"; }}
                           />
                         ) : (
@@ -2622,13 +2628,7 @@ const CitizenLayout = (props) => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
                     <div>
-                      <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Portrait (URL)</span>
-                      <input
-                        className="w-full bg-stone-50 border-b-2 border-stone-300 font-bold text-stone-800 outline-none p-1.5 text-sm"
-                        value={editAvatar}
-                        onChange={(e) => setEditAvatar(e.target.value)}
-                        placeholder="https://..."
-                      />
+                      <AvatarEditor value={editAvatar} onChange={setEditAvatar} shape="circle" />
                     </div>
                     <div>
                       <span className="block text-stone-400 uppercase font-bold text-[9px] mb-1 tracking-widest">Occupation</span>
@@ -2692,7 +2692,9 @@ const CitizenLayout = (props) => {
                         ...user,
                         occupation: editOccupation,
                         bio: editBio,
-                        avatarUrl: editAvatar,
+                        avatarUrl: editAvatar.url,
+                        avatarPosition: editAvatar.position,
+                        avatarZoom: editAvatar.zoom,
                         motto: editMotto,
                         title: editTitle,
                         religion: editReligion,
