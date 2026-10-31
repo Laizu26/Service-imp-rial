@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import { X, Download, RotateCcw, Plus, Trash2, Save, FolderOpen, Check, GripVertical } from "lucide-react";
 
 const DEFAULT_TIERS = [
@@ -255,49 +255,19 @@ const TierListModal = ({ users = [], onClose }) => {
   const handleExport = async () => {
     if (!boardRef.current) return;
     setExporting(true);
-    let clone = null;
     try {
-      // Cloner hors de React pour ne pas déclencher de re-render
-      clone = boardRef.current.cloneNode(true);
-      clone.style.cssText = "position:fixed;top:-9999px;left:-9999px;z-index:-1;";
-      document.body.appendChild(clone);
-
-      // Convertir les images du clone en data URL (bypass taint CORS)
-      await Promise.allSettled(
-        Array.from(clone.querySelectorAll("img")).map(async (img) => {
-          try {
-            const res = await fetch(img.src);
-            if (!res.ok) return;
-            const blob = await res.blob();
-            img.src = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.readAsDataURL(blob);
-            });
-          } catch { }
-        })
-      );
-
-      // Laisser le navigateur traiter les nouvelles src
-      await new Promise((ok) => setTimeout(ok, 150));
-
-      const canvas = await html2canvas(clone, {
+      const dataUrl = await toPng(boardRef.current, {
         backgroundColor: "#0c0a09",
-        scale: 2,
-        allowTaint: true,
-        useCORS: false,
-        imageTimeout: 15000,
-        logging: false,
+        pixelRatio: 2,
+        cacheBust: true,
       });
-
       const link = document.createElement("a");
       link.download = `${title.replace(/\s+/g, "-").toLowerCase()}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (e) { console.error("Export error:", e); }
-    if (clone) document.body.removeChild(clone);
     setExporting(false);
   };
 
@@ -511,7 +481,7 @@ const TierListModal = ({ users = [], onClose }) => {
 
                 {/* Label */}
                 <div
-                  className="w-14 shrink-0 flex items-center justify-center cursor-pointer relative group/label"
+                  className="min-w-[56px] px-2 shrink-0 flex items-center justify-center cursor-pointer relative group/label"
                   style={{ background: `linear-gradient(135deg, ${tier.color}dd, ${tier.color}99)` }}
                   onClick={() => setEditingTierId(editingTierId === tier.id ? null : tier.id)}
                 >
@@ -523,7 +493,7 @@ const TierListModal = ({ users = [], onClose }) => {
                       onBlur={() => setEditingTierId(null)}
                       onKeyDown={(e) => e.key === "Enter" && setEditingTierId(null)}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-10 text-center bg-transparent outline-none font-black text-2xl text-white"
+                      className="min-w-[40px] w-full text-center bg-transparent outline-none font-black text-2xl text-white"
                       maxLength={8}
                       style={{ textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}
                     />
