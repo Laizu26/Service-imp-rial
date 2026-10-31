@@ -261,54 +261,29 @@ const TierListModal = ({ users = [], onClose }) => {
     }
   };
 
-  // Génère un carré stone avec l'initiale — fallback export quand fetch échoue
-  const makeInitialDataUrl = (text) => {
-    const initial = (text || "?")[0].toUpperCase();
-    const s = 112;
-    const c = document.createElement("canvas");
-    c.width = c.height = s;
-    const ctx = c.getContext("2d");
-    ctx.fillStyle = "#44403c";
-    ctx.fillRect(0, 0, s, s);
-    ctx.fillStyle = "#e7e5e4";
-    ctx.font = `bold ${Math.round(s * 0.5)}px system-ui,sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(initial, s / 2, s / 2);
-    return c.toDataURL();
-  };
-
   const handleExport = async () => {
     if (!boardRef.current) return;
     setExporting(true);
 
-    // Pré-convertir les images en data URL (canvas ne peut pas exporter si tainted).
-    // Succès → image réelle ; échec (CORS Firebase) → initiale sur fond stone (comme l'UI).
+    // Avant la capture, forcer crossOrigin sur tous les img pour que html2canvas
+    // puisse les recharger avec CORS (Firebase Storage sert Access-Control-Allow-Origin: *).
     const imgs = Array.from(boardRef.current.querySelectorAll("img"));
-    const origSrcs = new Map();
-    await Promise.allSettled(imgs.map(async (img) => {
-      origSrcs.set(img, img.src);
-      try {
-        const res = await fetch(img.src);
-        if (!res.ok) { img.src = makeInitialDataUrl(img.alt); return; }
-        const blob = await res.blob();
-        const dataUrl = await new Promise((ok) => {
-          const reader = new FileReader();
-          reader.onload = () => ok(reader.result);
-          reader.readAsDataURL(blob);
-        });
-        img.src = dataUrl;
-        if (!img.complete) await new Promise((ok) => { img.onload = ok; img.onerror = ok; setTimeout(ok, 1500); });
-      } catch { img.src = makeInitialDataUrl(img.alt); }
-    }));
+    const origCO = new Map();
+    imgs.forEach((img) => {
+      origCO.set(img, img.crossOrigin);
+      if (!img.crossOrigin) img.crossOrigin = "anonymous";
+    });
+
+    // Petit délai pour laisser le navigateur initier les requêtes CORS si nécessaire
+    await new Promise((r) => setTimeout(r, 100));
 
     try {
       const canvas = await html2canvas(boardRef.current, {
         backgroundColor: "#0c0a09",
         scale: 2,
+        useCORS: true,
         allowTaint: false,
-        useCORS: false,
-        imageTimeout: 0,
+        imageTimeout: 15000,
         logging: false,
       });
       const link = document.createElement("a");
@@ -319,8 +294,7 @@ const TierListModal = ({ users = [], onClose }) => {
       document.body.removeChild(link);
     } catch (e) { console.error("Export error:", e); }
 
-    // Restaurer les src originaux
-    origSrcs.forEach((src, img) => { img.src = src; });
+    origCO.forEach((co, img) => { img.crossOrigin = co || null; });
     setExporting(false);
   };
 
