@@ -265,15 +265,17 @@ const TierListModal = ({ users = [], onClose }) => {
     if (!boardRef.current) return;
     setExporting(true);
 
-    // Pré-convertir les images en data URL (bypass CORS canvas taint)
-    // On mute le DOM live — React ne re-render pas sur mutation DOM brute
+    // Pré-convertir les images en data URL pour éviter le taint du canvas.
+    // Les images dont le fetch échoue reçoivent un pixel transparent —
+    // allowTaint: false garantit que toDataURL() ne lève pas de SecurityError.
+    const TRANSPARENT = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
     const imgs = Array.from(boardRef.current.querySelectorAll("img"));
     const origSrcs = new Map();
     await Promise.allSettled(imgs.map(async (img) => {
       origSrcs.set(img, img.src);
       try {
         const res = await fetch(img.src);
-        if (!res.ok) return;
+        if (!res.ok) { img.src = TRANSPARENT; return; }
         const blob = await res.blob();
         const dataUrl = await new Promise((ok) => {
           const reader = new FileReader();
@@ -282,14 +284,14 @@ const TierListModal = ({ users = [], onClose }) => {
         });
         img.src = dataUrl;
         if (!img.complete) await new Promise((ok) => { img.onload = ok; img.onerror = ok; setTimeout(ok, 1500); });
-      } catch { /* garde l'image originale */ }
+      } catch { img.src = TRANSPARENT; }
     }));
 
     try {
       const canvas = await html2canvas(boardRef.current, {
         backgroundColor: "#0c0a09",
         scale: 2,
-        allowTaint: true,
+        allowTaint: false,
         useCORS: false,
         imageTimeout: 0,
         logging: false,
