@@ -50,7 +50,16 @@ const CharCard = ({ user, draggable, onDragStart, onDragEnd, small, isDragging }
       style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)" }}
     >
       {user.avatarUrl ? (
-        <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+        <img
+          src={user.avatarUrl}
+          alt={user.name}
+          className="w-full h-full object-cover"
+          style={{
+            objectPosition: user.avatarPosition || "50% 50%",
+            transform: `scale(${user.avatarZoom || 1})`,
+            transformOrigin: user.avatarPosition || "50% 50%",
+          }}
+        />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-700 to-stone-800">
           <span className={`font-black text-stone-200 uppercase ${small ? "text-base" : "text-xl"}`}>
