@@ -282,13 +282,12 @@ const TierListModal = ({ users = [], onClose }) => {
     if (!boardRef.current) return;
     setExporting(true);
 
-    // Tenter de charger chaque image avec crossOrigin="anonymous".
-    // Firebase Storage sert des headers CORS → data URL réelle.
-    // Pinterest/autres sans CORS → fallback initiale (meilleur que carré noir).
     const imgs = Array.from(boardRef.current.querySelectorAll("img"));
     const origSrcs = new Map();
 
-    const tryDataUrl = (src) => new Promise((resolve) => {
+    // Charge une image avec crossOrigin et retourne sa data URL, ou null si bloqué.
+    const loadAsDataUrl = (src) => new Promise((resolve) => {
+      if (!src || src.startsWith("data:")) { resolve(src || null); return; }
       const tmp = new Image();
       tmp.crossOrigin = "anonymous";
       const timer = setTimeout(() => resolve(null), 8000);
@@ -306,9 +305,18 @@ const TierListModal = ({ users = [], onClose }) => {
       tmp.src = src;
     });
 
+    // Pour les images sans CORS (Pinterest, etc.) on passe par wsrv.nl —
+    // un proxy image public qui réexpédie avec Access-Control-Allow-Origin: *.
+    const toDataUrl = async (src) => {
+      const direct = await loadAsDataUrl(src);
+      if (direct) return direct;
+      const proxied = await loadAsDataUrl(`https://wsrv.nl/?url=${encodeURIComponent(src)}&n=-1`);
+      return proxied;
+    };
+
     await Promise.allSettled(imgs.map(async (img) => {
       origSrcs.set(img, img.src);
-      const dataUrl = await tryDataUrl(img.src);
+      const dataUrl = await toDataUrl(img.src);
       img.src = dataUrl || makeInitialDataUrl(img.alt);
       if (!img.complete) await new Promise((r) => { img.onload = r; img.onerror = r; setTimeout(r, 500); });
     }));
