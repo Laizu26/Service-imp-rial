@@ -9708,7 +9708,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       },
 
       // ── MUSHTAGRAM ───────────────────────────────────────────────
-      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly, locked, price, subscribersOnly, postAsEntity }) => {
+      onPostMushtagram: ({ content, imageUrl, hashtags, poll, isOfficial, followersOnly, locked, price, subscribersOnly, postAsEntity, postType, wantedName, wantedReason, wantedReward, eventTag }) => {
         if (!session) return;
         const gd = state.gameDate || { day: 1, month: 1, year: 1200 };
         const dateStr = formatRPDate(gd);
@@ -9770,6 +9770,8 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           subscribersOnly: finalSubscribersOnly,
           ...(poll ? { poll } : {}),
           ...(isOfficial ? { isOfficial: true } : {}),
+          ...(postType ? { postType, wantedName: wantedName || "", wantedReason: wantedReason || "", wantedReward: wantedReward || "" } : {}),
+          ...(eventTag ? { eventTag } : {}),
         };
 
         let newNotifs = state.mushtagramNotifs || [];
