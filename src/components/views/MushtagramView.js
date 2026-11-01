@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   Heart, MessageCircle, Send, Search, Trash2, ArrowLeft,
   X, Edit3, Hash, ImageIcon, AtSign, Plus, Flag, Repeat2,
   UserPlus, UserMinus, VolumeX, Crown, BarChart2, TrendingUp, Pin, Lock, Settings, Bell, Coins, Sparkles, Type,
-  Check, LogOut, Users,
+  Check, LogOut, Users, Bookmark, Timer, Tag, Swords, Shield,
 } from "lucide-react";
 import { ROLES, MUSHTAGRAM_REPORT_REASONS } from "../../lib/constants";
 import { formatMoney, formatRPDate } from "../../lib/gameUtils";
@@ -452,6 +452,13 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
               </span>
             ) : null}
           </div>
+          {citizen.coatOfArms && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-stone-400 font-bold shrink-0">Blason :</span>
+              <img src={citizen.coatOfArms} alt="Blason" className="h-10 w-10 object-contain rounded border border-stone-200 bg-stone-50"
+                onError={e => { e.target.style.display = "none"; }} />
+            </div>
+          )}
           {citizen.mushtagramBio && (
             <p className="text-sm text-stone-600 mt-2 leading-relaxed whitespace-pre-wrap">{citizen.mushtagramBio}</p>
           )}
@@ -463,6 +470,17 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
             <button onClick={() => onOpenFollowList("following")} className="hover:text-rose-600 transition-colors">
               <strong className="text-stone-700">{followingCount}</strong> abonnement{followingCount !== 1 ? "s" : ""}
             </button>
+            {(() => {
+              const totalLikes = (posts || []).filter(p => String(p.authorId) === citizenId).reduce((s, p) => s + (p.likes || []).length, 0);
+              const honor = Math.floor(totalLikes / 10);
+              if (honor === 0) return null;
+              return (
+                <span title="Points d'honneur (1 pour 10 likes reçus)">
+                  <Shield size={10} className="inline text-amber-500 mr-0.5" />
+                  <strong className="text-amber-600">{honor}</strong> honneur{honor !== 1 ? "s" : ""}
+                </span>
+              );
+            })()}
           </div>
 
           {/* Cercle privé — paliers d'abonnement payant */}
@@ -540,6 +558,26 @@ function ProfileModal({ citizen, myId, myFollowing, posts, citizens, onFollow, o
 
 function StoryViewer({ stories, startIndex = 0, myId, isAdmin, citizens, onDelete, onLike, onClose }) {
   const [index, setIndex] = useState(Math.min(startIndex, Math.max(0, (stories || []).length - 1)));
+  const [progress, setProgress] = useState(0);
+
+  const storyCount = (stories || []).length;
+  const goNext = useCallback(() => {
+    if (index < storyCount - 1) setIndex(i => i + 1); else onClose();
+  }, [index, storyCount, onClose]);
+
+  useEffect(() => {
+    if (!stories || stories.length === 0) return;
+    setProgress(0);
+    const start = Date.now();
+    const DURATION = 5000;
+    const tick = setInterval(() => {
+      const pct = Math.min(100, ((Date.now() - start) / DURATION) * 100);
+      setProgress(pct);
+      if (pct >= 100) { clearInterval(tick); goNext(); }
+    }, 50);
+    return () => clearInterval(tick);
+  }, [index, goNext]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!stories || stories.length === 0) return null;
   const story = stories[index];
   if (!story) return null;
@@ -549,7 +587,6 @@ function StoryViewer({ stories, startIndex = 0, myId, isAdmin, citizens, onDelet
   const isLiked = (story.likes || []).map(String).includes(myId);
   const likeCount = (story.likes || []).length;
 
-  const goNext = () => { if (index < stories.length - 1) setIndex(i => i + 1); else onClose(); };
   const goPrev = () => { if (index > 0) setIndex(i => i - 1); };
 
   return (
@@ -564,11 +601,13 @@ function StoryViewer({ stories, startIndex = 0, myId, isAdmin, citizens, onDelet
         }}
         onClick={e => e.stopPropagation()}>
 
-        {/* Progress bar — un segment par story de la pile */}
+        {/* Progress bar — un segment par story de la pile, animé sur la courante */}
         <div className="absolute top-2 left-2 right-2 z-10 flex gap-1">
           {stories.map((s, i) => (
             <div key={s.id} className="flex-1 h-0.5 rounded-full bg-white/25 overflow-hidden">
-              <div className={`h-full bg-white transition-all ${i <= index ? "w-full" : "w-0"}`} />
+              <div className="h-full bg-white" style={{
+                width: i < index ? "100%" : i === index ? `${progress}%` : "0%",
+              }} />
             </div>
           ))}
         </div>
@@ -901,6 +940,8 @@ function PostCard({
   mySubscriptions, onUnlock,
   recognizedEruditIds,
   myEntityAuthorIds,
+  onBookmark,
+  savedPostIds,
 }) {
   const [replyingTo, setReplyingTo] = React.useState(null); // { commentId, authorName }
   // null | { type: "post" } | { type: "comment", commentId }
@@ -952,7 +993,7 @@ function PostCard({
       {/* Official banner */}
       {isOfficial && (
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200">
-          <Crown size={13} className="text-amber-500" />
+          <Crown size={13} className="text-amber-500 animate-pulse" />
           <span className="text-[10px] font-black uppercase tracking-widest text-amber-700">Proclamation Officielle</span>
         </div>
       )}
@@ -1037,6 +1078,11 @@ function PostCard({
                 {post.authorType === "guild" ? "🏛️ Guilde" : "🏢 Entreprise"}
               </span>
             )}
+            {post.eventTag && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5">
+                <Tag size={8} /> {post.eventTag}
+              </span>
+            )}
             {!isMe && !isFollowing && !showAnon && (
               <button onClick={() => onFollow(authorId)}
                 className="text-[9px] font-black text-rose-500 hover:text-rose-700 transition-colors ml-1 flex items-center gap-0.5">
@@ -1116,6 +1162,24 @@ function PostCard({
         </div>
       ) : (
         <>
+          {/* Wanted poster */}
+          {post.postType === "wanted" && (
+            <div className="mx-4 mb-3 bg-amber-50 border-2 border-amber-700 rounded-xl p-4 text-center space-y-2">
+              <div className="text-[9px] font-black uppercase tracking-widest text-amber-900 flex items-center justify-center gap-1.5 border-b border-amber-600 pb-2">
+                <Swords size={11} /> ⚔️ AVIS RECHERCHÉ <Swords size={11} />
+              </div>
+              {post.wantedName && (
+                <div className="text-xl font-black text-amber-900 uppercase tracking-wide">{post.wantedName}</div>
+              )}
+              {post.wantedReason && (
+                <div className="text-xs text-amber-800 italic">Motif : {post.wantedReason}</div>
+              )}
+              {post.wantedReward && (
+                <div className="text-sm font-black text-amber-700 border-t border-amber-300 pt-2 mt-1">Récompense : {post.wantedReward}</div>
+              )}
+            </div>
+          )}
+
           {/* Content */}
           {post.content && (
             <div className="px-4 pb-2">
@@ -1168,6 +1232,11 @@ function PostCard({
             {alreadyReposted && <span className="text-[10px]">Republié</span>}
           </button>
         )}
+        <button onClick={() => onBookmark && onBookmark(post.id)}
+          title={savedPostIds?.has(post.id) ? "Retirer des sauvegardés" : "Sauvegarder"}
+          className={`ml-auto flex items-center gap-1.5 text-xs font-bold transition-all ${savedPostIds?.has(post.id) ? "text-amber-500" : "text-stone-400 hover:text-amber-400"}`}>
+          <Bookmark size={14} fill={savedPostIds?.has(post.id) ? "currentColor" : "none"} />
+        </button>
       </div>
 
       {/* Comments */}
@@ -1433,6 +1502,20 @@ export default function MushtagramView({
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileDraft, setProfileDraft]     = useState({ bio: "", avatar: "", handle: "", banner: "", photo: "" });
 
+  // Bookmarks (local — session uniquement)
+  const [savedPostIds, setSavedPostIds] = useState(new Set());
+
+  // DM éphémère
+  const [dmSelfDestruct, setDmSelfDestruct] = useState(false);
+
+  // Post : tag événement & avis recherché
+  const [showEventTag, setShowEventTag]   = useState(false);
+  const [postEventTag, setPostEventTag]   = useState("");
+  const [showWanted, setShowWanted]       = useState(false);
+  const [wantedName, setWantedName]       = useState("");
+  const [wantedReason, setWantedReason]   = useState("");
+  const [wantedReward, setWantedReward]   = useState("");
+
   const myId      = String(session?.id ?? "");
   const myCitizen = useMemo(() => citizens.find(c => String(c.id) === myId) || session, [citizens, myId, session]);
   const myRole    = ROLES[session?.role];
@@ -1504,7 +1587,7 @@ export default function MushtagramView({
   const mushtagramGuardianRights = myCitizen?.guardianship?.active ? (myCitizen.guardianship.rights || {}) : {};
   const mushtagramSelfRights = myCitizen?.selfLockedRights || {};
   const myFollowing = useMemo(() => (myCitizen?.mushtagramFollowing || []), [myCitizen]);
-  const isPP = myCitizen?.mushtagramPublicPersonality === "approved";
+  const isPP = myCitizen?.mushtagramPublicPersonality === "approved" || myCitizen?.mushtagramPublicPersonality === true;
   const recognizedEruditIds = useMemo(() =>
     new Set((eruditRequests || []).filter(r => r.status === "APPROVED").map(r => String(r.citizenId))),
   [eruditRequests]);
@@ -1533,6 +1616,14 @@ export default function MushtagramView({
   const handleMute = (authorId) => {
     onToggleMushtagramMute && onToggleMushtagramMute(authorId);
   };
+
+  const handleBookmark = useCallback((postId) => {
+    setSavedPostIds(prev => {
+      const n = new Set(prev);
+      if (n.has(postId)) n.delete(postId); else n.add(postId);
+      return n;
+    });
+  }, []);
 
   /* ── feed ────────────────────────────────────────────────────────── */
   // Un message officiel n'est épinglé en tête de fil que le jour RP de son envoi — passé ce jour,
@@ -1666,12 +1757,15 @@ export default function MushtagramView({
       locked: monetizationEnabled && lockedPost, price: lockedPrice,
       lockedTitle: monetizationEnabled && lockedPost ? lockedTitle.trim() : "",
       subscribersOnly: monetizationEnabled && subscribersOnlyPost,
+      ...(showEventTag && postEventTag.trim() ? { eventTag: postEventTag.trim() } : {}),
+      ...(showWanted ? { postType: "wanted", wantedName: wantedName.trim(), wantedReason: wantedReason.trim(), wantedReward: wantedReward.trim() } : {}),
       ...(entityType ? { postAsEntity: { type: entityType, id: entityId } } : {}),
     });
     setPostContent(""); setPostImage(""); setShowImgInput(false);
     setShowPoll(false); setPollOptions(["", ""]); setPollQuestion(""); setIsOfficial(false);
     setFollowersOnly(false);
     setLockedPost(false); setLockedPrice(""); setLockedTitle(""); setSubscribersOnlyPost(false);
+    setShowEventTag(false); setPostEventTag(""); setShowWanted(false); setWantedName(""); setWantedReason(""); setWantedReward("");
     if (postTextareaRef.current) postTextareaRef.current.style.height = "auto";
     notify("Publication envoyée !", "success");
   };
@@ -1712,6 +1806,8 @@ export default function MushtagramView({
       onUnlock={onUnlockMushtagramPost}
       recognizedEruditIds={recognizedEruditIds}
       myEntityAuthorIds={myEntityAuthorIds}
+      onBookmark={handleBookmark}
+      savedPostIds={savedPostIds}
     />
   );
 
@@ -1821,10 +1917,11 @@ export default function MushtagramView({
 
   const sendDM = () => {
     if (!dmInput.trim()) return;
+    const extra = dmSelfDestruct ? { selfDestruct: true, expiresAt: Date.now() + 86_400_000 } : {};
     if (selGroup) {
-      onSendMushtagramGroupDM({ groupId: selGroup, content: dmInput.trim() });
+      onSendMushtagramGroupDM({ groupId: selGroup, content: dmInput.trim(), ...extra });
     } else if (selConv) {
-      onSendMushtagramDM({ toId: selConv, content: dmInput.trim() });
+      onSendMushtagramDM({ toId: selConv, content: dmInput.trim(), ...extra });
     } else {
       return;
     }
@@ -1946,6 +2043,8 @@ export default function MushtagramView({
         {[
           { id: "feed",     label: "Fil" },
           { id: "explore",  label: "Explorer" },
+          { id: "wanted",   label: "⚔️ Recherchés" },
+          { id: "saved",    label: "Sauvegardés" },
           { id: "notifs",   label: "Notifs", badge: unreadNotifsCount },
           { id: "messages", label: "Messages", badge: totalUnread },
           { id: "profile",  label: "Profil" },
@@ -2078,6 +2177,32 @@ export default function MushtagramView({
                       </div>
                     )}
 
+                    {showEventTag && (
+                      <div className="flex items-center gap-2">
+                        <Tag size={13} className="text-stone-400 shrink-0" />
+                        <input value={postEventTag} onChange={e => setPostEventTag(e.target.value)}
+                          placeholder="Nom de l'événement…"
+                          className="flex-1 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-rose-300" />
+                      </div>
+                    )}
+
+                    {showWanted && (
+                      <div className="space-y-2 bg-amber-50 rounded-xl p-3 border border-amber-200">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-amber-700 flex items-center gap-1">
+                          <Swords size={10} /> Avis Recherché
+                        </div>
+                        <input value={wantedName} onChange={e => setWantedName(e.target.value)}
+                          placeholder="Nom du recherché…"
+                          className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-amber-400" />
+                        <input value={wantedReason} onChange={e => setWantedReason(e.target.value)}
+                          placeholder="Motif (crime, délit…)"
+                          className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-amber-400" />
+                        <input value={wantedReward} onChange={e => setWantedReward(e.target.value)}
+                          placeholder="Récompense offerte (ex : 50 écus)"
+                          className="w-full px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs text-stone-900 placeholder:text-stone-400 outline-none focus:border-amber-400" />
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5">
                         <button onClick={() => setShowImgInput(v => !v)}
@@ -2087,6 +2212,14 @@ export default function MushtagramView({
                         <button onClick={() => setShowPoll(v => !v)}
                           className={`flex items-center gap-1 text-xs font-bold transition-all ${showPoll ? "text-blue-500" : "text-stone-400 hover:text-blue-400"}`}>
                           <BarChart2 size={13} /> Sondage
+                        </button>
+                        <button onClick={() => setShowEventTag(v => !v)}
+                          className={`flex items-center gap-1 text-xs font-bold transition-all ${showEventTag ? "text-rose-500" : "text-stone-400 hover:text-rose-400"}`}>
+                          <Tag size={13} /> Événement
+                        </button>
+                        <button onClick={() => setShowWanted(v => !v)}
+                          className={`flex items-center gap-1 text-xs font-bold transition-all ${showWanted ? "text-amber-600" : "text-stone-400 hover:text-amber-500"}`}>
+                          <Swords size={13} /> Recherché
                         </button>
                         {isAdmin && !postAsEntity && (
                           <button onClick={() => setIsOfficial(v => !v)}
@@ -2268,6 +2401,32 @@ export default function MushtagramView({
         </div>
       )}
 
+      {/* ══════════════════════ AVIS RECHERCHÉS ══════════════════════ */}
+      {tab === "wanted" && (
+        <div className="space-y-4 max-w-2xl mx-auto">
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-2">
+            <Swords size={15} className="text-amber-700 shrink-0" />
+            <p className="text-xs text-amber-800 font-semibold">Avis de recherche de l'Empire — criminels, fugitifs et créatures traquées.</p>
+          </div>
+          {mushtagramPosts.filter(p => p.postType === "wanted").length === 0 ? (
+            <div className="text-center py-14 text-stone-400 italic">Aucun avis de recherche pour l'instant.</div>
+          ) : mushtagramPosts.filter(p => p.postType === "wanted").map(renderPostCard)}
+        </div>
+      )}
+
+      {/* ══════════════════════ SAUVEGARDÉS ══════════════════════ */}
+      {tab === "saved" && (
+        <div className="space-y-4 max-w-2xl mx-auto">
+          <div className="bg-white border border-stone-200 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-2">
+            <Bookmark size={15} className="text-amber-500 shrink-0" />
+            <p className="text-xs text-stone-500">Publications que vous avez sauvegardées — visibles uniquement par vous.</p>
+          </div>
+          {savedPostIds.size === 0 ? (
+            <div className="text-center py-14 text-stone-400 italic">Aucune publication sauvegardée. Cliquez sur le signet d'une publication pour la sauvegarder.</div>
+          ) : mushtagramPosts.filter(p => savedPostIds.has(p.id)).map(renderPostCard)}
+        </div>
+      )}
+
       {/* ══════════════════════ NOTIFICATIONS ══════════════════════ */}
       {tab === "notifs" && (
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden" style={{ minHeight: 400 }}>
@@ -2331,9 +2490,9 @@ export default function MushtagramView({
 
       {/* ══════════════════════ MESSAGES ══════════════════════ */}
       {tab === "messages" && (
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden" style={{ minHeight: 520 }}>
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden min-h-[520px]">
           {(selConv || selGroup) ? (
-            <div className="flex flex-col" style={{ minHeight: 520 }}>
+            <div className="flex flex-col min-h-[520px]">
               {/* Header conversation */}
               {selGroup ? (
                 <div className="border-b border-stone-100 shrink-0">
@@ -2464,7 +2623,7 @@ export default function MushtagramView({
               })()}
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2" style={{ maxHeight: 380 }}>
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
                 {(() => {
                   const msgs = selGroup ? groupConvMessages : convMessages;
                   if (msgs.length === 0) return <div className="text-center text-stone-400 italic text-sm py-8">Commencez la conversation !</div>;
@@ -2500,8 +2659,18 @@ export default function MushtagramView({
                               ? `bg-gradient-to-r from-rose-500 to-violet-600 text-white ${isLastOfGroup ? "rounded-br-sm" : "rounded-r-md"}`
                               : `bg-stone-100 text-stone-800 ${isLastOfGroup ? "rounded-bl-sm" : "rounded-l-md"}`
                           }`}>
-                            {dm.content}
+                            {dm.selfDestruct && dm.expiresAt && dm.expiresAt < Date.now() ? (
+                              <span className="italic opacity-50">Message expiré ⏳</span>
+                            ) : (
+                              renderRichText(dm.content, citizens, setViewingProfile)
+                            )}
                           </div>
+                          {isLastOfGroup && (dm.timestamp || dm.createdAt) && (
+                            <span className="text-[9px] text-stone-400 px-1 mt-0.5">
+                              {new Date(dm.timestamp || dm.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                              {dm.selfDestruct && !isMine && <span className="ml-1 text-rose-400 font-bold">⏳</span>}
+                            </span>
+                          )}
                         </div>
                         {!isMine && onHideMushtagramDM && (
                           <button onClick={() => onHideMushtagramDM(dm.id)}
@@ -2521,15 +2690,27 @@ export default function MushtagramView({
               </div>
 
               {/* Saisie */}
-              <div className="p-3 border-t border-stone-100 flex gap-2 shrink-0">
-                <input value={dmInput} onChange={e => setDmInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendDM()}
-                  placeholder="Votre message…"
-                  className="flex-1 px-4 py-2 bg-stone-100 rounded-full text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-rose-300/30 transition-all" />
-                <button onClick={sendDM} disabled={!dmInput.trim()}
-                  className="p-2.5 rounded-full bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90 disabled:opacity-40 transition-all">
-                  <Send size={14} />
-                </button>
+              <div className="p-3 border-t border-stone-100 space-y-1 shrink-0">
+                {dmSelfDestruct && (
+                  <div className="flex items-center gap-1 text-[9px] text-rose-500 font-bold px-1">
+                    <Timer size={10} /> Ce message disparaîtra dans 24h après envoi
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => setDmSelfDestruct(v => !v)}
+                    title="Message éphémère (expire 24h après envoi)"
+                    className={`p-2 rounded-full transition-all shrink-0 ${dmSelfDestruct ? "bg-rose-100 text-rose-500" : "text-stone-300 hover:text-rose-400"}`}>
+                    <Timer size={14} />
+                  </button>
+                  <input value={dmInput} onChange={e => setDmInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendDM()}
+                    placeholder="Votre message…"
+                    className="flex-1 px-4 py-2 bg-stone-100 rounded-full text-sm text-stone-900 placeholder:text-stone-400 outline-none focus:bg-white focus:ring-2 focus:ring-rose-300/30 transition-all" />
+                  <button onClick={sendDM} disabled={!dmInput.trim()}
+                    className="p-2.5 rounded-full bg-gradient-to-r from-rose-500 to-violet-600 text-white hover:opacity-90 disabled:opacity-40 transition-all">
+                    <Send size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -2905,6 +3086,8 @@ export default function MushtagramView({
                     onUnlock={onUnlockMushtagramPost}
                     recognizedEruditIds={recognizedEruditIds}
                     myEntityAuthorIds={myEntityAuthorIds}
+                    onBookmark={handleBookmark}
+                    savedPostIds={savedPostIds}
                   />
                 </div>
               )}
@@ -2913,74 +3096,37 @@ export default function MushtagramView({
               {myPosts.length > 0 ? (
                 <div className="space-y-3">
                   <div className="text-[9px] font-black uppercase tracking-widest text-stone-500">Mes publications</div>
-                  {myPosts.map(post => (
-                    <div key={post.id} className="bg-white border border-stone-200 rounded-xl p-4 shadow-sm">
-                      {post.isOfficial && (
-                        <div className="flex items-center gap-1 text-amber-600 text-[9px] font-black uppercase mb-1">
-                          <Crown size={10} /> Proclamation Officielle
-                        </div>
-                      )}
-                      {post.repostOf && (
-                        <div className="flex items-center gap-1 text-stone-400 text-[9px] font-bold mb-1">
-                          <Repeat2 size={9} /> Republication de {post.repostOf.authorName}
-                        </div>
-                      )}
-                      <p className="text-sm text-stone-800 leading-relaxed">{post.content}</p>
-                      {post.imageUrl && (
-                        <img src={post.imageUrl} alt="" className="mt-2 rounded-lg max-h-48 object-contain bg-stone-50 w-full"
-                          onError={e => { e.target.style.display = "none"; }} />
-                      )}
-                      <div className="flex items-center gap-4 mt-2 text-[10px] text-stone-400">
-                        <span>❤ {(post.likes || []).length}</span>
-                        <span>💬 {(post.comments || []).length}</span>
-                        {post.locked && (
-                          <span className="text-amber-600 font-bold flex items-center gap-0.5">
-                            <Coins size={9} /> {(post.unlockedBy || []).length} déverrouillage{(post.unlockedBy || []).length !== 1 ? "s" : ""} · {formatMoney((post.unlockedBy || []).length * (post.price || 0))}
-                          </span>
-                        )}
-                        {myCitizen?.mushtagramPinned === post.id && (
-                          <span className="text-amber-500 flex items-center gap-0.5"><Pin size={9} /> Épinglé</span>
-                        )}
-                        <span className="ml-auto">{post.rpDate || post.date || ""}</span>
-                        <button onClick={() => onDeleteMushtagramPost(post.id)}
-                          className="text-stone-300 hover:text-red-400 transition-all">
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                      {/* Stats panel for PP */}
-                      {isPP && (() => {
-                        const likeCount = (post.likes || []).length;
-                        const cmtCount = (post.comments || []).length;
-                        const repostCount = mushtagramPosts.filter(p => p.repostOf?.postId === post.id).length;
-                        const reach = likeCount + cmtCount * 2 + repostCount * 3;
-                        return (
-                          <div className="mt-3 pt-3 border-t border-stone-100 bg-stone-50 rounded-lg px-3 py-2 space-y-1">
-                            <div className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-1.5">Statistiques</div>
-                            <div className="grid grid-cols-4 gap-2 text-center">
-                              <div>
-                                <div className="text-sm font-black text-rose-500">{likeCount}</div>
-                                <div className="text-[8px] text-stone-400">
-                                  Likes {likeCount > 5 ? "🔥 Populaire" : ""}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-black text-blue-500">{cmtCount}</div>
-                                <div className="text-[8px] text-stone-400">Commentaires</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-black text-emerald-500">{repostCount}</div>
-                                <div className="text-[8px] text-stone-400">Reposts</div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-black text-violet-500">{reach}</div>
-                                <div className="text-[8px] text-stone-400">Portée</div>
-                              </div>
-                            </div>
+                  {myPosts.map(renderPostCard)}
+                  {/* Stats panel for PP — affiché séparément en dessous si PP */}
+                  {isPP && myPosts.map(post => {
+                    const likeCount = (post.likes || []).length;
+                    const cmtCount = (post.comments || []).length;
+                    const repostCount = mushtagramPosts.filter(p => p.repostOf?.postId === post.id).length;
+                    const reach = likeCount + cmtCount * 2 + repostCount * 3;
+                    return (
+                      <div key={`stats-${post.id}`} className="bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 space-y-1 -mt-2">
+                        <div className="text-[8px] font-black uppercase tracking-widest text-stone-400 mb-1.5">Statistiques — {post.content?.slice(0, 40)}{(post.content?.length || 0) > 40 ? "…" : ""}</div>
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <div>
+                            <div className="text-sm font-black text-rose-500">{likeCount}</div>
+                            <div className="text-[8px] text-stone-400">Likes{likeCount > 5 ? " 🔥" : ""}</div>
                           </div>
-                        );
-                      })()}
-                    </div>
-                  ))}
+                          <div>
+                            <div className="text-sm font-black text-blue-500">{cmtCount}</div>
+                            <div className="text-[8px] text-stone-400">Commentaires</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-black text-emerald-500">{repostCount}</div>
+                            <div className="text-[8px] text-stone-400">Reposts</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-black text-violet-500">{reach}</div>
+                            <div className="text-[8px] text-stone-400">Portée</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-10 text-stone-400 italic text-sm">Aucune publication</div>
@@ -3188,8 +3334,8 @@ export default function MushtagramView({
                 <div className="text-[9px] font-black uppercase tracking-widest text-stone-400 mb-3">Mes préférences d'affichage</div>
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <div className="text-sm font-bold text-stone-800">Afficher les reposts dans le fil</div>
-                    <div className="text-[10px] text-stone-400">Masquer les republications des autres dans votre fil</div>
+                    <div className="text-sm font-bold text-stone-800">Masquer les reposts dans le fil</div>
+                    <div className="text-[10px] text-stone-400">Cacher les republications des autres dans votre fil d'actualité</div>
                   </div>
                   <button
                     onClick={() => onUpdateMushtagramSettings && onUpdateMushtagramSettings({
