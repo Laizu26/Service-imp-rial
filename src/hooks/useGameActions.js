@@ -11046,7 +11046,8 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
 
       onRunEconomyCycle: () => {
         const economy = state.economy || DEFAULT_ECONOMY;
-        const companies = state.companies || [];
+        let s = structuredClone(state);
+        const companies = s.companies || [];
         const activeEvents = (economy.marketEvents || []).filter((e) => e.active);
         const resources = (economy.resources || []).map((r) => ({
           ...r,
@@ -11062,9 +11063,77 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
             return { totalSupply: supply, totalDemand: demand };
           })(),
         }));
+
+        // Paiements des contrats actifs
+        const activeContracts = (economy.tradeContracts || []).filter((c) => c.status === "active");
+        const contractLogs = [];
+        for (const contract of activeContracts) {
+          const resource = resources.find((r) => r.id === contract.resourceId);
+          const unitPrice = contract.fixedPrice ?? resource?.currentPrice ?? resource?.basePrice ?? 0;
+          const total = unitPrice * contract.quantity;
+          const buyerIdx = companies.findIndex((c) => c.id === contract.buyerCompanyId);
+          const sellerIdx = companies.findIndex((c) => c.id === contract.sellerCompanyId);
+          if (buyerIdx === -1 || sellerIdx === -1) continue;
+          if ((s.companies[buyerIdx].balance || 0) < total) {
+            contractLogs.push({ contractId: contract.id, status: "failed", reason: "fonds insuffisants" });
+            continue;
+          }
+          s.companies[buyerIdx].balance = (s.companies[buyerIdx].balance || 0) - total;
+          s.companies[sellerIdx].balance = (s.companies[sellerIdx].balance || 0) + total;
+
+          // Taxe inter-pays
+          if (contract.sellerCountryId && contract.buyerCountryId && contract.sellerCountryId !== contract.buyerCountryId) {
+            const sellerCountry = (s.countries || []).find((c) => c.id === contract.sellerCountryId);
+            const taxRate = sellerCountry?.laws?.taxForeignTransfers ?? 0;
+            if (taxRate > 0) {
+              const tax = Math.round(total * taxRate) / 100;
+              s.companies[sellerIdx].balance -= tax;
+              const countryIdx = (s.countries || []).findIndex((c) => c.id === contract.sellerCountryId);
+              if (countryIdx !== -1) s.countries[countryIdx].treasury = (s.countries[countryIdx].treasury || 0) + tax;
+            }
+          }
+
+          contractLogs.push({ contractId: contract.id, status: "ok", total });
+        }
+
         const settings = { ...economy.settings, cycleCount: (economy.settings?.cycleCount ?? 0) + 1, lastCycleDate: new Date().toISOString() };
-        saveState({ ...state, economy: { ...economy, resources, settings } });
-        notify(`Cycle économique ${settings.cycleCount} calculé.`, "success");
+        const failedCount = contractLogs.filter((l) => l.status === "failed").length;
+        s.economy = { ...economy, resources, settings };
+        saveState(s);
+        notify(`Cycle exécuté. ${activeContracts.length} contrats — ${failedCount > 0 ? `${failedCount} échoué(s)` : "tous OK"}.`, failedCount > 0 ? "warning" : "success");
+      },
+
+      onCreateTradeContract: (contractData) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const id = `tc_${Date.now()}`;
+        const newContract = {
+          ...contractData,
+          id,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          startedAt: null,
+        };
+        const tradeContracts = [...(economy.tradeContracts || []), newContract];
+        saveState({ ...state, economy: { ...economy, tradeContracts } });
+        notify("Contrat commercial proposé.", "success");
+      },
+
+      onAcceptTradeContract: (contractId) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const tradeContracts = (economy.tradeContracts || []).map((c) =>
+          c.id !== contractId ? c : { ...c, status: "active", startedAt: new Date().toISOString() }
+        );
+        saveState({ ...state, economy: { ...economy, tradeContracts } });
+        notify("Contrat activé.", "success");
+      },
+
+      onCancelTradeContract: (contractId) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const tradeContracts = (economy.tradeContracts || []).map((c) =>
+          c.id !== contractId ? c : { ...c, status: "cancelled" }
+        );
+        saveState({ ...state, economy: { ...economy, tradeContracts } });
+        notify("Contrat annulé.", "success");
       },
 
       // ──────────────────────────────────────────────────────────────────────

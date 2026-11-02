@@ -1016,6 +1016,10 @@ export default function App() {
             onGradeSubmission={actions.onGradeSubmission}
             onSchoolEnrollInSlot={actions.onSchoolEnrollInSlot}
             onSchoolLeaveSlot={actions.onSchoolLeaveSlot}
+            economy={state.economy || DEFAULT_ECONOMY}
+            onCreateTradeContract={actions.onCreateTradeContract}
+            onAcceptTradeContract={actions.onAcceptTradeContract}
+            onCancelTradeContract={actions.onCancelTradeContract}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">

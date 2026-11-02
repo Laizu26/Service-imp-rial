@@ -71,6 +71,7 @@ import { getCitizenAge, formatRPDate, formatRPDateWithDay, getDayOfWeek, formatM
 import { useNotifications } from "../../hooks/useNotifications";
 
 import { getFamilyForCitizen, getFamilyMembers, getFamilyDisplayName, normalizeBranches, getBranchForCitizen } from "../views/FamiliesAdminView";
+import MarketView from "../views/MarketView";
 // Vues chargées à la demande (voir le <Suspense> autour du contenu de <main> plus bas) —
 // chaque onglet ne télécharge son code que la première fois qu'on l'ouvre.
 const EruditView = lazy(() => import("../views/EruditView"));
@@ -1096,6 +1097,7 @@ const CitizenLayout = (props) => {
         canUseBank && { id: "bank", label: "Banque", icon: Landmark },
         { id: "bourse",     label: "Bourse",         icon: TrendingUp },
         (!isBanned && !isPrisoner) && { id: "properties", label: "Propriétés",     icon: MapPin },
+        { id: "marche",     label: "Marché",         icon: TrendingUp },
         { id: "guilds",     label: "Guildes",        icon: Users },
         { id: "asia",       label: "Maison Asia",    icon: Gem },
         { id: "contracts",  label: "Contrats",       icon: Scroll },
@@ -4738,6 +4740,19 @@ const CitizenLayout = (props) => {
                 onGradeSubmission={onGradeSubmission}
                 gameDate={gd}
                 notify={notify}
+              />
+            )}
+            {active === "marche" && (
+              <MarketView
+                user={user}
+                economy={economy}
+                companies={companies}
+                countries={countries}
+                gameDate={gd}
+                notify={notify}
+                onCreateTradeContract={onCreateTradeContract}
+                onAcceptTradeContract={onAcceptTradeContract}
+                onCancelTradeContract={onCancelTradeContract}
               />
             )}
             {/* ----------------------------- */}
