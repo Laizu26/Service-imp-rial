@@ -379,6 +379,7 @@ export const DEFAULT_ECONOMY = {
   tradeRoutes: [],
   marketEvents: [],
   guildBonuses: [],
+  embargoes: [],
   settings: {
     cycleLabel: "Semaine",
     priceSensitivity: 0.3,

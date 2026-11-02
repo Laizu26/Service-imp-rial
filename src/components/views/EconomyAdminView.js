@@ -6,6 +6,8 @@ const TABS = [
   { id: "resources",  label: "Ressources" },
   { id: "producers",  label: "Producteurs" },
   { id: "events",     label: "Événements" },
+  { id: "contracts",  label: "Contrats" },
+  { id: "diplomacy",  label: "Diplomatie" },
 ];
 
 export default function EconomyAdminView({
@@ -21,13 +23,23 @@ export default function EconomyAdminView({
   onAddMarketEvent,
   onRemoveMarketEvent,
   onRunEconomyCycle,
+  countries = [],
+  onAddEmbargo,
+  onRemoveEmbargo,
+  onAcceptTradeContract,
+  onCancelTradeContract,
 }) {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [fromCountryId, setFromCountryId] = useState("");
+  const [toCountryId, setToCountryId] = useState("");
+  const [embargoLabel, setEmbargoLabel] = useState("");
   const eco = economy || DEFAULT_ECONOMY;
   const resources = eco.resources || [];
   const recipes = eco.recipes || [];
   const marketEvents = eco.marketEvents || [];
   const settings = eco.settings || {};
+  const tradeContracts = eco.tradeContracts || [];
+  const embargoes = eco.embargoes || [];
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
@@ -92,6 +104,29 @@ export default function EconomyAdminView({
           resources={resources}
           onAddMarketEvent={onAddMarketEvent}
           onRemoveMarketEvent={onRemoveMarketEvent}
+        />
+      )}
+      {activeTab === "contracts" && (
+        <ContractsTab
+          tradeContracts={tradeContracts}
+          resources={resources}
+          onAcceptTradeContract={onAcceptTradeContract}
+          onCancelTradeContract={onCancelTradeContract}
+        />
+      )}
+      {activeTab === "diplomacy" && (
+        <DiplomacyTab
+          tradeContracts={tradeContracts}
+          embargoes={embargoes}
+          countries={countries}
+          fromCountryId={fromCountryId}
+          setFromCountryId={setFromCountryId}
+          toCountryId={toCountryId}
+          setToCountryId={setToCountryId}
+          embargoLabel={embargoLabel}
+          setEmbargoLabel={setEmbargoLabel}
+          onAddEmbargo={onAddEmbargo}
+          onRemoveEmbargo={onRemoveEmbargo}
         />
       )}
     </div>
@@ -503,6 +538,147 @@ function EventsTab({ marketEvents, resources, onAddMarketEvent, onRemoveMarketEv
           + Créer un événement de marché
         </button>
       )}
+    </div>
+  );
+}
+
+// ─── Contracts ───────────────────────────────────────────────────────────────
+
+function ContractsTab({ tradeContracts, resources, onAcceptTradeContract, onCancelTradeContract }) {
+  const statusColors = { pending: "bg-amber-100 text-amber-800", active: "bg-green-100 text-green-800", cancelled: "bg-red-100 text-red-800", completed: "bg-gray-100 text-gray-600" };
+  const statusLabel = { pending: "En attente", active: "Actif", cancelled: "Annulé", completed: "Terminé" };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-semibold text-gray-700 dark:text-gray-200">Contrats commerciaux ({tradeContracts.length})</h2>
+      {tradeContracts.length === 0 ? (
+        <p className="text-gray-500 text-sm text-center py-8">Aucun contrat.</p>
+      ) : (
+        <div className="space-y-2">
+          {tradeContracts.map((c) => {
+            const resource = resources.find((r) => r.id === c.resourceId);
+            return (
+              <div key={c.id} className="flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${statusColors[c.status] || "bg-gray-100 text-gray-600"}`}>{statusLabel[c.status] || c.status}</span>
+                <span className="text-sm flex-1 text-gray-700 dark:text-gray-300">
+                  <span className="font-semibold">{resource?.emoji} {resource?.label || c.resourceId}</span>
+                  {" — "}{c.quantity}/cycle
+                  {c.fixedPrice ? ` @ ${c.fixedPrice} ₵` : " (prix marché)"}
+                  <span className="text-gray-400"> · {c.sellerCompanyName} → {c.buyerCompanyName}</span>
+                </span>
+                <div className="flex gap-2 shrink-0">
+                  {c.status === "pending" && (
+                    <button onClick={() => onAcceptTradeContract && onAcceptTradeContract(c.id)} className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold">Activer</button>
+                  )}
+                  {(c.status === "pending" || c.status === "active") && (
+                    <button onClick={() => onCancelTradeContract && onCancelTradeContract(c.id)} className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold">Annuler</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Diplomacy ───────────────────────────────────────────────────────────────
+
+function DiplomacyTab({ tradeContracts, embargoes, countries, fromCountryId, setFromCountryId, toCountryId, setToCountryId, embargoLabel, setEmbargoLabel, onAddEmbargo, onRemoveEmbargo }) {
+  const routes = {};
+  for (const c of tradeContracts.filter((c) => c.status === "active")) {
+    if (!c.sellerCountryId || !c.buyerCountryId || c.sellerCountryId === c.buyerCountryId) continue;
+    const key = [c.sellerCountryId, c.buyerCountryId].sort().join("↔");
+    if (!routes[key]) routes[key] = { key, count: 0, sellerCN: c.sellerCountryId, buyerCN: c.buyerCountryId };
+    routes[key].count++;
+  }
+  const routeList = Object.values(routes);
+
+  return (
+    <div className="space-y-6">
+      {/* Embargos actifs */}
+      <div>
+        <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-3">Embargos actifs ({embargoes.length})</h2>
+        {embargoes.length === 0 ? (
+          <p className="text-gray-500 text-sm">Aucun embargo en vigueur.</p>
+        ) : (
+          <div className="space-y-2">
+            {embargoes.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                <span className="text-sm flex-1 text-gray-700 dark:text-gray-300">
+                  <span className="font-semibold">🚫 {e.fromCountryName}</span>
+                  {" ↔ "}
+                  <span className="font-semibold">{e.toCountryName}</span>
+                  {e.label && <span className="text-gray-500"> — {e.label}</span>}
+                </span>
+                <button onClick={() => onRemoveEmbargo && onRemoveEmbargo(e.id)} className="px-2 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-xs font-bold text-gray-700 dark:text-gray-200">
+                  Lever
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Déclarer un embargo */}
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-3 text-sm">Déclarer un embargo</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Pays 1</label>
+            <select value={fromCountryId} onChange={(e) => setFromCountryId(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-200">
+              <option value="">— Choisir —</option>
+              {countries.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Pays 2</label>
+            <select value={toCountryId} onChange={(e) => setToCountryId(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-200">
+              <option value="">— Choisir —</option>
+              {countries.filter((c) => c.id !== fromCountryId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Motif (optionnel)</label>
+            <input value={embargoLabel} onChange={(e) => setEmbargoLabel(e.target.value)} placeholder="Ex: Représailles" className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-200" />
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            if (!fromCountryId || !toCountryId) return;
+            onAddEmbargo && onAddEmbargo(fromCountryId, toCountryId, embargoLabel);
+            setFromCountryId(""); setToCountryId(""); setEmbargoLabel("");
+          }}
+          disabled={!fromCountryId || !toCountryId}
+          className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded-lg text-sm font-medium"
+        >
+          Déclarer l'embargo
+        </button>
+      </div>
+
+      {/* Routes commerciales actives */}
+      <div>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200 mb-3 text-sm">Routes commerciales inter-pays actives</h3>
+        {routeList.length === 0 ? (
+          <p className="text-gray-500 text-sm">Aucune route commerciale inter-pays active.</p>
+        ) : (
+          <div className="space-y-2">
+            {routeList.map((r) => {
+              const cA = countries.find((c) => c.id === r.sellerCN);
+              const cB = countries.find((c) => c.id === r.buyerCN);
+              const isEmbargoed = embargoes.some((e) => (e.fromCountryId === r.sellerCN && e.toCountryId === r.buyerCN) || (e.fromCountryId === r.buyerCN && e.toCountryId === r.sellerCN));
+              return (
+                <div key={r.key} className={`flex items-center gap-3 border rounded-lg p-3 ${isEmbargoed ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"}`}>
+                  <span className="text-sm flex-1">{cA?.name || r.sellerCN} ↔ {cB?.name || r.buyerCN}</span>
+                  <span className="text-xs text-gray-500">{r.count} contrat{r.count > 1 ? "s" : ""}</span>
+                  {isEmbargoed && <span className="text-xs font-bold text-red-600">🚫 EMBARGUÉ</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

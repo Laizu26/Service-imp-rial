@@ -11074,6 +11074,17 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           const buyerIdx = companies.findIndex((c) => c.id === contract.buyerCompanyId);
           const sellerIdx = companies.findIndex((c) => c.id === contract.sellerCompanyId);
           if (buyerIdx === -1 || sellerIdx === -1) continue;
+          // Vérifier embargo entre pays vendeur et acheteur
+          const embargoes = economy.embargoes || [];
+          const isEmbargoed = embargoes.some(
+            (e) =>
+              (e.fromCountryId === contract.sellerCountryId && e.toCountryId === contract.buyerCountryId) ||
+              (e.fromCountryId === contract.buyerCountryId && e.toCountryId === contract.sellerCountryId)
+          );
+          if (isEmbargoed) {
+            contractLogs.push({ contractId: contract.id, status: "embargoed", reason: "embargo actif" });
+            continue;
+          }
           if ((s.companies[buyerIdx].balance || 0) < total) {
             contractLogs.push({ contractId: contract.id, status: "failed", reason: "fonds insuffisants" });
             continue;
@@ -11106,11 +11117,42 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           contractLogs.push({ contractId: contract.id, status: "ok", total });
         }
 
+        // Signaux Bourse : alerter les actionnaires des entreprises productrices si prix bouge
+        const newBourseSignals = [];
+        for (const resource of resources) {
+          const priceDelta = (resource.currentPrice ?? resource.basePrice) - resource.basePrice;
+          const pctChange = resource.basePrice > 0 ? priceDelta / resource.basePrice : 0;
+          if (Math.abs(pctChange) < 0.05) continue;
+          const direction = pctChange > 0 ? "↑" : "↓";
+          const pctLabel = `${pctChange > 0 ? "+" : ""}${Math.round(pctChange * 100)}%`;
+          for (const company of (s.companies || [])) {
+            const produces = (company.productions || []).some((p) => p.resourceId === resource.id);
+            if (!produces) continue;
+            const listing = (s.bourseListings || []).find((l) => l.companyId === company.id);
+            if (!listing) continue;
+            newBourseSignals.push({
+              id: `sig_${Date.now()}_${company.id}`,
+              type: "economy_signal",
+              companyId: company.id,
+              companyName: company.name,
+              listingId: listing.id,
+              message: `${resource.emoji || "📦"} ${resource.label} ${direction} ${pctLabel} ce cycle — ${company.name} est producteur`,
+              timestamp: Date.now(),
+              read: false,
+            });
+          }
+        }
+        if (newBourseSignals.length > 0) {
+          s.bourseAlerts = [...newBourseSignals, ...(s.bourseAlerts || [])].slice(0, 300);
+        }
+
         const settings = { ...economy.settings, cycleCount: (economy.settings?.cycleCount ?? 0) + 1, lastCycleDate: new Date().toISOString() };
         const failedCount = contractLogs.filter((l) => l.status === "failed").length;
+        const embargoedCount = contractLogs.filter((l) => l.status === "embargoed").length;
         s.economy = { ...economy, resources, settings };
         saveState(s);
-        notify(`Cycle exécuté. ${activeContracts.length} contrats — ${failedCount > 0 ? `${failedCount} échoué(s)` : "tous OK"}.`, failedCount > 0 ? "warning" : "success");
+        const issues = [failedCount > 0 && `${failedCount} échoué(s)`, embargoedCount > 0 && `${embargoedCount} embargué(s)`].filter(Boolean).join(", ");
+        notify(`Cycle exécuté. ${activeContracts.length} contrats — ${issues || "tous OK"}.`, issues ? "warning" : "success");
       },
 
       onCreateTradeContract: (contractData) => {
@@ -11179,6 +11221,32 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
 
         saveState(s);
         notify(`Transformation exécutée : +${outputQty} ${recipe.outputResourceId}. Coût : ${totalCost} ₵`, "success");
+      },
+
+      onAddEmbargo: (fromCountryId, toCountryId, label) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const id = `emb_${Date.now()}`;
+        const fromCountry = (state.countries || []).find((c) => c.id === fromCountryId);
+        const toCountry = (state.countries || []).find((c) => c.id === toCountryId);
+        const newEmbargo = {
+          id,
+          fromCountryId,
+          fromCountryName: fromCountry?.name || fromCountryId,
+          toCountryId,
+          toCountryName: toCountry?.name || toCountryId,
+          label: label || "Embargo commercial",
+          createdAt: new Date().toISOString(),
+        };
+        const embargoes = [...(economy.embargoes || []), newEmbargo];
+        saveState({ ...state, economy: { ...economy, embargoes } });
+        notify("Embargo décrété.", "success");
+      },
+
+      onRemoveEmbargo: (embargoId) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const embargoes = (economy.embargoes || []).filter((e) => e.id !== embargoId);
+        saveState({ ...state, economy: { ...economy, embargoes } });
+        notify("Embargo levé.", "success");
       },
 
       // ──────────────────────────────────────────────────────────────────────

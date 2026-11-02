@@ -2026,6 +2026,11 @@ export default function App() {
                       onAddMarketEvent={actions.onAddMarketEvent}
                       onRemoveMarketEvent={actions.onRemoveMarketEvent}
                       onRunEconomyCycle={actions.onRunEconomyCycle}
+                      countries={state.countries || []}
+                      onAddEmbargo={actions.onAddEmbargo}
+                      onRemoveEmbargo={actions.onRemoveEmbargo}
+                      onAcceptTradeContract={actions.onAcceptTradeContract}
+                      onCancelTradeContract={actions.onCancelTradeContract}
                     />
                   )}
                 </div>
