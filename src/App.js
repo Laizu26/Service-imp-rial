@@ -33,13 +33,14 @@ import {
   X,
   Flag,
   GraduationCap,
+  Package,
 } from "lucide-react";
 
 // Hooks & Lib
 import { useAuth } from "./hooks/useAuth";
 import { useGameEngine } from "./hooks/useGameEngine";
 import { useGameActions } from "./hooks/useGameActions";
-import { ROLES, DEFAULT_RACE_CONFIG, MUSHTAGRAM_REPORT_REASONS, DEFAULT_SCHOOL } from "./lib/constants";
+import { ROLES, DEFAULT_RACE_CONFIG, MUSHTAGRAM_REPORT_REASONS, DEFAULT_SCHOOL, DEFAULT_ECONOMY } from "./lib/constants";
 import { applyEntryFee } from "./lib/travelUtils";
 import { ageToBirthDate, getDayOfWeek, formatRPDate } from "./lib/gameUtils";
 import { useSettings } from "./hooks/useSettings";
@@ -81,6 +82,7 @@ const BourseView = lazy(() => import("./components/views/BourseView"));
 const PropertiesAdminView = lazy(() => import("./components/views/PropertiesAdminView"));
 const TribunalAdminView = lazy(() => import("./components/views/TribunalAdminView"));
 const SchoolAdminView = lazy(() => import("./components/views/SchoolAdminView"));
+const EconomyAdminView = lazy(() => import("./components/views/EconomyAdminView"));
 const GameMasterView = lazy(() => import("./components/views/GameMasterView"));
 const CitizenLayout = lazy(() => import("./components/layout/CitizenLayout"));
 const PostalCheckModal = lazy(() => import("./components/views/PostalCheckModal"));
@@ -110,7 +112,7 @@ const ADMIN_CATEGORIES = [
   { id: "gouvernance", label: "Gouvernance", tabs: ["dashboard", "country"] },
   { id: "information", label: "Information", tabs: ["gazette_admin", "library_admin"] },
   { id: "social",      label: "Social & Registre", tabs: ["registry", "mushtagram"] },
-  { id: "economie",    label: "Économie", tabs: ["bank", "items", "post", "bourse_admin", "companies_admin", "postoffice", "asia_admin", "properties_admin"] },
+  { id: "economie",    label: "Économie", tabs: ["bank", "items", "post", "bourse_admin", "companies_admin", "postoffice", "asia_admin", "properties_admin", "economy_admin"] },
   { id: "ordre",       label: "Ordre & Combat", tabs: ["combat_admin", "guard_admin", "espionage", "jobs_admin", "tribunal_admin"] },
   { id: "social2",     label: "Société", tabs: ["families_admin", "erudit_admin", "school_admin"] },
 ];
@@ -445,6 +447,9 @@ export default function App() {
 
     if (effectiveLevel >= 40)
       tabs.push({ id: "school_admin", label: "Académie", icon: GraduationCap });
+
+    if (effectiveLevel >= 40)
+      tabs.push({ id: "economy_admin", label: "Commerce", icon: Package });
 
     return tabs;
   }, [roleInfo, effectiveLevel, effectiveScope]);
@@ -1998,6 +2003,24 @@ export default function App() {
                       onGradeSubmission={actions.onGradeSubmission}
                       gameDate={state.gameDate || { day: 1, month: 1, year: 1200 }}
                       notify={notify}
+                    />
+                  )}
+                  {activeTab === "economy_admin" && (
+                    <EconomyAdminView
+                      economy={state.economy || DEFAULT_ECONOMY}
+                      companies={state.companies || []}
+                      session={session}
+                      roleInfo={roleInfo}
+                      onUpdateEconomy={actions.onUpdateEconomy}
+                      onSetCompanyProductions={actions.onSetCompanyProductions}
+                      onAddEconomyResource={actions.onAddEconomyResource}
+                      onUpdateEconomyResource={actions.onUpdateEconomyResource}
+                      onDeleteEconomyResource={actions.onDeleteEconomyResource}
+                      onAddEconomyRecipe={actions.onAddEconomyRecipe}
+                      onDeleteEconomyRecipe={actions.onDeleteEconomyRecipe}
+                      onAddMarketEvent={actions.onAddMarketEvent}
+                      onRemoveMarketEvent={actions.onRemoveMarketEvent}
+                      onRunEconomyCycle={actions.onRunEconomyCycle}
                     />
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { formatMoney, toRoman, formatRPDate, formatName, bondMagicTraces, driftMagicBond, pickWeightedIllness, rollIllnessInstance, applyIllnessToCitizen, clearIllnessFromCitizen, rollDrunkenGain, rollDrunkenGainInRange, addDrunkenness, getRaceToleranceMultiplier, HANGOVER_THRESHOLD, HANGOVER_DRINK_MALUS, isDescendantOf, getApothecaryOffer, getApothecaryTreatments, getResearchCost } from "../lib/gameUtils";
-import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS } from "../lib/constants";
+import { MARRIAGE_INDISSOLUBLE_TYPES, ROLES, DEFAULT_RACE_CONFIG, GUILD_RANKS, DEFAULT_ECONOMY } from "../lib/constants";
+import { computeResourcePrice } from "../lib/economyEngine";
 
 // Enveloppe toutes les actions dans un try/catch pour éviter les crashes silencieux
 const wrapActions = (actionsObj, notify) =>
@@ -10974,6 +10975,96 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         );
         saveState({ ...state, school: { ...school, schedule } });
         notify("Désinscrit du cours.", "info");
+      },
+
+      // ──────────────────────────────────────────────────────────────────────
+
+      // ─── ÉCONOMIE ────────────────────────────────────────────────────────
+
+      onUpdateEconomy: (patch) => {
+        const economy = { ...(state.economy || DEFAULT_ECONOMY), ...patch };
+        saveState({ ...state, economy });
+        notify("Économie mise à jour.", "success");
+      },
+
+      onSetCompanyProductions: (companyId, productions, transformations) => {
+        const companies = (state.companies || []).map((c) =>
+          c.id !== companyId ? c : { ...c, productions: productions || [], transformations: transformations || [] }
+        );
+        saveState({ ...state, companies });
+        notify("Productions de l'entreprise mises à jour.", "success");
+      },
+
+      onAddEconomyResource: (resource) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const resources = [...(economy.resources || []), { ...resource, id: `res_${Date.now()}`, isCustom: true }];
+        saveState({ ...state, economy: { ...economy, resources } });
+        notify("Ressource ajoutée.", "success");
+      },
+
+      onUpdateEconomyResource: (resourceId, patch) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const resources = (economy.resources || []).map((r) => r.id !== resourceId ? r : { ...r, ...patch });
+        saveState({ ...state, economy: { ...economy, resources } });
+        notify("Ressource mise à jour.", "success");
+      },
+
+      onDeleteEconomyResource: (resourceId) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const resources = (economy.resources || []).filter((r) => r.id !== resourceId);
+        saveState({ ...state, economy: { ...economy, resources } });
+        notify("Ressource supprimée.", "info");
+      },
+
+      onAddEconomyRecipe: (recipe) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const recipes = [...(economy.recipes || []), { ...recipe, id: `recipe_${Date.now()}` }];
+        saveState({ ...state, economy: { ...economy, recipes } });
+        notify("Recette ajoutée.", "success");
+      },
+
+      onDeleteEconomyRecipe: (recipeId) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const recipes = (economy.recipes || []).filter((r) => r.id !== recipeId);
+        saveState({ ...state, economy: { ...economy, recipes } });
+        notify("Recette supprimée.", "info");
+      },
+
+      onAddMarketEvent: (eventData) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const marketEvents = [...(economy.marketEvents || []), { ...eventData, id: `event_${Date.now()}`, active: true, createdAt: new Date().toISOString() }];
+        saveState({ ...state, economy: { ...economy, marketEvents } });
+        notify("Événement de marché ajouté.", "success");
+      },
+
+      onRemoveMarketEvent: (eventId) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const marketEvents = (economy.marketEvents || []).map((e) => e.id !== eventId ? e : { ...e, active: false });
+        saveState({ ...state, economy: { ...economy, marketEvents } });
+        notify("Événement désactivé.", "info");
+      },
+
+      onRunEconomyCycle: () => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const companies = state.companies || [];
+        const activeEvents = (economy.marketEvents || []).filter((e) => e.active);
+        const resources = (economy.resources || []).map((r) => ({
+          ...r,
+          currentPrice: computeResourcePrice(r, companies, economy.tradeContracts || [], activeEvents, economy.settings),
+          ...( () => {
+            const supply = companies.reduce((sum, c) => {
+              const p = (c.productions || []).find((pr) => pr.resourceId === r.id);
+              return sum + (p ? p.outputPerCycle : 0);
+            }, 0);
+            const demand = (economy.tradeContracts || [])
+              .filter((c) => c.resourceId === r.id && c.status === "active")
+              .reduce((sum, c) => sum + c.quantity, 0);
+            return { totalSupply: supply, totalDemand: demand };
+          })(),
+        }));
+        const settings = { ...economy.settings, cycleCount: (economy.settings?.cycleCount ?? 0) + 1, lastCycleDate: new Date().toISOString() };
+        saveState({ ...state, economy: { ...economy, resources, settings } });
+        notify(`Cycle économique ${settings.cycleCount} calculé.`, "success");
       },
 
       // ──────────────────────────────────────────────────────────────────────
