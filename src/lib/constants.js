@@ -161,6 +161,7 @@ export const DEFAULT_GAME_STATE = {
   mushtagramDMs: [],
   mushtagramStories: [],
   school: null,
+  economy: null,
 };
 
 // ─── SYSTÈME MATRIMONIAL ───────────────────────────────────────────────────
@@ -343,3 +344,47 @@ export const SCHOOL_STAFF_ROLES = [
   { id: "concierge",    label: "Concierge",           icon: "🧹", description: "Entretien des locaux et gestion des accès" },
   { id: "conseiller",   label: "Conseiller",          icon: "💬", description: "Accompagne les élèves dans leur parcours scolaire" },
 ];
+
+// ─── ÉCONOMIE ───────────────────────────────────────────────────────────────
+
+export const DEFAULT_ECONOMY = {
+  resources: [
+    { id: "grain",    label: "Grain",       emoji: "🌾", basePrice: 10,  category: "base",    isCustom: false },
+    { id: "bois",     label: "Bois",        emoji: "🪵", basePrice: 15,  category: "base",    isCustom: false },
+    { id: "pierre",   label: "Pierre",      emoji: "🪨", basePrice: 20,  category: "base",    isCustom: false },
+    { id: "fer",      label: "Fer",         emoji: "⚙️",  basePrice: 30,  category: "base",    isCustom: false },
+    { id: "charbon",  label: "Charbon",     emoji: "🫧",  basePrice: 25,  category: "base",    isCustom: false },
+    { id: "cuir",     label: "Cuir",        emoji: "🦌",  basePrice: 35,  category: "base",    isCustom: false },
+    { id: "laine",    label: "Laine",       emoji: "🐑",  basePrice: 20,  category: "base",    isCustom: false },
+    { id: "herbes",   label: "Herbes",      emoji: "🌿",  basePrice: 15,  category: "base",    isCustom: false },
+    { id: "houblon",  label: "Houblon",     emoji: "🍺",  basePrice: 12,  category: "base",    isCustom: false },
+    { id: "sel",      label: "Sel",         emoji: "🧂",  basePrice: 18,  category: "base",    isCustom: false },
+    { id: "or_brut",  label: "Or Brut",     emoji: "✨",  basePrice: 200, category: "base",    isCustom: false },
+    { id: "gemmes",   label: "Gemmes",      emoji: "💎",  basePrice: 300, category: "base",    isCustom: false },
+    // Dérivés
+    { id: "acier",    label: "Acier",       emoji: "🗡️",  basePrice: 80,  category: "derived", isCustom: false },
+    { id: "tissu",    label: "Tissu",       emoji: "🧵",  basePrice: 55,  category: "derived", isCustom: false },
+    { id: "farine",   label: "Farine",      emoji: "🌾",  basePrice: 25,  category: "derived", isCustom: false },
+    { id: "remede",   label: "Remède",      emoji: "🧪",  basePrice: 60,  category: "derived", isCustom: false },
+    { id: "biere",    label: "Bière",       emoji: "🍺",  basePrice: 30,  category: "derived", isCustom: false },
+  ],
+  recipes: [
+    { id: "recipe_acier",  label: "Fonte d'Acier",  companyType: "Forge",    inputs: [{ resourceId: "fer", qty: 2 }, { resourceId: "charbon", qty: 1 }], outputResourceId: "acier",  outputQty: 1 },
+    { id: "recipe_tissu",  label: "Tissage",         companyType: "Tisserand",inputs: [{ resourceId: "laine", qty: 3 }],                                  outputResourceId: "tissu",  outputQty: 2 },
+    { id: "recipe_farine", label: "Meunerie",        companyType: "Moulin",   inputs: [{ resourceId: "grain", qty: 2 }],                                  outputResourceId: "farine", outputQty: 3 },
+    { id: "recipe_remede", label: "Alchimie",        companyType: "Apothicaire",inputs: [{ resourceId: "herbes", qty: 2 }],                               outputResourceId: "remede", outputQty: 1 },
+    { id: "recipe_biere",  label: "Brassage",        companyType: "Brasserie",inputs: [{ resourceId: "houblon", qty: 2 }, { resourceId: "grain", qty: 1 }],outputResourceId: "biere",  outputQty: 3 },
+  ],
+  tradeContracts: [],
+  tradeRoutes: [],
+  marketEvents: [],
+  guildBonuses: [],
+  settings: {
+    cycleLabel: "Semaine",
+    priceSensitivity: 0.3,
+    maxPriceMult: 5,
+    minPriceMult: 0.2,
+    lastCycleDate: "",
+    cycleCount: 0,
+  },
+};
