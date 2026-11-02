@@ -11032,7 +11032,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
 
       onAddMarketEvent: (eventData) => {
         const economy = state.economy || DEFAULT_ECONOMY;
-        const marketEvents = [...(economy.marketEvents || []), { ...eventData, id: `event_${Date.now()}`, active: true, createdAt: new Date().toISOString() }];
+        const marketEvents = [...(economy.marketEvents || []), { ...eventData, id: `event_${Date.now()}`, active: true, createdAt: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }) }];
         saveState({ ...state, economy: { ...economy, marketEvents } });
         notify("Événement de marché ajouté.", "success");
       },
@@ -11146,7 +11146,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           s.bourseAlerts = [...newBourseSignals, ...(s.bourseAlerts || [])].slice(0, 300);
         }
 
-        const settings = { ...economy.settings, cycleCount: (economy.settings?.cycleCount ?? 0) + 1, lastCycleDate: new Date().toISOString() };
+        const settings = { ...economy.settings, cycleCount: (economy.settings?.cycleCount ?? 0) + 1, lastCycleDate: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }) };
         const failedCount = contractLogs.filter((l) => l.status === "failed").length;
         const embargoedCount = contractLogs.filter((l) => l.status === "embargoed").length;
         s.economy = { ...economy, resources, settings };
@@ -11162,7 +11162,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           ...contractData,
           id,
           status: "pending",
-          createdAt: new Date().toISOString(),
+          createdAt: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }),
           startedAt: null,
         };
         const tradeContracts = [...(economy.tradeContracts || []), newContract];
@@ -11173,7 +11173,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
       onAcceptTradeContract: (contractId) => {
         const economy = state.economy || DEFAULT_ECONOMY;
         const tradeContracts = (economy.tradeContracts || []).map((c) =>
-          c.id !== contractId ? c : { ...c, status: "active", startedAt: new Date().toISOString() }
+          c.id !== contractId ? c : { ...c, status: "active", startedAt: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }) }
         );
         saveState({ ...state, economy: { ...economy, tradeContracts } });
         notify("Contrat activé.", "success");
@@ -11235,7 +11235,7 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           toCountryId,
           toCountryName: toCountry?.name || toCountryId,
           label: label || "Embargo commercial",
-          createdAt: new Date().toISOString(),
+          createdAt: formatRPDate(state.gameDate || { day: 1, month: 1, year: 1200 }),
         };
         const embargoes = [...(economy.embargoes || []), newEmbargo];
         saveState({ ...state, economy: { ...economy, embargoes } });
