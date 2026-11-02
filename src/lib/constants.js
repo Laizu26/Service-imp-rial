@@ -384,6 +384,7 @@ export const DEFAULT_ECONOMY = {
     priceSensitivity: 0.3,
     maxPriceMult: 5,
     minPriceMult: 0.2,
+    commerceGuildBonus: 0.05,
     lastCycleDate: "",
     cycleCount: 0,
   },

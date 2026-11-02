@@ -11081,6 +11081,16 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           s.companies[buyerIdx].balance = (s.companies[buyerIdx].balance || 0) - total;
           s.companies[sellerIdx].balance = (s.companies[sellerIdx].balance || 0) + total;
 
+          // Bonus guilde COMMERCE : si le vendeur est membre d'une guilde COMMERCE, il reçoit un bonus
+          const seller = s.companies[sellerIdx];
+          const sellerGuildBonus = (s.guilds || []).some((g) =>
+            g.type === "COMMERCE" && (g.members || []).some((m) => m.id === seller.ownerId)
+          ) ? (economy.settings?.commerceGuildBonus ?? 0.05) : 0;
+          if (sellerGuildBonus > 0) {
+            const bonus = Math.round(total * sellerGuildBonus * 10) / 10;
+            s.companies[sellerIdx].balance += bonus;
+          }
+
           // Taxe inter-pays
           if (contract.sellerCountryId && contract.buyerCountryId && contract.sellerCountryId !== contract.buyerCountryId) {
             const sellerCountry = (s.countries || []).find((c) => c.id === contract.sellerCountryId);
@@ -11134,6 +11144,41 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
         );
         saveState({ ...state, economy: { ...economy, tradeContracts } });
         notify("Contrat annulé.", "success");
+      },
+
+      onRunTransformation: (companyId, recipeId, qty) => {
+        const economy = state.economy || DEFAULT_ECONOMY;
+        const recipe = (economy.recipes || []).find((r) => r.id === recipeId);
+        if (!recipe) { notify("Recette introuvable.", "error"); return; }
+        const safeQty = parseInt(qty) || 1;
+        if (safeQty < 1) { notify("Quantité invalide.", "error"); return; }
+
+        let s = structuredClone(state);
+        const companyIdx = (s.companies || []).findIndex((c) => c.id === companyId);
+        if (companyIdx === -1) { notify("Entreprise introuvable.", "error"); return; }
+
+        let totalCost = 0;
+        for (const input of (recipe.inputs || [])) {
+          const resource = (economy.resources || []).find((r) => r.id === input.resourceId);
+          const unitPrice = resource?.currentPrice ?? resource?.basePrice ?? 0;
+          totalCost += unitPrice * input.qty * safeQty;
+        }
+
+        if ((s.companies[companyIdx].balance || 0) < totalCost) {
+          notify(`Fonds insuffisants. Coût : ${totalCost} ₵`, "error");
+          return;
+        }
+
+        s.companies[companyIdx].balance = (s.companies[companyIdx].balance || 0) - totalCost;
+        const oldStock = s.companies[companyIdx].resourceStock || {};
+        const outputQty = (recipe.outputQty || 1) * safeQty;
+        s.companies[companyIdx].resourceStock = {
+          ...oldStock,
+          [recipe.outputResourceId]: (oldStock[recipe.outputResourceId] || 0) + outputQty,
+        };
+
+        saveState(s);
+        notify(`Transformation exécutée : +${outputQty} ${recipe.outputResourceId}. Coût : ${totalCost} ₵`, "success");
       },
 
       // ──────────────────────────────────────────────────────────────────────

@@ -816,6 +816,11 @@ const CitizenLayout = (props) => {
     onUpdateSchool,
     onSubmitQuiz,
     onGradeSubmission,
+    economy,
+    onCreateTradeContract,
+    onAcceptTradeContract,
+    onCancelTradeContract,
+    onRunTransformation,
   } = props;
 
   const gd = gameDate || { day: 1, month: 1, year: 1200 };
@@ -1879,6 +1884,8 @@ const CitizenLayout = (props) => {
                 onSetCompanyMushtagramAccess={onSetCompanyMushtagramAccess}
                 properties={properties}
                 onAssignEmployeeToProperty={onAssignEmployeeToProperty}
+                economy={economy}
+                onRunTransformation={onRunTransformation}
               />
             )}
 

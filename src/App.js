@@ -1020,6 +1020,7 @@ export default function App() {
             onCreateTradeContract={actions.onCreateTradeContract}
             onAcceptTradeContract={actions.onAcceptTradeContract}
             onCancelTradeContract={actions.onCancelTradeContract}
+            onRunTransformation={actions.onRunTransformation}
           />
         ) : (
           <div className="flex h-screen overflow-hidden bg-[#e6e2d6]">

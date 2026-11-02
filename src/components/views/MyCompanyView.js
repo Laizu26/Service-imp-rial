@@ -787,6 +787,8 @@ const MyCompanyView = ({
   onSetSelfRights,
   onSetMyMorale,
   onWithdrawSpouseSalary,
+  economy = null,
+  onRunTransformation,
 }) => {
   // Une personne peut être liée à plusieurs entreprises à la fois : dirigeante de l'une, et PDG
   // d'une autre (typiquement après avoir été détachée puis nommée PDG chez l'emprunteuse, cf.
@@ -2193,6 +2195,7 @@ const MyCompanyView = ({
           { id: "management", label: "Gestion" },
           { id: "bourse", label: "Bourse" },
           { id: "customize", label: "Personnalisation" },
+          { id: "production", label: "Production" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -4319,6 +4322,112 @@ const MyCompanyView = ({
           )}
         </div>
       )}
+
+      {/* ONGLET PRODUCTION */}
+      {activeTab === "production" && (() => {
+        const eco = economy || {};
+        const resources = eco.resources || [];
+        const recipes = (eco.recipes || []).filter(
+          (r) => !r.companyType || r.companyType === myCompany.type
+        );
+        const productions = myCompany.productions || [];
+        const resourceStock = myCompany.resourceStock || {};
+        return (
+          <div className="space-y-6 py-4">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-stone-500 mb-3">Production par cycle (configurée par les DCP)</h3>
+              {productions.length === 0 ? (
+                <p className="text-stone-400 text-sm">Aucune production configurée pour cette entreprise.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {productions.map((p, i) => {
+                    const res = resources.find((r) => r.id === p.resourceId);
+                    return (
+                      <div key={i} className="bg-stone-100 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
+                        <span className="text-2xl">{res?.emoji || "📦"}</span>
+                        <div>
+                          <div className="font-bold text-stone-800 text-sm">{res?.label || p.resourceId}</div>
+                          <div className="text-xs text-stone-500">{p.outputPerCycle} unités / cycle</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {Object.keys(resourceStock).length > 0 && (
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-stone-500 mb-3">Stock de ressources</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries(resourceStock).map(([resId, qty]) => {
+                    const res = resources.find((r) => r.id === resId);
+                    return (
+                      <div key={resId} className="bg-stone-100 border border-stone-200 rounded-xl p-3 flex items-center gap-3">
+                        <span className="text-2xl">{res?.emoji || "📦"}</span>
+                        <div>
+                          <div className="font-bold text-stone-800 text-sm">{res?.label || resId}</div>
+                          <div className="text-xs text-stone-500">{qty} unités</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-stone-500 mb-3">Transformations disponibles</h3>
+              {recipes.length === 0 ? (
+                <p className="text-stone-400 text-sm">Aucune recette compatible avec ce type d'entreprise.</p>
+              ) : (
+                <div className="space-y-3">
+                  {recipes.map((recipe) => {
+                    const outRes = resources.find((r) => r.id === recipe.outputResourceId);
+                    return (
+                      <div key={recipe.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="font-bold text-stone-800 text-sm">{recipe.label}</div>
+                            <div className="text-xs text-stone-500 mt-1">
+                              Ingrédients :{" "}
+                              {(recipe.inputs || []).map((inp) => {
+                                const r = resources.find((rr) => rr.id === inp.resourceId);
+                                return `${inp.qty}× ${r?.label || inp.resourceId}`;
+                              }).join(", ")}
+                              {" → "}
+                              {recipe.outputQty}× {outRes?.emoji} {outRes?.label || recipe.outputResourceId}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <input
+                              type="number"
+                              min={1}
+                              defaultValue={1}
+                              className="w-16 border border-stone-300 rounded-lg px-2 py-1 text-sm text-center"
+                              id={`qty-${recipe.id}`}
+                            />
+                            <button
+                              onClick={() => {
+                                const qtyEl = document.getElementById(`qty-${recipe.id}`);
+                                const qty = parseInt(qtyEl?.value) || 1;
+                                onRunTransformation && onRunTransformation(myCompany.id, recipe.id, qty);
+                              }}
+                              className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-white rounded-lg text-xs font-bold transition-colors"
+                            >
+                              Transformer
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modale de gestion d'employé */}
       {managingEmployee && (() => {
