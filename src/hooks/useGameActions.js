@@ -1380,6 +1380,15 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
             return { totalSupply: supply, totalDemand: demand };
           })(),
         }));
+        // Production → resourceStock (sans coût, la production remplit le stock)
+        for (let i = 0; i < (ns.companies || []).length; i++) {
+          const prods = ns.companies[i].productions || [];
+          if (prods.length === 0) continue;
+          const stock = { ...(ns.companies[i].resourceStock || {}) };
+          for (const prod of prods) stock[prod.resourceId] = (stock[prod.resourceId] || 0) + (prod.outputPerCycle || 0);
+          ns.companies[i] = { ...ns.companies[i], resourceStock: stock };
+        }
+
         const activeContracts = (economy.tradeContracts || []).filter((c) => c.status === "active");
         let ecoCycleFailed = 0, ecoCycleEmbargoed = 0;
         for (const contract of activeContracts) {
@@ -11131,6 +11140,15 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
             return { totalSupply: supply, totalDemand: demand };
           })(),
         }));
+
+        // Production → resourceStock (sans coût, la production remplit le stock)
+        for (let i = 0; i < (s.companies || []).length; i++) {
+          const prods = s.companies[i].productions || [];
+          if (prods.length === 0) continue;
+          const stock = { ...(s.companies[i].resourceStock || {}) };
+          for (const prod of prods) stock[prod.resourceId] = (stock[prod.resourceId] || 0) + (prod.outputPerCycle || 0);
+          s.companies[i] = { ...s.companies[i], resourceStock: stock };
+        }
 
         // Paiements des contrats actifs
         const activeContracts = (economy.tradeContracts || []).filter((c) => c.status === "active");
