@@ -1362,9 +1362,77 @@ export const useGameActions = (session, state, saveState, notify, saveStateAppen
           ns.magicBondAlerts = [...magicBondAlertEntries, ...(ns.magicBondAlerts || [])];
         }
 
+        // ── Cycle économique automatique ────────────────────────────────────
+        const economy = ns.economy || DEFAULT_ECONOMY;
+        const ecoCompanies = ns.companies || [];
+        const activeEvents = (economy.marketEvents || []).filter((e) => e.active);
+        const updatedResources = (economy.resources || []).map((r) => ({
+          ...r,
+          currentPrice: computeResourcePrice(r, ecoCompanies, economy.tradeContracts || [], activeEvents, economy.settings),
+          ...(() => {
+            const supply = ecoCompanies.reduce((sum, c) => {
+              const p = (c.productions || []).find((pr) => pr.resourceId === r.id);
+              return sum + (p ? p.outputPerCycle : 0);
+            }, 0);
+            const demand = (economy.tradeContracts || [])
+              .filter((c) => c.resourceId === r.id && c.status === "active")
+              .reduce((sum, c) => sum + c.quantity, 0);
+            return { totalSupply: supply, totalDemand: demand };
+          })(),
+        }));
+        const activeContracts = (economy.tradeContracts || []).filter((c) => c.status === "active");
+        let ecoCycleFailed = 0, ecoCycleEmbargoed = 0;
+        for (const contract of activeContracts) {
+          const resource = updatedResources.find((r) => r.id === contract.resourceId);
+          const unitPrice = contract.fixedPrice ?? resource?.currentPrice ?? resource?.basePrice ?? 0;
+          const total = unitPrice * contract.quantity;
+          const buyerIdx = (ns.companies || []).findIndex((c) => c.id === contract.buyerCompanyId);
+          const sellerIdx = (ns.companies || []).findIndex((c) => c.id === contract.sellerCompanyId);
+          if (buyerIdx === -1 || sellerIdx === -1) continue;
+          const isEmbargoed = (economy.embargoes || []).some(
+            (e) =>
+              (e.fromCountryId === contract.sellerCountryId && e.toCountryId === contract.buyerCountryId) ||
+              (e.fromCountryId === contract.buyerCountryId && e.toCountryId === contract.sellerCountryId)
+          );
+          if (isEmbargoed) { ecoCycleEmbargoed++; continue; }
+          if ((ns.companies[buyerIdx].balance || 0) < total) { ecoCycleFailed++; continue; }
+          ns.companies[buyerIdx].balance = (ns.companies[buyerIdx].balance || 0) - total;
+          ns.companies[sellerIdx].balance = (ns.companies[sellerIdx].balance || 0) + total;
+          const sellerGuildBonus = (ns.guilds || []).some((g) =>
+            g.type === "COMMERCE" && (g.members || []).some((m) => m.id === ns.companies[sellerIdx].ownerId)
+          ) ? (economy.settings?.commerceGuildBonus ?? 0.05) : 0;
+          if (sellerGuildBonus > 0) ns.companies[sellerIdx].balance += Math.round(total * sellerGuildBonus * 10) / 10;
+          if (contract.sellerCountryId && contract.buyerCountryId && contract.sellerCountryId !== contract.buyerCountryId) {
+            const sellerCountry = (ns.countries || []).find((c) => c.id === contract.sellerCountryId);
+            const taxRate = sellerCountry?.laws?.taxForeignTransfers ?? 0;
+            if (taxRate > 0) {
+              const tax = Math.round(total * taxRate) / 100;
+              ns.companies[sellerIdx].balance -= tax;
+              const cIdx = (ns.countries || []).findIndex((c) => c.id === contract.sellerCountryId);
+              if (cIdx !== -1) ns.countries[cIdx].treasury = (ns.countries[cIdx].treasury || 0) + tax;
+            }
+          }
+        }
+        // Signaux Bourse
+        const ecoSignals = [];
+        for (const r of updatedResources) {
+          const pctChange = r.basePrice > 0 ? ((r.currentPrice ?? r.basePrice) - r.basePrice) / r.basePrice : 0;
+          if (Math.abs(pctChange) < 0.05) continue;
+          const dir = pctChange > 0 ? "↑" : "↓";
+          for (const company of (ns.companies || [])) {
+            if (!(company.productions || []).some((p) => p.resourceId === r.id)) continue;
+            const listing = (ns.bourseListings || []).find((l) => l.companyId === company.id);
+            if (!listing) continue;
+            ecoSignals.push({ id: `sig_${Date.now()}_${company.id}`, type: "economy_signal", companyId: company.id, companyName: company.name, listingId: listing.id, message: `${r.emoji || "📦"} ${r.label} ${dir} ${pctChange > 0 ? "+" : ""}${Math.round(pctChange * 100)}% — ${company.name} est producteur`, timestamp: Date.now(), read: false });
+          }
+        }
+        if (ecoSignals.length > 0) ns.bourseAlerts = [...ecoSignals, ...(ns.bourseAlerts || [])].slice(0, 300);
+        ns.economy = { ...economy, resources: updatedResources, settings: { ...economy.settings, cycleCount: (economy.settings?.cycleCount ?? 0) + 1, lastCycleDate: formatRPDate(ns.gameDate) } };
+
         saveState(ns);
+        const ecoIssues = [ecoCycleFailed > 0 && `${ecoCycleFailed} contrat(s) échoué(s)`, ecoCycleEmbargoed > 0 && `${ecoCycleEmbargoed} embargué(s)`].filter(Boolean).join(", ");
         notify(
-          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}${subBillings > 0 ? ` — ${subBillings} abonnement(s) Mushtagram facturé(s)` : ""}${subCancellations > 0 ? ` — ${subCancellations} résilié(s)` : ""}${resonanceCount > 0 ? ` — ${resonanceCount} pacte(s) arcanique(s) en résonance !` : ""}`,
+          `Nouveau jour : ${ns.gameDate.day}/${ns.gameDate.month}/${ns.gameDate.year} (${season})${bagueResiliations > 0 ? ` — ${bagueResiliations} bague(s) résiliée(s)` : ""}${eruditPayments > 0 ? ` — ${eruditPayments} Érudit(s) rémunéré(s)` : ""}${subBillings > 0 ? ` — ${subBillings} abonnement(s) Mushtagram facturé(s)` : ""}${subCancellations > 0 ? ` — ${subCancellations} résilié(s)` : ""}${resonanceCount > 0 ? ` — ${resonanceCount} pacte(s) arcanique(s) en résonance !` : ""}${activeContracts.length > 0 ? ` — cycle éco : ${ecoIssues || `${activeContracts.length} contrat(s) OK`}` : ""}`,
           "info"
         );
       },
